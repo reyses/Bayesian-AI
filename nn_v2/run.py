@@ -1187,7 +1187,8 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     print(f'{"="*60}')
     print(f'BLENDED CNN PIPELINE (5 CNNs)')
-    print(f'  1.   NMP baseline            ->  raw trades (7 physics tiers)')
+    print(f'  1.   NMP baseline IS          ->  raw trades (7 physics tiers)')
+    print(f'  1b.  Physics OOS             ->  deterministic floor (CNN must beat)')
     print(f'  2.   Regret (entry)          ->  better entry physics')
     print(f'  2b.  CNN entry               ->  pattern discovery per tier')
     print(f'  2c.  Forward pass            ->  tagged trades')
@@ -1264,12 +1265,21 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     if _should_run('1'):
         print(f'\n{"="*40}')
-        print(f'PHASE 1: NMP baseline (7 physics tiers, no CNN)')
+        print(f'PHASE 1: NMP baseline IS (7 physics tiers, no CNN)')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
         _run_blended_nmp('is', use_cnn=False)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-        _log_phase('1. NMP baseline', trades_path='nn_v2/output/trades/blended_is.pkl')
+        _log_phase('1. Physics IS', trades_path='nn_v2/output/trades/blended_is.pkl')
+
+        # OOS physics baseline (deterministic floor — CNN must beat this)
+        print(f'\n{"="*40}')
+        print(f'PHASE 1b: Physics OOS baseline (no CNN, deterministic)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        _run_blended_forward_physics_only('oos')
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+        _log_phase('1b. Physics OOS', csv_path='nn_v2/output/blended/physics_oos_daily.csv')
 
     if _should_run('2'):
         print(f'\n{"="*40}')
@@ -1434,6 +1444,21 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _log_phase('7. IS (final)', csv_path='nn_v2/output/blended/is_daily.csv')
         _log_phase('7. OOS (final)', csv_path='nn_v2/output/blended/oos_daily.csv')
 
+    # Physics vs CNN comparison
+    physics_oos = 'nn_v2/output/blended/physics_oos_daily.csv'
+    cnn_oos = 'nn_v2/output/blended/oos_daily.csv'
+    if os.path.exists(physics_oos) and os.path.exists(cnn_oos):
+        p_df = pd.read_csv(physics_oos)
+        c_df = pd.read_csv(cnn_oos)
+        p_day = p_df['pnl'].sum() / len(p_df)
+        c_day = c_df['pnl'].sum() / len(c_df)
+        delta = c_day - p_day
+        flag = 'CNN WINS' if delta > 0 else 'PHYSICS WINS'
+        print(f'\n{"="*60}')
+        print(f'PHYSICS vs CNN (OOS):')
+        print(f'  Physics: ${p_day:,.0f}/day | CNN: ${c_day:,.0f}/day | Delta: ${delta:+,.0f} | {flag}')
+        print(f'{"="*60}')
+
     # Check for new baseline and generate report
     oos_path = 'nn_v2/output/blended/oos_daily.csv'
     if os.path.exists(oos_path):
@@ -1447,6 +1472,60 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
 
 BASELINE_FILE = 'nn_v2/output/baseline_best.json'
+
+
+def _run_blended_forward_physics_only(target: str):
+    """OOS forward pass with NO CNN — pure physics baseline."""
+    from nn_v2.sfe_ticker import FeatureTicker
+    from nn_v2.nightmare_blended import BlendedEngine
+    from tqdm import tqdm
+    from collections import Counter
+
+    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    if not feat_files:
+        print(f'No feature files for "{target}"')
+        return
+
+    print(f'PHYSICS ONLY — {len(feat_files)} day(s) (no CNN)')
+    engine = BlendedEngine(use_cnn=False)
+    all_results = []
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        engine.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+        for state in ft:
+            engine.on_state(state)
+        engine.force_close()
+
+        all_results.append({
+            'day': day_name,
+            'trades': len(engine.trades),
+            'pnl': engine.daily_pnl,
+            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(len(engine.trades), 1) * 100,
+        })
+
+    _print_summary(all_results, show_daily=False)
+
+    # Save
+    os.makedirs('nn_v2/output/blended', exist_ok=True)
+    csv_path = f'nn_v2/output/blended/physics_{target}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'Saved: {csv_path}')
+
+    # Tier breakdown
+    if all_results:
+        total_trades = sum(r['trades'] for r in all_results)
+        total_pnl = sum(r['pnl'] for r in all_results)
+        days = len(all_results)
+        wins = sum(1 for r in all_results if r['pnl'] > 0)
+        print(f'  Physics {target.upper()}: ${total_pnl/days:.0f}/day, {wins}/{days} winning')
 
 
 def _check_new_baseline(oos_csv_path):
