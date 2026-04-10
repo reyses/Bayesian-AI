@@ -1,9 +1,10 @@
 """
-Build 79D Feature Dataset V2 — per-TF computation, no aggregator.
+Build 79D Feature Dataset — sequential, per-TF, zero lookahead.
 
 Computes each TF's features independently from ATLAS parquets.
 No partial bars. Each TF updates only when its bar closes.
 Higher TFs carry history across days naturally (loaded from ATLAS).
+SFE window = 300 bars (matches live via compute_79d.SFE_WINDOW).
 
 For each day:
   1. Load anchor TF bars for this day
@@ -12,10 +13,10 @@ For each day:
   4. For each anchor bar: find latest closed bar per TF, assemble 79D
 
 Usage:
-  python nn_v2/build_dataset_v2.py                          # all days, 1m anchor
-  python nn_v2/build_dataset_v2.py --resolution 5s          # 5s anchor
-  python nn_v2/build_dataset_v2.py --days 5                 # first 5 days
-  python nn_v2/build_dataset_v2.py --start 2025-02-01       # from date
+  python nn_v2/build_dataset.py                          # all days, 1m anchor
+  python nn_v2/build_dataset.py --resolution 5s          # 5s anchor
+  python nn_v2/build_dataset.py --days 5                 # first 5 days
+  python nn_v2/build_dataset.py --start 2025-02-01       # from date
 """
 import warnings
 warnings.filterwarnings('ignore', module='numba')
@@ -38,12 +39,12 @@ from core.features_79d import (
 ATLAS_ROOT = 'DATA/ATLAS'
 OUTPUT_DIR = 'DATA/FEATURES_79D'
 SFE_MIN_BARS = 21
-SFE_TAIL = 300  # max bars to feed SFE
+SFE_WINDOW = 300  # max bars to feed SFE — matches compute_79d.SFE_WINDOW (live parity)
 
 
 def parse_args():
     import argparse
-    p = argparse.ArgumentParser(description='Build 79D features V2 (per-TF, no aggregator)')
+    p = argparse.ArgumentParser(description='Build 79D features (sequential, per-TF, live parity)')
     p.add_argument('--start', type=str, default=None)
     p.add_argument('--end', type=str, default=None)
     p.add_argument('--days', type=int, default=None)
@@ -112,11 +113,11 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
             today_start_ts = today_df['timestamp'].min() if len(today_df) > 0 else ts_arr[-1]
             today_start_idx = int(np.searchsorted(ts_arr, today_start_ts, side='left'))
         else:
-            today_start_idx = max(0, len(cumul) - SFE_TAIL)
+            today_start_idx = max(0, len(cumul) - SFE_WINDOW)
 
         # SFE must cover today's bars + warmup history before today
         # Take from (today_start - warmup) to end of cumul
-        warmup = min(SFE_TAIL, today_start_idx)  # up to 300 bars of history before today
+        warmup = min(SFE_WINDOW, today_start_idx)  # up to 300 bars of history before today
         sfe_start = max(0, today_start_idx - warmup)
         sfe_input = cumul.iloc[sfe_start:].reset_index(drop=True)
         tail_offset = sfe_start
@@ -165,8 +166,8 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
 
             # OHLCV up to this bar
             ohlcv = data['bars'].iloc[:idx + 1]
-            if len(ohlcv) > SFE_TAIL:
-                ohlcv = ohlcv.tail(SFE_TAIL).reset_index(drop=True)
+            if len(ohlcv) > SFE_WINDOW:
+                ohlcv = ohlcv.tail(SFE_WINDOW).reset_index(drop=True)
             ohlcv_by_tf[tf] = ohlcv
 
         # Need at least 15s (smallest TF in 79D) or anchor, whichever is in TF_ORDER
@@ -189,7 +190,7 @@ def process_one_day(day_name: str, anchor_tf: str, days_up_to: list,
 def main():
     args = parse_args()
     anchor_tf = args.resolution
-    out_dir = f'{OUTPUT_DIR}_{anchor_tf}_v2'
+    out_dir = f'{OUTPUT_DIR}_{anchor_tf}'
     os.makedirs(out_dir, exist_ok=True)
 
     # Full day list (unfiltered) — needed for higher TF cross-day history

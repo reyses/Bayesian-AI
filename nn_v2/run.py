@@ -21,23 +21,23 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 FEATURES_DIR = 'DATA/FEATURES_79D'
+FEATURES_DIR_5S = 'DATA/FEATURES_79D_5s'
 FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
-FEATURES_DIR_SEQ = 'DATA/FEATURES_79D_5s_v2'  # v2: per-TF from ATLAS, 5s resolution, live 1h/1D
 
 
 def cmd_build(args):
-    """Build 79D dataset."""
+    """Build 79D dataset (sequential, live parity)."""
     from nn_v2.build_dataset import main as build_main
     sys.argv = ['build_dataset.py'] + args
     build_main()
 
 
-def cmd_nmp(target, fast=False, equity=None, extra_args=None, sequential=False):
+def cmd_nmp(target, fast=False, equity=None, extra_args=None, **kwargs):
     """Run Nightmare Protocol."""
     from tqdm import tqdm
 
     if fast:
-        _run_nmp_fast(target, equity, sequential=sequential)
+        _run_nmp_fast(target, equity)
     else:
         _run_nmp_live(target, equity)
 
@@ -61,26 +61,21 @@ def _resolve_days(target: str, source_dir: str) -> list:
         return [f for f in all_files if date_key in os.path.basename(f)]
 
 
-def _run_nmp_fast(target: str, equity: float = None, sequential: bool = False):
+def _run_nmp_fast(target: str, equity: float = None):
     """Run NMP from pre-computed 79D features (fast test mode)."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare import NightmareEngine
     from tqdm import tqdm
 
-    # Sequential = honest features, bulk = fast but has lookahead
-    if sequential:
-        feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
-        if feat_files:
-            print(f'  Using SEQUENTIAL features (honest, no lookahead)')
-    else:
-        feat_files = []
-
+    # Try feature dirs: 5s (finest) → 1m → base
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR)
     if not feat_files:
-        print(f'No feature files found for "{target}" in {FEATURES_DIR}/')
+        print(f'No feature files found for "{target}"')
+        print(f'  Checked: {FEATURES_DIR_5S}/, {FEATURES_DIR_1M}/, {FEATURES_DIR}/')
         return
 
     print(f'NMP (fast mode) — {len(feat_files)} day(s)')
@@ -488,11 +483,9 @@ def _run_ai(target: str):
     from tqdm import tqdm
     import pickle
 
-    # Prefer sequential (honest) features, fall back to bulk
-    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
-    if feat_files:
-        print(f'  Using SEQUENTIAL features (honest)')
-    else:
+    # Try feature dirs: 5s → 1m → base
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
+    if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR)
@@ -788,7 +781,7 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     from tqdm import tqdm
     import pickle
 
-    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
@@ -853,7 +846,7 @@ def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     from tqdm import tqdm
     import pickle
 
-    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
@@ -1489,7 +1482,7 @@ def _run_blended_forward_physics_only(target: str):
     from tqdm import tqdm
     from collections import Counter
 
-    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
@@ -1641,7 +1634,7 @@ def _run_blended_forward(target: str):
     from tqdm import tqdm
     import pickle
 
-    feat_files = _resolve_days(target, FEATURES_DIR_SEQ)
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:

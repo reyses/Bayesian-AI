@@ -202,9 +202,9 @@ def merge_atlas_live():
                 merged += 1
                 print(f'  Merged: {tf}/{f}')
 
-    # Also merge FEATURES_79D_5s_live into FEATURES_79D_5s_v2
+    # Also merge FEATURES_79D_5s_live into FEATURES_79D_5s
     feat_live = 'DATA/FEATURES_79D_5s_live'
-    feat_main = 'DATA/FEATURES_79D_5s_v2'
+    feat_main = 'DATA/FEATURES_79D_5s'
     if os.path.exists(feat_live):
         os.makedirs(feat_main, exist_ok=True)
         for f in sorted(os.listdir(feat_live)):
@@ -224,9 +224,9 @@ def merge_atlas_live():
 
 
 def build_features_for_new_days():
-    """Build 79D features for any ATLAS days missing from FEATURES_79D_5s_v2."""
+    """Build 79D features for any ATLAS days missing from FEATURES_79D_1m."""
     import subprocess
-    feat_dir = 'DATA/FEATURES_79D_5s_v2'
+    feat_dir = 'DATA/FEATURES_79D_1m'
     atlas_1m = 'DATA/ATLAS/1m'
 
     if not os.path.exists(atlas_1m):
@@ -245,11 +245,11 @@ def build_features_for_new_days():
         return
 
     print(f'  {len(missing)} days need 79D features: {missing[0]} to {missing[-1]}')
-    print(f'  Running build_dataset_v2...')
+    print(f'  Running build_dataset...')
 
     # Run the feature builder for missing days
     result = subprocess.run(
-        ['python', 'nn_v2/build_dataset_v2.py', '--resolution', '1m',
+        ['python', 'nn_v2/build_dataset.py', '--resolution', '1m',
          '--start', missing[0].replace('_', '-'),
          '--end', missing[-1].replace('_', '-')],
         capture_output=True, text=True, timeout=3600)
@@ -377,7 +377,7 @@ def main():
     print(f'\n--- DATA INVENTORY ---')
     for label, path in [('ATLAS 1s', 'DATA/ATLAS/1s'), ('ATLAS 1m', 'DATA/ATLAS/1m'),
                          ('ATLAS_LIVE 1s', 'DATA/ATLAS_LIVE/1s'), ('ATLAS_LIVE 1m', 'DATA/ATLAS_LIVE/1m'),
-                         ('FEATURES 5s_v2', 'DATA/FEATURES_79D_5s_v2')]:
+                         ('FEATURES 5s', 'DATA/FEATURES_79D_5s')]:
         if os.path.exists(path):
             files = sorted([f for f in os.listdir(path) if f.endswith('.parquet')])
             if files:

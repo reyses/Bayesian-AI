@@ -6,7 +6,7 @@ from nn_v2.regret import compute_all_regrets
 from tqdm import tqdm
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
-FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 TICK = 0.25
 TV = 0.50

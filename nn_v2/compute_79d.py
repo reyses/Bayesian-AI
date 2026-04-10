@@ -3,7 +3,7 @@ Compute 79D features from Aggregator + SFE — single source of truth.
 
 Used by:
   - live/live_engine.py (live trading)
-  - nn_v2/build_dataset_v2.py (batch feature building)
+  - nn_v2/build_dataset.py (batch feature building)
 
 Guarantees: SFE and OHLCV-derived features use the SAME windowed data.
 """

@@ -188,6 +188,8 @@ class BlendedEngine:
         self.entry_1m = None
         self.entry_tier = None
         self.bars_held = 0
+        self._entry_ts = 0.0       # timestamp at entry — bars_held derived from this
+        self._last_1m_ts = 0.0     # last 1m boundary seen — for cadence-independent counting
         self.peak_pnl = 0.0
         self.passed_center = False  # for tier 3 overshoot decision
 
@@ -403,7 +405,9 @@ class BlendedEngine:
 
         # === EXIT CHECK ===
         if self.in_pos:
-            self.bars_held += 1
+            # bars_held = elapsed 1m bars since entry (cadence-independent)
+            # Works correctly whether on_state is called at 5s, 15s, or 1m
+            self.bars_held = int((ts - self._entry_ts) // 60)
 
             if self.direction == 'long':
                 pnl = (price - self.entry_price) / TICK * TV
@@ -759,9 +763,38 @@ class BlendedEngine:
             return None
 
     def inject_manual_trade(self, direction: str, price: float, ts: float, feat):
-        """Open a trade from external trigger (dashboard button). Gets full CNN management."""
+        """Open a trade from external trigger (dashboard button).
+
+        Classifies current market state into the closest physics tier so the
+        trade gets proper tier-specific exit management (not a generic exit).
+        """
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
-        self._open_trade(direction, price, ts, time_str, feat, 'MANUAL')
+        z = feat[_1M_OFFSET + _Z]
+        vr = feat[_1M_OFFSET + _VR]
+
+        # Classify tier from current market state
+        tier = 'FADE_CALM'  # safe default — gets full CNN exit management
+        cnn_flipped = False
+
+        if abs(z) > ROCHE and vr < VR_ENTRY:
+            # NMP conditions met — full tier classification
+            _, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            # If classified direction differs from manual, mark as flipped
+            classified_dir = 'short' if z > 0 else 'long'
+            if classified_dir != direction:
+                cnn_flipped = True
+        else:
+            # Non-NMP conditions — pick closest non-NMP tier by physics
+            hurst = feat[_1M_HURST_IDX]
+            if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
+                tier = 'REGIME_FLIP'
+            elif abs(feat[_1M_VELOCITY_IDX]) >= VELOCITY_THRESHOLD:
+                tier = 'FADE_MOMENTUM'
+            else:
+                tier = 'FADE_CALM'
+
+        self._open_trade(direction, price, ts, time_str, feat, tier,
+                         cnn_flipped=cnn_flipped)
 
     def _open_trade(self, direction, price, ts, time_str, feat, tier, cnn_flipped=False):
         self.in_pos = True
@@ -775,6 +808,7 @@ class BlendedEngine:
         self.entry_tier = tier
         self.cnn_flipped = cnn_flipped
         self.bars_held = 0
+        self._entry_ts = ts
         self.peak_pnl = 0.0
         self.passed_center = False
         self._entry_approach = list(self._approach_buffer)
@@ -863,6 +897,7 @@ class BlendedEngine:
         self._trade_path = []
         self._approach_buffer = []
         self.entry_tier = None
+        self._entry_ts = 0.0
         self.passed_center = False
 
     def summary(self) -> str:

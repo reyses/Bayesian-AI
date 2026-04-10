@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from nn_v2.sfe_ticker import FeatureTicker
 from nn_v2.nightmare_killshot import KillShotEngine
 
-FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 
 

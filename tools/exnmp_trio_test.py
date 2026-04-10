@@ -25,7 +25,7 @@ from nn_v2.nightmare_killshot import KillShotEngine
 from nn_v2.nightmare_wick_overshoot import WickOvershootEngine
 from nn_v2.nightmare_cascade import CascadeEngine
 
-FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 
 

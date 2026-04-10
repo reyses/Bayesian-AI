@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
-FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 
 TICK = 0.25

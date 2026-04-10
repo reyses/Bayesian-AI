@@ -10,7 +10,7 @@ NOT a classifier. All inputs are profitable (regret-confirmed). The question:
 Input:  entry 79D (6x13 grid) + 10-bar approach trajectory (10x6x13)
 Output: 16D embedding -> K-means clusters -> pattern labels
 
-Approach data loaded directly from FEATURES_79D_5s_v2 parquets (no buffer limit).
+Approach data loaded directly from FEATURES_79D_5s parquets (no buffer limit).
 
 Usage:
     python nn_v2/cnn_entry.py                    # full run, all tiers
@@ -38,7 +38,7 @@ from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 # Data paths
 BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
 REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
-FEATURES_DIR = 'DATA/FEATURES_79D_5s_v2'
+FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 OUTPUT_DIR = 'nn_v2/output/entry'
 
 # Grid layout (same as cnn_flip)

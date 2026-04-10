@@ -64,7 +64,7 @@ in a buffer wastes memory. Instead, CNN 1 loads the approach at training time:
 ```
 Corrected trade has: day, timestamp, early_bars
 CNN 1 training:
-  1. Load FEATURES_79D_5s_v2/{day}.parquet
+  1. Load FEATURES_79D_5s/{day}.parquet
   2. Find NMP trigger timestamp -> bar index
   3. Go back early_bars -> early entry bar index
   4. Grab 10 bars before early entry from the feature file

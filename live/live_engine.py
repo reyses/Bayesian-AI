@@ -108,9 +108,10 @@ class LiveEngine:
         _blended.HARD_STOP = -150.0
         logger.info(f'Hard stop set to ${_blended.HARD_STOP}')
 
-        # Wire aggregator callback — triggers on 1m bar close
+        # Wire aggregator callback — triggers on 5s/1m bar close
         self._agg.on_bar_close = self._on_tf_bar_close
-        self._pending_1m_bar = None  # set when 1m closes, processed in _on_bar
+        self._pending_5s_bar = None  # set when 5s closes, triggers 79D + engine
+        self._pending_1m_bar = None  # set when 1m closes, triggers dashboard update
 
         # NT8 connection
         self._client = client if client is not None else NT8Client(config)
@@ -286,6 +287,8 @@ class LiveEngine:
 
     def _on_tf_bar_close(self, tf: str, bar: dict):
         """Aggregator callback — fires when any TF bar closes."""
+        if tf == '5s':
+            self._pending_5s_bar = bar
         if tf == '1m':
             self._pending_1m_bar = bar
 
@@ -307,7 +310,8 @@ class LiveEngine:
         # Capture raw 1s bar for ATLAS_LIVE
         self._live_1s_bars.append(bar)
 
-        # Feed aggregator — this may trigger _on_tf_bar_close for 1m
+        # Feed aggregator — this may trigger _on_tf_bar_close for 5s/1m
+        self._pending_5s_bar = None
         self._pending_1m_bar = None
         self._agg.feed(bar)
 
@@ -352,8 +356,8 @@ class LiveEngine:
             self._orders.cleanup_stale_orders(max_age_s=120.0)
             self._periodic_save()
 
-        # === ONLY PROCESS ON 1m BAR CLOSE (from aggregator callback) ===
-        if self._pending_1m_bar is None:
+        # === PROCESS ON 5s BAR CLOSE — matches training cadence ===
+        if self._pending_5s_bar is None:
             return
 
         ts = bar['timestamp']
@@ -376,27 +380,28 @@ class LiveEngine:
             **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
         })
 
-        # Regression center for dashboard
+        # Regression center for dashboard (update on every 5s tick)
         if '1m' in states_by_tf:
             state_1m = states_by_tf['1m']['state']
             self._last_center = getattr(state_1m, 'regression_center', bar['close'])
             self._last_sigma = getattr(state_1m, 'regression_sigma', 0)
 
-        # Push 1m bar to dashboard (candlestick + bands)
-        bar_1m = self._pending_1m_bar or bar
-        self._gui.push({
-            'type': 'BAR_1M',
-            'open': bar_1m.get('open', bar['close']),
-            'high': bar_1m.get('high', bar['close']),
-            'low': bar_1m.get('low', bar['close']),
-            'close': bar_1m.get('close', bar['close']),
-            'volume': bar_1m.get('volume', 0),
-            'price': bar['close'],
-            'center': self._last_center,
-            'sigma': self._last_sigma,
-            'z_se': self._last_z_se,
-            'vr': self._last_vr,
-        })
+        # Push 1m candlestick to dashboard only when 1m closes
+        if self._pending_1m_bar is not None:
+            bar_1m = self._pending_1m_bar
+            self._gui.push({
+                'type': 'BAR_1M',
+                'open': bar_1m.get('open', bar['close']),
+                'high': bar_1m.get('high', bar['close']),
+                'low': bar_1m.get('low', bar['close']),
+                'close': bar_1m.get('close', bar['close']),
+                'volume': bar_1m.get('volume', 0),
+                'price': bar['close'],
+                'center': self._last_center,
+                'sigma': self._last_sigma,
+                'z_se': self._last_z_se,
+                'vr': self._last_vr,
+            })
 
         # Warmup: need enough 1m bars for meaningful regression
         n_1m = len(self._agg.get_closed_bars_df('1m'))
@@ -414,7 +419,7 @@ class LiveEngine:
         if self._daily_loss_limit_hit:
             return
 
-        # Feed BlendedEngine at 1m close
+        # Feed BlendedEngine at 5s cadence (matches training)
         state = {
             'features_79d': feat,
             'price': bar['close'],
@@ -772,6 +777,7 @@ class LiveEngine:
             'entry_tier': self._engine.entry_tier,
             'cnn_flipped': getattr(self._engine, 'cnn_flipped', False),
             'bars_held': self._engine.bars_held,
+            'entry_ts': self._engine._entry_ts,
             'peak_pnl': self._engine.peak_pnl,
             'timestamp': time.time(),
         }
@@ -793,6 +799,7 @@ class LiveEngine:
             self._engine.entry_tier = state['entry_tier']
             self._engine.cnn_flipped = state.get('cnn_flipped', False)
             self._engine.bars_held = state.get('bars_held', 0)
+            self._engine._entry_ts = state.get('entry_ts', time.time() - state.get('bars_held', 0) * 60)
             self._engine.peak_pnl = state.get('peak_pnl', 0)
             self._engine.entry_1m = {'z_se': 0, 'vr': 0}  # unknown, will update on next bar
             self._position_open = True
