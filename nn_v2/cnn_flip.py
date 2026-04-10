@@ -306,9 +306,10 @@ def main():
         path_std = paths.std(axis=0, keepdims=True).clip(min=1e-8)
         paths = (paths - path_mean) / path_std
 
-    # 5-fold CV
+    # 5-fold CV — each fold produces one ensemble member
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     fold_results = []
+    fold_states = []  # model states for ensemble majority vote
 
     for fold, (train_idx, val_idx) in enumerate(kf.split(entries)):
         print(f'\n--- Fold {fold+1}/5 ---')
@@ -359,6 +360,7 @@ def main():
         print(f'  Skipped (pred COUNTER): {(~kept_mask).sum()} trades, ${skip_pnl:,.0f} '
               f'(${skip_pnl/max((~kept_mask).sum(),1):.1f}/trade)')
 
+        fold_states.append(best_model_state)
         fold_results.append({
             'fold': fold, 'val_acc': best_val_acc,
             'kept_n': kept_mask.sum(), 'kept_pnl': kept_pnl,
@@ -380,11 +382,13 @@ def main():
     print(f'  Skipped (pred COUNTER): {avg_skip_n:.0f} trades, ${avg_skip:,.0f} (${avg_skip/max(avg_skip_n,1):.1f}/trade)')
     print(f'  Path used: {use_path}')
 
-    # Save best model from last fold
+    # Save ensemble (all fold models for majority vote)
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     save_path = os.path.join(OUTPUT_DIR, 'cnn_flip.pt')
     torch.save({
-        'model_state': best_model_state,
+        'ensemble': fold_states,  # list of model states from all folds
+        'n_models': len(fold_states),
+        'model_state': best_model_state,  # backward compat: best single model
         'use_path': use_path,
         'entry_mean': entry_mean,
         'entry_std': entry_std,
@@ -393,7 +397,7 @@ def main():
         'fold_results': fold_results,
         'accuracy': avg_acc,
     }, save_path)
-    print(f'\nModel saved: {save_path}')
+    print(f'\nEnsemble saved: {save_path} ({len(fold_states)} models)')
 
 
 if __name__ == '__main__':

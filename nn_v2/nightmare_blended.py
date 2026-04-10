@@ -237,21 +237,39 @@ class BlendedEngine:
         return default_path
 
     def _load_cnn_flip(self):
-        """Load CNN flip predictor."""
+        """Load CNN flip ensemble (majority vote from N fold models)."""
         path = self._resolve_cnn_path(CNN_FLIP_PATH)
         if not os.path.exists(path):
             return
         from nn_v2.cnn_flip import FlipCNN
         checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-        self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
-        try:
-            self.cnn_flip.load_state_dict(checkpoint['model_state'], strict=False)
-        except Exception:
+
+        # Load ensemble if available, else single model
+        ensemble_states = checkpoint.get('ensemble', None)
+        if ensemble_states and len(ensemble_states) > 1:
+            self.cnn_flip_ensemble = []
+            for state in ensemble_states:
+                model = FlipCNN(use_path=False).to(self._cnn_device)
+                try:
+                    model.load_state_dict(state, strict=False)
+                except Exception:
+                    continue
+                model.eval()
+                self.cnn_flip_ensemble.append(model)
+            self.cnn_flip = self.cnn_flip_ensemble[0]  # backward compat
+            print(f'  CNN flip ensemble loaded: {len(self.cnn_flip_ensemble)} models ({self._cnn_device})')
+        else:
+            self.cnn_flip_ensemble = []
             self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
-        self.cnn_flip.eval()
+            try:
+                self.cnn_flip.load_state_dict(checkpoint['model_state'], strict=False)
+            except Exception:
+                self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
+            self.cnn_flip.eval()
+            print(f'  CNN flip loaded (single model, {self._cnn_device})')
+
         self.cnn_flip_mean = checkpoint.get('entry_mean', np.zeros((1, 6, 13)))
         self.cnn_flip_std = checkpoint.get('entry_std', np.ones((1, 6, 13)))
-        print(f'  CNN flip loaded ({self._cnn_device})')
 
     def _load_cnn_hold(self):
         """Load CNN hold predictor."""
@@ -307,7 +325,7 @@ class BlendedEngine:
         return pred  # 0=DEAD, 1=RECOVER
 
     def _cnn_predict_flip(self, feat_79d, tier_num):
-        """Predict SAME(0) or COUNTER(1) from 79D at entry."""
+        """Predict SAME(0) or COUNTER(1) from 79D — ensemble majority vote."""
         if self.cnn_flip is None:
             return 0  # default: SAME (no flip)
 
@@ -317,11 +335,21 @@ class BlendedEngine:
         entry_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
         tier_t = torch.FloatTensor([[tier_num]]).to(self._cnn_device)
 
-        with torch.no_grad():
-            out = self.cnn_flip(entry_t, tier=tier_t)
-            pred = out.argmax(dim=1).item()
-
-        return pred  # 0=SAME, 1=COUNTER
+        # Ensemble majority vote
+        if hasattr(self, 'cnn_flip_ensemble') and len(self.cnn_flip_ensemble) > 1:
+            votes = 0  # count COUNTER votes
+            with torch.no_grad():
+                for model in self.cnn_flip_ensemble:
+                    out = model(entry_t, tier=tier_t)
+                    if out.argmax(dim=1).item() == 1:
+                        votes += 1
+            # Majority: >50% must agree to flip
+            return 1 if votes > len(self.cnn_flip_ensemble) / 2 else 0
+        else:
+            # Single model fallback
+            with torch.no_grad():
+                out = self.cnn_flip(entry_t, tier=tier_t)
+                return out.argmax(dim=1).item()
 
     def _cnn_predict_hold(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
         """Predict HOLD(1) or EXIT(0) from current 79D + context."""
