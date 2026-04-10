@@ -1572,6 +1572,19 @@ class ProgressPopup:
                             self._price_lbl.config(
                                 fg=FG_GREEN if p >= prev else FG_RED)
                         self._prev_price = p
+                        # Update daily PnL + unrealized from TICK_UPDATE
+                        _dpnl = msg.get('daily_pnl', None)
+                        _unrl = msg.get('unrealized', 0)
+                        _in_pos = msg.get('in_position', False)
+                        _dir = msg.get('direction', '')
+                        _tier = msg.get('tier', '')
+
+                        if _dpnl is not None and hasattr(self, '_pnl_var'):
+                            _total = _dpnl + _unrl
+                            _sign = '+' if _total >= 0 else ''
+                            self._pnl_var.set(f'{_sign}${_total:,.0f}')
+                            self._pnl_lbl.config(fg=FG_GREEN if _total >= 0 else FG_RED)
+
                         # z_se display moved to BAR_1M handler (1m cadence only)
                         # Feed 5s price chart (every 5th 1s tick = purple line)
                         self._tick_counter = getattr(self, '_tick_counter', 0) + 1
