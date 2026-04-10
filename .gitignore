@@ -1,5 +1,8 @@
 # Generated pipeline outputs (rebuild from code, don't track)
 nn_v2/output/
+# BUT track CNN models (small, needed for reproducibility + live)
+!nn_v2/output/tree/
+!nn_v2/output/tree/cnn_*.pt
 DATA/NMP_TRADES/
 DATA/NMP_TREE/
 DATA/Ninja*
