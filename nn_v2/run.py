@@ -716,7 +716,7 @@ def _run_full_pipeline():
     print(f'  Book:         nn_v2/output/tree/strategy_book.txt')
 
 
-def _print_summary(results: list):
+def _print_summary(results: list, show_daily: bool = True):
     """Print multi-day summary."""
     if not results:
         print('No results.')
@@ -730,10 +730,10 @@ def _print_summary(results: list):
     total_pnl = sum(pnls)
     total_trades = sum(r['trades'] for r in results)
     winning_days = sum(1 for p in pnls if p > 0)
-    losing_days = sum(1 for p in pnls if p <= 0)
+    losing_days = n_days - winning_days
 
-    # Daily breakdown first
-    if n_days > 1:
+    # Daily breakdown (only if verbose)
+    if n_days > 1 and show_daily:
         print(f'\n  Daily breakdown:')
         cumul = 0
         for r in results:
@@ -742,19 +742,19 @@ def _print_summary(results: list):
             print(f'    {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
                   f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}')
 
-    # Summary after daily stats
+    # Summary
     print(f'\n{"="*60}')
     print(f'SUMMARY: {n_days} days | {total_trades} trades')
     print(f'{"="*60}')
-    print(f'  Winning days: {winning_days}/{n_days} ({winning_days/n_days*100:.0f}%)')
-    print(f'  Losing days:  {losing_days}/{n_days} ({losing_days/n_days*100:.0f}%)')
+    print(f'  Winning days: {winning_days}/{n_days} ({winning_days/max(n_days,1)*100:.0f}%)')
+    print(f'  Losing days:  {losing_days}/{n_days} ({losing_days/max(n_days,1)*100:.0f}%)')
     print(f'  Accumulated:  ${total_pnl:>12,.0f}')
     print(f'  Avg $/day:    ${total_pnl / max(n_days, 1):>12,.0f}')
     print(f'  Best day:     ${max(pnls):>12,.0f}')
     print(f'  Worst day:    ${min(pnls):>12,.0f}')
     print(f'  Median day:   ${_np.median(pnls):>12,.0f}')
 
-    # PnL buckets (mode)
+    # PnL buckets
     buckets = []
     for p in pnls:
         if p <= -500: buckets.append('<-$500')
@@ -764,14 +764,13 @@ def _print_summary(results: list):
         elif p <= 50: buckets.append('$0:$50')
         elif p <= 200: buckets.append('$50:$200')
         elif p <= 500: buckets.append('$200:$500')
-        elif p <= 1000: buckets.append('$500:$1000')
-        else: buckets.append('>$1000')
+        elif p <= 1000: buckets.append('$500:$1K')
+        else: buckets.append('>$1K')
 
     bucket_order = ['<-$500', '-$500:-$200', '-$200:-$50', '-$50:$0',
-                    '$0:$50', '$50:$200', '$200:$500', '$500:$1000', '>$1000']
+                    '$0:$50', '$50:$200', '$200:$500', '$500:$1K', '>$1K']
     bucket_counts = _Counter(buckets)
     mode_bucket = max(bucket_counts, key=bucket_counts.get)
-
     print(f'  Mode bucket:  {mode_bucket} ({bucket_counts[mode_bucket]} days)')
     print(f'  Distribution:')
     for b in bucket_order:
@@ -847,7 +846,7 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     print(f'Saved: {csv_path}')
 
 
-def _run_blended_nmp(target: str, use_cnn: bool = True):
+def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare_blended import BlendedEngine
@@ -892,9 +891,10 @@ def _run_blended_nmp(target: str, use_cnn: bool = True):
             'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
-        tqdm.write(f'  {day_name}: {engine.summary()}')
+        if verbose:
+            tqdm.write(f'  {day_name}: {engine.summary()}')
 
-    _print_summary(all_results)
+    _print_summary(all_results, show_daily=verbose)
 
     # Save trades (with entry_tier, exit_reason, 79D paths)
     if all_trades:
@@ -1192,7 +1192,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     print(f'  2b.  CNN entry               ->  pattern discovery per tier')
     print(f'  2c.  Forward pass            ->  tagged trades')
     print(f'  2d.  Regret (direction)      ->  FADE or RIDE ground truth')
-    print(f'  3.   CNN flip                ->  train SAME/COUNTER')
+    print(f'  3.   CNN flip                ->  train FADE/RIDE/SKIP')
     print(f'  4.   Forward pass + flip     ->  corrected direction (9 tiers)')
     print(f'  4b.  Regret (hold)           ->  optimal exit timing')
     print(f'  5.   CNN hold                ->  train HOLD/EXIT')
@@ -1226,6 +1226,42 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     pipeline_start = _time.perf_counter()
 
+    # Progress tracker — shows running comparison table after each major phase
+    _progress = []
+
+    def _log_phase(phase_name, csv_path=None, trades_path=None, capture_pct=None):
+        """Record phase results for progress table."""
+        entry = {'phase': phase_name, 'trades': 0, 'pnl': 0, 'wr': 0,
+                 'capture': capture_pct or '', 'days': 0, 'win_days': 0}
+        if csv_path and os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            entry['days'] = len(df)
+            entry['trades'] = int(df['trades'].sum())
+            entry['pnl'] = df['pnl'].sum()
+            entry['wr'] = (df['pnl'] > 0).sum() / max(len(df), 1) * 100
+            entry['win_days'] = (df['pnl'] > 0).sum()
+        elif trades_path and os.path.exists(trades_path):
+            import pickle as _pk
+            with open(trades_path, 'rb') as f:
+                trades = _pk.load(f)
+            entry['trades'] = len(trades)
+            entry['pnl'] = sum(t['pnl'] for t in trades)
+            wins = sum(1 for t in trades if t['pnl'] > 0)
+            entry['wr'] = wins / max(len(trades), 1) * 100
+        _progress.append(entry)
+        _print_progress_table()
+
+    def _print_progress_table():
+        """Print running progress table."""
+        print(f'\n  {"Phase":<20} {"Trades":>7} {"$/day":>8} {"WinDays":>8} {"Capture":>8}')
+        print(f'  {"-"*55}')
+        for p in _progress:
+            days = p.get('days', 277) or 277
+            per_day = f'${p["pnl"]/days:,.0f}' if p['pnl'] else ''
+            wd = f'{p["win_days"]}/{days}' if p.get('win_days') else f'{p["wr"]:.0f}%'
+            cap = f'{p["capture"]:.1f}%' if isinstance(p.get('capture'), (int, float)) and p['capture'] else ''
+            print(f'  {p["phase"]:<20} {p["trades"]:>7,} {per_day:>8} {wd:>8} {cap:>8}')
+
     if _should_run('1'):
         print(f'\n{"="*40}')
         print(f'PHASE 1: NMP baseline (7 physics tiers, no CNN)')
@@ -1233,6 +1269,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_nmp('is', use_cnn=False)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+        _log_phase('1. NMP baseline', trades_path='nn_v2/output/trades/blended_is.pkl')
 
     if _should_run('2'):
         print(f'\n{"="*40}')
@@ -1273,7 +1310,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     if _should_run('3'):
         print(f'\n{"="*40}')
-        print(f'PHASE 3: Train CNN flip (SAME/COUNTER)')
+        print(f'PHASE 3: Train CNN flip (FADE/RIDE/SKIP)')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
         result = subprocess.run(
@@ -1291,6 +1328,8 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_nmp('is', use_cnn=True)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+        _log_phase('4. +CNN flip', trades_path='nn_v2/output/trades/blended_is.pkl')
 
     if _should_run('4b'):
         print(f'\n{"="*40}')
@@ -1392,35 +1431,120 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _run_blended_forward('oos')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Phase 1 vs Phase 7 comparison
-    p1_is = 'nn_v2/output/trades/blended_is.csv'
-    p7_is = 'nn_v2/output/blended/is_daily.csv'
-    p7_oos = 'nn_v2/output/blended/oos_daily.csv'
-    if os.path.exists(p7_is):
-        print(f'\n{"="*60}')
-        print(f'PIPELINE COMPARISON: Phase 1 (no CNN) vs Phase 7 (all CNNs)')
-        print(f'{"="*60}')
-        import numpy as _np
-        for label, path in [('IS', p7_is), ('OOS', p7_oos)]:
-            if not os.path.exists(path):
-                continue
-            df = pd.read_csv(path)
-            pnls = df['pnl'].values
-            n = len(df)
-            win = (pnls > 0).sum()
-            print(f'\n  {label}: {n} days')
-            print(f'    Win/Loss:    {win}/{n-win} ({win/n*100:.0f}%)')
-            print(f'    Accumulated: ${pnls.sum():>10,.0f}')
-            print(f'    Avg $/day:   ${pnls.mean():>10,.0f}')
-            print(f'    Best day:    ${pnls.max():>10,.0f}')
-            print(f'    Worst day:   ${pnls.min():>10,.0f}')
-            print(f'    Median:      ${_np.median(pnls):>10,.0f}')
+        _log_phase('7. IS (final)', csv_path='nn_v2/output/blended/is_daily.csv')
+        _log_phase('7. OOS (final)', csv_path='nn_v2/output/blended/oos_daily.csv')
+
+    # Check for new baseline and generate report
+    oos_path = 'nn_v2/output/blended/oos_daily.csv'
+    if os.path.exists(oos_path):
+        _check_new_baseline(oos_path)
 
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
     print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
     print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
+
+
+BASELINE_FILE = 'nn_v2/output/baseline_best.json'
+
+
+def _check_new_baseline(oos_csv_path):
+    """Check if this run beats the previous OOS baseline. If so, generate report."""
+    import json
+    import subprocess
+    import numpy as _np
+    from collections import Counter as _Counter
+
+    df_oos = pd.read_csv(oos_csv_path)
+    oos_per_day = df_oos['pnl'].sum() / len(df_oos)
+    oos_total = df_oos['pnl'].sum()
+    oos_days = len(df_oos)
+    oos_win = (df_oos['pnl'] > 0).sum()
+
+    # Load previous baseline
+    prev_best = 0
+    if os.path.exists(BASELINE_FILE):
+        with open(BASELINE_FILE, 'r') as f:
+            prev = json.load(f)
+            prev_best = prev.get('oos_per_day', 0)
+
+    if oos_per_day <= prev_best:
+        print(f'\n  OOS ${oos_per_day:.0f}/day — below baseline ${prev_best:.0f}/day')
+        return
+
+    # NEW BASELINE!
+    print(f'\n  *** NEW BASELINE: ${oos_per_day:.0f}/day OOS (was ${prev_best:.0f}/day) ***')
+
+    # Get commit hash
+    try:
+        commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                                          text=True).strip()
+    except Exception:
+        commit = 'unknown'
+
+    # Load IS results
+    is_path = 'nn_v2/output/blended/is_daily.csv'
+    df_is = pd.read_csv(is_path) if os.path.exists(is_path) else pd.DataFrame()
+
+    # Load trade breakdowns
+    tier_report = ''
+    for label, pkl_path in [('IS', 'nn_v2/output/blended/is_trades.pkl'),
+                             ('OOS', 'nn_v2/output/blended/oos_trades.pkl')]:
+        if not os.path.exists(pkl_path):
+            continue
+        import pickle
+        with open(pkl_path, 'rb') as f:
+            trades = pickle.load(f)
+        tier_report += f'\n### {label} Tier Breakdown\n'
+        tier_report += f'| Tier | N | WR | PnL | $/trade |\n'
+        tier_report += f'|------|---|-----|-----|--------|\n'
+        for tier, count in _Counter(t.get('entry_tier', '?') for t in trades).most_common():
+            sub = [t for t in trades if t.get('entry_tier') == tier]
+            wins = sum(1 for t in sub if t['pnl'] > 0)
+            total = sum(t['pnl'] for t in sub)
+            tier_report += f'| {tier} | {count} | {wins/count*100:.0f}% | ${total:,.0f} | ${total/count:.1f} |\n'
+
+    # Generate journal entry
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    report = f"""## NEW BASELINE: ${oos_per_day:.0f}/day OOS
+
+**Commit**: `{commit}` | **Date**: {date_str}
+**Previous baseline**: ${prev_best:.0f}/day
+
+### Summary
+| | IS | OOS |
+|---|---|---|
+| Days | {len(df_is)} | {oos_days} |
+| $/day | ${df_is['pnl'].sum()/max(len(df_is),1):.0f} | ${oos_per_day:.0f} |
+| Win days | {(df_is['pnl']>0).sum()}/{len(df_is)} ({(df_is['pnl']>0).sum()/max(len(df_is),1)*100:.0f}%) | {oos_win}/{oos_days} ({oos_win/oos_days*100:.0f}%) |
+| Total | ${df_is['pnl'].sum():,.0f} | ${oos_total:,.0f} |
+| Best day | ${df_is['pnl'].max():,.0f} | ${df_oos['pnl'].max():,.0f} |
+| Worst day | ${df_is['pnl'].min():,.0f} | ${df_oos['pnl'].min():,.0f} |
+| Median | ${_np.median(df_is['pnl']):,.0f} | ${_np.median(df_oos['pnl']):,.0f} |
+{tier_report}
+"""
+
+    # Save report
+    report_path = f'reports/findings/baseline_{date_str}_{oos_per_day:.0f}.md'
+    os.makedirs('reports/findings', exist_ok=True)
+    with open(report_path, 'w') as f:
+        f.write(report)
+    print(f'  Report saved: {report_path}')
+
+    # Update baseline file
+    baseline = {
+        'oos_per_day': oos_per_day,
+        'oos_total': oos_total,
+        'oos_days': oos_days,
+        'oos_win_pct': oos_win / oos_days * 100,
+        'commit': commit,
+        'date': date_str,
+    }
+    os.makedirs(os.path.dirname(BASELINE_FILE), exist_ok=True)
+    with open(BASELINE_FILE, 'w') as f:
+        json.dump(baseline, f, indent=2)
+    print(f'  Baseline updated: {BASELINE_FILE}')
 
 
 def _run_blended_forward(target: str):

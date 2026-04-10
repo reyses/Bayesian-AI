@@ -22,12 +22,11 @@ MNQ futures trading system. Statistical regression bands + Bayesian learning.
 NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
-- Training: `python training/trainer.py --fresh`
-- TradeCNN: `python training/train_trade_cnn.py` (walk-forward + OOS sim)
-- Live DMI: `python -m live.launcher --dmi`
-- Live TradeCNN: `python -m live.launcher --trade-cnn`
-- Live dry-run: `python -m live.launcher --dry-run`
-- Research: `python tools/standalone_research.py --data DATA/ATLAS_1WEEK`
+- **Blended pipeline**: `python nn_v2/run.py blended` (full 7-phase training)
+- **Blended partial**: `python nn_v2/run.py blended --from 3 --to 5`
+- **Live trading**: `python -m live.launcher`
+- **Maintenance**: `python -m live.maintenance --days 30`
+- **ISO pipeline**: `python nn_v2_iso/run_iso.py` (isolated non-NMP entries)
 
 ## Key Files
 - `core/statistical_field_engine.py` — regression, z-scores, probability (CUDA)
@@ -46,11 +45,15 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `training/trainer.py` — main pipeline (7 phases)
 
 ## Active Work
-- **nn_v2 3-CNN System**: $620/day IS, $613/day OOS, 91% win days
-  - Pipeline: NMP → regret → blended (cascade/killshot/base) → 3 CNNs
-  - CNN Flip (70.6%), CNN Hold (94.8%), CNN Risk
-  - Next: Stage 2 — regret on CNN trades → discover new entry physics
-- See `docs/ROADMAP.md` for future branches
+- **Blended pipeline (baseline-740)**: $740/day OOS, 88% win days, 74 OOS days
+  - 9 ExNMP tiers: CASCADE, KILL_SHOT, FREIGHT_TRAIN, FADE_AGAINST, RIDE_AGAINST,
+    RIDE_MOMENTUM, RIDE_CALM, FADE_MOMENTUM, FADE_CALM
+  - 3 CNNs: flip (SAME/COUNTER), hold (HOLD/EXIT), risk (RECOVER/DEAD)
+  - Exits: 3-bar confirmation, oscillation decay, tiered RIDE by 1h_z
+  - Safety branch: `safe/v740` at commit `ce0674f9`
+- **ISO pipeline** (nn_v2_iso): isolated testing for non-NMP entries
+  - REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION — separate CNN training
+- **Next**: CNN exit, tier-based sizing, live SIM deployment
 
 ## Conventions
 - CUDA-only (no CPU fallback — removed)
@@ -70,6 +73,21 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - **Save analysis tools**: When building a research/analysis script, always save it as
   a reusable file in `tools/` (not as throwaway inline code). Name it descriptively.
   Add it to `tools/` inventory in MEMORY.md so future sessions know it exists.
+
+## Baseline Management — MANDATORY
+When a pipeline run achieves a new OOS $/day record:
+1. **Tag it**: `git tag vXXX -m "BASELINE: OOS $XXX/day on YY days"`
+2. **Safety branch**: `git branch safe/vXXX` and push to remote
+3. **Track CNN models**: `git add -f nn_v2/output/tree/cnn_*.pt` (700KB each)
+4. **Report auto-generated**: pipeline saves to `reports/findings/baseline_*.md`
+5. **Journal entry**: detailed breakdown with IS/OOS summary, tier table, exit table
+6. **Update baseline_best.json**: pipeline does this automatically
+7. **One change at a time**: when modifying from a baseline, change ONE thing, run pipeline,
+   compare. If worse, revert immediately. If better, commit + tag new baseline.
+8. **Never break the baseline**: experimental code goes on feature branches, not main.
+   Main/baseline branches must always reproduce the last proven OOS number.
+9. **Cherry-pick carefully**: when merging improvements, verify they don't interact.
+   Multiple "individually positive" changes can compound negatively.
 
 ## Do NOT
 - Add CPU fallback paths (CUDA-only decision)
