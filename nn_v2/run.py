@@ -302,7 +302,9 @@ def _run_gated(target: str):
         tree_data = pickle.load(f)
     memory.commit_branches(tree_data['branches'])
 
-    feat_files = _resolve_days(target, FEATURES_DIR_1M)
+    feat_files = _resolve_days(target, FEATURES_DIR_5S)
+    if not feat_files:
+        feat_files = _resolve_days(target, FEATURES_DIR_1M)
     if not feat_files:
         feat_files = _resolve_days(target, FEATURES_DIR)
     if not feat_files:

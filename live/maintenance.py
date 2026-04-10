@@ -224,9 +224,9 @@ def merge_atlas_live():
 
 
 def build_features_for_new_days():
-    """Build 79D features for any ATLAS days missing from FEATURES_79D_1m."""
+    """Build 79D features for any ATLAS days missing from FEATURES_79D_5s."""
     import subprocess
-    feat_dir = 'DATA/FEATURES_79D_1m'
+    feat_dir = 'DATA/FEATURES_79D_5s'
     atlas_1m = 'DATA/ATLAS/1m'
 
     if not os.path.exists(atlas_1m):
@@ -249,7 +249,7 @@ def build_features_for_new_days():
 
     # Run the feature builder for missing days
     result = subprocess.run(
-        ['python', 'nn_v2/build_dataset.py', '--resolution', '1m',
+        ['python', 'nn_v2/build_dataset.py', '--resolution', '5s',
          '--start', missing[0].replace('_', '-'),
          '--end', missing[-1].replace('_', '-')],
         capture_output=True, text=True, timeout=3600)
