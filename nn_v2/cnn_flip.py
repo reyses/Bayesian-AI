@@ -33,20 +33,19 @@ BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'nn_v2/output/trades/blended_
 REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'nn_v2/output/tree/regret_analysis.csv')
 OUTPUT_DIR = os.environ.get('CNN_OUTPUT_DIR', 'nn_v2/output/tree')
 
-# Grid layout: 6 TFs × 13 features (10 core + 3 helper)
-N_FEATURES_PER_TF = N_CORE + N_HELPER  # 13
+# Grid layout: 6 TFs × 15 features (12 core + 3 helper)
+N_FEATURES_PER_TF = N_CORE + N_HELPER  # 15
 GRID_H = N_TFS                          # 6
-GRID_W = N_FEATURES_PER_TF              # 13
+GRID_W = N_FEATURES_PER_TF              # 15
 
 # 5 time points for path
 N_TIME_POINTS = 5
 
 TIER_MAP = {'CASCADE': 2, 'KILL_SHOT': 1, 'BASE_NMP': 0}
 
-# Sample features for path (indices into 79D for key features per TF)
-# We use the full 13 features per TF at each time point
+# Feature layout
 CORE_START = 0
-HELPER_START = N_CORE * N_TFS  # 60
+HELPER_START = N_CORE * N_TFS  # 72
 
 
 def parse_args():

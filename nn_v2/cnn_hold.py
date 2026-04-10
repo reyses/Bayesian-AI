@@ -40,8 +40,8 @@ REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'nn_v2/output/tree/regret_cnn_fl
 OUTPUT_DIR = os.environ.get('CNN_OUTPUT_DIR', 'nn_v2/output/tree')
 
 N_TFS = 6
-N_FEAT_PER_TF = N_CORE + N_HELPER  # 13
-HELPER_START = N_CORE * N_TFS      # 60
+N_FEAT_PER_TF = N_CORE + N_HELPER  # 15 (12 core + 3 helper)
+HELPER_START = N_CORE * N_TFS      # 72
 
 TICK = 0.25
 TV = 0.50

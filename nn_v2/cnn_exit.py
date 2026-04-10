@@ -38,11 +38,11 @@ OUTPUT_DIR = os.environ.get('CNN_OUTPUT_DIR', 'nn_v2/output/tree')
 
 # Grid layout
 GRID_H = 6
-GRID_W = 13
-N_CORE = 10
+GRID_W = 15  # 12 core + 3 helper (91D)
+N_CORE = 12
 N_HELPER = 3
 N_TFS = 6
-HELPER_START = N_CORE * N_TFS
+HELPER_START = N_CORE * N_TFS  # 72
 
 # Exit physics labels
 EXIT_LABELS = {

@@ -1,22 +1,24 @@
 """
-79D Unified Feature Vector — Single Source of Truth
+91D Unified Feature Vector — Single Source of Truth
 ====================================================
-10 core features x 6 TFs + 3 helpers x 6 TFs + 1 global = 79D
+12 core features x 6 TFs + 3 helpers x 6 TFs + 1 global = 91D
 
-Same 10 measurements at every timeframe. The fractal state in one array.
+Same 12 measurements at every timeframe. The fractal state in one array.
 Each TF is just a different aggregation window on the same 5s atomic data.
 
 Core features (per TF):
-  [0] z_se             — position in regression band (SE units)
-  [1] dmi_diff         — DI+ minus DI- (direction + strength)
-  [2] variance_ratio   — short/long vol ratio (regime)
-  [3] velocity         — price rate of change
-  [4] acceleration     — velocity change (chop detector)
-  [5] vol_rel          — volume vs 30-bar SMA (conviction)
-  [6] bar_range        — (high-low)/tick (risk)
-  [7] hurst            — persistence exponent
-  [8] reversion_prob   — P(revert to center) from OU first-passage
-  [9] p_at_center      — 3-class probability near mean
+  [0]  z_se             — position in regression band (SE units)
+  [1]  dmi_diff         — DI+ minus DI- (direction + strength)
+  [2]  variance_ratio   — short/long vol ratio (regime)
+  [3]  velocity         — price rate of change
+  [4]  acceleration     — velocity change (chop detector)
+  [5]  vol_rel          — volume vs 30-bar SMA (conviction)
+  [6]  bar_range        — (high-low)/tick (risk)
+  [7]  hurst            — persistence exponent
+  [8]  reversion_prob   — P(revert to center) from OU first-passage
+  [9]  p_at_center      — 3-class probability near mean
+  [10] z_high           — where bar high touched in z-space (gravity well upper)
+  [11] z_low            — where bar low touched in z-space (gravity well lower)
 
 Helper features (per TF):
   [0] dmi_gap          — abs(dmi_diff)
@@ -27,7 +29,7 @@ Global:
   time_of_day          — timestamp % 86400 / 86400
 
 TF order: 15s, 1m, 5m, 15m, 1h, 1D
-Layout: [15s_core(10), 1m_core(10), ..., 1D_core(10), 15s_help(3), ..., 1D_help(3), time_of_day]
+Layout: [15s_core(12), 1m_core(12), ..., 1D_core(12), 15s_help(3), ..., 1D_help(3), time_of_day]
 
 Spec: docs/Active/FEATURE_VECTOR_79D_SPEC.md
 """
@@ -46,14 +48,15 @@ N_TFS = len(TF_ORDER)
 CORE_FEATURE_NAMES = [
     'z_se', 'dmi_diff', 'variance_ratio', 'velocity', 'acceleration',
     'vol_rel', 'bar_range', 'hurst', 'reversion_prob', 'p_at_center',
+    'z_high', 'z_low',  # gravity wells: where high/low touched in z-space
 ]
 HELPER_FEATURE_NAMES = ['dmi_gap', 'dir_vol', 'wick_ratio']
 GLOBAL_FEATURE_NAMES = ['time_of_day']
 
-N_CORE = len(CORE_FEATURE_NAMES)      # 10
+N_CORE = len(CORE_FEATURE_NAMES)      # 12 (was 10, added z_high/z_low)
 N_HELPER = len(HELPER_FEATURE_NAMES)   # 3
 N_GLOBAL = len(GLOBAL_FEATURE_NAMES)   # 1
-N_FEATURES = N_CORE * N_TFS + N_HELPER * N_TFS + N_GLOBAL  # 79
+N_FEATURES = N_CORE * N_TFS + N_HELPER * N_TFS + N_GLOBAL  # 91 (was 79)
 
 # Full feature name list (for column headers, logging, etc.)
 FEATURE_NAMES_79D = []
@@ -67,9 +70,9 @@ FEATURE_NAMES_79D.extend(GLOBAL_FEATURE_NAMES)
 
 # Index boundaries for slicing
 CORE_START = 0
-CORE_END = N_CORE * N_TFS                                    # 60
-HELPER_START = CORE_END                                       # 60
-HELPER_END = HELPER_START + N_HELPER * N_TFS                  # 78
+CORE_END = N_CORE * N_TFS                                    # 72
+HELPER_START = CORE_END                                       # 72
+HELPER_END = HELPER_START + N_HELPER * N_TFS                  # 90
 GLOBAL_START = HELPER_END                                     # 78
 
 # TF durations in seconds (for partial bar aggregation)
@@ -295,6 +298,16 @@ def extract_tf_features(state, ohlcv_df, prev_velocity: float = 0.0) -> tuple:
         # [9] p_at_center: from MarketState (3-class probability)
         core[9] = p_center
 
+        # [10] z_high: where bar high touched in z-space (gravity well upper bound)
+        # [11] z_low: where bar low touched in z-space (gravity well lower bound)
+        center = getattr(state, 'regression_center', closes[-1])
+        if sigma > 1e-8:
+            core[10] = (highs[-1] - center) / sigma
+            core[11] = (lows[-1] - center) / sigma
+        else:
+            core[10] = 0.0
+            core[11] = 0.0
+
         # --- Helpers ---
         # [0] dmi_gap: abs(dmi_diff)
         helper[0] = abs(dmi_diff)
@@ -320,6 +333,8 @@ def extract_tf_features(state, ohlcv_df, prev_velocity: float = 0.0) -> tuple:
         core[7] = hurst
         core[8] = rev_prob
         core[9] = p_center
+        core[10] = 0.0  # z_high unknown without OHLCV
+        core[11] = 0.0  # z_low unknown without OHLCV
         helper[0] = abs(dmi_diff)
 
     return core, helper, vel
@@ -378,7 +393,7 @@ def extract_79d(
     # Fallback: fill missing higher TF z-dependent features from next lower TF
     # z_se(0), hurst(7), reversion_prob(8), p_at_center(9) need 21+ bars for regression
     # If a higher TF has zeros, copy from the next lower TF that has data
-    Z_DEPENDENT_INDICES = [0, 7, 8, 9]  # z_se, hurst, reversion_prob, p_at_center
+    Z_DEPENDENT_INDICES = [0, 7, 8, 9, 10, 11]  # z_se, hurst, reversion_prob, p_at_center, z_high, z_low
     for tf_idx in range(1, len(TF_ORDER)):  # skip 15s (index 0), it's always available
         tf = TF_ORDER[tf_idx]
         start = tf_idx * N_CORE

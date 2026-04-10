@@ -43,11 +43,11 @@ OUTPUT_DIR = 'nn_v2/output/entry'
 
 # Grid layout (same as cnn_flip)
 GRID_H = 6   # TFs
-GRID_W = 13  # 10 core + 3 helper
-N_CORE = 10
+GRID_W = 15  # 12 core + 3 helper (91D)
+N_CORE = 12
 N_HELPER = 3
 N_TFS = 6
-HELPER_START = N_CORE * N_TFS  # 60
+HELPER_START = N_CORE * N_TFS  # 72
 
 # Approach
 APPROACH_BARS = 10  # bars of 79D before the (early) entry

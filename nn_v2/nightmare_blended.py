@@ -113,23 +113,26 @@ RIDE_EXIT_BARS_TIERS = {
 }
 
 # 79D absolute indices
-_1M_OFFSET = 10
+# 91D feature indices (12 core per TF, helpers at 72+)
+# TF order: 15s=0, 1m=1, 5m=2, 15m=3, 1h=4, 1D=5
+# Core offset per TF: tf_idx * 12
+_1M_OFFSET = 12       # TF1 * 12 (was 10)
 _Z = 0
 _VR = 2
-_5M_WICK_IDX = 68
-_15M_WICK_IDX = 71
-_1H_Z_IDX = 40
-_1H_VELOCITY_IDX = 43  # 1h block starts at 40, velocity is core[3]
-_1M_P_CENTER_IDX = 19
-_1M_VELOCITY_IDX = 13
-_5M_BAR_RANGE_IDX = 26  # 5m block starts at 20, bar_range is index 6
-_5M_VELOCITY_IDX = 23   # 5m block starts at 20, velocity is core[3]
-_5M_ACCEL_IDX = 24      # 5m acceleration (core[4])
-_1M_HURST_IDX = 17      # 1m hurst exponent (core[7])
-_1M_VOL_REL_IDX = 15    # 1m vol_rel (core[5])
-_1M_DMI_IDX = 11        # 1m_dmi_diff
-_1M_WICK_IDX = 65       # 1m_wick_ratio (helper: 60+1*3+2)
-_1M_REVERSION_IDX = 18  # 1m_reversion_prob (core: 10+8)
+_5M_WICK_IDX = 80     # helper_start(72) + TF2*3 + 2 (was 68)
+_15M_WICK_IDX = 83    # helper_start(72) + TF3*3 + 2 (was 71)
+_1H_Z_IDX = 48        # TF4 * 12 (was 40)
+_1H_VELOCITY_IDX = 51 # TF4*12 + 3 (was 43)
+_1M_P_CENTER_IDX = 21 # TF1*12 + 9 (was 19)
+_1M_VELOCITY_IDX = 15 # TF1*12 + 3 (was 13)
+_5M_BAR_RANGE_IDX = 30 # TF2*12 + 6 (was 26)
+_5M_VELOCITY_IDX = 27  # TF2*12 + 3 (was 23)
+_5M_ACCEL_IDX = 28     # TF2*12 + 4 (was 24)
+_1M_HURST_IDX = 19     # TF1*12 + 7 (was 17)
+_1M_VOL_REL_IDX = 17   # TF1*12 + 5 (was 15)
+_1M_DMI_IDX = 13       # TF1*12 + 1 (was 11)
+_1M_WICK_IDX = 77      # helper_start(72) + TF1*3 + 2 (was 65)
+_1M_REVERSION_IDX = 20 # TF1*12 + 8 (was 18)
 
 APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
@@ -161,10 +164,10 @@ CNN_RISK_PATH = 'nn_v2/output/tree/cnn_risk.pt'
 LIVE_RELEASE_DIR = 'checkpoints/live_release'
 
 # Grid layout for CNN
-_N_CORE = 10
+_N_CORE = 12
 _N_HELPER = 3
 _N_TFS = 6
-_HELPER_START = _N_CORE * _N_TFS  # 60
+_HELPER_START = _N_CORE * _N_TFS  # 72
 
 
 def _feat_to_grid(feat_79d):
