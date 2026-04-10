@@ -99,10 +99,14 @@ class LiveEngine:
             self._warmed_up = False
             logger.warning('No warm state — cold start')
 
-        # BlendedEngine + 3 CNNs (loads from live release if available)
-        from nn_v2.nightmare_blended import LIVE_RELEASE_DIR
-        release_dir = LIVE_RELEASE_DIR if os.path.isdir(LIVE_RELEASE_DIR) else None
-        self._engine = BlendedEngine(use_cnn=True, release_dir=release_dir)
+        # BlendedEngine — physics only ($599/day OOS baseline, deterministic)
+        # CNN disabled until determinism issue resolved
+        self._engine = BlendedEngine(use_cnn=False)
+
+        # Override hard stop for live (training has it disabled)
+        import nn_v2.nightmare_blended as _blended
+        _blended.HARD_STOP = -150.0
+        logger.info(f'Hard stop set to ${_blended.HARD_STOP}')
 
         # Wire aggregator callback — triggers on 1m bar close
         self._agg.on_bar_close = self._on_tf_bar_close
