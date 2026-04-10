@@ -166,3 +166,95 @@ class Aggregator:
     def get_bar_count(self, tf: str) -> int:
         """How many closed bars for this TF."""
         return len(self.history.get(tf, []))
+
+    def save_state_parquet(self, state_dir: str = 'live/state/bars'):
+        """Save all TF bar history as parquet. Version-proof, inspectable."""
+        import os, json
+        import pandas as pd
+        from datetime import datetime
+        os.makedirs(state_dir, exist_ok=True)
+
+        manifest = {
+            'version': 2,
+            'created_at': datetime.utcnow().isoformat(),
+            'bar_counts': {},
+            'checksums': {},
+        }
+
+        for tf in list(self.history.keys()):
+            bars = self.history[tf]
+            if not bars:
+                continue
+            df = pd.DataFrame(bars)
+            path = os.path.join(state_dir, f'{tf}.parquet')
+            df.to_parquet(path, index=False)
+
+            manifest['bar_counts'][tf] = len(bars)
+            manifest['checksums'][tf] = {
+                'rows': len(bars),
+                'last_ts': float(bars[-1]['timestamp']),
+                'last_close': float(bars[-1]['close']),
+            }
+
+        manifest['last_bar_ts'] = max(
+            (cs['last_ts'] for cs in manifest['checksums'].values()), default=0)
+
+        manifest_path = os.path.join(os.path.dirname(state_dir), 'manifest.json')
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+        return manifest
+
+    def load_state_parquet(self, state_dir: str = 'live/state/bars',
+                           max_stale_hours: float = 18.0) -> dict:
+        """Load bar history from parquet. Validates staleness + integrity."""
+        import os, json, time, logging
+        import pandas as pd
+        _logger = logging.getLogger(__name__)
+
+        manifest_path = os.path.join(os.path.dirname(state_dir), 'manifest.json')
+        if not os.path.exists(manifest_path):
+            raise FileNotFoundError(f'No manifest at {manifest_path}')
+
+        with open(manifest_path) as f:
+            manifest = json.load(f)
+
+        if manifest.get('version', 1) < 2:
+            raise ValueError('Warmup state is v1 (pickle). Run maintenance to rebuild.')
+
+        last_ts = manifest.get('last_bar_ts', 0)
+        stale_hours = (time.time() - last_ts) / 3600
+        if stale_hours > max_stale_hours:
+            raise ValueError(
+                f'Warmup state is {stale_hours:.1f}h old (max {max_stale_hours}h). '
+                f'Run maintenance to refresh.')
+
+        loaded = {}
+        for tf, expected in manifest.get('checksums', {}).items():
+            path = os.path.join(state_dir, f'{tf}.parquet')
+            if not os.path.exists(path):
+                _logger.warning(f'Missing warmup parquet: {tf}')
+                continue
+
+            df = pd.read_parquet(path)
+
+            if len(df) != expected['rows']:
+                raise ValueError(f'{tf}: expected {expected["rows"]} rows, got {len(df)}')
+            if abs(float(df['timestamp'].iloc[-1]) - expected['last_ts']) > 1.0:
+                raise ValueError(f'{tf}: last_ts mismatch')
+
+            bars = df.to_dict('records')
+            self.history[tf] = bars
+            loaded[tf] = len(bars)
+
+        # Rebuild accumulators from last bar per TF
+        for tf, bars in self.history.items():
+            if not bars or tf not in self._accumulators:
+                continue
+            acc = self._accumulators[tf]
+            last = bars[-1]
+            if hasattr(acc, 'current_start'):
+                acc.current_start = (last['timestamp'] // acc.tf_seconds) * acc.tf_seconds
+
+        _logger.info(f'Warmup loaded: {loaded} (stale={stale_hours:.1f}h)')
+        return manifest

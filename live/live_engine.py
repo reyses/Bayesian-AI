@@ -163,6 +163,20 @@ class LiveEngine:
         self._live_79d = []           # 79D features per 1m close
         self._session_date = time.strftime('%Y_%m_%d')
 
+        # Incremental writer (crash-safe)
+        from live.incremental_writer import IncrementalWriter
+        self._writer = IncrementalWriter(
+            base_dir=os.path.join('DATA', 'ATLAS_LIVE'),
+            session_date=self._session_date)
+
+        # Recover from crash (unmerged chunks)
+        recovered = IncrementalWriter.recover(
+            os.path.join('DATA', 'ATLAS_LIVE'), self._session_date)
+        if recovered:
+            logger.warning(f'Recovered {len(recovered)} TFs from previous crash')
+            for tf, df in recovered.items():
+                self._writer.merge_final(tf)
+
         # Active trade state file (survives restarts)
         self._trade_state_path = os.path.join('live', 'state', 'active_trade.json')
         self._load_active_trade()
@@ -788,65 +802,47 @@ class LiveEngine:
             logger.warning(f'Failed to load active trade: {e}')
 
     def _periodic_save(self):
-        """Append live data every 5 min so nothing is lost on crash."""
-        self._save_active_trade()  # keep trade state current
-        import pandas as pd
+        """Incremental chunk save every 5 min. Crash-safe."""
+        self._save_active_trade()
         if not self._live_1s_bars:
             return
-        day = self._session_date
-        out_dir = os.path.join('DATA', 'ATLAS_LIVE', '1s')
-        os.makedirs(out_dir, exist_ok=True)
-        path = os.path.join(out_dir, f'{day}.parquet')
-        df = pd.DataFrame(self._live_1s_bars)
-        df.to_parquet(path, index=False)
-        # Also save aggregated TFs
+        bars_by_tf = {'1s': self._live_1s_bars}
         for tf in ['15s', '1m', '5m', '15m', '1h']:
             tf_bars = self._agg.get_closed_bars(tf)
             if tf_bars:
-                tf_dir = os.path.join('DATA', 'ATLAS_LIVE', tf)
-                os.makedirs(tf_dir, exist_ok=True)
-                tf_path = os.path.join(tf_dir, f'{day}.parquet')
-                pd.DataFrame(tf_bars).to_parquet(tf_path, index=False)
+                bars_by_tf[tf] = tf_bars
+        self._writer.save_all_chunks(bars_by_tf)
 
     def _save_live_data(self):
-        """Save live session data: ATLAS_LIVE (all TFs) + FEATURES_LIVE (79D)."""
+        """Final merge: chunks -> day parquet. Atomic + validated."""
         import pandas as pd
 
-        day = self._session_date
-
-        # 1. Save raw 1s bars
-        if self._live_1s_bars:
-            out_dir = os.path.join('DATA', 'ATLAS_LIVE', '1s')
-            os.makedirs(out_dir, exist_ok=True)
-            df = pd.DataFrame(self._live_1s_bars)
-            path = os.path.join(out_dir, f'{day}.parquet')
-            df.to_parquet(path, index=False)
-            logger.info(f'ATLAS_LIVE 1s: {len(df)} bars -> {path}')
-
-        # 2. Save aggregated TF bars from aggregator history
+        # 1. Merge all TFs (chunks -> final day file)
+        bars_by_tf = {'1s': self._live_1s_bars}
         for tf in ['15s', '1m', '5m', '15m', '1h', '1D']:
             bars = self._agg.get_closed_bars(tf)
-            if not bars:
-                continue
-            # Filter to today's bars only (by timestamp)
-            today_start = pd.Timestamp(day.replace('_', '-')).timestamp()
-            today_bars = [b for b in bars if b.get('timestamp', 0) >= today_start]
-            if today_bars:
-                out_dir = os.path.join('DATA', 'ATLAS_LIVE', tf)
-                os.makedirs(out_dir, exist_ok=True)
-                df = pd.DataFrame(today_bars)
-                path = os.path.join(out_dir, f'{day}.parquet')
-                df.to_parquet(path, index=False)
-                logger.info(f'ATLAS_LIVE {tf}: {len(df)} bars -> {path}')
+            if bars:
+                bars_by_tf[tf] = bars
+        self._writer.merge_all_final(bars_by_tf)
 
-        # 3. Save 79D features
+        # 2. Save 79D features (atomic write)
         if self._live_79d:
             out_dir = 'DATA/FEATURES_79D_5s_live'
             os.makedirs(out_dir, exist_ok=True)
             df = pd.DataFrame(self._live_79d)
-            path = os.path.join(out_dir, f'{day}.parquet')
-            df.to_parquet(path, index=False)
+            path = os.path.join(out_dir, f'{self._session_date}.parquet')
+            tmp = path + '.tmp'
+            df.to_parquet(tmp, index=False)
+            os.replace(tmp, path)
             logger.info(f'FEATURES_LIVE: {len(df)} rows -> {path}')
+
+        # 3. Save warm state for next session
+        self._agg.save_state_parquet('live/state/bars')
+        vel_path = 'live/state/velocities.json'
+        os.makedirs(os.path.dirname(vel_path), exist_ok=True)
+        with open(vel_path, 'w') as f:
+            json.dump(self._prev_velocities, f)
+        logger.info('Warm state saved (parquet)')
 
     def _retrain_live_brain(self):
         """Retrain CNNs on live trades -> save as live brain (separate from backtest)."""

@@ -110,46 +110,41 @@ def warm_aggregator(day_files: list):
 
 
 def save_state(agg, prev_velocities, last_ts, total_bars):
-    """Save warm aggregator state to disk."""
+    """Save warm state as parquet + JSON (no pickle)."""
+    manifest = agg.save_state_parquet('live/state/bars')
+
+    vel_path = os.path.join(STATE_DIR, 'velocities.json')
     os.makedirs(STATE_DIR, exist_ok=True)
+    with open(vel_path, 'w') as f:
+        json.dump(prev_velocities, f)
 
-    # Save aggregator history
-    agg_state = {
-        'history': agg.history,
-        'accumulators': {},
-    }
-    # Save accumulator state per TF
-    for tf in TF_ORDER:
-        acc = agg._accumulators.get(tf)
-        if acc and hasattr(acc, 'current_bar'):
-            agg_state['accumulators'][tf] = {
-                'current_bar': acc.current_bar,
-                'bar_count': acc._bar_count if hasattr(acc, '_bar_count') else 0,
-            }
-
-    with open(os.path.join(STATE_DIR, 'aggregator.pkl'), 'wb') as f:
-        pickle.dump(agg_state, f)
-
-    with open(os.path.join(STATE_DIR, 'velocities.pkl'), 'wb') as f:
-        pickle.dump(prev_velocities, f)
-
-    info = {
-        'last_ts': last_ts,
-        'total_bars': total_bars,
-        'warmup_time': datetime.utcnow().isoformat(),
-        'bar_counts': {tf: len(agg.history.get(tf, [])) for tf in ['1s', '15s', '1m', '5m', '15m', '1h', '1D']},
-    }
-    with open(os.path.join(STATE_DIR, 'warmup_info.json'), 'w') as f:
-        json.dump(info, f, indent=2)
-
-    print(f'\nState saved to {STATE_DIR}/')
-    print(f'  aggregator.pkl')
-    print(f'  velocities.pkl')
-    print(f'  warmup_info.json')
+    print(f'\nState saved (parquet): {manifest["bar_counts"]}')
+    print(f'  Last bar: ts={manifest["last_bar_ts"]:.0f}')
 
 
 def load_state():
-    """Load warm aggregator state from disk. Returns (agg, prev_velocities, info) or None."""
+    """Load warm state from parquet. Returns (agg, prev_vel, manifest) or None."""
+    agg = Aggregator(history_limit=2000)
+
+    try:
+        manifest = agg.load_state_parquet('live/state/bars')
+    except (FileNotFoundError, ValueError) as e:
+        print(f'Warmup load failed: {e}')
+        # Fallback to legacy pickle
+        return _load_state_legacy()
+
+    vel_path = os.path.join(STATE_DIR, 'velocities.json')
+    if os.path.exists(vel_path):
+        with open(vel_path) as f:
+            prev_velocities = json.load(f)
+    else:
+        prev_velocities = {}
+
+    return agg, prev_velocities, manifest
+
+
+def _load_state_legacy():
+    """Fallback: load from old pickle format."""
     agg_path = os.path.join(STATE_DIR, 'aggregator.pkl')
     vel_path = os.path.join(STATE_DIR, 'velocities.pkl')
     info_path = os.path.join(STATE_DIR, 'warmup_info.json')
