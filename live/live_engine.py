@@ -603,8 +603,8 @@ class LiveEngine:
             self._position_open = False
             self._closing_position = False
 
-        elif qty != 0 and not self._position_open:
-            # NT8 has position but we think we're flat -> orphan detected
+        elif qty != 0 and not self._position_open and not self._closing_position:
+            # NT8 has position but we think we're flat (and we're not mid-close) -> orphan
             side = 'LONG' if qty > 0 else 'SHORT'
             avg_px = float(msg.get('avg_price', 0))
             logger.warning(f'ORPHAN POSITION detected: {side} {abs(qty)} @ {avg_px}')
@@ -618,12 +618,15 @@ class LiveEngine:
         if not fill_price:
             return
 
-        if self._engine.in_pos and self._engine.entry_price != fill_price:
-            slippage = abs(fill_price - self._engine.entry_price)
-            logger.info(f'Fill correction: {self._engine.entry_price:.2f} -> {fill_price:.2f} '
-                        f'(slippage: {slippage:.2f})')
-            self._engine.entry_price = fill_price
-            self._save_active_trade()
+        # Only correct entry fills (not exit fills)
+        # Entry fill: we're in position and NOT closing
+        if self._engine.in_pos and not self._closing_position:
+            if self._engine.entry_price != fill_price:
+                slippage = abs(fill_price - self._engine.entry_price)
+                logger.info(f'Fill correction: {self._engine.entry_price:.2f} -> {fill_price:.2f} '
+                            f'(slippage: {slippage:.2f})')
+                self._engine.entry_price = fill_price
+                self._save_active_trade()
 
     def _on_account_update(self, msg: dict):
         """Track account equity from NT8."""

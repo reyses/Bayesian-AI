@@ -203,7 +203,15 @@ class OrderManager:
         qty = int(msg.get('qty', 1))
 
         # Determine if this is an entry or exit fill
-        if self.is_flat:
+        # Guard: if we were awaiting an exit fill, this IS the exit even if POSITION cleared first
+        if self._awaiting_exit_fill:
+            is_exit = True
+        elif self.is_flat:
+            is_exit = False
+        else:
+            is_exit = True
+
+        if not is_exit:
             # Entry fill
             self.position = PositionState(
                 side='LONG' if side == 'BUY' else 'SHORT',
