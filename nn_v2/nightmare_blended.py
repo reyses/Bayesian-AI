@@ -68,7 +68,7 @@ H1_Z_MIN = 1.0
 # Tier 1-2 exit (kill shot / cascade)
 P_CENTER_EXIT = 0.60
 P_CENTER_EXIT_BARS_CASCADE = 3   # cascade: 3-bar confirmation (rare, high conviction)
-P_CENTER_EXIT_BARS_KILLSHOT = 1  # kill shot: 1-bar instant exit (max WR for heavy sizing)
+P_CENTER_EXIT_BARS_KILLSHOT = 2  # kill shot: 2-bar confirmation ($740 config)
 
 # Tier 3 exits (base NMP)
 Z_EXIT = 0.5
@@ -668,17 +668,11 @@ class BlendedEngine:
             else:
                 self._z_near_zero_bars = 0
 
-            # 5m alignment adjusts exit patience
-            # Aligned (85% WR): hold longer. Opposed (63% WR): exit faster.
-            v5_ok = getattr(self, '_v5_aligned', True)
-            fade_z_bars = FADE_Z_EXIT_BARS if v5_ok else max(1, FADE_Z_EXIT_BARS - 1)
-            fade_pc_bars = FADE_P_CENTER_BARS if v5_ok else max(1, FADE_P_CENTER_BARS - 1)
-
-            # Phase 0: approaching mean
+            # Phase 0: approaching mean (uniform 3-bar, $740 config)
             if self._zero_crossings == 0:
-                if self._z_near_zero_bars >= fade_z_bars:
+                if self._z_near_zero_bars >= FADE_Z_EXIT_BARS:
                     return 'fade_mean_reached'
-                if self._p_center_bars >= fade_pc_bars:
+                if self._p_center_bars >= FADE_P_CENTER_BARS:
                     return 'fade_p_center'
                 return None
 
