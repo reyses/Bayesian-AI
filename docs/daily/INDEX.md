@@ -2,7 +2,7 @@
 
 | Date | Summary |
 |------|---------|
-| 2026-04-10 | Physics baseline: $599/day OOS (deterministic, no CNN). CNN non-deterministic ($365-$740). Numba JIT merged. Baseline protocol. Non-NMP entries isolated. |
+| 2026-04-10 | Physics baseline: $599/day OOS. Training/live parity refactor: 5s cadence, timestamp bars_held, tier exits for manual trades. 18 files, build_dataset_v2→build_dataset rename. |
 | 2026-04-09 | $740/day OOS (74 days). 10 ExNMP tiers (PEAK added). KILL_SHOT 1-bar, tiered RIDE exits, 5m exit patience. Entry research: exhaustion bar, absorption, delta divergence, regime flip, MTF exhaustion. |
 | 2026-04-08 | Live hardening + pipeline + exit physics. SFE OHLCV mismatch fixed, dashboard cleaned, 8 live bugs. Oscillation discovery (100% long trades oscillate). FADE/RIDE exit modes. 3-bar confirmation. 4 ExNMP sub-tiers (fade/ride x calm/momentum). Full pipeline: $462/day IS, $340/day OOS (94% win days). |
 | 2026-04-07 | CNN flip 70.6% → blended $367 IS, $397 OOS, 85% win. BASE_NMP $0.30→$7.90/trade. Entry-only CNN > path CNN. Stage 2 architecture: regret discovers new entry physics → CNN clusters → validate → expand ExNMP roster. |
