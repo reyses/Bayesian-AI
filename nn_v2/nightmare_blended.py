@@ -488,7 +488,7 @@ class BlendedEngine:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
 
         # === ENTRY CHECK — 1m boundaries only ===
-        if not self.in_pos and is_1m:
+        if not self.in_pos and is_1m and price > 100:  # sanity: reject price=0
             # Path 1: NMP entry (z extreme + vr < 1)
             if abs(z) > ROCHE and vr < VR_ENTRY:
                 # Bar range gate (disabled by default)
