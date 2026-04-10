@@ -163,6 +163,10 @@ class LiveEngine:
         self._live_79d = []           # 79D features per 1m close
         self._session_date = time.strftime('%Y_%m_%d')
 
+        # Active trade state file (survives restarts)
+        self._trade_state_path = os.path.join('live', 'state', 'active_trade.json')
+        self._load_active_trade()
+
     # ── Main Loop ──────────────────────────────────────────────────────
 
     async def run(self):
@@ -430,6 +434,7 @@ class LiveEngine:
         if msg:
             await self._client.send(msg)
             self._position_open = True
+            self._save_active_trade()
             self._trade_logger.start_trade(
                 self._live_trade_count + 1, side, self._last_price, self._last_ts)
 
@@ -517,6 +522,7 @@ class LiveEngine:
         # NOW reset state (after close message sent)
         self._position_open = False
         self._closing_position = False
+        self._save_active_trade()  # clears the state file
 
         # Session tracker
         self._session.record_trade(pnl, trade)
@@ -722,8 +728,51 @@ class LiveEngine:
         logger.info('Shutdown complete')
         self._shared_state['shutdown_confirmed'] = True
 
+    def _save_active_trade(self):
+        """Save active trade state to disk so it survives restarts."""
+        if not self._engine.in_pos:
+            # No active trade — remove state file
+            if os.path.exists(self._trade_state_path):
+                os.remove(self._trade_state_path)
+            return
+        state = {
+            'direction': self._engine.direction,
+            'entry_price': self._engine.entry_price,
+            'entry_tier': self._engine.entry_tier,
+            'cnn_flipped': getattr(self._engine, 'cnn_flipped', False),
+            'bars_held': self._engine.bars_held,
+            'peak_pnl': self._engine.peak_pnl,
+            'timestamp': time.time(),
+        }
+        os.makedirs(os.path.dirname(self._trade_state_path), exist_ok=True)
+        with open(self._trade_state_path, 'w') as f:
+            json.dump(state, f, indent=2)
+
+    def _load_active_trade(self):
+        """Load active trade state from previous session (if any)."""
+        if not os.path.exists(self._trade_state_path):
+            return
+        try:
+            with open(self._trade_state_path, 'r') as f:
+                state = json.load(f)
+            # Restore BlendedEngine state
+            self._engine.in_pos = True
+            self._engine.direction = state['direction']
+            self._engine.entry_price = state['entry_price']
+            self._engine.entry_tier = state['entry_tier']
+            self._engine.cnn_flipped = state.get('cnn_flipped', False)
+            self._engine.bars_held = state.get('bars_held', 0)
+            self._engine.peak_pnl = state.get('peak_pnl', 0)
+            self._engine.entry_1m = {'z_se': 0, 'vr': 0}  # unknown, will update on next bar
+            self._position_open = True
+            logger.info(f'Restored active trade: {state["direction"]} {state["entry_tier"]} '
+                        f'@ {state["entry_price"]:.2f} (held {state["bars_held"]} bars)')
+        except Exception as e:
+            logger.warning(f'Failed to load active trade: {e}')
+
     def _periodic_save(self):
         """Append live data every 5 min so nothing is lost on crash."""
+        self._save_active_trade()  # keep trade state current
         import pandas as pd
         if not self._live_1s_bars:
             return
