@@ -1154,7 +1154,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     print(f'  2b.  CNN entry               ->  pattern discovery per tier')
     print(f'  2c.  Forward pass            ->  tagged trades')
     print(f'  2d.  Regret (direction)      ->  FADE or RIDE ground truth')
-    print(f'  3.   CNN flip                ->  train FADE/RIDE/SKIP')
+    print(f'  3.   CNN flip                ->  train SAME/COUNTER')
     print(f'  4.   Forward pass + flip     ->  corrected direction (9 tiers)')
     print(f'  4b.  Regret (hold)           ->  optimal exit timing')
     print(f'  5.   CNN hold                ->  train HOLD/EXIT')
@@ -1235,7 +1235,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     if _should_run('3'):
         print(f'\n{"="*40}')
-        print(f'PHASE 3: Train CNN flip (FADE/RIDE/SKIP)')
+        print(f'PHASE 3: Train CNN flip (SAME/COUNTER)')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
         result = subprocess.run(

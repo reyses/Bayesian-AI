@@ -32,8 +32,8 @@ PEAK_DMI_MIN = 99999.0   # disabled
 # REGIME_FLIP entry — variance_ratio dropping = regime changing
 # Fires when |z| < ROCHE (NMP wouldn't trigger)
 REGIME_VR_DROP = 0.15     # vr dropped by at least this from recent high
-REGIME_VR_MAX = 0.35      # current vr must be below this (mean-reverting confirmed)
-REGIME_HURST_MAX = 0.45   # hurst below 0.5 = mean-reverting
+REGIME_VR_MAX = -1.0      # DISABLED — set to 0.35 to activate
+REGIME_HURST_MAX = -1.0   # DISABLED — set to 0.45 to activate
 
 # MTF_EXHAUSTION entry — DISABLED (triggers 7862 trades at 21% WR = -$142K)
 # Too loose: 5m deceleration happens constantly
@@ -42,14 +42,14 @@ MTF_5M_DECEL = 0.50
 MTF_1M_VEL_ALIVE = 99999.0 # disabled
 
 # EXHAUSTION_BAR entry — bar_range climax + velocity decelerating
-EXHAUST_BAR_RANGE_MIN = 80.0   # 1m_bar_range climax
-EXHAUST_ACCEL_MIN = 2.0        # |acceleration| must be extreme
+EXHAUST_BAR_RANGE_MIN = 99999.0  # DISABLED — set to 80 to activate
+EXHAUST_ACCEL_MIN = 99999.0      # DISABLED
 # Direction: decel means velocity and acceleration have opposite signs
 
 # ABSORPTION entry — high volume + low range = big player absorbing
-ABSORB_VOL_MIN = 1.5           # vol_rel must be high
-ABSORB_RANGE_MAX = 20.0        # bar_range must be low
-ABSORB_WICK_MIN = 0.50         # wick_ratio = rejection
+ABSORB_VOL_MIN = 99999.0       # DISABLED — set to 1.5 to activate
+ABSORB_RANGE_MAX = -1.0        # DISABLED
+ABSORB_WICK_MIN = 99999.0      # DISABLED
 
 # Wick rejection thresholds
 WICK_5M_MIN = 0.83
