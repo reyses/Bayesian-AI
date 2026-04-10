@@ -1444,6 +1444,14 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _log_phase('7. IS (final)', csv_path='nn_v2/output/blended/is_daily.csv')
         _log_phase('7. OOS (final)', csv_path='nn_v2/output/blended/oos_daily.csv')
 
+    # Hourly OOS report (live comparison reference)
+    if os.path.exists('nn_v2/output/blended/oos_trades.pkl'):
+        try:
+            from tools.hourly_oos_report import hourly_report
+            hourly_report('nn_v2/output/blended/oos_trades.pkl')
+        except Exception as e:
+            print(f'  Hourly report failed: {e}')
+
     # Physics vs CNN comparison
     physics_oos = 'nn_v2/output/blended/physics_oos_daily.csv'
     cnn_oos = 'nn_v2/output/blended/oos_daily.csv'
