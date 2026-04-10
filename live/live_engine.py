@@ -334,6 +334,7 @@ class LiveEngine:
         if self._bar_count % 300 == 0:
             self._load_tuning()
             self._orders.cleanup_stale_orders(max_age_s=120.0)
+            self._periodic_save()
 
         # === ONLY PROCESS ON 1m BAR CLOSE (from aggregator callback) ===
         if self._pending_1m_bar is None:
@@ -723,6 +724,26 @@ class LiveEngine:
         await self._client.disconnect()
         logger.info('Shutdown complete')
         self._shared_state['shutdown_confirmed'] = True
+
+    def _periodic_save(self):
+        """Append live data every 5 min so nothing is lost on crash."""
+        import pandas as pd
+        if not self._live_1s_bars:
+            return
+        day = self._session_date
+        out_dir = os.path.join('DATA', 'ATLAS_LIVE', '1s')
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, f'{day}.parquet')
+        df = pd.DataFrame(self._live_1s_bars)
+        df.to_parquet(path, index=False)
+        # Also save aggregated TFs
+        for tf in ['15s', '1m', '5m', '15m', '1h']:
+            tf_bars = self._agg.get_closed_bars(tf)
+            if tf_bars:
+                tf_dir = os.path.join('DATA', 'ATLAS_LIVE', tf)
+                os.makedirs(tf_dir, exist_ok=True)
+                tf_path = os.path.join(tf_dir, f'{day}.parquet')
+                pd.DataFrame(tf_bars).to_parquet(tf_path, index=False)
 
     def _save_live_data(self):
         """Save live session data: ATLAS_LIVE (all TFs) + FEATURES_LIVE (79D)."""
