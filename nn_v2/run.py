@@ -1434,11 +1434,117 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _log_phase('7. IS (final)', csv_path='nn_v2/output/blended/is_daily.csv')
         _log_phase('7. OOS (final)', csv_path='nn_v2/output/blended/oos_daily.csv')
 
+    # Check for new baseline and generate report
+    oos_path = 'nn_v2/output/blended/oos_daily.csv'
+    if os.path.exists(oos_path):
+        _check_new_baseline(oos_path)
+
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
     print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
     print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
+
+
+BASELINE_FILE = 'nn_v2/output/baseline_best.json'
+
+
+def _check_new_baseline(oos_csv_path):
+    """Check if this run beats the previous OOS baseline. If so, generate report."""
+    import json
+    import subprocess
+    import numpy as _np
+    from collections import Counter as _Counter
+
+    df_oos = pd.read_csv(oos_csv_path)
+    oos_per_day = df_oos['pnl'].sum() / len(df_oos)
+    oos_total = df_oos['pnl'].sum()
+    oos_days = len(df_oos)
+    oos_win = (df_oos['pnl'] > 0).sum()
+
+    # Load previous baseline
+    prev_best = 0
+    if os.path.exists(BASELINE_FILE):
+        with open(BASELINE_FILE, 'r') as f:
+            prev = json.load(f)
+            prev_best = prev.get('oos_per_day', 0)
+
+    if oos_per_day <= prev_best:
+        print(f'\n  OOS ${oos_per_day:.0f}/day — below baseline ${prev_best:.0f}/day')
+        return
+
+    # NEW BASELINE!
+    print(f'\n  *** NEW BASELINE: ${oos_per_day:.0f}/day OOS (was ${prev_best:.0f}/day) ***')
+
+    # Get commit hash
+    try:
+        commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'],
+                                          text=True).strip()
+    except Exception:
+        commit = 'unknown'
+
+    # Load IS results
+    is_path = 'nn_v2/output/blended/is_daily.csv'
+    df_is = pd.read_csv(is_path) if os.path.exists(is_path) else pd.DataFrame()
+
+    # Load trade breakdowns
+    tier_report = ''
+    for label, pkl_path in [('IS', 'nn_v2/output/blended/is_trades.pkl'),
+                             ('OOS', 'nn_v2/output/blended/oos_trades.pkl')]:
+        if not os.path.exists(pkl_path):
+            continue
+        import pickle
+        with open(pkl_path, 'rb') as f:
+            trades = pickle.load(f)
+        tier_report += f'\n### {label} Tier Breakdown\n'
+        tier_report += f'| Tier | N | WR | PnL | $/trade |\n'
+        tier_report += f'|------|---|-----|-----|--------|\n'
+        for tier, count in _Counter(t.get('entry_tier', '?') for t in trades).most_common():
+            sub = [t for t in trades if t.get('entry_tier') == tier]
+            wins = sum(1 for t in sub if t['pnl'] > 0)
+            total = sum(t['pnl'] for t in sub)
+            tier_report += f'| {tier} | {count} | {wins/count*100:.0f}% | ${total:,.0f} | ${total/count:.1f} |\n'
+
+    # Generate journal entry
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    report = f"""## NEW BASELINE: ${oos_per_day:.0f}/day OOS
+
+**Commit**: `{commit}` | **Date**: {date_str}
+**Previous baseline**: ${prev_best:.0f}/day
+
+### Summary
+| | IS | OOS |
+|---|---|---|
+| Days | {len(df_is)} | {oos_days} |
+| $/day | ${df_is['pnl'].sum()/max(len(df_is),1):.0f} | ${oos_per_day:.0f} |
+| Win days | {(df_is['pnl']>0).sum()}/{len(df_is)} ({(df_is['pnl']>0).sum()/max(len(df_is),1)*100:.0f}%) | {oos_win}/{oos_days} ({oos_win/oos_days*100:.0f}%) |
+| Total | ${df_is['pnl'].sum():,.0f} | ${oos_total:,.0f} |
+| Best day | ${df_is['pnl'].max():,.0f} | ${df_oos['pnl'].max():,.0f} |
+| Worst day | ${df_is['pnl'].min():,.0f} | ${df_oos['pnl'].min():,.0f} |
+| Median | ${_np.median(df_is['pnl']):,.0f} | ${_np.median(df_oos['pnl']):,.0f} |
+{tier_report}
+"""
+
+    # Save report
+    report_path = f'reports/findings/baseline_{date_str}_{oos_per_day:.0f}.md'
+    os.makedirs('reports/findings', exist_ok=True)
+    with open(report_path, 'w') as f:
+        f.write(report)
+    print(f'  Report saved: {report_path}')
+
+    # Update baseline file
+    baseline = {
+        'oos_per_day': oos_per_day,
+        'oos_total': oos_total,
+        'oos_days': oos_days,
+        'oos_win_pct': oos_win / oos_days * 100,
+        'commit': commit,
+        'date': date_str,
+    }
+    os.makedirs(os.path.dirname(BASELINE_FILE), exist_ok=True)
+    with open(BASELINE_FILE, 'w') as f:
+        json.dump(baseline, f, indent=2)
+    print(f'  Baseline updated: {BASELINE_FILE}')
 
 
 def _run_blended_forward(target: str):
