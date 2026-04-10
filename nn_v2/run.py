@@ -716,23 +716,24 @@ def _run_full_pipeline():
     print(f'  Book:         nn_v2/output/tree/strategy_book.txt')
 
 
-def _print_summary(results: list):
+def _print_summary(results: list, show_daily: bool = True):
     """Print multi-day summary."""
     if not results:
         print('No results.')
         return
 
+    import numpy as _np
+    from collections import Counter as _Counter
+
     n_days = len(results)
-    total_pnl = sum(r['pnl'] for r in results)
+    pnls = [r['pnl'] for r in results]
+    total_pnl = sum(pnls)
     total_trades = sum(r['trades'] for r in results)
-    winning_days = sum(1 for r in results if r['pnl'] > 0)
+    winning_days = sum(1 for p in pnls if p > 0)
+    losing_days = n_days - winning_days
 
-    print(f'\n{"="*60}')
-    print(f'RESULTS: {n_days} days | {total_trades} trades | ${total_pnl:.2f}')
-    print(f'  $/day: ${total_pnl / max(n_days, 1):.2f}')
-    print(f'  Winning days: {winning_days}/{n_days}')
-
-    if n_days > 1:
+    # Daily breakdown (only if verbose)
+    if n_days > 1 and show_daily:
         print(f'\n  Daily breakdown:')
         cumul = 0
         for r in results:
@@ -741,6 +742,42 @@ def _print_summary(results: list):
             print(f'    {r["day"]}  {r["trades"]:>3} trades  {r["wr"]:>4.0f}%  '
                   f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}')
 
+    # Summary
+    print(f'\n{"="*60}')
+    print(f'SUMMARY: {n_days} days | {total_trades} trades')
+    print(f'{"="*60}')
+    print(f'  Winning days: {winning_days}/{n_days} ({winning_days/max(n_days,1)*100:.0f}%)')
+    print(f'  Losing days:  {losing_days}/{n_days} ({losing_days/max(n_days,1)*100:.0f}%)')
+    print(f'  Accumulated:  ${total_pnl:>12,.0f}')
+    print(f'  Avg $/day:    ${total_pnl / max(n_days, 1):>12,.0f}')
+    print(f'  Best day:     ${max(pnls):>12,.0f}')
+    print(f'  Worst day:    ${min(pnls):>12,.0f}')
+    print(f'  Median day:   ${_np.median(pnls):>12,.0f}')
+
+    # PnL buckets
+    buckets = []
+    for p in pnls:
+        if p <= -500: buckets.append('<-$500')
+        elif p <= -200: buckets.append('-$500:-$200')
+        elif p <= -50: buckets.append('-$200:-$50')
+        elif p <= 0: buckets.append('-$50:$0')
+        elif p <= 50: buckets.append('$0:$50')
+        elif p <= 200: buckets.append('$50:$200')
+        elif p <= 500: buckets.append('$200:$500')
+        elif p <= 1000: buckets.append('$500:$1K')
+        else: buckets.append('>$1K')
+
+    bucket_order = ['<-$500', '-$500:-$200', '-$200:-$50', '-$50:$0',
+                    '$0:$50', '$50:$200', '$200:$500', '$500:$1K', '>$1K']
+    bucket_counts = _Counter(buckets)
+    mode_bucket = max(bucket_counts, key=bucket_counts.get)
+    print(f'  Mode bucket:  {mode_bucket} ({bucket_counts[mode_bucket]} days)')
+    print(f'  Distribution:')
+    for b in bucket_order:
+        c = bucket_counts.get(b, 0)
+        if c > 0:
+            bar = '#' * min(c, 40)
+            print(f'    {b:>14}: {c:>3} {bar}')
     print(f'{"="*60}')
 
 
@@ -809,7 +846,7 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     print(f'Saved: {csv_path}')
 
 
-def _run_blended_nmp(target: str, use_cnn: bool = True):
+def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare_blended import BlendedEngine
@@ -854,9 +891,10 @@ def _run_blended_nmp(target: str, use_cnn: bool = True):
             'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
-        tqdm.write(f'  {day_name}: {engine.summary()}')
+        if verbose:
+            tqdm.write(f'  {day_name}: {engine.summary()}')
 
-    _print_summary(all_results)
+    _print_summary(all_results, show_daily=verbose)
 
     # Save trades (with entry_tier, exit_reason, 79D paths)
     if all_trades:
@@ -1188,6 +1226,42 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     pipeline_start = _time.perf_counter()
 
+    # Progress tracker — shows running comparison table after each major phase
+    _progress = []
+
+    def _log_phase(phase_name, csv_path=None, trades_path=None, capture_pct=None):
+        """Record phase results for progress table."""
+        entry = {'phase': phase_name, 'trades': 0, 'pnl': 0, 'wr': 0,
+                 'capture': capture_pct or '', 'days': 0, 'win_days': 0}
+        if csv_path and os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            entry['days'] = len(df)
+            entry['trades'] = int(df['trades'].sum())
+            entry['pnl'] = df['pnl'].sum()
+            entry['wr'] = (df['pnl'] > 0).sum() / max(len(df), 1) * 100
+            entry['win_days'] = (df['pnl'] > 0).sum()
+        elif trades_path and os.path.exists(trades_path):
+            import pickle as _pk
+            with open(trades_path, 'rb') as f:
+                trades = _pk.load(f)
+            entry['trades'] = len(trades)
+            entry['pnl'] = sum(t['pnl'] for t in trades)
+            wins = sum(1 for t in trades if t['pnl'] > 0)
+            entry['wr'] = wins / max(len(trades), 1) * 100
+        _progress.append(entry)
+        _print_progress_table()
+
+    def _print_progress_table():
+        """Print running progress table."""
+        print(f'\n  {"Phase":<20} {"Trades":>7} {"$/day":>8} {"WinDays":>8} {"Capture":>8}')
+        print(f'  {"-"*55}')
+        for p in _progress:
+            days = p.get('days', 277) or 277
+            per_day = f'${p["pnl"]/days:,.0f}' if p['pnl'] else ''
+            wd = f'{p["win_days"]}/{days}' if p.get('win_days') else f'{p["wr"]:.0f}%'
+            cap = f'{p["capture"]:.1f}%' if isinstance(p.get('capture'), (int, float)) and p['capture'] else ''
+            print(f'  {p["phase"]:<20} {p["trades"]:>7,} {per_day:>8} {wd:>8} {cap:>8}')
+
     if _should_run('1'):
         print(f'\n{"="*40}')
         print(f'PHASE 1: NMP baseline (7 physics tiers, no CNN)')
@@ -1195,6 +1269,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_nmp('is', use_cnn=False)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+        _log_phase('1. NMP baseline', trades_path='nn_v2/output/trades/blended_is.pkl')
 
     if _should_run('2'):
         print(f'\n{"="*40}')
@@ -1253,6 +1328,8 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_nmp('is', use_cnn=True)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+        _log_phase('4. +CNN flip', trades_path='nn_v2/output/trades/blended_is.pkl')
 
     if _should_run('4b'):
         print(f'\n{"="*40}')
@@ -1353,6 +1430,9 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_blended_forward('oos')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+
+        _log_phase('7. IS (final)', csv_path='nn_v2/output/blended/is_daily.csv')
+        _log_phase('7. OOS (final)', csv_path='nn_v2/output/blended/oos_daily.csv')
 
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
