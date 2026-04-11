@@ -648,6 +648,15 @@ class BlendedEngine:
                              else P_CENTER_EXIT_BARS_KILLSHOT)
             if self._tier_p_center_bars >= required_bars:
                 return f'{self.entry_tier.lower()}_center'
+
+            # Z conviction fallback: if z hasn't moved by bar 24, wick failed
+            # EDA: winners |z| 2.33->1.00 by bar 24, losers 2.35->1.58 (stuck)
+            abs_z = abs(z)
+            if self.bars_held >= 24 and self.bars_held < 27:
+                z_shrink = (self._entry_abs_z - abs_z) / max(self._entry_abs_z, 0.01)
+                if z_shrink < 0.20:  # less than 20% z movement
+                    return f'{self.entry_tier.lower()}_no_conviction'
+
             return None
 
         # FREIGHT_TRAIN exit: velocity collapsed + decelerating
