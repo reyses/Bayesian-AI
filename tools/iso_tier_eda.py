@@ -228,16 +228,21 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                 if tier_filter and tier not in tier_filter:
                     continue
 
-                # Simulate trade: hold until z crosses zero or 60 bars max
+                # Simulate trade with REAL per-tier exit physics
                 entry_price = price
-                entry_bar = i
+                entry_abs_z = abs(z)
+                entry_velocity = abs(feat[_1M + _VEL])
+                entry_vol_rel = feat[_1M_VOL_REL] if len(feat) > _1M_VOL_REL else 1.0
                 peak_pnl = 0
                 held = 0
                 exit_pnl = 0
+                exit_reason = 'max_bars'
+                p_center_bars = 0
 
-                for j in range(i + 1, min(i + 360, len(bars))):  # max 30 min at 5s
+                for j in range(i + 1, min(i + 720, len(bars))):  # max 60 min at 5s
                     bar_j = bars[j]
                     p = bar_j['price']
+                    fj = bar_j['features_79d']
                     if p < 100:
                         continue
 
@@ -248,15 +253,98 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
 
                     peak_pnl = max(peak_pnl, pnl)
                     held += 1
+                    bars_1m = held // 12
 
-                    # Simple exit: z crosses zero OR 60 1m-bars
-                    z_j = bar_j['features_79d'][_1M + _Z]
-                    elapsed_1m = held // 12  # 5s bars to 1m
-                    if abs(z_j) < 0.3 or elapsed_1m >= 60:
+                    z_j = fj[_1M + _Z]
+                    abs_z_j = abs(z_j)
+                    vr_j = fj[_1M + _VR]
+                    vel_j = fj[_1M + _VEL]
+                    accel_j = fj[_1M + _ACCEL] if len(fj) > _1M + _ACCEL else 0
+                    vol_j = fj[_1M_VOL_REL] if len(fj) > _1M_VOL_REL else 1.0
+                    v5_j = fj[_5M_VEL] if len(fj) > _5M_VEL else 0
+                    v5a_j = fj[_5M_ACCEL] if len(fj) > _5M_ACCEL else 0
+
+                    exited = False
+
+                    # Hard stop
+                    if pnl <= -150:
+                        exit_reason = 'hard_stop'; exited = True
+
+                    # Giveback stop
+                    elif peak_pnl >= 30 and pnl < peak_pnl * 0.5:
+                        exit_reason = 'giveback'; exited = True
+
+                    # ── Per-tier exits ──
+                    elif tier in ('CASCADE', 'KILL_SHOT'):
+                        # p_center confirmation + z conviction at bar 24
+                        p_ctr = fj[_1M + 9] if len(fj) > _1M + 9 else 0  # p_at_center
+                        if p_ctr > 0.4:
+                            p_center_bars += 1
+                        else:
+                            p_center_bars = 0
+                        req = 3 if tier == 'CASCADE' else 2
+                        if p_center_bars >= req:
+                            exit_reason = f'{tier.lower()}_center'; exited = True
+                        elif bars_1m >= 2 and bars_1m < 3:
+                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
+                            if z_shrink < 0.20:
+                                exit_reason = f'{tier.lower()}_no_conviction'; exited = True
+
+                    elif tier == 'FREIGHT_TRAIN':
+                        abs_vel_j = abs(vel_j)
+                        vel_ratio = abs_vel_j / max(entry_velocity, 1.0)
+                        if vel_ratio < 0.50 and vel_j * accel_j < 0:
+                            exit_reason = 'freight_decel'; exited = True
+
+                    elif tier == 'REGIME_FLIP':
+                        if bars_1m >= 1 and bars_1m < 2:
+                            if abs_z_j > entry_abs_z:
+                                exit_reason = 'regime_no_conviction'; exited = True
+                        if vr_j > 0.30:
+                            exit_reason = 'regime_vr_rising'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'regime_mean'; exited = True
+
+                    elif tier == 'ABSORPTION':
+                        if bars_1m >= 1 and bars_1m < 2:
+                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
+                            if z_shrink < 0.10:
+                                exit_reason = 'absorb_no_conviction'; exited = True
+                        if bars_1m >= 2 and vol_j > 1.5:
+                            exit_reason = 'absorb_vol_persistent'; exited = True
+                        elif vr_j > 0.65:
+                            exit_reason = 'absorb_vr_rising'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'absorb_mean'; exited = True
+
+                    elif tier == 'EXHAUSTION_BAR':
+                        if bars_1m >= 1 and bars_1m < 2:
+                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
+                            if z_shrink < 0.20:
+                                exit_reason = 'exhaust_no_conviction'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'exhaust_mean'; exited = True
+
+                    elif tier == 'MTF_EXHAUSTION':
+                        if bars_1m >= 1 and bars_1m < 2:
+                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
+                            if z_shrink < 0.10:
+                                exit_reason = 'mtf_no_conviction'; exited = True
+                        if v5a_j > 0 and abs(v5_j) > 30:
+                            exit_reason = 'mtf_5m_reaccel'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'mtf_mean'; exited = True
+
+                    else:
+                        # FADE_AGAINST, FADE_CALM, FADE_MOMENTUM, RIDE_AGAINST
+                        # Standard fade/ride physics
+                        if abs_z_j < 0.3:
+                            exit_reason = 'mean_reached'; exited = True
+
+                    if exited:
                         exit_pnl = pnl
                         break
                 else:
-                    # Ran out of bars
                     if held > 0:
                         exit_pnl = pnl
 
@@ -271,6 +359,7 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                     'pnl': exit_pnl,
                     'peak': peak_pnl,
                     'held': held,
+                    'exit_reason': exit_reason,
                     'timestamp': ts,
                     'entry_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
                 }
@@ -314,6 +403,18 @@ def print_eda(tier_trades):
                 pnls = [t['pnl'] for t in sub]
                 wr = sum(1 for p in pnls if p > 0) / len(pnls) * 100
                 print(f'  {tier:<20} {d:<6} {len(sub):>5} trades  WR={wr:.0f}%  avg=${np.mean(pnls):.1f}')
+
+    # Per-tier exit reason breakdown
+    print(f'\nEXIT REASONS:')
+    for tier in sorted(tier_trades.keys()):
+        trades = tier_trades[tier]
+        exits = Counter(t.get('exit_reason', '?') for t in trades)
+        print(f'  {tier}:')
+        for reason, count in exits.most_common(8):
+            sub_pnls = [t['pnl'] for t in trades if t.get('exit_reason') == reason]
+            avg = np.mean(sub_pnls)
+            wr = sum(1 for p in sub_pnls if p > 0) / len(sub_pnls) * 100
+            print(f'    {reason:<30} {count:>6}  WR={wr:.0f}%  avg=${avg:.1f}')
 
     # Save
     out_dir = 'training/output/trades'
