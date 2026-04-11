@@ -131,6 +131,15 @@ def check_tier(feat, z):
     if abs_vel >= VELOCITY_THRESHOLD:
         results.append(('FADE_MOMENTUM', direction))
 
+    # MTF_BREAKOUT: 5m AND 15m z both > 1.3 (multi-TF aligned breakout)
+    _5M_Z = 2 * 12 + _Z   # 5m z index
+    _15M_Z = 3 * 12 + _Z  # 15m z index
+    z_5m_abs = abs(feat[_5M_Z]) if len(feat) > _5M_Z else 0
+    z_15m_abs = abs(feat[_15M_Z]) if len(feat) > _15M_Z else 0
+    if z_5m_abs > 1.3 and z_15m_abs > 1.3:
+        breakout_dir = 'long' if z > 0 else 'short'
+        results.append(('MTF_BREAKOUT', breakout_dir))
+
     # FADE_CALM: default (always qualifies for NMP)
     results.append(('FADE_CALM', direction))
 
@@ -327,14 +336,28 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             exit_reason = 'exhaust_mean'; exited = True
 
                     elif tier == 'MTF_EXHAUSTION':
-                        if bars_1m >= 1 and bars_1m < 2:
-                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
-                            if z_shrink < 0.10:
-                                exit_reason = 'mtf_no_conviction'; exited = True
-                        if v5a_j > 0 and abs(v5_j) > 30:
-                            exit_reason = 'mtf_5m_reaccel'; exited = True
-                        elif abs_z_j < 0.3:
-                            exit_reason = 'mtf_mean'; exited = True
+                        # Riding 5m — exit when 5m reverses or decelerates
+                        if direction == 'long' and v5_j < -10:
+                            exit_reason = 'mtf_5m_reversed'; exited = True
+                        elif direction == 'short' and v5_j > 10:
+                            exit_reason = 'mtf_5m_reversed'; exited = True
+                        elif abs(v5_j) > 20 and v5_j * v5a_j < 0:
+                            exit_reason = 'mtf_5m_decel'; exited = True
+                        elif vr_j < 0.30:
+                            exit_reason = 'mtf_vr_dropped'; exited = True
+
+                    elif tier == 'MTF_BREAKOUT':
+                        # Ride until multi-TF alignment breaks
+                        _5m_z_idx = 2 * 12 + _Z
+                        _15m_z_idx = 3 * 12 + _Z
+                        z5 = abs(fj[_5m_z_idx]) if len(fj) > _5m_z_idx else 0
+                        z15 = abs(fj[_15m_z_idx]) if len(fj) > _15m_z_idx else 0
+                        if z5 < 0.8 or z15 < 0.8:
+                            exit_reason = 'breakout_alignment_lost'; exited = True
+                        elif direction == 'long' and z_j < -0.3:
+                            exit_reason = 'breakout_overshot'; exited = True
+                        elif direction == 'short' and z_j > 0.3:
+                            exit_reason = 'breakout_overshot'; exited = True
 
                     else:
                         # FADE_AGAINST, FADE_CALM, FADE_MOMENTUM, RIDE_AGAINST
@@ -431,6 +454,61 @@ def print_eda(tier_trades):
         pd.DataFrame(csv_rows).to_csv(csv_path, index=False)
 
     print(f'\nSaved per-tier pickles + CSVs to {out_dir}/')
+
+    # ── Save report to file ──
+    import time
+    report_dir = 'reports/findings'
+    os.makedirs(report_dir, exist_ok=True)
+    report_path = os.path.join(report_dir, f'maxfill_eda_{time.strftime("%Y-%m-%d")}.md')
+
+    with open(report_path, 'w') as f:
+        f.write(f'# Max-Fill Tier EDA -- {time.strftime("%Y-%m-%d")}\n\n')
+
+        # Tier summary table
+        f.write(f'## Tier Summary\n\n')
+        f.write(f'| Tier | Trades | WR | $/trade | $/day | Total |\n')
+        f.write(f'|------|--------|-----|---------|-------|-------|\n')
+        n_days = len(set(t['day'] for tier_list in tier_trades.values() for t in tier_list))
+        for tier in sorted(tier_trades.keys(), key=lambda t: -sum(x['pnl'] for x in tier_trades[t])):
+            trades = tier_trades[tier]
+            pnls = [t['pnl'] for t in trades]
+            wr = sum(1 for p in pnls if p > 0) / len(pnls) * 100
+            avg = np.mean(pnls)
+            total = sum(pnls)
+            per_day = total / max(n_days, 1)
+            f.write(f'| {tier} | {len(trades):,} | {wr:.0f}% | ${avg:.1f} | ${per_day:,.0f} | ${total:,.0f} |\n')
+
+        f.write(f'\nDays: {n_days}\n\n')
+
+        # Direction breakdown
+        f.write(f'## Direction\n\n')
+        f.write(f'| Tier | Dir | Trades | WR | Avg |\n')
+        f.write(f'|------|-----|--------|-----|-----|\n')
+        for tier in sorted(tier_trades.keys()):
+            trades = tier_trades[tier]
+            for d in ['long', 'short']:
+                sub = [t for t in trades if t['dir'] == d]
+                if sub:
+                    pnls = [t['pnl'] for t in sub]
+                    wr = sum(1 for p in pnls if p > 0) / len(pnls) * 100
+                    f.write(f'| {tier} | {d} | {len(sub)} | {wr:.0f}% | ${np.mean(pnls):.1f} |\n')
+
+        # Exit reasons
+        f.write(f'\n## Exit Reasons\n\n')
+        for tier in sorted(tier_trades.keys()):
+            trades = tier_trades[tier]
+            exits = Counter(t.get('exit_reason', '?') for t in trades)
+            f.write(f'### {tier}\n\n')
+            f.write(f'| Exit | Count | WR | Avg |\n')
+            f.write(f'|------|-------|-----|-----|\n')
+            for reason, count in exits.most_common(10):
+                sub_pnls = [t['pnl'] for t in trades if t.get('exit_reason') == reason]
+                avg = np.mean(sub_pnls)
+                wr = sum(1 for p in sub_pnls if p > 0) / len(sub_pnls) * 100
+                f.write(f'| {reason} | {count} | {wr:.0f}% | ${avg:.1f} |\n')
+            f.write(f'\n')
+
+    print(f'Report saved: {report_path}')
 
 
 def parse_args():
