@@ -279,10 +279,15 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                 entry_velocity = abs(feat[_1M + _VEL])
                 entry_vol_rel = feat[_1M_VOL_REL] if len(feat) > _1M_VOL_REL else 1.0
                 peak_pnl = 0
+                peak_bar = 0
                 held = 0
                 exit_pnl = 0
                 exit_reason = 'max_bars'
                 p_center_bars = 0
+                # State tracking for physics-based exits
+                min_z_seen = entry_abs_z   # z minimum (reversion progress)
+                max_vel_seen = entry_velocity  # velocity peak (momentum tracking)
+                entry_vr = feat[_1M + _VR]
 
                 for j in range(i + 1, min(i + 720, len(bars))):  # max 60 min at 5s
                     bar_j = bars[j]
@@ -296,13 +301,21 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                     else:
                         pnl = (entry_price - p) / TICK * TV
 
-                    peak_pnl = max(peak_pnl, pnl)
+                    if pnl > peak_pnl:
+                        peak_pnl = pnl
+                        peak_bar = held
                     held += 1
                     bars_1m = held // 12
 
                     z_j = fj[_1M + _Z]
                     abs_z_j = abs(z_j)
                     vr_j = fj[_1M + _VR]
+
+                    # Update state trackers (all tiers)
+                    min_z_seen = min(min_z_seen, abs_z_j)
+                    abs_vel_j = abs(vel_j)
+                    max_vel_seen = max(max_vel_seen, abs_vel_j)
+                    bars_since_peak = held - peak_bar
                     vel_j = fj[_1M + _VEL]
                     accel_j = fj[_1M + _ACCEL] if len(fj) > _1M + _ACCEL else 0
                     vol_j = fj[_1M_VOL_REL] if len(fj) > _1M_VOL_REL else 1.0
@@ -319,10 +332,10 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                     elif peak_pnl >= 30 and pnl < peak_pnl * 0.5:
                         exit_reason = 'giveback'; exited = True
 
-                    # ── Per-tier exits ──
+                    # ── Per-tier exits (all use state tracking) ──
                     elif tier in ('CASCADE', 'KILL_SHOT'):
-                        # p_center confirmation + z conviction at bar 24
-                        p_ctr = fj[_1M + 9] if len(fj) > _1M + 9 else 0  # p_at_center
+                        # p_center confirmation
+                        p_ctr = fj[_1M + 9] if len(fj) > _1M + 9 else 0
                         if p_ctr > 0.4:
                             p_center_bars += 1
                         else:
@@ -330,13 +343,16 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                         req = 3 if tier == 'CASCADE' else 2
                         if p_center_bars >= req:
                             exit_reason = f'{tier.lower()}_center'; exited = True
+                        # z conviction at bar 24
                         elif bars_1m >= 2 and bars_1m < 3:
                             z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
                             if z_shrink < 0.20:
                                 exit_reason = f'{tier.lower()}_no_conviction'; exited = True
+                        # z reversal: fade progress reversed
+                        elif min_z_seen < 1.5 and abs_z_j > min_z_seen + 0.3:
+                            exit_reason = f'{tier.lower()}_z_reversal'; exited = True
 
                     elif tier == 'FREIGHT_TRAIN':
-                        abs_vel_j = abs(vel_j)
                         vel_ratio = abs_vel_j / max(entry_velocity, 1.0)
                         if vel_ratio < 0.50 and vel_j * accel_j < 0:
                             exit_reason = 'freight_decel'; exited = True
@@ -383,34 +399,44 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             exit_reason = 'mtf_mean'; exited = True
 
                     elif tier == 'MTF_BREAKOUT':
-                        # Ride until multi-TF alignment breaks
                         _5m_z_idx = 2 * 12 + _Z
                         _15m_z_idx = 3 * 12 + _Z
                         z5 = abs(fj[_5m_z_idx]) if len(fj) > _5m_z_idx else 0
                         z15 = abs(fj[_15m_z_idx]) if len(fj) > _15m_z_idx else 0
+                        # Multi-TF alignment broken
                         if z5 < 0.8 or z15 < 0.8:
                             exit_reason = 'breakout_alignment_lost'; exited = True
+                        # Velocity decayed = breakout exhausting
+                        elif max_vel_seen > 5 and abs_vel_j < max_vel_seen * 0.3:
+                            exit_reason = 'breakout_vel_decay'; exited = True
+                        # z overshot to other side
                         elif direction == 'long' and z_j < -0.3:
                             exit_reason = 'breakout_overshot'; exited = True
                         elif direction == 'short' and z_j > 0.3:
                             exit_reason = 'breakout_overshot'; exited = True
 
                     elif tier == 'RIDE_AGAINST':
-                        # Ride exit: 1h velocity flips or mean reached
                         _1h_vel_j = fj[48 + 3] if len(fj) > 51 else 0
                         # 1h vel flipped against our ride direction
                         if direction == 'long' and _1h_vel_j < 0:
                             exit_reason = 'ride_1h_flipped'; exited = True
                         elif direction == 'short' and _1h_vel_j > 0:
                             exit_reason = 'ride_1h_flipped'; exited = True
+                        # Velocity decayed to 30% of peak = momentum dying
+                        elif max_vel_seen > 5 and abs_vel_j < max_vel_seen * 0.3:
+                            exit_reason = 'ride_vel_decay'; exited = True
                         elif abs_z_j < 0.3:
                             exit_reason = 'mean_reached'; exited = True
 
                     else:
                         # FADE_AGAINST, FADE_CALM, FADE_MOMENTUM
-                        # Standard fade physics
-                        if abs_z_j < 0.3:
+                        # Mean reached (widened from 0.3 to 0.5)
+                        if abs_z_j < 0.5:
                             exit_reason = 'mean_reached'; exited = True
+                        # Z reversal: z stopped shrinking and rebounded
+                        # If z reached below 1.5 then bounced back above by 0.3+, fade is done
+                        elif min_z_seen < 1.5 and abs_z_j > min_z_seen + 0.3:
+                            exit_reason = 'z_reversal'; exited = True
 
                     if exited:
                         exit_pnl = pnl
