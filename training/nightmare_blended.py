@@ -528,20 +528,22 @@ class BlendedEngine:
                                      cnn_flipped=False)
 
     def _classify_full_tier(self, feat, z):
-        """Classify entry into one of 8 ExNMP tiers.
+        """Classify entry into tiered strategy.
 
         Returns (direction, tier, cnn_flipped).
 
-        Tier priority (waterfall):
-          1. CASCADE:        wick rejection + 1h z aligned
-          2. KILL_SHOT:      wick rejection, no 1h alignment
-          3. FREIGHT_TRAIN:  |velocity| > 100, ride the momentum
-          4. FADE_MOMENTUM:  |velocity| > 50, fade z (no flip)
-          5. FADE_CALM:      |velocity| < 50, fade z (no flip)
-          -- CNN flip applied below this line --
-          6. RIDE_AGAINST:   CNN flipped + 1h velocity opposes
-          7. RIDE_MOMENTUM:  CNN flipped + |velocity| > 50
-          8. RIDE_CALM:      CNN flipped + |velocity| < 50
+        Priority ordered by actual $/trade × WR from max-fill EDA:
+          1. FADE_AGAINST:  $19.2/tr, 69% WR — 1h extreme against fade, keep fading
+          2. KILL_SHOT:     $13.3/tr, 72% WR — wick rejection, no 1h alignment
+          3. FADE_MOMENTUM: $10.1/tr, 58% WR — high velocity, fade z
+          4. RIDE_AGAINST:  $8.7/tr,  51% WR — 1h velocity opposes, ride
+          5. CASCADE:       $5.4/tr,  67% WR — wick + 1h aligned
+          6. FADE_CALM:     $1.0/tr,  58% WR — default fade (CNN opportunity)
+
+        KILLED (negative $/trade in max-fill):
+          - FREIGHT_TRAIN:    -$116/tr, 45% WR
+          - MTF_EXHAUSTION:   -$52/tr,  17% WR
+          - EXHAUSTION_BAR:   -$6.5/tr, 50% WR
         """
         # NMP default direction: fade the z
         direction = 'short' if z > 0 else 'long'
@@ -556,45 +558,42 @@ class BlendedEngine:
         abs_vel = abs(velocity)
 
         has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
-        h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
-                      (direction == 'short' and h1_z > H1_Z_MIN))
 
-        # Tier 1: CASCADE — wick + 1h aligned
-        if has_wick and h1_aligned:
-            return direction, 'CASCADE', False
-
-        # Tier 2: KILL_SHOT — wick, no 1h
-        if has_wick:
-            return direction, 'KILL_SHOT', False
-
-        # Tier 3: FREIGHT_TRAIN — extreme velocity, always ride
-        if abs_vel >= FREIGHT_TRAIN_THRESHOLD:
-            direction = 'long' if velocity > 0 else 'short'
-            return direction, 'FREIGHT_TRAIN', True
-
-        # Check if 1h z is extreme against the fade direction
+        # Check 1h conditions
         h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
                            (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
+        h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
+                      (direction == 'short' and h1_z > H1_Z_MIN))
+        h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
+                          (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
 
-        # FADE_AGAINST: 1h_z extreme against fade — keep fading (don't follow 1h)
+        # 1. FADE_AGAINST — $19.2/tr, 69% WR
+        #    1h z extreme against fade direction → keep fading (contrarian)
         if h1_against_fade:
             return direction, 'FADE_AGAINST', False
 
-        # RIDE_AGAINST: 1h_vel opposes fade direction (milder than z, but velocity confirms)
-        h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
-                          (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
-        if h1_vel_against:
-            direction = 'long' if h1_vel > 0 else 'short'
-            return direction, 'RIDE_AGAINST', False
+        # 2. KILL_SHOT — $13.3/tr, 72% WR
+        #    Wick rejection without 1h alignment
+        if has_wick and not h1_aligned:
+            return direction, 'KILL_SHOT', False
 
-        # Direction override now happens in on_state() via per-tier CNN
-        # _classify_full_tier returns physics default only
-
-        # FADE_MOMENTUM
+        # 3. FADE_MOMENTUM — $10.1/tr, 58% WR
+        #    High velocity, fade z
         if abs_vel >= VELOCITY_THRESHOLD:
             return direction, 'FADE_MOMENTUM', False
 
-        # FADE_CALM (default)
+        # 4. RIDE_AGAINST — $8.7/tr, 51% WR
+        #    1h velocity opposes fade → ride with 1h
+        if h1_vel_against and not h1_against_fade:
+            direction = 'long' if h1_vel > 0 else 'short'
+            return direction, 'RIDE_AGAINST', False
+
+        # 5. CASCADE — $5.4/tr, 67% WR
+        #    Wick + 1h aligned (was #1, but FADE_AGAINST/KILL_SHOT better per trade)
+        if has_wick and h1_aligned:
+            return direction, 'CASCADE', False
+
+        # 6. FADE_CALM — $1.0/tr, 58% WR (default — CNN's main opportunity)
         return direction, 'FADE_CALM', False
 
     def _check_exit(self, feat, z, vr, pnl):
