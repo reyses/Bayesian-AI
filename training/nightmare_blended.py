@@ -494,6 +494,26 @@ class BlendedEngine:
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
 
+        # === CHAINED LIGHTNING — upgrade tier while in position ===
+        if self.in_pos and is_1m:
+            direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            if tier is not None and direction == self.direction and tier != self.entry_tier:
+                old_tier = self.entry_tier
+                self.entry_tier = tier
+                self.cnn_flipped = cnn_flipped
+                # Reset exit counters for new tier's exit physics
+                self._p_center_bars = 0
+                self._z_near_zero_bars = 0
+                self._tier_p_center_bars = 0
+                self._cnn_exit_confirm = 0
+                self._cnn_loser_confirm = 0
+                self._trade_path.append({
+                    'bar': self.bars_held, 'timestamp': ts, 'price': price,
+                    'pnl': pnl, 'peak_pnl': self.peak_pnl,
+                    'features_79d': feat.copy(),
+                    'chain': f'{old_tier}->{tier}',
+                })
+
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m and price > 100:
             # Unified tier classification (no NMP/non-NMP split)
