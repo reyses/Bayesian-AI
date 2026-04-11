@@ -95,6 +95,7 @@ class LiveEngineV2:
         self._trading = False
         self._shutting_down = False
         self._position_open = False
+        self._order_pending = False   # block new actions while waiting for fill
         self._daily_pnl = 0.0
         self._trade_count = 0
         self._last_ts = 0.0
@@ -412,8 +413,13 @@ class LiveEngineV2:
                 continue
 
             if msg.get('type') != MsgType.BAR:
-                if msg.get('type') == MsgType.FILL:
-                    self._on_fill(msg)
+                if msg.get('type') == 'POSITION':
+                    qty = int(msg.get('qty', msg.get('quantity', 0)))
+                    if qty == 0 and self._position_open:
+                        logger.warning('  NT8 says FLAT — syncing local state')
+                        self._position_open = False
+                    elif qty != 0 and not self._position_open:
+                        logger.warning(f'  NT8 says POSITION qty={qty} — orphan detected')
                 continue
 
             bar = self._extract_bar(msg)
@@ -457,21 +463,25 @@ class LiveEngineV2:
             new_trade = len(self._engine.trades) > prev_trades
 
             event = ''
-            if entered:
+            if entered and not self._order_pending:
                 event = f'ENTRY_{self._engine.entry_tier}'
                 if not self._dry_run:
+                    self._order_pending = True
                     await self._send_entry()
+                    self._order_pending = False
                 else:
                     logger.info(f'  [DRY] ENTRY {self._engine.direction} '
                                 f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
 
-            if exited and new_trade:
+            if exited and new_trade and not self._order_pending:
                 t = self._engine.trades[-1]
                 event = f'EXIT_{t.get("exit_reason", "?")}'
                 self._daily_pnl += t['pnl']
                 self._trade_count += 1
                 if not self._dry_run:
+                    self._order_pending = True
                     await self._send_exit()
+                    self._order_pending = False
                 logger.info(f'  {"[DRY] " if self._dry_run else ""}'
                             f'EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f} '
                             f'daily=${self._daily_pnl:.0f} #{self._trade_count}')
@@ -500,32 +510,101 @@ class LiveEngineV2:
                 self._periodic_save()
 
     # ═══════════════════════════════════════════════════════════════════
-    # TRADE EXECUTION
+    # TRADE EXECUTION — wait for NT8 confirmation
     # ═══════════════════════════════════════════════════════════════════
 
     async def _send_entry(self):
+        """Send entry order and WAIT for fill confirmation from NT8."""
         side = 'BUY' if self._engine.direction == 'long' else 'SELL'
+        order_id = f'v2_{self._trade_count}_{int(time.time())}'
         msg = place_order(
-            order_id=f'v2_{self._trade_count}_{int(time.time())}',
+            order_id=order_id,
             instrument=self._cfg.instrument,
             account=self._cfg.account,
             side=side, qty=1)
         await self._client.send(msg)
-        self._position_open = True
-        logger.info(f'  ENTRY: {side} {self._engine.entry_tier} @ {self._last_price:.2f}')
+        logger.info(f'  ORDER SENT: {side} {self._engine.entry_tier} (waiting for fill...)')
+
+        # Wait for FILL confirmation
+        fill = await self._wait_for_fill(order_id, timeout=10.0)
+        if fill:
+            fill_price = float(fill.get('fill_price', self._last_price))
+            self._engine.entry_price = fill_price
+            self._position_open = True
+            logger.info(f'  FILLED: {side} @ {fill_price:.2f} '
+                        f'(engine had {self._last_price:.2f}, slippage={abs(fill_price - self._last_price):.2f})')
+        else:
+            logger.warning(f'  NO FILL after 10s — position state uncertain')
+            self._position_open = True  # assume filled, will reconcile on POSITION msg
 
     async def _send_exit(self):
+        """Send close order and WAIT for confirmation."""
         msg = close_position(
             instrument=self._cfg.instrument,
             account=self._cfg.account)
         await self._client.send(msg)
-        self._position_open = False
+        logger.info(f'  CLOSE SENT (waiting for confirmation...)')
 
-    def _on_fill(self, msg):
-        fill_price = float(msg.get('fill_price', 0))
-        if fill_price and self._engine.in_pos and self._engine.entry_price != fill_price:
-            logger.info(f'  Fill correction: {self._engine.entry_price:.2f} -> {fill_price:.2f}')
-            self._engine.entry_price = fill_price
+        # Wait for POSITION with qty=0 or FILL confirmation
+        confirmed = await self._wait_for_flat(timeout=10.0)
+        if confirmed:
+            self._position_open = False
+            logger.info(f'  CLOSE CONFIRMED')
+        else:
+            logger.warning(f'  CLOSE NOT CONFIRMED after 10s — will reconcile')
+            self._position_open = False  # assume closed
+
+    async def _wait_for_fill(self, order_id, timeout=10.0):
+        """Wait for FILL message matching order_id. Returns fill msg or None."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+
+            if msg.get('type') == MsgType.FILL:
+                return msg
+            elif msg.get('type') == MsgType.BAR:
+                # Keep processing bars while waiting
+                bar = self._extract_bar(msg)
+                self._agg.feed(bar)
+                self._bar_count += 1
+                self._last_ts = bar['timestamp']
+                self._last_price = bar['close']
+                self._live_bars.append(bar)
+            elif msg.get('type') == 'POSITION':
+                qty = int(msg.get('qty', 0))
+                if qty != 0:
+                    return msg  # position opened = fill happened
+
+        return None
+
+    async def _wait_for_flat(self, timeout=10.0):
+        """Wait for POSITION with qty=0 confirming flat. Returns True/False."""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+
+            if msg.get('type') == 'POSITION':
+                qty = int(msg.get('qty', msg.get('quantity', 0)))
+                if qty == 0:
+                    return True
+            elif msg.get('type') == MsgType.FILL:
+                # Exit fill received
+                return True
+            elif msg.get('type') == MsgType.BAR:
+                bar = self._extract_bar(msg)
+                self._agg.feed(bar)
+                self._bar_count += 1
+                self._last_ts = bar['timestamp']
+                self._last_price = bar['close']
+                self._live_bars.append(bar)
+
+        return False
 
     # ═══════════════════════════════════════════════════════════════════
     # LEDGER + SAVE
