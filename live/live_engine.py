@@ -164,6 +164,17 @@ class LiveEngine:
         self._live_79d = []           # 79D features per 1m close
         self._session_date = time.strftime('%Y_%m_%d')
 
+        # Live ledger — every 5s bar with features + engine state
+        self._ledger_path = os.path.join('reports', 'live', f'ledger_{self._session_date}.csv')
+        os.makedirs(os.path.dirname(self._ledger_path), exist_ok=True)
+        self._ledger_file = open(self._ledger_path, 'w')
+        # Header: timestamp, price, all 91 features, engine state
+        ledger_cols = ['timestamp', 'price'] + list(FEATURE_NAMES_79D) + [
+            'in_pos', 'direction', 'tier', 'bars_held', 'pnl', 'peak_pnl',
+            'entry_price', 'event']
+        self._ledger_file.write(','.join(ledger_cols) + '\n')
+        self._ledger_file.flush()
+
         # Incremental writer (crash-safe)
         from live.incremental_writer import IncrementalWriter
         self._writer = IncrementalWriter(
@@ -435,6 +446,40 @@ class LiveEngine:
         new_trade = len(self._engine.trades) > prev_n_trades
         entered = self._engine.in_pos and not prev_in_pos
         exited = not self._engine.in_pos and prev_in_pos
+
+        # Determine event
+        event = ''
+        if entered:
+            event = f'ENTRY_{self._engine.entry_tier}'
+        elif exited and new_trade:
+            event = f'EXIT_{self._engine.trades[-1].get("exit_reason", "?")}'
+
+        # Write ledger row
+        try:
+            pnl = 0.0
+            if self._engine.in_pos:
+                if self._engine.direction == 'long':
+                    pnl = (bar['close'] - self._engine.entry_price) / 0.25 * 0.50
+                else:
+                    pnl = (self._engine.entry_price - bar['close']) / 0.25 * 0.50
+
+            row = [f'{ts:.0f}', f'{bar["close"]:.2f}']
+            row += [f'{feat[i]:.6f}' for i in range(len(FEATURE_NAMES_79D))]
+            row += [
+                '1' if self._engine.in_pos else '0',
+                self._engine.direction or '',
+                self._engine.entry_tier or '',
+                str(self._engine.bars_held),
+                f'{pnl:.1f}',
+                f'{self._engine.peak_pnl:.1f}',
+                f'{self._engine.entry_price:.2f}' if self._engine.in_pos else '',
+                event,
+            ]
+            self._ledger_file.write(','.join(row) + '\n')
+            if self._bar_count % 60 == 0:  # flush every 5 min
+                self._ledger_file.flush()
+        except Exception as e:
+            logger.warning(f'Ledger write failed: {e}')
 
         if entered and not self._closing_position:
             await self._send_entry(
@@ -723,6 +768,12 @@ class LiveEngine:
     async def _shutdown(self):
         """Graceful shutdown: flatten, save regret, retrain brain, disconnect."""
         self._shutting_down = True
+
+        # Close ledger
+        if hasattr(self, '_ledger_file') and self._ledger_file:
+            self._ledger_file.flush()
+            self._ledger_file.close()
+            logger.info(f'Ledger saved: {self._ledger_path}')
 
         # Flatten if in position
         if self._position_open:
