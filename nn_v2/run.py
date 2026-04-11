@@ -1700,9 +1700,27 @@ def _run_blended_forward(target: str):
 
 
 def main():
+    global FEATURES_DIR, FEATURES_DIR_5S, FEATURES_DIR_1M, ATLAS_1S, ATLAS_1M
+
     if len(sys.argv) < 2:
         print(__doc__)
         return
+
+    # --atlas flag: switch data source (e.g. --atlas DATA/ATLAS_NT8)
+    if '--atlas' in sys.argv:
+        idx = sys.argv.index('--atlas')
+        atlas_root = sys.argv[idx + 1]
+        sys.argv.pop(idx)  # remove --atlas
+        sys.argv.pop(idx)  # remove the value
+
+        atlas_name = os.path.basename(atlas_root.rstrip('/'))  # e.g. "ATLAS_NT8"
+        feat_name = atlas_name.replace('ATLAS', 'FEATURES')    # e.g. "FEATURES_NT8"
+        FEATURES_DIR = os.path.join('DATA', feat_name)
+        FEATURES_DIR_5S = f'{FEATURES_DIR}_5s'
+        FEATURES_DIR_1M = f'{FEATURES_DIR}_1m'
+        ATLAS_1S = os.path.join(atlas_root, '1s')
+        ATLAS_1M = os.path.join(atlas_root, '1m')
+        print(f'[ATLAS: {atlas_root}] Features: {FEATURES_DIR_5S}/')
 
     cmd = sys.argv[1]
 
