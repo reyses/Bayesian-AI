@@ -1,4 +1,4 @@
-# CNN Physics Classifier — Design Spec v2
+# CNN Physics Classifier — Design Spec v3
 
 ## Philosophy
 The regret oracle shows the PERFECT trades — optimal entry, direction, duration, exit.
@@ -6,74 +6,92 @@ The CNN's job: learn which 91D physics patterns correspond to which oracle outco
 The physics engine is the teacher's curriculum. The oracle is the answer key.
 The CNN is the student trying to recognize the patterns that lead to A+ answers.
 
-## Why Current CNNs Fail
-The concept is correct. The execution has 3 problems:
+## Architecture: 5 Jobs × N Tiers = Specialist Models
 
-1. **One model for all tiers** — CASCADE (96% WR, wick rejection) looks nothing like
-   FADE_CALM (50% WR, no wick). A single CNN trained on all tiers learns the average
-   of everything — which is useful for nothing.
+Each tier gets its own set of 5 specialist CNNs. Each CNN masters ONE decision
+using only trades from its tier. The tier determines the training data.
+The job determines the architecture.
 
-2. **64.5% accuracy ≈ always-predict-majority** — The "always SAME" baseline is 64.6%.
-   The CNN barely beats it. This means it hasn't actually learned the patterns.
+```
+training/output/nn/
+  CASCADE/
+    entry_cnn.pt        — "Is this a good CASCADE entry?"
+    direction_cnn.pt    — "Long or short for CASCADE?"
+    duration_cnn.pt     — "How long does a CASCADE winner last?"
+    exit_cnn.pt         — "Is this CASCADE trade done?"
+    loser_id_cnn.pt     — "Is this CASCADE trade failing?"
+  KILL_SHOT/
+    entry_cnn.pt
+    direction_cnn.pt
+    ...
+  FADE_CALM/
+    ...
+```
 
-3. **Hard binary at 50% threshold** — CNN says 51% COUNTER → flip. No confidence
-   gating. Borderline predictions inject noise into deterministic physics.
+Tiers with < 100 IS trades skip CNN entirely — physics only for those.
 
-## Fix: Per-Tier Oracle-Guided Classifiers
+## Why Per-Tier
+- CASCADE: 96% WR, wick rejection, 1h aligned. Direction is almost always "fade z."
+- FADE_CALM: ~50% WR, no wick, low velocity. Direction is ambiguous — CNN's real job.
+- One model trained on both learns the average of 96% and 50% = useless.
+- Per-tier models see a tight, learnable distribution specific to their physics.
 
-### Step 1: Oracle Labels (regret — unchanged)
-Regret analysis computes the perfect trade from hindsight:
-- Optimal direction (SAME or COUNTER to physics default)
-- Optimal exit bar (where PnL peaked)
-- Optimal PnL (what you'd get with perfect foresight)
+## The 5 Jobs
 
-This is the answer key. It's correct by construction.
+### Job 1: Entry Gate
+**Question**: Is this a good entry for this tier, or should we skip it?
+- Input: 91D at entry
+- Label: 1 if trade was a winner (PnL > 0), 0 if loser — from oracle outcomes
+- Output: P(good_entry) — continuous probability
+- Engine: if P(good_entry) < ENTRY_THRESHOLD → skip this entry entirely
+- **Value**: filters out the 40-50% of entries that physics triggers but oracle says lose
 
-### Step 2: Cluster by Tier
-Instead of one model, train a SEPARATE classifier per physics tier:
-- CASCADE model (wick + 1h aligned — high WR, directional)
-- KILL_SHOT model (wick, no 1h — high WR, less directional)
-- FADE_CALM model (no wick, low velocity — the hard tier)
-- FADE_MOMENTUM model (no wick, high velocity)
-- RIDE tiers (CNN-flipped — only exists if direction model fires)
+### Job 2: Direction
+**Question**: Long or short for this tier's entry?
+- Input: 91D at entry
+- Label: oracle's optimal direction (from regret best_action)
+- Output: P(long), P(short) — continuous probability
+- Engine: if P(oracle_direction) > DIRECTION_THRESHOLD → override physics default
+- **Value**: catches the ~35% of FADE trades where riding was actually better
 
-Each tier has different physics signatures and different oracle statistics.
-A per-tier model sees a tighter, more learnable distribution.
+### Job 3: Duration
+**Question**: How long should a winner in this tier be held?
+- Input: 91D at entry
+- Label: oracle's optimal exit bar, binned SHORT(<10)/MEDIUM(10-40)/LONG(>40)
+- Output: 3-class softmax probability
+- Engine: sets exit patience parameters (confirmation bars, giveback tolerance)
+- **Value**: adapts hold time to entry conditions instead of fixed-for-all
 
-### Step 3: Three Tasks Per Tier
-
-**Task A: Direction** (at entry)
-- Input: 91D at entry (6 TFs × 15 features, reshaped to grid)
-- Label: oracle's optimal direction (long/short, from regret best_action)
-- Output: P(long), P(short) — continuous probability, NOT argmax
-- Engine uses: if P(oracle_direction) > DIRECTION_THRESHOLD → override physics
-
-**Task B: Duration** (at entry)
-- Input: same 91D entry grid
-- Label: oracle's optimal exit bar, binned into SHORT(<10)/MEDIUM(10-40)/LONG(>40)
-- Output: 3-class probability
-- Engine uses: sets exit patience (p_center confirmation bars, giveback tolerance)
-
-**Task C: Exit** (during trade, every 5s bar)
-- Input: 91D current state + trade context (bars_held, pnl, peak_pnl, entry_z, tier)
-- Label: HOLD if current bar < oracle's optimal exit bar, EXIT if past it
+### Job 4: Exit
+**Question**: Is this trade done? (runs every 5s bar while in position)
+- Input: 91D current state + trade context (bars_held, pnl, peak_pnl, entry_z)
+- Label: HOLD(1) if bar < oracle's optimal exit bar, EXIT(0) if past it
 - Output: P(EXIT) — continuous probability
-- Engine uses: if P(EXIT) > EXIT_THRESHOLD for N consecutive bars → close
+- Engine: if P(EXIT) > EXIT_THRESHOLD for N consecutive bars → close
+- **Value**: detects peak exhaustion from multi-TF physics, not just p_center
 
-### Step 4: Confidence Gating
+### Job 5: Loser ID
+**Question**: This trade is underwater — will it recover or is it dead?
+- Input: 91D current state + trade context (bars_held, pnl, peak_pnl, entry_z)
+- Label: RECOVER(1) if trade eventually ended positive, DEAD(0) if not
+- Fires ONLY when pnl < 0 (not every bar)
+- Output: P(DEAD) — continuous probability
+- Engine: if P(DEAD) > LOSER_THRESHOLD for N consecutive bars → cut losses
+- **Value**: kills losers early without waiting for hard stop
 
-The critical difference from current implementation:
+## Confidence Gating
 
 | | Current | New |
 |---|---|---|
-| Direction threshold | 50% (majority vote) | 75% minimum |
-| Exit decision | Single bar argmax | 3+ consecutive bars above threshold |
-| Risk cut | Binary DEAD/RECOVER | Disabled — exit CNN handles this |
-| Per-tier | One model | Separate model per tier |
-| Fallback | CNN overrides physics | Physics is default, CNN is optional boost |
+| Entry gate | None (all triggers trade) | P(good) > 60% or skip |
+| Direction | 50% majority vote | P(direction) > 75% or use physics default |
+| Duration | Fixed per tier | Predicted class sets patience params |
+| Exit | Single bar argmax | P(EXIT) > 70% for 3+ consecutive bars |
+| Loser cut | Binary DEAD/RECOVER | P(DEAD) > 80% for 3+ consecutive bars |
+| Per-tier | One model | Separate models per tier |
+| Fallback | CNN overrides physics | Physics default, CNN boosts when confident |
 
-**The rule**: if CNN confidence < threshold, physics runs unmodified.
-This guarantees CNN can only HELP — if unsure, it stays silent.
+**The rule**: below threshold → physics runs unmodified. CNN can only help.
 
 ## Pipeline
 
@@ -81,131 +99,90 @@ This guarantees CNN can only HELP — if unsure, it stays silent.
 Phase 1:   Physics forward pass IS → trades with entry_91d + trade paths
 Phase 1b:  Physics OOS baseline (deterministic floor)
 Phase 1c:  Physics OOS-NT8 baseline (live parity floor)
-Phase 2:   Regret analysis → oracle labels per trade (direction, exit bar, PnL)
-Phase 3:   Split trades by tier → per-tier training sets
-Phase 4a:  Train direction CNN per tier (where tier has enough trades)
-Phase 4b:  Train duration CNN per tier
-Phase 4c:  Train exit CNN per tier
-Phase 5:   Forward pass IS with CNNs (confidence-gated)
-Phase 6:   Forward pass OOS + OOS-NT8 with CNNs
-Phase 7:   Report: physics vs CNN per tier, overall, per OOS dataset
+Phase 2:   Regret analysis → oracle labels per trade
+Phase 3:   Split IS trades by tier
+Phase 4:   Per tier (where count >= 100):
+             4a. Train entry gate CNN
+             4b. Train direction CNN
+             4c. Train duration CNN
+             4d. Train exit CNN
+             4e. Train loser ID CNN
+Phase 5:   Forward pass IS with all CNNs (confidence-gated)
+Phase 6:   Forward pass OOS + OOS-NT8 with all CNNs
+Phase 7:   Per-tier report: physics vs +CNN, per OOS dataset
+           Disable CNNs for tiers where they hurt OOS
 ```
 
-### Phase 3 Detail: Tier Splitting
-```python
-# Split IS trades by entry_tier
-tier_trades = {tier: [t for t in all_trades if t['entry_tier'] == tier]
-               for tier in TIER_LIST}
-
-# Minimum trades per tier for CNN training (need enough for train/val split)
-MIN_TRADES_PER_TIER = 100
-
-# Tiers with fewer trades: use physics only (no CNN)
-for tier, trades in tier_trades.items():
-    if len(trades) < MIN_TRADES_PER_TIER:
-        print(f"  {tier}: {len(trades)} trades — physics only (too few for CNN)")
+### Phase 7: Per-Tier Report
 ```
-
-### Phase 4 Detail: Per-Tier Training
-```python
-for tier in trainable_tiers:
-    trades = tier_trades[tier]
-    
-    # Direction labels from regret
-    # regret.best_action tells us: SAME or COUNTER
-    # Convert to absolute: if physics said short + regret said COUNTER → label=long
-    
-    # Duration labels from regret
-    # regret.optimal_bar → bin into SHORT/MEDIUM/LONG
-    
-    # Exit labels from trade paths
-    # For each bar in trade: HOLD if bar < optimal_bar, EXIT if bar >= optimal_bar
-    
-    # Train 3 small CNNs for this tier
-    # Architecture: same as current (6x15 conv grid), but trained on 1 tier only
-    # Walk-forward: train on months 1-9, validate on months 10-12
-    
-    # Save: training/output/nn/{tier}_direction.pt
-    #        training/output/nn/{tier}_duration.pt
-    #        training/output/nn/{tier}_exit.pt
-```
-
-### Phase 7 Detail: Per-Tier Reporting
-```
-TIER REPORT:
-  CASCADE:     Physics $42/day → +CNN $48/day (+$6, CNN helps)
-  KILL_SHOT:   Physics $35/day → +CNN $33/day (-$2, CNN hurts → DISABLE)
-  FADE_CALM:   Physics $10/day → +CNN $18/day (+$8, CNN helps)
-  FADE_MOMENTUM: Physics $15/day → +CNN $14/day (-$1, within noise → KEEP)
+TIER REPORT (OOS):
+  CASCADE:       Physics $42/day → +CNN $48/day (+$6)  ✓ KEEP
+  KILL_SHOT:     Physics $35/day → +CNN $33/day (-$2)  ✗ DISABLE
+  FADE_CALM:     Physics $10/day → +CNN $18/day (+$8)  ✓ KEEP
+  FADE_MOMENTUM: Physics $15/day → +CNN $14/day (-$1)  ~ KEEP (noise)
   ...
-  TOTAL:       Physics $599/day → +CNN $XXX/day
+  TOTAL:         Physics $599/day → +CNN $XXX/day
 
-  OOS-NT8:     Physics $XXX/day → +CNN $XXX/day (live parity)
+TIER REPORT (OOS-NT8 — live parity):
+  CASCADE:       Physics $XX/day → +CNN $XX/day
+  ...
 ```
 
-If a tier's CNN hurts OOS, it gets disabled in the blended engine config.
-The final deployed model uses CNN only where it's proven to help.
+If a tier's CNN hurts OOS → disabled for that tier in final config.
+Final deployed model = physics + only the per-tier CNNs that earned their spot.
 
 ## Model Architecture
 
-### Direction + Duration CNN (at entry)
-Same grid architecture as current cnn_flip:
-- Input: 6 × 15 grid (6 TFs × 12 core + 3 helper features, zero-padded to 15)
+### Entry + Direction + Duration (at entry — shared backbone)
+- Input: 91D reshaped to 6 × 15 grid (6 TFs × 12 core + 3 helper, padded)
 - Conv1: 16 filters, 3×3, ReLU, BatchNorm
-- Conv2: 32 filters, 3×3, ReLU, BatchNorm  
-- Global average pool → FC(128) → FC(num_classes)
-- Direction: 2-class (long/short), output softmax probabilities
-- Duration: 3-class (SHORT/MEDIUM/LONG), output softmax probabilities
-- Can be multi-head (shared backbone, two output heads) for efficiency
+- Conv2: 32 filters, 3×3, ReLU, BatchNorm
+- Global average pool → shared_features(64)
+- Head A (entry): FC(32) → FC(2) softmax (good/bad)
+- Head B (direction): FC(32) → FC(2) softmax (long/short)
+- Head C (duration): FC(32) → FC(3) softmax (SHORT/MEDIUM/LONG)
+- Multi-head = shared backbone trains on more data, each head specializes
+- OR train 3 separate small models if multi-head overfits
 
-### Exit CNN (during trade)
-Different architecture — includes trade context:
-- Input: 91D current features (flat) + 4 context scalars (bars_held, pnl, peak_pnl, entry_z)
-- FC(128) → ReLU → FC(64) → ReLU → FC(2) → softmax
-- Simpler than direction CNN — less spatial structure to exploit
-- Runs every 5s bar while in position
+### Exit + Loser ID (during trade)
+- Input: 91D flat + context (bars_held, pnl, peak_pnl, entry_z, duration_pred)
+- FC(128) → ReLU → FC(64) → ReLU
+- Head D (exit): FC(2) softmax (HOLD/EXIT)
+- Head E (loser): FC(2) softmax (RECOVER/DEAD)
+- Runs every 5s while in position
+- Loser head only evaluated when pnl < 0
 
 ### Size Budget
-- Per tier: ~20K params (direction) + ~20K (duration) + ~10K (exit) = ~50K
-- 7 tiers × 50K = ~350K total params
-- Current: 3 models × ~16K = ~48K params
-- Still tiny — fits in GPU memory trivially
+- Per tier: ~30K params (entry/direction/duration backbone + 3 heads) + ~15K (exit/loser)
+- 7 tiers × 45K = ~315K total params (still tiny)
 
 ## Guard Rails
 
-1. **Physics floor**: CNN can never make the engine do something physics wouldn't allow.
-   No entry without z extreme + vr < 1. No holding past hard stop.
-
-2. **Per-tier disable**: if tier CNN hurts OOS, `use_cnn_for_tier[tier] = False`
-
-3. **Confidence threshold**: configurable per task:
+1. **Physics floor**: no entry without z extreme + vr < 1. No holding past hard stop.
+2. **Per-tier disable**: `CNN_ENABLED[tier] = {'entry': True, 'direction': True, ...}`
+3. **Confidence thresholds** (configurable per job):
+   - `ENTRY_GATE_MIN = 0.60`
    - `DIRECTION_CONFIDENCE_MIN = 0.75`
-   - `DURATION_CONFIDENCE_MIN = 0.60` (softer — wrong duration is less costly)
+   - `DURATION_CONFIDENCE_MIN = 0.60`
    - `EXIT_CONFIDENCE_MIN = 0.70`
+   - `LOSER_CONFIDENCE_MIN = 0.80`
    - `EXIT_CONFIRMATION_BARS = 3`
-
-4. **A/B logging**: every trade records:
-   - `cnn_direction_pred`, `cnn_direction_conf`, `physics_direction`
-   - `cnn_duration_pred`, `cnn_duration_conf`
-   - `cnn_exit_bar`, `physics_exit_bar`, `actual_exit_bar`
-   - This lets you compute CNN value-add per tier in post-analysis
-
-5. **Fixed seeds**: torch.manual_seed + numpy seed fixed per training run.
-   Same data → same model → same predictions → deterministic.
+   - `LOSER_CONFIRMATION_BARS = 3`
+4. **A/B logging**: every trade records all CNN predictions + confidences + physics defaults
+5. **Fixed seeds**: deterministic training and inference
 
 ## Files
 
 ### New
-- `training/physics_labels.py` — extract direction/duration/exit labels from regret per tier
-- `training/cnn_direction.py` — per-tier direction classifier
-- `training/cnn_duration.py` — per-tier duration classifier  
+- `training/physics_labels.py` — per-tier label extraction from regret (5 label types)
+- `training/cnn_entry_direction.py` — shared backbone: entry gate + direction + duration
+- `training/cnn_trade_manager.py` — shared backbone: exit + loser ID
 
 ### Modify
-- `training/cnn_exit.py` — retrain with per-tier labels + confidence output
-- `training/nightmare_blended.py` — confidence-gated CNN integration, per-tier model loading
-- `training/run.py` — new pipeline phases (3-6 replace current 3-7)
+- `training/nightmare_blended.py` — per-tier model loading, confidence-gated 5-job integration
+- `training/run.py` — new pipeline phases
 
-### Deprecate
-- `training/cnn_flip.py` — replaced by per-tier cnn_direction.py
-- `training/cnn_hold.py` — replaced by cnn_duration.py (entry-time) + cnn_exit.py (during trade)
-- `training/cnn_risk.py` — absorbed into cnn_exit.py (exit handles all exit decisions)
+### Deprecate (archive)
+- `training/cnn_flip.py` → replaced by per-tier direction head
+- `training/cnn_hold.py` → replaced by duration head + exit head
+- `training/cnn_risk.py` → replaced by loser ID head
