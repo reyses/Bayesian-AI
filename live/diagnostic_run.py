@@ -139,34 +139,48 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     logger.info(f'  TF bars: 1m={agg.get_bar_count("1m")} 5m={agg.get_bar_count("5m")} '
                 f'15m={agg.get_bar_count("15m")} 1h={agg.get_bar_count("1h")}')
 
-    # Save history bars as ATLAS_NT8 parquets (one per day, 5s resolution)
-    os.makedirs('DATA/ATLAS_NT8/5s', exist_ok=True)
+    # Save history bars as ATLAS_NT8 parquets — DELTA only (skip existing days)
+    atlas_dir = 'DATA/ATLAS_NT8/5s'
+    os.makedirs(atlas_dir, exist_ok=True)
+
+    existing_days = set()
+    if os.path.exists(atlas_dir):
+        existing_days = {f.replace('.parquet', '') for f in os.listdir(atlas_dir) if f.endswith('.parquet')}
+
     hist_df = pd.DataFrame(history_bars)
     hist_df['day'] = pd.to_datetime(hist_df['timestamp'], unit='s').dt.strftime('%Y_%m_%d')
-    saved_days = 0
-    for day, day_df in hist_df.groupby('day'):
-        out = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
-        out['timestamp'] = out['timestamp'].astype(np.int64)
-        out = out.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='last').reset_index(drop=True)
-        path = f'DATA/ATLAS_NT8/5s/{day}.parquet'
-        out.to_parquet(path, index=False)
-        saved_days += 1
-    logger.info(f'  Saved: {saved_days} days to DATA/ATLAS_NT8/5s/')
+    all_days = sorted(hist_df['day'].unique())
+    new_days = [d for d in all_days if d not in existing_days]
 
-    # Also aggregate to higher TFs
-    for tf_name, tf_secs in [('15s', 15), ('1m', 60), ('5m', 300), ('15m', 900), ('1h', 3600), ('1D', 86400)]:
-        tf_dir = f'DATA/ATLAS_NT8/{tf_name}'
-        os.makedirs(tf_dir, exist_ok=True)
-        for day, day_df in hist_df.groupby('day'):
-            raw = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
-            raw['bucket'] = (raw['timestamp'] // tf_secs) * tf_secs
-            agg_df = raw.groupby('bucket').agg({
-                'timestamp': 'first', 'open': 'first', 'high': 'max',
-                'low': 'min', 'close': 'last', 'volume': 'sum',
-            }).reset_index(drop=True)
-            agg_df['timestamp'] = agg_df['timestamp'].astype(np.int64)
-            agg_df.to_parquet(f'{tf_dir}/{day}.parquet', index=False)
-    logger.info(f'  Aggregated: 15s, 1m, 5m, 15m, 1h, 1D')
+    logger.info(f'  Total days in history: {len(all_days)} | Already have: {len(existing_days)} | New: {len(new_days)}')
+
+    if not new_days:
+        logger.info(f'  No new days to save — ATLAS_NT8 up to date')
+    else:
+        for day in new_days:
+            day_df = hist_df[hist_df['day'] == day]
+            out = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+            out['timestamp'] = out['timestamp'].astype(np.int64)
+            out = out.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='last').reset_index(drop=True)
+            out.to_parquet(f'{atlas_dir}/{day}.parquet', index=False)
+
+        # Aggregate new days to higher TFs
+        for tf_name, tf_secs in [('15s', 15), ('1m', 60), ('5m', 300), ('15m', 900), ('1h', 3600), ('1D', 86400)]:
+            tf_dir = f'DATA/ATLAS_NT8/{tf_name}'
+            os.makedirs(tf_dir, exist_ok=True)
+            for day in new_days:
+                day_df = hist_df[hist_df['day'] == day]
+                raw = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+                raw['bucket'] = (raw['timestamp'] // tf_secs) * tf_secs
+                agg_df = raw.groupby('bucket').agg({
+                    'timestamp': 'first', 'open': 'first', 'high': 'max',
+                    'low': 'min', 'close': 'last', 'volume': 'sum',
+                }).reset_index(drop=True)
+                agg_df['timestamp'] = agg_df['timestamp'].astype(np.int64)
+                agg_df.to_parquet(f'{tf_dir}/{day}.parquet', index=False)
+
+        logger.info(f'  Saved: {len(new_days)} new days ({new_days[0]} to {new_days[-1]})')
+        logger.info(f'  Aggregated: 15s, 1m, 5m, 15m, 1h, 1D')
 
     logger.info('Phase 2 PASS')
     if max_phase <= 2:
