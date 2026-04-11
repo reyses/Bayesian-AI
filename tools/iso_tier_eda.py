@@ -408,12 +408,22 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
     return tier_trades
 
 
+def _mode_pnl(pnls, bin_size=5):
+    """Mode of PnL distribution (binned to $5 buckets)."""
+    if not pnls:
+        return 0.0
+    bins = [round(p / bin_size) * bin_size for p in pnls]
+    from collections import Counter as _C
+    most_common = _C(bins).most_common(1)
+    return float(most_common[0][0]) if most_common else 0.0
+
+
 def print_eda(tier_trades):
     """Print EDA per tier."""
     print(f'\n{"="*70}')
     print(f'MAX-FILL TIER REPORT')
     print(f'{"="*70}')
-    print(f'{"Tier":<20} {"Trades":>7} {"WR":>6} {"Avg$":>8} {"Med$":>8} {"Total$":>10} {"AvgHeld":>8}')
+    print(f'{"Tier":<20} {"Trades":>7} {"WR":>6} {"Avg$":>8} {"Mode$":>8} {"Total$":>10} {"AvgHeld":>8}')
     print(f'{"-"*70}')
 
     all_trades = []
@@ -424,7 +434,7 @@ def print_eda(tier_trades):
         held = [t['held'] for t in trades]
         wr = sum(1 for p in pnls if p > 0) / len(pnls) * 100
         print(f'{tier:<20} {len(trades):>7} {wr:>5.0f}% {np.mean(pnls):>8.1f} '
-              f'{np.median(pnls):>8.1f} {sum(pnls):>10,.0f} {np.mean(held):>8.0f}')
+              f'{_mode_pnl(pnls):>8.1f} {sum(pnls):>10,.0f} {np.mean(held):>8.0f}')
 
     print(f'{"-"*70}')
     total = sum(len(v) for v in tier_trades.values())
