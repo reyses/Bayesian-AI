@@ -573,85 +573,96 @@ class BlendedEngine:
 
         Returns (direction, tier, cnn_flipped).
 
-        Priority: KILL_SHOT first (massive edge), then by WR descending:
-          1. KILL_SHOT:     $13.3/tr, 72% WR — wick rejection, proven edge
-          2. FADE_AGAINST:  $19.2/tr, 69% WR — 1h extreme against, keep fading
-          3. CASCADE:       $5.4/tr,  67% WR — wick + 1h aligned
-          4. FADE_MOMENTUM: $10.1/tr, 58% WR — high velocity, fade z
-          5. RIDE_AGAINST:  $8.7/tr,  51% WR — 1h velocity opposes, ride
-          6. FADE_CALM:     $1.0/tr,  58% WR — default fade (CNN opportunity)
+        Ordered by RARITY (least common first). Rare setups have specific
+        physics = high conviction. They never steal many bars from common tiers.
 
-        KILLED (negative $/trade in max-fill):
-          - FREIGHT_TRAIN:    -$116/tr, 45% WR
-          - MTF_EXHAUSTION:   -$52/tr,  17% WR
-          - EXHAUSTION_BAR:   -$6.5/tr, 50% WR
+          1. FREIGHT_TRAIN:   0.1/day, 86% WR, $103/tr — ride velocity
+          2. MTF_EXHAUSTION:  3.3/day, 76% WR, $52/tr  — ride 5m (flipped)
+          3. FADE_AGAINST:    2.9/day, 77% WR, $13/tr  — fade z, 1h opposing
+          4. CASCADE:         5.8/day, 71% WR, $4/tr   — wick + 1h
+          5. KILL_SHOT:      23.7/day, 72% WR, $7/tr   — wick, no 1h
+          6. MTF_BREAKOUT:   81/day,   56% WR, $13/tr  — ride multi-TF breakout
+          7. RIDE_AGAINST:   36/day,   52% WR, $8/tr   — ride 1h velocity
+          8. FADE_CALM:      40/day,   66% WR, $7/tr   — default fade
+
+        Lookback filters from EDA applied per tier.
         """
         # NMP default direction: fade the z
         direction = 'short' if z > 0 else 'long'
         cnn_flipped = False
 
-        # Read conditions
+        # Read all conditions
         wick_5m = feat[_5M_WICK_IDX]
         wick_15m = feat[_15M_WICK_IDX]
         h1_z = feat[_1H_Z_IDX]
         velocity = feat[_1M_VELOCITY_IDX]
         h1_vel = feat[_1H_VELOCITY_IDX]
         abs_vel = abs(velocity)
+        acceleration = feat[_1M_OFFSET + 4]
+        vr = feat[_1M_OFFSET + _VR]
+        v5_vel = feat[_5M_VELOCITY_IDX]
+        dmi = feat[_1M_DMI_IDX]
 
         has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
-
-        # Check 1h conditions
         h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
                            (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
         h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
                       (direction == 'short' and h1_z > H1_Z_MIN))
-        h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
-                          (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
 
-        # 1. KILL_SHOT — $13.3/tr, 72% WR (massive edge, gets priority)
-        if has_wick and not h1_aligned:
-            return direction, 'KILL_SHOT', False
-
-        # 2. FADE_AGAINST — $19.2/tr, 69% WR
-        if h1_against_fade:
-            return direction, 'FADE_AGAINST', False
-
-        # 3. CASCADE — $5.4/tr, 67% WR
-        if has_wick and h1_aligned:
-            return direction, 'CASCADE', False
-
-        # 4. FREIGHT_TRAIN — extreme velocity, accelerating, regime not committed
-        #    Entry: |vel| > 100 AND vel*accel > 0 (accelerating) AND vr < 0.85
-        #    Direction: ride the velocity (not fade z)
-        acceleration = feat[_1M_OFFSET + 4]  # 1m acceleration
-        vr = feat[_1M_OFFSET + _VR]
+        # 1. FREIGHT_TRAIN — 0.1/day, 86% WR
+        #    Ride extreme velocity, accelerating, regime not committed
         if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
                 velocity * acceleration > 0 and
                 vr < FREIGHT_TRAIN_VR_MAX):
-            ft_direction = 'long' if velocity > 0 else 'short'
-            return ft_direction, 'FREIGHT_TRAIN', True
+            ft_dir = 'long' if velocity > 0 else 'short'
+            return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 5. FADE_MOMENTUM — $10.1/tr, 58% WR
-        if abs_vel >= VELOCITY_THRESHOLD:
-            return direction, 'FADE_MOMENTUM', False
+        # 2. FADE_AGAINST — 2.9/day, 77% WR
+        #    Lookback: reject |5m_vel| > 10 (5m racing = breakout trap)
+        if h1_against_fade and abs(v5_vel) < 10.0:
+            return direction, 'FADE_AGAINST', False
 
-        # 6. RIDE_AGAINST — $8.7/tr, 51% WR
-        if h1_vel_against and not h1_against_fade:
-            direction = 'long' if h1_vel > 0 else 'short'
-            return direction, 'RIDE_AGAINST', False
+        # 3. CASCADE — 5.8/day, 71% WR
+        #    Lookback: reject |1h_vel| > 15 (extreme 1h = late entry)
+        if has_wick and h1_aligned and abs(h1_vel) < 15.0:
+            return direction, 'CASCADE', False
 
-        # 7. MTF_BREAKOUT — all TFs aligned, ride the breakout (not fade)
-        # EDA: these are the 2,597 bars that killed FADE_CALM (322 hard stops at -$176)
-        # When 5m AND 15m z both > 1.3, every TF confirms the move. Ride it.
-        z_5m = abs(feat[2 * _N_CORE + _Z])   # 5m z (TF index 2)
-        z_15m = abs(feat[3 * _N_CORE + _Z])  # 15m z (TF index 3)
+        # 4. KILL_SHOT — 23.7/day, 72% WR
+        #    Lookback: require |1h_vel| > 5 (1h committed, not weak)
+        if has_wick and not h1_aligned and abs(h1_vel) > 5.0:
+            return direction, 'KILL_SHOT', False
+
+        # 5. MTF_BREAKOUT — 81/day, 56% WR
+        #    Lookback: require dmi aligned with ride direction
+        z_5m = abs(feat[2 * _N_CORE + _Z])
+        z_15m = abs(feat[3 * _N_CORE + _Z])
         if z_5m > 1.3 and z_15m > 1.3:
-            # Ride z direction (opposite of fade)
             breakout_dir = 'long' if z > 0 else 'short'
-            return breakout_dir, 'MTF_BREAKOUT', True
+            dmi_aligned = ((breakout_dir == 'long' and dmi > -5) or
+                           (breakout_dir == 'short' and dmi < 5))
+            if dmi_aligned:
+                return breakout_dir, 'MTF_BREAKOUT', True
 
-        # 8. FADE_CALM — default fade (CNN opportunity)
-        return direction, 'FADE_CALM', False
+        # 6. RIDE_AGAINST — 36/day, 52% WR
+        #    Lookback: require |1h_vel| > 3 (1h committed)
+        h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
+                          (direction == 'short' and h1_vel > 3.0))
+        if h1_vel_against and not h1_against_fade:
+            ride_dir = 'long' if h1_vel > 0 else 'short'
+            return ride_dir, 'RIDE_AGAINST', False
+
+        # 7. FADE_CALM — 40/day, 66% WR (default)
+        #    Lookback: reject when 5m + 1h both oppose fade direction
+        higher_tf_opposing = False
+        if direction == 'long' and v5_vel < -3 and h1_vel < -3:
+            higher_tf_opposing = True
+        if direction == 'short' and v5_vel > 3 and h1_vel > 3:
+            higher_tf_opposing = True
+        if not higher_tf_opposing:
+            return direction, 'FADE_CALM', False
+
+        # No tier qualifies (higher TFs opposing, no wick, no special condition)
+        return None, None, False
 
     def _check_exit(self, feat, z, vr, pnl):
         """Check exit based on entry tier."""
