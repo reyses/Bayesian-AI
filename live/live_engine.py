@@ -820,6 +820,15 @@ class LiveEngine:
                 bars_by_tf[tf] = tf_bars
         self._writer.save_all_chunks(bars_by_tf)
 
+        # Save features incrementally (crash-safe parity data)
+        if self._live_79d:
+            import pandas as _pd
+            out_dir = 'DATA/FEATURES_79D_5s_live'
+            os.makedirs(out_dir, exist_ok=True)
+            feat_path = os.path.join(out_dir, f'{self._session_date}_partial.parquet')
+            _pd.DataFrame(self._live_79d).to_parquet(feat_path, index=False)
+            logger.info(f'Features saved: {len(self._live_79d)} rows -> {feat_path}')
+
     def _save_live_data(self):
         """Final merge: chunks -> day parquet. Atomic + validated."""
         import pandas as pd
