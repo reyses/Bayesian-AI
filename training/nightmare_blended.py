@@ -495,6 +495,9 @@ class BlendedEngine:
                 # Classify the full ExNMP tier + direction
                 direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
 
+                if tier is None:
+                    return  # breakout filter rejected this bar
+
                 # Per-tier CNN: entry gate + direction override + duration
                 if self.use_cnn and tier in self._tier_cnn_enabled:
                     pred = self._predict_entry_direction(feat, tier)
@@ -636,7 +639,15 @@ class BlendedEngine:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
 
-        # 6. FADE_CALM — $1.0/tr, 58% WR (default — CNN opportunity)
+        # 7. FADE_CALM — default fade (CNN opportunity)
+        # EDA: skip when 5m AND 15m z both > 1.3 (multi-TF breakout, not reversion)
+        # This filter removes 2,597 breakout traps including 100 hard stops,
+        # doubles total PnL ($17K → $39K), WR 58% → 60%
+        z_5m = abs(feat[2 * _N_CORE + _Z])   # 5m z (TF index 2)
+        z_15m = abs(feat[3 * _N_CORE + _Z])  # 15m z (TF index 3)
+        if z_5m > 1.3 and z_15m > 1.3:
+            return None, None, False  # skip — multi-TF breakout
+
         return direction, 'FADE_CALM', False
 
     def _check_exit(self, feat, z, vr, pnl):
