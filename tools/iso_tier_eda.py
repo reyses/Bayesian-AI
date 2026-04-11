@@ -140,11 +140,11 @@ def run_eda(trades, target_tiers):
     print(f'  Avg held:  {np.mean(held):.0f} bars')
 
     # Per-tier breakdown
-    tiers = Counter(t.get('entry_tier', '?') for t in trades)
+    tiers = Counter(str(t.get('entry_tier', '?')) for t in trades)
     print(f'\n  Per tier:')
     for tier, count in tiers.most_common():
-        tier_pnls = [t['pnl'] for t in trades if t.get('entry_tier') == tier]
-        tier_held = [t.get('held', 0) for t in trades if t.get('entry_tier') == tier]
+        tier_pnls = [t['pnl'] for t in trades if str(t.get('entry_tier', '?')) == tier]
+        tier_held = [t.get('held', 0) for t in trades if str(t.get('entry_tier', '?')) == tier]
         wr = sum(1 for p in tier_pnls if p > 0) / len(tier_pnls) * 100
         print(f'    {tier:<20} {count:>5} trades  WR={wr:4.0f}%  '
               f'avg=${np.mean(tier_pnls):>6.1f}  held={np.mean(tier_held):>4.0f}')
