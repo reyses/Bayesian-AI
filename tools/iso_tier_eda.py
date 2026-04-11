@@ -332,7 +332,7 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                     elif peak_pnl >= 30 and pnl < peak_pnl * 0.5:
                         exit_reason = 'giveback'; exited = True
 
-                    # ── Per-tier exits (all use state tracking) ──
+                    # ── Per-tier exits ──
                     elif tier in ('CASCADE', 'KILL_SHOT'):
                         # p_center confirmation
                         p_ctr = fj[_1M + 9] if len(fj) > _1M + 9 else 0
@@ -348,9 +348,6 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
                             if z_shrink < 0.20:
                                 exit_reason = f'{tier.lower()}_no_conviction'; exited = True
-                        # z reversal: fade progress reversed
-                        elif min_z_seen < 1.5 and abs_z_j > min_z_seen + 0.3:
-                            exit_reason = f'{tier.lower()}_z_reversal'; exited = True
 
                     elif tier == 'FREIGHT_TRAIN':
                         vel_ratio = abs_vel_j / max(entry_velocity, 1.0)
@@ -406,9 +403,6 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                         # Multi-TF alignment broken
                         if z5 < 0.8 or z15 < 0.8:
                             exit_reason = 'breakout_alignment_lost'; exited = True
-                        # Velocity decayed = breakout exhausting
-                        elif max_vel_seen > 5 and abs_vel_j < max_vel_seen * 0.3:
-                            exit_reason = 'breakout_vel_decay'; exited = True
                         # z overshot to other side
                         elif direction == 'long' and z_j < -0.3:
                             exit_reason = 'breakout_overshot'; exited = True
@@ -422,9 +416,6 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             exit_reason = 'ride_1h_flipped'; exited = True
                         elif direction == 'short' and _1h_vel_j > 0:
                             exit_reason = 'ride_1h_flipped'; exited = True
-                        # Velocity decayed to 30% of peak = momentum dying
-                        elif max_vel_seen > 5 and abs_vel_j < max_vel_seen * 0.3:
-                            exit_reason = 'ride_vel_decay'; exited = True
                         elif abs_z_j < 0.3:
                             exit_reason = 'mean_reached'; exited = True
 
