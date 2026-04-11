@@ -532,12 +532,12 @@ class BlendedEngine:
 
         Returns (direction, tier, cnn_flipped).
 
-        Priority ordered by actual $/trade × WR from max-fill EDA:
-          1. FADE_AGAINST:  $19.2/tr, 69% WR — 1h extreme against fade, keep fading
-          2. KILL_SHOT:     $13.3/tr, 72% WR — wick rejection, no 1h alignment
-          3. FADE_MOMENTUM: $10.1/tr, 58% WR — high velocity, fade z
-          4. RIDE_AGAINST:  $8.7/tr,  51% WR — 1h velocity opposes, ride
-          5. CASCADE:       $5.4/tr,  67% WR — wick + 1h aligned
+        Priority: KILL_SHOT first (massive edge), then by WR descending:
+          1. KILL_SHOT:     $13.3/tr, 72% WR — wick rejection, proven edge
+          2. FADE_AGAINST:  $19.2/tr, 69% WR — 1h extreme against, keep fading
+          3. CASCADE:       $5.4/tr,  67% WR — wick + 1h aligned
+          4. FADE_MOMENTUM: $10.1/tr, 58% WR — high velocity, fade z
+          5. RIDE_AGAINST:  $8.7/tr,  51% WR — 1h velocity opposes, ride
           6. FADE_CALM:     $1.0/tr,  58% WR — default fade (CNN opportunity)
 
         KILLED (negative $/trade in max-fill):
@@ -567,33 +567,28 @@ class BlendedEngine:
         h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
                           (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
 
-        # 1. FADE_AGAINST — $19.2/tr, 69% WR
-        #    1h z extreme against fade direction → keep fading (contrarian)
-        if h1_against_fade:
-            return direction, 'FADE_AGAINST', False
-
-        # 2. KILL_SHOT — $13.3/tr, 72% WR
-        #    Wick rejection without 1h alignment
+        # 1. KILL_SHOT — $13.3/tr, 72% WR (massive edge, gets priority)
         if has_wick and not h1_aligned:
             return direction, 'KILL_SHOT', False
 
-        # 3. FADE_MOMENTUM — $10.1/tr, 58% WR
-        #    High velocity, fade z
+        # 2. FADE_AGAINST — $19.2/tr, 69% WR
+        if h1_against_fade:
+            return direction, 'FADE_AGAINST', False
+
+        # 3. CASCADE — $5.4/tr, 67% WR
+        if has_wick and h1_aligned:
+            return direction, 'CASCADE', False
+
+        # 4. FADE_MOMENTUM — $10.1/tr, 58% WR
         if abs_vel >= VELOCITY_THRESHOLD:
             return direction, 'FADE_MOMENTUM', False
 
-        # 4. RIDE_AGAINST — $8.7/tr, 51% WR
-        #    1h velocity opposes fade → ride with 1h
+        # 5. RIDE_AGAINST — $8.7/tr, 51% WR
         if h1_vel_against and not h1_against_fade:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
 
-        # 5. CASCADE — $5.4/tr, 67% WR
-        #    Wick + 1h aligned (was #1, but FADE_AGAINST/KILL_SHOT better per trade)
-        if has_wick and h1_aligned:
-            return direction, 'CASCADE', False
-
-        # 6. FADE_CALM — $1.0/tr, 58% WR (default — CNN's main opportunity)
+        # 6. FADE_CALM — $1.0/tr, 58% WR (default — CNN opportunity)
         return direction, 'FADE_CALM', False
 
     def _check_exit(self, feat, z, vr, pnl):
