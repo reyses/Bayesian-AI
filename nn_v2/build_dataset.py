@@ -36,8 +36,12 @@ from core.features_79d import (
     extract_79d, FEATURE_NAMES_79D, N_FEATURES, TF_ORDER, TF_SECONDS,
 )
 
-ATLAS_ROOT = 'DATA/ATLAS'
-OUTPUT_DIR = 'DATA/FEATURES_79D'
+ATLAS_ROOT_DEFAULT = 'DATA/ATLAS'
+OUTPUT_DIR_DEFAULT = 'DATA/FEATURES_79D'
+
+# Set by main() from args — modules use these
+ATLAS_ROOT = ATLAS_ROOT_DEFAULT
+OUTPUT_DIR = OUTPUT_DIR_DEFAULT
 SFE_MIN_BARS = 21
 SFE_WINDOW = 300  # max bars to feed SFE — matches compute_79d.SFE_WINDOW (live parity)
 
@@ -49,6 +53,8 @@ def parse_args():
     p.add_argument('--end', type=str, default=None)
     p.add_argument('--days', type=int, default=None)
     p.add_argument('--resolution', type=str, default='1m', choices=['5s', '15s', '1m'])
+    p.add_argument('--atlas', type=str, default=None,
+                   help='ATLAS root dir (default: DATA/ATLAS). Use DATA/ATLAS_NT8 for NT8 data.')
     return p.parse_args()
 
 
@@ -261,8 +267,18 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
 
 
 def main():
+    global ATLAS_ROOT, OUTPUT_DIR
     args = parse_args()
     anchor_tf = args.resolution
+
+    # Switch data source if --atlas specified
+    if args.atlas:
+        ATLAS_ROOT = args.atlas
+        # Derive output dir from atlas name: DATA/ATLAS_NT8 → DATA/FEATURES_NT8
+        atlas_name = os.path.basename(ATLAS_ROOT.rstrip('/'))  # e.g. "ATLAS_NT8"
+        feat_name = atlas_name.replace('ATLAS', 'FEATURES')    # e.g. "FEATURES_NT8"
+        OUTPUT_DIR = os.path.join('DATA', feat_name)
+
     out_dir = f'{OUTPUT_DIR}_{anchor_tf}'
     os.makedirs(out_dir, exist_ok=True)
 

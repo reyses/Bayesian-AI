@@ -30,6 +30,8 @@
 using System;
 using System.IO;
 using System.Globalization;
+using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
@@ -112,9 +114,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             }
 
-            // Get bar data
+            // Get bar data — Time[0] is bar OPEN time in NT8 (OnBarClose context)
+            // Databento convention: timestamp = bar CLOSE time
+            // Fix: add bar period to align with Databento
             DateTime barTime = Time[0];
-            string day = barTime.ToString("yyyy_MM_dd");
+            int barPeriodS = (int)BarsPeriod.Value; // e.g. 5 for 5-second bars
+            double ts = ToUnixSeconds(barTime) + barPeriodS;
+
+            // Use close-time for day grouping (matches Databento)
+            DateTime closeTime = barTime.AddSeconds(barPeriodS);
+            string day = closeTime.ToString("yyyy_MM_dd");
 
             // Day boundary — rotate file
             if (day != _currentDay)
@@ -126,9 +135,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _currentDay = day;
                 _daysWritten++;
             }
-
-            // Write CSV row
-            double ts = ToUnixSeconds(barTime);
             _writer.WriteLine(
                 D2S(ts) + ","
                 + D2S(Open[0]) + "," + D2S(High[0]) + ","
