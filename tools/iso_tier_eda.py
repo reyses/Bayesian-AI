@@ -86,12 +86,22 @@ ABSORB_WICK_MIN = 0.3
 
 
 def check_tier(feat, z):
-    """Check which tiers this bar qualifies for. Returns list of (tier, direction)."""
+    """Check which tiers this bar qualifies for. Returns list of (tier, direction).
+
+    Lookback-informed filters applied to push WR toward 90%:
+    - KILL_SHOT: require |1h_vel| > 5 (committed 1h, not weak)
+    - FADE_AGAINST: reject |5m_vel| > 10 (5m racing = breakout not fade)
+    - CASCADE: reject |1h_vel| > 10 (extreme 1h opposition = breakout trap)
+    - RIDE_AGAINST: require |1h_vel| > 3 (1h committed)
+    - FADE_CALM: reject 5m_vel + 1h_vel both opposing (higher TF momentum)
+    - MTF_BREAKOUT: require dmi aligned with ride direction
+    - MTF_EXHAUSTION: require |1h_vel| > 40 (massive 1h commitment)
+    """
     results = []
     abs_vel = abs(feat[_1M + _VEL])
     direction = 'short' if z > 0 else 'long'
 
-    # Wick rejection
+    # Read all features we need
     wick_5m = feat[_5M_WICK] if len(feat) > _5M_WICK else 0
     wick_15m = feat[_15M_WICK] if len(feat) > _15M_WICK else 0
     has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
@@ -101,49 +111,67 @@ def check_tier(feat, z):
     h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
                   (direction == 'short' and h1_z > H1_Z_MIN))
 
-    # CASCADE: wick + 1h aligned
-    if has_wick and h1_aligned:
-        results.append(('CASCADE', direction))
+    dmi = feat[_1M + _DMI]
+    v5_vel = feat[_5M_VEL] if len(feat) > _5M_VEL else 0
+    _5M_Z_IDX = 2 * 12 + _Z
+    _15M_Z_IDX = 3 * 12 + _Z
+    z_5m = abs(feat[_5M_Z_IDX]) if len(feat) > _5M_Z_IDX else 0
+    z_15m = abs(feat[_15M_Z_IDX]) if len(feat) > _15M_Z_IDX else 0
 
-    # KILL_SHOT: wick, no 1h
-    if has_wick and not h1_aligned:
+    # ── KILL_SHOT: wick, no 1h — require |1h_vel| > 5 (committed 1h)
+    # Lookback: winners 1h_vel=+7.1, losers +2.6
+    if has_wick and not h1_aligned and abs(h1_vel) > 5.0:
         results.append(('KILL_SHOT', direction))
 
-    # FREIGHT_TRAIN: extreme velocity
-    if abs_vel >= FREIGHT_TRAIN_THRESHOLD:
-        ft_dir = 'long' if feat[_1M + _VEL] > 0 else 'short'
-        results.append(('FREIGHT_TRAIN', ft_dir))
+    # ── CASCADE: wick + 1h aligned — reject |1h_vel| > 10 (extreme opposition = trap)
+    # Lookback: winners 1h_vel=-1.6, losers -19.0
+    if has_wick and h1_aligned and abs(h1_vel) < 10.0:
+        results.append(('CASCADE', direction))
 
-    # FADE_AGAINST: 1h z extreme against fade direction
+    # ── FREIGHT_TRAIN: extreme velocity + accelerating + vr < 0.85
+    if abs_vel >= FREIGHT_TRAIN_THRESHOLD:
+        accel = feat[_1M + _ACCEL] if len(feat) > _1M + _ACCEL else 0
+        vr = feat[_1M + _VR]
+        if feat[_1M + _VEL] * accel > 0 and vr < 0.85:
+            ft_dir = 'long' if feat[_1M + _VEL] > 0 else 'short'
+            results.append(('FREIGHT_TRAIN', ft_dir))
+
+    # ── FADE_AGAINST: 1h z extreme against — reject |5m_vel| > 10 (5m racing)
+    # Lookback: winners 5m_vel=+1.0, losers +14.4
     h1_against = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
                   (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
-    if h1_against:
+    if h1_against and abs(v5_vel) < 10.0:
         results.append(('FADE_AGAINST', direction))
 
-    # RIDE_AGAINST: 1h velocity opposes — tightened to |1h_vel| > 3.0
-    # EDA: winners 1h_vel=-7.3 (committed), losers 1h_vel=+0.4 (barely crossed)
-    RIDE_AGAINST_1H_VEL_MIN = 3.0
-    h1_vel_against = ((direction == 'long' and h1_vel < -RIDE_AGAINST_1H_VEL_MIN) or
-                      (direction == 'short' and h1_vel > RIDE_AGAINST_1H_VEL_MIN))
+    # ── RIDE_AGAINST: 1h vel opposes — require |1h_vel| > 3 (committed)
+    # Lookback: winners 1h_vel=-6.9, losers +0.7
+    h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
+                      (direction == 'short' and h1_vel > 3.0))
     if h1_vel_against and not h1_against:
         ride_dir = 'long' if h1_vel > 0 else 'short'
         results.append(('RIDE_AGAINST', ride_dir))
 
-    # FADE_MOMENTUM: velocity > threshold
+    # ── FADE_MOMENTUM: velocity > threshold
     if abs_vel >= VELOCITY_THRESHOLD:
         results.append(('FADE_MOMENTUM', direction))
 
-    # MTF_BREAKOUT: 5m AND 15m z both > 1.3 (multi-TF aligned breakout)
-    _5M_Z = 2 * 12 + _Z   # 5m z index
-    _15M_Z = 3 * 12 + _Z  # 15m z index
-    z_5m_abs = abs(feat[_5M_Z]) if len(feat) > _5M_Z else 0
-    z_15m_abs = abs(feat[_15M_Z]) if len(feat) > _15M_Z else 0
-    if z_5m_abs > 1.3 and z_15m_abs > 1.3:
+    # ── MTF_BREAKOUT: 5m+15m z > 1.3 — require dmi aligned with ride direction
+    # Lookback: winners dmi=+0.3 (neutral/aligned), losers dmi=-2.1 (opposing)
+    if z_5m > 1.3 and z_15m > 1.3:
         breakout_dir = 'long' if z > 0 else 'short'
-        results.append(('MTF_BREAKOUT', breakout_dir))
+        dmi_aligned = (breakout_dir == 'long' and dmi > -5) or (breakout_dir == 'short' and dmi < 5)
+        if dmi_aligned:
+            results.append(('MTF_BREAKOUT', breakout_dir))
 
-    # FADE_CALM: default (always qualifies for NMP)
-    results.append(('FADE_CALM', direction))
+    # ── FADE_CALM: default — reject when 5m_vel AND 1h_vel both oppose fade
+    # Lookback: winners 5m_vel=+0.2, 1h_vel=+1.4 (calm). Losers -4.7, -5.1 (opposing)
+    higher_tf_opposing = False
+    if direction == 'long' and v5_vel < -3 and h1_vel < -3:
+        higher_tf_opposing = True
+    if direction == 'short' and v5_vel > 3 and h1_vel > 3:
+        higher_tf_opposing = True
+    if not higher_tf_opposing:
+        results.append(('FADE_CALM', direction))
 
     # === ISO TIERS (non-NMP: don't require z extreme) ===
     # These check independently — don't need abs(z) > ROCHE
@@ -157,24 +185,27 @@ def check_tier(feat, z):
     vol_rel = feat[_1M_VOL_REL] if len(feat) > _1M_VOL_REL else 0
     wick_1m = feat[_1M_WICK] if len(feat) > _1M_WICK else 0
 
-    # REGIME_FLIP: vr low + hurst low — direction FLIPPED (ride, not fade)
+    # ── REGIME_FLIP: vr low + hurst low — FLIPPED direction
     if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
         flip_dir = 'long' if z > 0 else 'short'
         results.append(('REGIME_FLIP', flip_dir))
 
-    # MTF_EXHAUSTION: 5m decelerating + 1m alive — direction FLIPPED (ride 5m, not fade)
-    if v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE:
+    # ── MTF_EXHAUSTION: 5m decel + 1m alive — FLIPPED + require |1h_vel| > 40
+    # Lookback: winners 1h_vel=-47.7 (massive), losers -35.1 (moderate)
+    if (v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE and
+            abs(h1_vel) > 40.0):
         mtf_dir = 'long' if feat[_5M_VEL] > 0 else 'short'
         results.append(('MTF_EXHAUSTION', mtf_dir))
 
-    # EXHAUSTION_BAR: bar_range climax + velocity decelerating
+    # ── EXHAUSTION_BAR: bar_range climax + decel + |z|>1.4 + vr>0.70 + |dmi|>15
     if (bar_range > EXHAUST_BAR_RANGE_MIN and
             accel_1m > EXHAUST_ACCEL_MIN and
-            feat[_1M_ACCEL] * feat[_1M + _VEL] < 0):  # decel
+            feat[_1M_ACCEL] * feat[_1M + _VEL] < 0 and
+            abs(z) > 1.4 and vr > 0.70 and abs(dmi) > 15):
         ex_dir = 'short' if feat[_1M + _VEL] > 0 else 'long'
         results.append(('EXHAUSTION_BAR', ex_dir))
 
-    # ABSORPTION: high volume + low range + wicks — direction FLIPPED (ride, not fade)
+    # ── ABSORPTION: high vol + low range + wicks — FLIPPED direction
     if vol_rel > ABSORB_VOL_MIN and bar_range < ABSORB_RANGE_MAX and wick_1m > ABSORB_WICK_MIN:
         flip_dir = 'long' if z > 0 else 'short'
         results.append(('ABSORPTION', flip_dir))
