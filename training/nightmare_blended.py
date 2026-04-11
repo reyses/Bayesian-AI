@@ -533,11 +533,12 @@ class BlendedEngine:
                                      cnn_flipped=False)
 
                 # MTF_EXHAUSTION: 5m decelerating + 1m alive + deep z + vr + volume
-                # EDA: winners |z|>1.4, vr>0.58, vol>2.0 (real exhaustion)
+                # EDA: 13% WR fading → 76% WR riding. Exhaustion = continuation, not reversal.
+                # RIDE the 5m direction (same sign), don't fade it.
                 elif (v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE and
                       abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
                       feat[_1M_VOL_REL_IDX] > MTF_VOL_MIN):
-                    direction = 'short' if feat[_5M_VELOCITY_IDX] > 0 else 'long'
+                    direction = 'long' if feat[_5M_VELOCITY_IDX] > 0 else 'short'
                     self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
                                      cnn_flipped=False)
 
