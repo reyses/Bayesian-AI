@@ -35,6 +35,49 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(name)s] %(message
 logger = logging.getLogger('diagnostic')
 
 
+async def block0_raw(config, max_bars=50):
+    """Block 0: Connect and log EVERY message raw."""
+    logger.info('BLOCK 0: Raw connection — log everything NT8 sends')
+
+    client = NT8Client(config)
+    connected = await client.connect()
+    if not connected:
+        logger.error('Failed to connect to NT8')
+        logger.info(f'  Host: {config.nt8_host}:{config.nt8_port}')
+        logger.info(f'  Account: {config.account}')
+        logger.info(f'  Instrument: {config.instrument}')
+        return
+
+    logger.info(f'Connected. Listening for messages...')
+    count = 0
+    msg_types = {}
+
+    while count < max_bars:
+        try:
+            msg = await asyncio.wait_for(client.inbound.get(), timeout=60.0)
+        except asyncio.TimeoutError:
+            logger.warning('60s timeout — no messages received')
+            break
+
+        msg_type = msg.get('type', 'UNKNOWN')
+        msg_types[msg_type] = msg_types.get(msg_type, 0) + 1
+        count += 1
+
+        # Log first 20 messages fully, then summary
+        if count <= 20:
+            # Truncate long messages
+            display = {k: v for k, v in msg.items() if k != 'features_79d'}
+            logger.info(f'  MSG {count}: {display}')
+        elif count % 50 == 0:
+            logger.info(f'  ... {count} messages | types: {msg_types}')
+
+    logger.info(f'\nBlock 0 DONE: {count} messages')
+    logger.info(f'  Message types: {msg_types}')
+    logger.info(f'  Config: host={config.nt8_host}:{config.nt8_port} '
+                f'account={config.account} instrument={config.instrument}')
+    await client.disconnect()
+
+
 async def block1_bars(config, max_bars=100):
     """Block 1: Connect and receive raw bars."""
     logger.info('BLOCK 1: Connect + receive bars')
@@ -298,13 +341,14 @@ async def block4_engine(config, max_bars=5000):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--block', type=int, default=4, choices=[1, 2, 3, 4, 5])
+    parser.add_argument('--block', type=int, default=0, choices=[0, 1, 2, 3, 4, 5])
     parser.add_argument('--bars', type=int, default=None)
     args = parser.parse_args()
 
     config = LiveConfig()
 
     blocks = {
+        0: (block0_raw, args.bars or 50),
         1: (block1_bars, args.bars or 100),
         2: (block2_aggregator, args.bars or 500),
         3: (block3_features, args.bars or 2000),
