@@ -88,14 +88,54 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         return
 
     # ═══════════════════════════════════════════════════════════════════
-    # PHASE 2: HISTORY DUMP
+    # PHASE 2a: ATLAS WARMUP (Databento data for pre-NT8 context)
     # ═══════════════════════════════════════════════════════════════════
     logger.info('')
     logger.info('=' * 60)
-    logger.info('PHASE 2: HISTORY DUMP')
+    logger.info('PHASE 2a: ATLAS WARMUP (Databento)')
     logger.info('=' * 60)
 
     agg = Aggregator(history_limit=2000)
+
+    # Load warm state from maintenance if available
+    atlas_1s = 'DATA/ATLAS/1s'
+    warmup_days = 5  # 5 days enough for 1h (120 bars) + 1D context
+    import glob
+    if os.path.exists(atlas_1s):
+        day_files = sorted(glob.glob(os.path.join(atlas_1s, '*.parquet')))[-warmup_days:]
+        if day_files:
+            logger.info(f'  Loading {len(day_files)} days of ATLAS 1s bars...')
+            warmup_bars = 0
+            for fpath in day_files:
+                df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
+                for _, row in df.iterrows():
+                    bar = {
+                        'timestamp': row['timestamp'],
+                        'open': row['open'], 'high': row['high'],
+                        'low': row['low'], 'close': row['close'],
+                        'volume': row.get('volume', 0),
+                    }
+                    agg.feed(bar)
+                    warmup_bars += 1
+
+            logger.info(f'  ATLAS warmup: {warmup_bars:,} bars')
+            logger.info(f'  TF bars: 1m={agg.get_bar_count("1m")} '
+                        f'5m={agg.get_bar_count("5m")} '
+                        f'1h={agg.get_bar_count("1h")} '
+                        f'1D={agg.get_bar_count("1D")}')
+        else:
+            logger.warning('  No ATLAS 1s data found — cold start')
+    else:
+        logger.warning(f'  {atlas_1s}/ not found — cold start')
+
+    # ═══════════════════════════════════════════════════════════════════
+    # PHASE 2b: NT8 HISTORY (bridge history on top of ATLAS)
+    # ═══════════════════════════════════════════════════════════════════
+    logger.info('')
+    logger.info('=' * 60)
+    logger.info('PHASE 2b: NT8 HISTORY DUMP')
+    logger.info('=' * 60)
+
     history_bars = []
     history_done = False
     bar_count = 0
