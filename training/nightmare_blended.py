@@ -239,6 +239,14 @@ class BlendedEngine:
         self._entry_approach = []
         self._trade_path = []
 
+        # Oscillation tracking (set properly in _open_trade, defaults here for safety)
+        self._z_sign = 1.0
+        self._zero_crossings = 0
+        self._z_peak = 0.0
+        self._z_trough = 0.0
+        self._peak_amplitude = 0.0
+        self._current_amplitude = 0.0
+
         self.trades = []
         self.daily_pnl = 0.0
         self._bar_count = 0
