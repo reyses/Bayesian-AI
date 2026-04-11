@@ -24,6 +24,10 @@ FEATURES_DIR = 'DATA/FEATURES_79D'
 FEATURES_DIR_5S = 'DATA/FEATURES_79D_5s'
 FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
 
+# NT8 dataset (OOS-2: live parity validation)
+NT8_FEATURES_5S = 'DATA/FEATURES_NT8_5s'
+NT8_ATLAS_1M = 'DATA/ATLAS_NT8/1m'
+
 
 def cmd_build(args):
     """Build 79D dataset (sequential, live parity)."""
@@ -1276,6 +1280,19 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
         _log_phase('1b. Physics OOS', csv_path='training/output/blended/physics_oos_daily.csv')
 
+        # OOS-NT8 physics baseline (live parity floor)
+        nt8_feat_files = sorted(glob.glob(os.path.join(NT8_FEATURES_5S, '*.parquet')))
+        if nt8_feat_files:
+            print(f'\n{"="*40}')
+            print(f'PHASE 1c: Physics OOS-NT8 ({len(nt8_feat_files)} days, no CNN)')
+            print(f'{"="*40}')
+            t0 = _time.perf_counter()
+            _run_blended_forward_on_files(
+                nt8_feat_files, 'physics_oos_nt8',
+                use_cnn=False, price_dir=NT8_ATLAS_1M)
+            print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+            _log_phase('1c. Physics NT8', csv_path='training/output/blended/physics_oos_nt8_daily.csv')
+
     if _should_run('2'):
         print(f'\n{"="*40}')
         print(f'PHASE 2: Regret on NMP trades')
@@ -1423,7 +1440,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
 
     if _should_run('7'):
         print(f'\n{"="*40}')
-        print(f'PHASE 7: Forward pass (final) IS + OOS with all CNNs')
+        print(f'PHASE 7: Forward pass (final) IS + OOS + OOS-NT8')
         print(f'{"="*40}')
 
         print(f'\n--- IS ---')
@@ -1431,13 +1448,26 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _run_blended_forward('is')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-        print(f'\n--- OOS ---')
+        print(f'\n--- OOS (Databento) ---')
         t0 = _time.perf_counter()
         _run_blended_forward('oos')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
         _log_phase('7. IS (final)', csv_path='training/output/blended/is_daily.csv')
         _log_phase('7. OOS (final)', csv_path='training/output/blended/oos_daily.csv')
+
+        # OOS-NT8: switch to NT8 features, run forward pass (live parity test)
+        nt8_feat_files = sorted(glob.glob(os.path.join(NT8_FEATURES_5S, '*.parquet')))
+        if nt8_feat_files:
+            print(f'\n--- OOS-NT8 ({len(nt8_feat_files)} days) ---')
+            t0 = _time.perf_counter()
+            _run_blended_forward_on_files(
+                nt8_feat_files, 'oos_nt8',
+                use_cnn=True, price_dir=NT8_ATLAS_1M)
+            print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+            _log_phase('7. OOS-NT8', csv_path='training/output/blended/oos_nt8_daily.csv')
+        else:
+            print(f'\n  OOS-NT8: No features in {NT8_FEATURES_5S}/ — skipping')
 
     # Hourly OOS report (live comparison reference)
     if os.path.exists('training/output/blended/oos_trades.pkl'):
@@ -1447,7 +1477,7 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         except Exception as e:
             print(f'  Hourly report failed: {e}')
 
-    # Physics vs CNN comparison
+    # Physics vs CNN comparison (Databento OOS)
     physics_oos = 'training/output/blended/physics_oos_daily.csv'
     cnn_oos = 'training/output/blended/oos_daily.csv'
     if os.path.exists(physics_oos) and os.path.exists(cnn_oos):
@@ -1458,8 +1488,23 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         delta = c_day - p_day
         flag = 'CNN WINS' if delta > 0 else 'PHYSICS WINS'
         print(f'\n{"="*60}')
-        print(f'PHYSICS vs CNN (OOS):')
+        print(f'PHYSICS vs CNN (OOS Databento):')
         print(f'  Physics: ${p_day:,.0f}/day | CNN: ${c_day:,.0f}/day | Delta: ${delta:+,.0f} | {flag}')
+        print(f'{"="*60}')
+
+    # OOS-NT8 summary (the one that matters for live)
+    oos_nt8_path = 'training/output/blended/oos_nt8_daily.csv'
+    if os.path.exists(oos_nt8_path):
+        nt8_df = pd.read_csv(oos_nt8_path)
+        nt8_day = nt8_df['pnl'].sum() / len(nt8_df)
+        nt8_wins = (nt8_df['pnl'] > 0).sum()
+        print(f'\n{"="*60}')
+        print(f'OOS-NT8 (LIVE PARITY):')
+        print(f'  ${nt8_day:,.0f}/day | {nt8_wins}/{len(nt8_df)} win days')
+        if os.path.exists(cnn_oos):
+            db_day = pd.read_csv(cnn_oos)['pnl'].sum() / len(pd.read_csv(cnn_oos))
+            gap = nt8_day - db_day
+            print(f'  vs Databento OOS: ${gap:+,.0f}/day gap')
         print(f'{"="*60}')
 
     # Check for new baseline and generate report
@@ -1627,6 +1672,74 @@ def _check_new_baseline(oos_csv_path):
     with open(BASELINE_FILE, 'w') as f:
         json.dump(baseline, f, indent=2)
     print(f'  Baseline updated: {BASELINE_FILE}')
+
+
+def _run_blended_forward_on_files(feat_files: list, label: str,
+                                   use_cnn: bool = True, price_dir: str = None):
+    """Forward pass on explicit file list (for NT8 OOS or custom datasets)."""
+    from training.sfe_ticker import FeatureTicker
+    from training.nightmare_blended import BlendedEngine
+    from tqdm import tqdm
+    import pickle
+
+    if not feat_files:
+        print(f'No feature files for {label}')
+        return
+
+    _price_dir = price_dir or ATLAS_1M
+    cnn_label = '+ CNN' if use_cnn else '(no CNN)'
+    print(f'BLENDED FORWARD {cnn_label} — {len(feat_files)} day(s) [{label}]')
+    engine = BlendedEngine(use_cnn=use_cnn)
+    all_results = []
+    all_trades = []
+
+    for fpath in tqdm(feat_files, desc='Days', unit='day'):
+        day_name = os.path.basename(fpath).replace('.parquet', '')
+        price_file = os.path.join(_price_dir, f'{day_name}.parquet')
+        if not os.path.exists(price_file):
+            price_file = None
+
+        engine.reset()
+        ft = FeatureTicker(fpath, price_file=price_file)
+        for state in ft:
+            engine.on_state(state)
+        engine.force_close()
+
+        for t in engine.trades:
+            t['day'] = day_name
+        all_trades.extend(engine.get_full_trades())
+
+        day_pnl = engine.daily_pnl
+        day_trades = len(engine.trades)
+        all_results.append({
+            'day': day_name,
+            'trades': day_trades,
+            'pnl': day_pnl,
+            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+        })
+
+    _print_summary(all_results)
+
+    # Save
+    os.makedirs('training/output/blended', exist_ok=True)
+    if all_trades:
+        trade_path = f'training/output/blended/{label}_trades.pkl'
+        with open(trade_path, 'wb') as f:
+            pickle.dump(all_trades, f)
+
+    csv_path = f'training/output/blended/{label}_daily.csv'
+    pd.DataFrame(all_results).to_csv(csv_path, index=False)
+    print(f'Saved: {csv_path}')
+
+    # Tier breakdown
+    if all_trades:
+        from collections import Counter
+        tiers = Counter(t.get('entry_tier', '?') for t in all_trades)
+        for tier, count in tiers.most_common():
+            sub = [t for t in all_trades if t.get('entry_tier') == tier]
+            wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+            total = sum(t['pnl'] for t in sub)
+            print(f'  {tier}: {count} trades, WR={wr:.0f}%, ${total:,.0f}')
 
 
 def _run_blended_forward(target: str):
