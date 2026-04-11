@@ -37,9 +37,9 @@ REGIME_HURST_MAX = -1.0   # DISABLED — set to 0.45 to activate
 
 # MTF_EXHAUSTION entry — DISABLED (triggers 7862 trades at 21% WR = -$142K)
 # Too loose: 5m deceleration happens constantly
-MTF_5M_VEL_MIN = 99999.0   # disabled
+MTF_5M_VEL_MIN = 30.0      # 5m |velocity| must be above this
 MTF_5M_DECEL = 0.50
-MTF_1M_VEL_ALIVE = 99999.0 # disabled
+MTF_1M_VEL_ALIVE = 10.0    # 1m |velocity| must show life
 
 # EXHAUSTION_BAR entry — bar_range climax + velocity decelerating
 EXHAUST_BAR_RANGE_MIN = 80.0     # bar_range climax threshold
@@ -79,6 +79,13 @@ EXHAUST_Z_MIN = 1.4               # entry: must be deep in z extreme
 EXHAUST_VR_MIN = 0.70             # entry: must be trending (real exhaustion, not chop)
 EXHAUST_CONVICTION_BARS = 12      # exit: 1 minute to prove reversal
 EXHAUST_Z_SHRINK_MIN = 0.20      # exit: |z| must shrink 20%+ from entry
+
+# MTF_EXHAUSTION (from EDA: 17% WR, winners are deep z + high vr + high vol)
+MTF_Z_MIN = 1.4                   # entry: must be deep in z extreme
+MTF_VR_MIN = 0.58                 # entry: must be somewhat trending
+MTF_VOL_MIN = 2.0                 # entry: must have volume conviction
+MTF_CONVICTION_BARS = 12          # exit: 1 minute to prove thesis
+MTF_Z_SHRINK_MIN = 0.10           # exit: |z| must shrink 10%+ from entry
 
 # Bar range gate — disabled (low bar_range still profitable via volume)
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
@@ -525,9 +532,11 @@ class BlendedEngine:
                     self._open_trade(direction, price, ts, time_str, feat, 'REGIME_FLIP',
                                      cnn_flipped=False)
 
-                # MTF_EXHAUSTION: 5m decelerating + 1m still alive
-                elif v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE:
-                    # 5m is slowing down — fade the 5m direction
+                # MTF_EXHAUSTION: 5m decelerating + 1m alive + deep z + vr + volume
+                # EDA: winners |z|>1.4, vr>0.58, vol>2.0 (real exhaustion)
+                elif (v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE and
+                      abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
+                      feat[_1M_VOL_REL_IDX] > MTF_VOL_MIN):
                     direction = 'short' if feat[_5M_VELOCITY_IDX] > 0 else 'long'
                     self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
                                      cnn_flipped=False)
@@ -676,14 +685,27 @@ class BlendedEngine:
 
             return None
 
-        # MTF_EXHAUSTION exit: 5m recovers or 1m dies
+        # MTF_EXHAUSTION exit: z conviction + 5m velocity flip
+        # EDA: winners recover after bar 60 when 5m flips positive
+        # Losers 5m stays negative (trending against)
         if self.entry_tier == 'MTF_EXHAUSTION':
+            abs_z = abs(z)
+
+            # Early conviction: z must shrink by bar 12
+            if self.bars_held >= MTF_CONVICTION_BARS and self.bars_held < MTF_CONVICTION_BARS + 3:
+                z_shrink = (self._entry_abs_z - abs_z) / max(self._entry_abs_z, 0.01)
+                if z_shrink < MTF_Z_SHRINK_MIN:
+                    return 'mtf_no_conviction'
+
+            # 5m reaccelerated in original direction = exhaustion thesis failed
             v5_accel = feat[_5M_ACCEL_IDX]
-            v1 = abs(feat[_1M_VELOCITY_IDX])
-            if v5_accel > 0:
+            if v5_accel > 0 and abs(feat[_5M_VELOCITY_IDX]) > 30:
                 return 'mtf_5m_reaccelerated'
-            if v1 < 0.3:
-                return 'mtf_1m_exhausted'
+
+            # Mean reached
+            if abs_z < 0.3:
+                return 'mtf_mean_reached'
+
             return None
 
         # EXHAUSTION_BAR exit: early z conviction + mean reached
