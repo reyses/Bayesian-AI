@@ -156,9 +156,9 @@ TIER_MAP = {
 H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
 
 # CNN model paths (default — training output dir)
-CNN_FLIP_PATH = 'nn_v2/output/tree/cnn_flip.pt'
-CNN_HOLD_PATH = 'nn_v2/output/tree/cnn_hold.pt'
-CNN_RISK_PATH = 'nn_v2/output/tree/cnn_risk.pt'
+CNN_FLIP_PATH = 'nn_v2/output/nn/cnn_flip.pt'
+CNN_HOLD_PATH = 'nn_v2/output/nn/cnn_hold.pt'
+CNN_RISK_PATH = 'nn_v2/output/nn/cnn_risk.pt'
 
 # Live release dir (packaged by nn_v2/release.py)
 LIVE_RELEASE_DIR = 'checkpoints/live_release'

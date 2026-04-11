@@ -30,8 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_CORE, N_HELPER, N_TFS
 
 BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
-REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
-OUTPUT_DIR = 'nn_v2/output/tree'
+REGRET_FILE = 'nn_v2/output/nn/regret_analysis.csv'
+OUTPUT_DIR = 'nn_v2/output/nn'
 
 # Grid layout: 6 TFs × 13 features (10 core + 3 helper)
 N_FEATURES_PER_TF = N_CORE + N_HELPER  # 13

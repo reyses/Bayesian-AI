@@ -78,7 +78,7 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 When a pipeline run achieves a new OOS $/day record:
 1. **Tag it**: `git tag vXXX -m "BASELINE: OOS $XXX/day on YY days"`
 2. **Safety branch**: `git branch safe/vXXX` and push to remote
-3. **Track CNN models**: `git add -f nn_v2/output/tree/cnn_*.pt` (700KB each)
+3. **Track CNN models**: `git add -f nn_v2/output/nn/cnn_*.pt` (700KB each)
 4. **Report auto-generated**: pipeline saves to `reports/findings/baseline_*.md`
 5. **Journal entry**: detailed breakdown with IS/OOS summary, tier table, exit table
 6. **Update baseline_best.json**: pipeline does this automatically

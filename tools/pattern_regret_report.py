@@ -16,7 +16,7 @@ for tier in ['cascade', 'kill_shot', 'base_nmp']:
         pass
 
 # Load regret + trades
-regret = pd.read_csv('nn_v2/output/tree/regret_analysis.csv')
+regret = pd.read_csv('nn_v2/output/nn/regret_analysis.csv')
 with open('nn_v2/output/trades/blended_is.pkl', 'rb') as f:
     trades = pickle.load(f)
 

@@ -278,9 +278,9 @@ def _run_regret():
                   f'capture={sub["actual_pnl"].sum() / max(sub["best_pnl"].sum(), 1) * 100:.0f}%')
 
     # Save
-    os.makedirs('nn_v2/output/tree', exist_ok=True)
-    regret_df.to_csv('nn_v2/output/tree/regret_analysis.csv', index=False)
-    print(f'\n  Saved: nn_v2/output/tree/regret_analysis.csv')
+    os.makedirs('nn_v2/output/nn', exist_ok=True)
+    regret_df.to_csv('nn_v2/output/nn/regret_analysis.csv', index=False)
+    print(f'\n  Saved: nn_v2/output/nn/regret_analysis.csv')
 
 
 def _run_gated(target: str):
@@ -288,7 +288,7 @@ def _run_gated(target: str):
     from nn_v2.sfe_ticker import FeatureTicker
     from nn_v2.nightmare import NightmareEngine
 
-    tree_path = 'nn_v2/output/tree/strategy_tree.pkl'
+    tree_path = 'nn_v2/output/nn/strategy_tree.pkl'
     if not os.path.exists(tree_path):
         print(f'No tree found at {tree_path}. Run tree.py first.')
         return
@@ -372,8 +372,8 @@ def _run_gated(target: str):
     print(f'\n{memory.summary()}')
 
     # Save report
-    os.makedirs('nn_v2/output/tree', exist_ok=True)
-    report_path = f'nn_v2/output/tree/gated_{target}_report.txt'
+    os.makedirs('nn_v2/output/nn', exist_ok=True)
+    report_path = f'nn_v2/output/nn/gated_{target}_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         n_days = len(all_results)
         total_pnl = sum(r['pnl'] for r in all_results)
@@ -394,12 +394,12 @@ def _run_gated(target: str):
         f.write(f'\n{memory.summary()}\n')
     print(f'\nReport saved: {report_path}')
 
-    csv_path = f'nn_v2/output/tree/gated_{target}_daily.csv'
+    csv_path = f'nn_v2/output/nn/gated_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
 
     # Save memory
-    memory.save(f'nn_v2/output/tree/memory_{target}.pkl')
+    memory.save(f'nn_v2/output/nn/memory_{target}.pkl')
 
     # Build OOS playbook from memory (separate from IS book)
     eval_result = memory.evaluate_iteration()
@@ -433,7 +433,7 @@ def _run_gated(target: str):
         for lid, wr, pnl in eval_result['promote_candidates']:
             playbook_lines.append(f'  Branch {lid}: WR={wr:.0%}, PnL=${pnl:.0f}')
 
-    playbook_path = f'nn_v2/output/tree/playbook_{target}.txt'
+    playbook_path = f'nn_v2/output/nn/playbook_{target}.txt'
     with open(playbook_path, 'w', encoding='utf-8') as f:
         f.write('\n'.join(playbook_lines))
     print(f'Playbook saved: {playbook_path}')
@@ -470,7 +470,7 @@ def _run_gated(target: str):
         ax2.grid(True, alpha=0.3)
 
         plt.tight_layout()
-        plot_path = f'nn_v2/output/tree/gated_{target}_equity.png'
+        plot_path = f'nn_v2/output/nn/gated_{target}_equity.png'
         plt.savefig(plot_path, dpi=150)
         plt.close()
         print(f'Plot saved: {plot_path}')
@@ -535,15 +535,15 @@ def _run_ai(target: str):
     _print_summary(all_results)
 
     # Save full trade log (with 79D, paths, approach — for regret)
-    os.makedirs('nn_v2/output/tree', exist_ok=True)
+    os.makedirs('nn_v2/output/nn', exist_ok=True)
     if all_trades:
-        trade_path = f'nn_v2/output/tree/ai_{target}_trades.pkl'
+        trade_path = f'nn_v2/output/nn/ai_{target}_trades.pkl'
         with open(trade_path, 'wb') as f:
             pickle.dump(all_trades, f)
         print(f'Trade log saved: {trade_path} ({len(all_trades)} trades)')
 
     # Save report
-    report_path = f'nn_v2/output/tree/ai_{target}_report.txt'
+    report_path = f'nn_v2/output/nn/ai_{target}_report.txt'
     with open(report_path, 'w', encoding='utf-8') as f:
         n_days = len(all_results)
         total_pnl = sum(r['pnl'] for r in all_results)
@@ -559,7 +559,7 @@ def _run_ai(target: str):
                     f'${r["pnl"]:>8.2f}  cumul=${cumul:>8.2f} {flag}\n')
     print(f'Report saved: {report_path}')
 
-    csv_path = f'nn_v2/output/tree/ai_{target}_daily.csv'
+    csv_path = f'nn_v2/output/nn/ai_{target}_daily.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'CSV saved: {csv_path}')
 
@@ -569,7 +569,7 @@ def _run_ai_regret(target: str):
     import pickle
     from nn_v2.regret import compute_all_regrets, summarize_regret_by_branch
 
-    trade_path = f'nn_v2/output/tree/ai_{target}_trades.pkl'
+    trade_path = f'nn_v2/output/nn/ai_{target}_trades.pkl'
     if not os.path.exists(trade_path):
         print(f'No AI trades found at {trade_path}. Run AI forward pass first.')
         return
@@ -611,9 +611,9 @@ def _run_ai_regret(target: str):
               f'{row["dominant_pct"]:>4.0f}%')
 
     # Save
-    regret_path = f'nn_v2/output/tree/ai_{target}_regret.csv'
+    regret_path = f'nn_v2/output/nn/ai_{target}_regret.csv'
     regret_df.to_csv(regret_path, index=False)
-    branch_path = f'nn_v2/output/tree/ai_{target}_regret_by_branch.csv'
+    branch_path = f'nn_v2/output/nn/ai_{target}_regret_by_branch.csv'
     branch_summary.to_csv(branch_path, index=False)
     print(f'\n  Saved: {regret_path}')
     print(f'  Saved: {branch_path}')
@@ -695,20 +695,20 @@ def _run_full_pipeline():
     print(f'\n--- STEP 9: System Report ---')
     from nn_v2.report import main as report_main
     sys.argv = ['report.py',
-                '--is-csv', 'nn_v2/output/tree/ai_is_daily.csv',
-                '--oos-csv', 'nn_v2/output/tree/ai_oos_daily.csv']
+                '--is-csv', 'nn_v2/output/nn/ai_is_daily.csv',
+                '--oos-csv', 'nn_v2/output/nn/ai_oos_daily.csv']
     report_main()
 
     total_time = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
     print(f'PIPELINE COMPLETE — {total_time:.0f}s total')
     print(f'{"="*60}')
-    print(f'  NMP regret:   nn_v2/output/tree/regret_analysis.csv')
-    print(f'  AI IS trades: nn_v2/output/tree/ai_is_trades.pkl')
-    print(f'  AI IS regret: nn_v2/output/tree/ai_is_regret.csv')
-    print(f'  AI OOS regret:nn_v2/output/tree/ai_oos_regret.csv')
-    print(f'  Report:       nn_v2/output/tree/system_report.txt')
-    print(f'  Book:         nn_v2/output/tree/strategy_book.txt')
+    print(f'  NMP regret:   nn_v2/output/nn/regret_analysis.csv')
+    print(f'  AI IS trades: nn_v2/output/nn/ai_is_trades.pkl')
+    print(f'  AI IS regret: nn_v2/output/nn/ai_is_regret.csv')
+    print(f'  AI OOS regret:nn_v2/output/nn/ai_oos_regret.csv')
+    print(f'  Report:       nn_v2/output/nn/system_report.txt')
+    print(f'  Book:         nn_v2/output/nn/strategy_book.txt')
 
 
 def _print_summary(results: list, show_daily: bool = True):
@@ -989,7 +989,7 @@ def _run_bayesian_pipeline():
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     # Create VersionedBook v0
-    book = VersionedBook.from_nmp_book('nn_v2/output/tree/strategy_book.pkl')
+    book = VersionedBook.from_nmp_book('nn_v2/output/nn/strategy_book.pkl')
     os.makedirs(BOOK_DIR, exist_ok=True)
     book.freeze(day_name='baseline')  # saves book_v000.pkl + .txt
     v0_path = os.path.join(BOOK_DIR, 'book_v000.pkl')
@@ -1343,8 +1343,8 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         t0 = _time.perf_counter()
         _run_regret()
         import shutil
-        src = 'nn_v2/output/tree/regret_analysis.csv'
-        dst = 'nn_v2/output/tree/regret_cnn_flipped.csv'
+        src = 'nn_v2/output/nn/regret_analysis.csv'
+        dst = 'nn_v2/output/nn/regret_cnn_flipped.csv'
         if os.path.exists(src):
             shutil.copy2(src, dst)
             print(f'  Saved: {dst}')

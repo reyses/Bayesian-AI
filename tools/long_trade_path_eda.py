@@ -15,7 +15,7 @@ from core.features_79d import FEATURE_NAMES_79D
 # Load data
 with open('nn_v2/output/trades/blended_is.pkl', 'rb') as f:
     trades = pickle.load(f)
-regret = pd.read_csv('nn_v2/output/tree/regret_analysis.csv')
+regret = pd.read_csv('nn_v2/output/nn/regret_analysis.csv')
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
 n = min(len(trades), len(regret))

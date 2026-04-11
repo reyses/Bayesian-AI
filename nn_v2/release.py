@@ -19,7 +19,7 @@ import time
 from datetime import datetime
 
 # Source paths (training output)
-SOURCE_DIR = 'nn_v2/output/tree'
+SOURCE_DIR = 'nn_v2/output/nn'
 CNN_FILES = ['cnn_flip.pt', 'cnn_hold.pt', 'cnn_risk.pt']
 
 # Release destination

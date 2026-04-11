@@ -33,8 +33,8 @@ from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
 
 # Data paths
 BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
-REGRET_FILE = 'nn_v2/output/tree/regret_cnn_flipped.csv'
-OUTPUT_DIR = 'nn_v2/output/tree'
+REGRET_FILE = 'nn_v2/output/nn/regret_cnn_flipped.csv'
+OUTPUT_DIR = 'nn_v2/output/nn'
 
 # Grid layout
 GRID_H = 6

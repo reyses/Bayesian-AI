@@ -37,7 +37,7 @@ from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 
 # Data paths
 BLENDED_TRADES = 'nn_v2/output/trades/blended_is.pkl'
-REGRET_FILE = 'nn_v2/output/tree/regret_analysis.csv'
+REGRET_FILE = 'nn_v2/output/nn/regret_analysis.csv'
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 OUTPUT_DIR = 'nn_v2/output/entry'
 
