@@ -139,11 +139,34 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     logger.info(f'  TF bars: 1m={agg.get_bar_count("1m")} 5m={agg.get_bar_count("5m")} '
                 f'15m={agg.get_bar_count("15m")} 1h={agg.get_bar_count("1h")}')
 
-    # Save history bars
-    os.makedirs('reports/live', exist_ok=True)
-    hist_path = 'reports/live/diagnostic_history.csv'
-    pd.DataFrame(history_bars).to_csv(hist_path, index=False)
-    logger.info(f'  Saved: {hist_path}')
+    # Save history bars as ATLAS_NT8 parquets (one per day, 5s resolution)
+    os.makedirs('DATA/ATLAS_NT8/5s', exist_ok=True)
+    hist_df = pd.DataFrame(history_bars)
+    hist_df['day'] = pd.to_datetime(hist_df['timestamp'], unit='s').dt.strftime('%Y_%m_%d')
+    saved_days = 0
+    for day, day_df in hist_df.groupby('day'):
+        out = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+        out['timestamp'] = out['timestamp'].astype(np.int64)
+        out = out.sort_values('timestamp').drop_duplicates(subset='timestamp', keep='last').reset_index(drop=True)
+        path = f'DATA/ATLAS_NT8/5s/{day}.parquet'
+        out.to_parquet(path, index=False)
+        saved_days += 1
+    logger.info(f'  Saved: {saved_days} days to DATA/ATLAS_NT8/5s/')
+
+    # Also aggregate to higher TFs
+    for tf_name, tf_secs in [('15s', 15), ('1m', 60), ('5m', 300), ('15m', 900), ('1h', 3600), ('1D', 86400)]:
+        tf_dir = f'DATA/ATLAS_NT8/{tf_name}'
+        os.makedirs(tf_dir, exist_ok=True)
+        for day, day_df in hist_df.groupby('day'):
+            raw = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
+            raw['bucket'] = (raw['timestamp'] // tf_secs) * tf_secs
+            agg_df = raw.groupby('bucket').agg({
+                'timestamp': 'first', 'open': 'first', 'high': 'max',
+                'low': 'min', 'close': 'last', 'volume': 'sum',
+            }).reset_index(drop=True)
+            agg_df['timestamp'] = agg_df['timestamp'].astype(np.int64)
+            agg_df.to_parquet(f'{tf_dir}/{day}.parquet', index=False)
+    logger.info(f'  Aggregated: 15s, 1m, 5m, 15m, 1h, 1D')
 
     logger.info('Phase 2 PASS')
     if max_phase <= 2:
