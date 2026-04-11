@@ -51,15 +51,37 @@ _1H = 4 * N_CORE  # 48
 _1H_Z = _1H + _Z
 _1H_VEL = _1H + _VEL
 
+# Additional feature indices for ISO tiers
+_1M_BAR_RANGE = _1M + 6        # bar_range
+_1M_ACCEL = _1M + 4            # acceleration
+_1M_VOL_REL = _1M + 5          # vol_rel
+_1M_WICK = N_CORE * N_TFS + 1 * N_HELPER + 2  # helper: wick_ratio for 1m
+_5M_VEL = _5M + _VEL           # 5m velocity
+_5M_ACCEL = _5M + 4            # 5m acceleration
+
 # Tier thresholds (from nightmare_blended.py)
+# NMP entry
 ROCHE = 2.0
 VR_ENTRY = 1.0
+
+# NMP tier thresholds
 WICK_5M_MIN = 0.3
 WICK_15M_MIN = 0.25
 H1_Z_MIN = 0.5
 H1_AGAINST_Z_MIN = 1.5
 VELOCITY_THRESHOLD = 50.0
 FREIGHT_TRAIN_THRESHOLD = 100.0
+
+# ISO tier thresholds (disabled in blended, active here for max-fill)
+REGIME_VR_MAX = 0.35
+REGIME_HURST_MAX = 0.45
+MTF_5M_VEL_MIN = 30.0
+MTF_1M_VEL_ALIVE = 10.0
+EXHAUST_BAR_RANGE_MIN = 80.0
+EXHAUST_ACCEL_MIN = 20.0
+ABSORB_VOL_MIN = 1.5
+ABSORB_RANGE_MAX = 40.0
+ABSORB_WICK_MIN = 0.3
 
 
 def check_tier(feat, z):
@@ -108,8 +130,40 @@ def check_tier(feat, z):
     if abs_vel >= VELOCITY_THRESHOLD:
         results.append(('FADE_MOMENTUM', direction))
 
-    # FADE_CALM: default (always qualifies)
+    # FADE_CALM: default (always qualifies for NMP)
     results.append(('FADE_CALM', direction))
+
+    # === ISO TIERS (non-NMP: don't require z extreme) ===
+    # These check independently — don't need abs(z) > ROCHE
+    vr = feat[_1M + _VR]
+    hurst = feat[_1M + _HURST]
+    v5 = abs(feat[_5M_VEL]) if len(feat) > _5M_VEL else 0
+    v5_accel = feat[_5M_ACCEL] if len(feat) > _5M_ACCEL else 0
+    v1 = abs(feat[_1M + _VEL])
+    bar_range = feat[_1M_BAR_RANGE] if len(feat) > _1M_BAR_RANGE else 0
+    accel_1m = abs(feat[_1M_ACCEL]) if len(feat) > _1M_ACCEL else 0
+    vol_rel = feat[_1M_VOL_REL] if len(feat) > _1M_VOL_REL else 0
+    wick_1m = feat[_1M_WICK] if len(feat) > _1M_WICK else 0
+
+    # REGIME_FLIP: vr low + hurst low = just shifted to mean-reverting
+    if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
+        results.append(('REGIME_FLIP', direction))
+
+    # MTF_EXHAUSTION: 5m decelerating + 1m still alive
+    if v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE:
+        mtf_dir = 'short' if feat[_5M_VEL] > 0 else 'long'
+        results.append(('MTF_EXHAUSTION', mtf_dir))
+
+    # EXHAUSTION_BAR: bar_range climax + velocity decelerating
+    if (bar_range > EXHAUST_BAR_RANGE_MIN and
+            accel_1m > EXHAUST_ACCEL_MIN and
+            feat[_1M_ACCEL] * feat[_1M + _VEL] < 0):  # decel
+        ex_dir = 'short' if feat[_1M + _VEL] > 0 else 'long'
+        results.append(('EXHAUSTION_BAR', ex_dir))
+
+    # ABSORPTION: high volume + low range + wicks
+    if vol_rel > ABSORB_VOL_MIN and bar_range < ABSORB_RANGE_MAX and wick_1m > ABSORB_WICK_MIN:
+        results.append(('ABSORPTION', direction))
 
     return results
 
@@ -154,12 +208,21 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
             z = feat[_1M + _Z]
             vr = feat[_1M + _VR]
 
-            # NMP entry condition
-            if abs(z) <= ROCHE or vr >= VR_ENTRY:
-                continue
+            # NMP tiers need z extreme + vr < 1
+            # ISO tiers have their own conditions (checked inside check_tier)
+            is_nmp_eligible = abs(z) > ROCHE and vr < VR_ENTRY
 
             # Check all tiers this bar qualifies for
             eligible = check_tier(feat, z)
+
+            # Filter: NMP tiers only if NMP eligible, ISO tiers always checked
+            nmp_tiers = {'CASCADE', 'KILL_SHOT', 'FREIGHT_TRAIN', 'FADE_AGAINST',
+                         'RIDE_AGAINST', 'FADE_MOMENTUM', 'FADE_CALM'}
+            if not is_nmp_eligible:
+                eligible = [(t, d) for t, d in eligible if t not in nmp_tiers]
+
+            if not eligible:
+                continue
 
             for tier, direction in eligible:
                 if tier_filter and tier not in tier_filter:
