@@ -310,14 +310,14 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                     z_j = fj[_1M + _Z]
                     abs_z_j = abs(z_j)
                     vr_j = fj[_1M + _VR]
+                    vel_j = fj[_1M + _VEL]
+                    accel_j = fj[_1M + _ACCEL] if len(fj) > _1M + _ACCEL else 0
+                    abs_vel_j = abs(vel_j)
 
                     # Update state trackers (all tiers)
                     min_z_seen = min(min_z_seen, abs_z_j)
-                    abs_vel_j = abs(vel_j)
                     max_vel_seen = max(max_vel_seen, abs_vel_j)
                     bars_since_peak = held - peak_bar
-                    vel_j = fj[_1M + _VEL]
-                    accel_j = fj[_1M + _ACCEL] if len(fj) > _1M + _ACCEL else 0
                     vol_j = fj[_1M_VOL_REL] if len(fj) > _1M_VOL_REL else 1.0
                     v5_j = fj[_5M_VEL] if len(fj) > _5M_VEL else 0
                     v5a_j = fj[_5M_ACCEL] if len(fj) > _5M_ACCEL else 0
