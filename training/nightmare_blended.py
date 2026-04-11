@@ -177,6 +177,7 @@ TIER_MAP = {
     'EXHAUSTION_BAR': -5,
     'ABSORPTION': -6,
     'FREIGHT_TRAIN': -1,
+    'MTF_BREAKOUT': -7,
     'BASE_NMP': 0, 'MANUAL': 0,  # legacy compat
 }
 
@@ -639,15 +640,17 @@ class BlendedEngine:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
 
-        # 7. FADE_CALM — default fade (CNN opportunity)
-        # EDA: skip when 5m AND 15m z both > 1.3 (multi-TF breakout, not reversion)
-        # This filter removes 2,597 breakout traps including 100 hard stops,
-        # doubles total PnL ($17K → $39K), WR 58% → 60%
+        # 7. MTF_BREAKOUT — all TFs aligned, ride the breakout (not fade)
+        # EDA: these are the 2,597 bars that killed FADE_CALM (322 hard stops at -$176)
+        # When 5m AND 15m z both > 1.3, every TF confirms the move. Ride it.
         z_5m = abs(feat[2 * _N_CORE + _Z])   # 5m z (TF index 2)
         z_15m = abs(feat[3 * _N_CORE + _Z])  # 15m z (TF index 3)
         if z_5m > 1.3 and z_15m > 1.3:
-            return None, None, False  # skip — multi-TF breakout
+            # Ride z direction (opposite of fade)
+            breakout_dir = 'long' if z > 0 else 'short'
+            return breakout_dir, 'MTF_BREAKOUT', True
 
+        # 8. FADE_CALM — default fade (CNN opportunity)
         return direction, 'FADE_CALM', False
 
     def _check_exit(self, feat, z, vr, pnl):
@@ -728,6 +731,23 @@ class BlendedEngine:
             # VR dropped = regime shifting to mean-reverting (ride done)
             if vr < 0.30:
                 return 'mtf_vr_dropped'
+
+            return None
+
+        # MTF_BREAKOUT exit: ride until multi-TF alignment breaks
+        if self.entry_tier == 'MTF_BREAKOUT':
+            z_5m = abs(feat[2 * _N_CORE + _Z])
+            z_15m = abs(feat[3 * _N_CORE + _Z])
+
+            # Alignment broken: either 5m or 15m z dropped below 0.8
+            if z_5m < 0.8 or z_15m < 0.8:
+                return 'breakout_alignment_lost'
+
+            # 1m z crossed zero (overshot to other side)
+            if self.direction == 'long' and z < -0.3:
+                return 'breakout_overshot'
+            if self.direction == 'short' and z > 0.3:
+                return 'breakout_overshot'
 
             return None
 
