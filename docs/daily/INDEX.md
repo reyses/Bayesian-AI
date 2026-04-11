@@ -2,6 +2,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-04-11 | Max-fill EDA: reordered waterfall by $/trade, flipped MTF_EXHAUSTION (+$316/day swing), ABSORPTION, REGIME_FLIP directions. New MTF_BREAKOUT tier. Physics-based entry/exit for all tiers from lookback analysis. Targeting 90% WR. |
 | 2026-04-10 | Parity mega-session: SFE review, training/live 5s cadence, timestamp bars_held, feed_bar() incremental API (validated 1e-5), NT8 vs Databento data mismatch found ($220 contract diff + 5s timestamp offset), dual OOS architecture (Databento OOS-1 + NT8 OOS-2). |
 | 2026-04-09 | $740/day OOS (74 days). 10 ExNMP tiers (PEAK added). KILL_SHOT 1-bar, tiered RIDE exits, 5m exit patience. Entry research: exhaustion bar, absorption, delta divergence, regime flip, MTF exhaustion. |
 | 2026-04-08 | Live hardening + pipeline + exit physics. SFE OHLCV mismatch fixed, dashboard cleaned, 8 live bugs. Oscillation discovery (100% long trades oscillate). FADE/RIDE exit modes. 3-bar confirmation. 4 ExNMP sub-tiers (fade/ride x calm/momentum). Full pipeline: $462/day IS, $340/day OOS (94% win days). |
