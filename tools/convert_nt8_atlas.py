@@ -28,8 +28,8 @@ from datetime import datetime
 from tqdm import tqdm
 
 NT8_ROOT = 'DATA/ATLAS_NT8/5s'
-ATLAS_OUT = 'DATA/ATLAS/5s'
-ATLAS_BACKUP = 'DATA/ATLAS_5s_BACKUP'
+ATLAS_OUT = 'DATA/ATLAS_NT8/5s'  # Output stays in NT8 dataset — never overwrites Databento
+ATLAS_BACKUP = 'DATA/ATLAS_NT8_5s_BACKUP'
 
 # Expected bars per full trading day (23h session at 5s = ~16,560)
 MIN_BARS_PER_DAY = 10000

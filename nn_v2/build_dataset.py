@@ -215,7 +215,7 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
     # Need at least the smallest TF in TF_ORDER (15s) or the anchor if it's in TF_ORDER
     min_tf = anchor_tf if anchor_tf in TF_ORDER else TF_ORDER[0]
     if min_tf not in tf_data:
-        return pd.DataFrame(), prev_velocities
+        return pd.DataFrame(), prev_velocities, sfe_cache
 
 
     rows = []
