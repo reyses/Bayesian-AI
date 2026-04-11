@@ -695,26 +695,25 @@ class BlendedEngine:
 
             return None
 
-        # MTF_EXHAUSTION exit: z conviction + 5m velocity flip
-        # EDA: winners recover after bar 60 when 5m flips positive
-        # Losers 5m stays negative (trending against)
+        # MTF_EXHAUSTION exit: RIDING the 5m direction (flipped from fade)
+        # Entry: ride 5m momentum. Exit: 5m momentum dying.
         if self.entry_tier == 'MTF_EXHAUSTION':
-            abs_z = abs(z)
-
-            # Early conviction: z must shrink by bar 12
-            if self.bars_held >= MTF_CONVICTION_BARS and self.bars_held < MTF_CONVICTION_BARS + 3:
-                z_shrink = (self._entry_abs_z - abs_z) / max(self._entry_abs_z, 0.01)
-                if z_shrink < MTF_Z_SHRINK_MIN:
-                    return 'mtf_no_conviction'
-
-            # 5m reaccelerated in original direction = exhaustion thesis failed
+            v5_vel = feat[_5M_VELOCITY_IDX]
             v5_accel = feat[_5M_ACCEL_IDX]
-            if v5_accel > 0 and abs(feat[_5M_VELOCITY_IDX]) > 30:
-                return 'mtf_5m_reaccelerated'
 
-            # Mean reached
-            if abs_z < 0.3:
-                return 'mtf_mean_reached'
+            # 5m velocity flipped against our direction = ride is over
+            if self.direction == 'long' and v5_vel < -10:
+                return 'mtf_5m_reversed'
+            if self.direction == 'short' and v5_vel > 10:
+                return 'mtf_5m_reversed'
+
+            # 5m decelerating hard = momentum exhausting
+            if abs(v5_vel) > 20 and v5_vel * v5_accel < 0:
+                return 'mtf_5m_decel'
+
+            # VR dropped = regime shifting to mean-reverting (ride done)
+            if vr < 0.30:
+                return 'mtf_vr_dropped'
 
             return None
 
