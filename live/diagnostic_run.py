@@ -223,7 +223,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         return
 
     # ═══════════════════════════════════════════════════════════════════
-    # PHASE 4: LIVE SYNC (real-time bars, latency, parity)
+    # PHASE 4: LIVE SYNC (gaps, latency, parity)
     # ═══════════════════════════════════════════════════════════════════
     logger.info('')
     logger.info('=' * 60)
@@ -242,17 +242,29 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     live_count = 0
     feat_count = 0
     latencies = []
+    last_ts = 0
+    last_recv = time.perf_counter()
+
+    # Gap tracking
+    gaps = []           # (ts, gap_s, type)
+    duplicates = 0
+    out_of_order = 0
+    BAR_PERIOD = 5      # expected 5s between bars
+    SESSION_GAP = 3600  # 1h+ = normal session break
+    WARN_GAP = 30       # 30s+ = suspicious gap
 
     # Open ledger
+    os.makedirs('reports/live', exist_ok=True)
     ledger_path = 'reports/live/diagnostic_ledger.csv'
     ledger = open(ledger_path, 'w')
-    cols = ['timestamp', 'ts_str', 'price', 'recv_time', 'feat_time',
-            'bar_latency_ms', 'feat_latency_ms',
+    cols = ['timestamp', 'ts_str', 'price', 'recv_delay_ms', 'feat_ms',
+            'gap_s', 'gap_type',
             'z', 'vr', 'vel', 'n_tfs'] + list(FEATURE_NAMES_79D)
     ledger.write(','.join(cols) + '\n')
 
     logger.info(f'  Listening for live bars... (max {max_live_bars})')
     logger.info(f'  Ledger: {ledger_path}')
+    logger.info(f'  Gap thresholds: warn={WARN_GAP}s, session={SESSION_GAP}s')
 
     while live_count < max_live_bars:
         try:
@@ -260,7 +272,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
             msg = await asyncio.wait_for(client.inbound.get(), timeout=30.0)
         except asyncio.TimeoutError:
             if live_count > 0:
-                logger.info(f'  30s timeout after {live_count} live bars — playback may have ended')
+                logger.info(f'  30s timeout after {live_count} live bars — playback ended or disconnect')
             break
 
         if msg.get('type') != MsgType.BAR:
@@ -268,9 +280,38 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
 
         bar = _extract_bar(msg)
         bar_ts = bar['timestamp']
-        wall_time = time.time()
-        bar_latency = (wall_time - bar_ts) * 1000 if bar_ts > 1e9 else 0  # ms
 
+        # ── Gap detection ──
+        gap_s = 0
+        gap_type = ''
+        if last_ts > 0:
+            gap_s = bar_ts - last_ts
+
+            if gap_s == 0:
+                duplicates += 1
+                gap_type = 'DUPLICATE'
+            elif gap_s < 0:
+                out_of_order += 1
+                gap_type = 'OUT_OF_ORDER'
+            elif gap_s > SESSION_GAP:
+                gap_type = 'SESSION_BREAK'
+                gaps.append((bar_ts, gap_s, gap_type))
+                logger.info(f'  SESSION BREAK: {gap_s:.0f}s gap at {_ts_str(bar_ts)}')
+            elif gap_s > WARN_GAP:
+                gap_type = 'GAP'
+                gaps.append((bar_ts, gap_s, gap_type))
+                logger.warning(f'  GAP: {gap_s:.0f}s at {_ts_str(bar_ts)} (expected {BAR_PERIOD}s)')
+            elif gap_s != BAR_PERIOD:
+                gap_type = f'SKIP_{int(gap_s)}s'
+
+        # ── Receive delay (wall clock vs bar timestamp) ──
+        recv_delay = (time.time() - bar_ts) * 1000 if bar_ts > 1e9 else 0
+        inter_bar = (recv_t - last_recv) * 1000  # ms between receiving bars
+
+        last_ts = bar_ts
+        last_recv = recv_t
+
+        # ── Feed aggregator ──
         pending_5s = None
         agg.feed(bar)
         live_count += 1
@@ -278,11 +319,11 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         if pending_5s is None:
             continue
 
-        # Compute features
+        # ── Compute features ──
         feat_t0 = time.perf_counter()
         feat, prev_vel, states_by_tf, _ = compute_79d_from_aggregator(
             agg, sfe, prev_vel, bar['timestamp'])
-        feat_elapsed = (time.perf_counter() - feat_t0) * 1000  # ms
+        feat_ms = (time.perf_counter() - feat_t0) * 1000
 
         if feat is None:
             continue
@@ -292,40 +333,50 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         vr = feat[14]
         vel = feat[15]
         n_tfs = len(states_by_tf)
+        latencies.append(feat_ms)
 
-        latencies.append(feat_elapsed)
-
-        # Write ledger row
+        # ── Write ledger ──
         row = [f'{bar_ts:.0f}', _ts_str(bar_ts), f'{bar["close"]:.2f}',
-               f'{recv_t:.3f}', f'{feat_t0:.3f}',
-               f'{bar_latency:.0f}', f'{feat_elapsed:.1f}',
+               f'{recv_delay:.0f}', f'{feat_ms:.1f}',
+               f'{gap_s:.0f}', gap_type,
                f'{z:.4f}', f'{vr:.4f}', f'{vel:.2f}', str(n_tfs)]
         row += [f'{feat[i]:.6f}' for i in range(N_FEATURES)]
         ledger.write(','.join(row) + '\n')
 
-        # Progress
-        if feat_count <= 3 or feat_count % 100 == 0:
-            logger.info(f'  LIVE {feat_count}: z={z:>+5.2f} vr={vr:.2f} vel={vel:>+6.1f} '
-                        f'TFs={n_tfs} feat={feat_elapsed:.0f}ms price={bar["close"]:.2f} '
+        # ── Progress ──
+        if feat_count <= 3 or feat_count % 200 == 0:
+            logger.info(f'  LIVE {feat_count}: z={z:>+5.2f} vr={vr:.2f} '
+                        f'price={bar["close"]:.2f} feat={feat_ms:.0f}ms '
                         f'{_ts_str(bar_ts)}')
+
+        if feat_count % 1000 == 0:
+            ledger.flush()
 
     ledger.flush()
     ledger.close()
 
-    # Summary
+    # ── SYNC REPORT ──
+    logger.info('')
+    logger.info('  SYNC REPORT:')
+    logger.info(f'    Live bars:      {live_count:,}')
+    logger.info(f'    Features:       {feat_count:,}')
+    logger.info(f'    Duplicates:     {duplicates}')
+    logger.info(f'    Out of order:   {out_of_order}')
+    logger.info(f'    Gaps (>{WARN_GAP}s):  {len([g for g in gaps if g[2] == "GAP"])}')
+    logger.info(f'    Session breaks: {len([g for g in gaps if g[2] == "SESSION_BREAK"])}')
+
     if latencies:
         lat = np.array(latencies)
-        logger.info(f'')
-        logger.info(f'  SYNC SUMMARY:')
-        logger.info(f'    Live bars:     {live_count:,}')
-        logger.info(f'    Features:      {feat_count:,}')
-        logger.info(f'    Feat latency:  avg={lat.mean():.0f}ms  p50={np.median(lat):.0f}ms  '
+        logger.info(f'    Feat latency:   avg={lat.mean():.0f}ms  p50={np.median(lat):.0f}ms  '
                     f'p99={np.percentile(lat, 99):.0f}ms  max={lat.max():.0f}ms')
-        logger.info(f'    Ledger saved:  {ledger_path}')
-    else:
-        logger.warning('  No live features computed')
 
-    logger.info('Phase 4 DONE')
+    if gaps:
+        logger.info(f'    Gap details:')
+        for ts, gap_s, gtype in gaps[:20]:
+            logger.info(f'      {_ts_str(ts)}: {gap_s:.0f}s ({gtype})')
+
+    logger.info(f'    Ledger: {ledger_path}')
+    logger.info('  Phase 4 DONE')
     await client.disconnect()
 
 
