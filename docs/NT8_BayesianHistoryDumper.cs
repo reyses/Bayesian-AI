@@ -114,16 +114,16 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             }
 
-            // Get bar data — Time[0] is bar OPEN time in NT8 (OnBarClose context)
-            // Databento convention: timestamp = bar CLOSE time
-            // Fix: add bar period to align with Databento
+            // Get bar data — Time[0] is bar CLOSE time in NT8 (OnBarClose context)
+            // Databento convention: timestamp = bar OPEN time
+            // Fix: subtract bar period to align with Databento
             DateTime barTime = Time[0];
             int barPeriodS = (int)BarsPeriod.Value; // e.g. 5 for 5-second bars
-            double ts = ToUnixSeconds(barTime) + barPeriodS;
+            double ts = ToUnixSeconds(barTime) - barPeriodS;
 
-            // Use close-time for day grouping (matches Databento)
-            DateTime closeTime = barTime.AddSeconds(barPeriodS);
-            string day = closeTime.ToString("yyyy_MM_dd");
+            // Use open-time for day grouping (matches Databento convention)
+            DateTime openTime = barTime.AddSeconds(-barPeriodS);
+            string day = openTime.ToString("yyyy_MM_dd");
 
             // Day boundary — rotate file
             if (day != _currentDay)
