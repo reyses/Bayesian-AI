@@ -32,6 +32,7 @@ nul
 DATA/ATLAS_NT8/
 DATA/ATLAS_TEST/
 DATA/FEATURES_NT8_*/
+sandbox/
 DATA/Ninja trader Download/
 debug_outputs/
 checkpoints/
