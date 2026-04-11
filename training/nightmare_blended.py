@@ -59,6 +59,11 @@ WICK_15M_MIN = 0.77
 VELOCITY_THRESHOLD = 50.0    # |1m_velocity| above this = momentum entry
 FREIGHT_TRAIN_THRESHOLD = 100.0  # |1m_velocity| above this = always ride, never fade
 
+# FREIGHT_TRAIN entry filter (from EDA: winners accelerate, losers decelerate)
+FREIGHT_TRAIN_VR_MAX = 0.85        # reject late entries (regime already committed)
+# Exit: velocity collapsed to < 50% of entry AND decelerating
+FREIGHT_TRAIN_VEL_DECAY = 0.50     # exit when |vel| drops below this fraction of entry |vel|
+
 # Bar range gate — disabled (low bar_range still profitable via volume)
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
 
@@ -579,11 +584,22 @@ class BlendedEngine:
         if has_wick and h1_aligned:
             return direction, 'CASCADE', False
 
-        # 4. FADE_MOMENTUM — $10.1/tr, 58% WR
+        # 4. FREIGHT_TRAIN — extreme velocity, accelerating, regime not committed
+        #    Entry: |vel| > 100 AND vel*accel > 0 (accelerating) AND vr < 0.85
+        #    Direction: ride the velocity (not fade z)
+        acceleration = feat[_1M_OFFSET + 4]  # 1m acceleration
+        vr = feat[_1M_OFFSET + _VR]
+        if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
+                velocity * acceleration > 0 and
+                vr < FREIGHT_TRAIN_VR_MAX):
+            ft_direction = 'long' if velocity > 0 else 'short'
+            return ft_direction, 'FREIGHT_TRAIN', True
+
+        # 5. FADE_MOMENTUM — $10.1/tr, 58% WR
         if abs_vel >= VELOCITY_THRESHOLD:
             return direction, 'FADE_MOMENTUM', False
 
-        # 5. RIDE_AGAINST — $8.7/tr, 51% WR
+        # 6. RIDE_AGAINST — $8.7/tr, 51% WR
         if h1_vel_against and not h1_against_fade:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
@@ -604,6 +620,20 @@ class BlendedEngine:
                              else P_CENTER_EXIT_BARS_KILLSHOT)
             if self._tier_p_center_bars >= required_bars:
                 return f'{self.entry_tier.lower()}_center'
+            return None
+
+        # FREIGHT_TRAIN exit: velocity collapsed + decelerating
+        # The train entered on extreme velocity. Exit when:
+        # 1. |velocity| dropped below 50% of entry |velocity| (train slowing)
+        # 2. velocity * acceleration < 0 (decelerating)
+        if self.entry_tier == 'FREIGHT_TRAIN':
+            velocity = feat[_1M_VELOCITY_IDX]
+            acceleration = feat[_1M_OFFSET + 4]
+            abs_vel = abs(velocity)
+            vel_ratio = abs_vel / max(self._entry_velocity, 1.0)
+
+            if vel_ratio < FREIGHT_TRAIN_VEL_DECAY and velocity * acceleration < 0:
+                return 'freight_train_decel'
             return None
 
         # REGIME_FLIP exit: regime shifts back to trending
@@ -797,6 +827,7 @@ class BlendedEngine:
 
         # Entry context for tiered exits
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
+        self._entry_velocity = abs(feat[_1M_VELOCITY_IDX])  # for FREIGHT_TRAIN decay exit
         # 5m velocity alignment with trade direction (exit patience signal)
         v5 = feat[_5M_VELOCITY_IDX]
         self._v5_aligned = ((direction == 'long' and v5 > 0) or
