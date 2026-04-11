@@ -689,9 +689,9 @@ def main():
 
         def _run_dashboard():
             try:
-                from visualization.dashboard import ProgressPopup
+                from visualization.dashboard_v2 import TradingDashboard
                 root = tk.Tk()
-                popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
+                popup = TradingDashboard(root, gui_queue, shared_state=shared_state)
                 root.protocol('WM_DELETE_WINDOW',
                               lambda: shared_state.update({'shutdown': True}))
                 root.mainloop()
