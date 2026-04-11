@@ -167,8 +167,10 @@ def train_one_tier(tier: str, exit_df: pd.DataFrame, loser_df: pd.DataFrame,
     patience_counter = 0
     best_state = None
 
-    for epoch in range(EPOCHS):
+    pbar = tqdm(range(EPOCHS), desc=f'    {tier}', unit='ep', leave=False)
+    for epoch in pbar:
         model.train()
+        train_loss_sum = 0
         for batch in train_dl:
             x, y_exit, y_loser, mask = [b.to(DEVICE) for b in batch]
             exit_l, loser_l = model(x)
@@ -185,6 +187,7 @@ def train_one_tier(tier: str, exit_df: pd.DataFrame, loser_df: pd.DataFrame,
 
             loss = loss_exit + loss_loser
 
+            train_loss_sum += loss.item()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -212,6 +215,11 @@ def train_one_tier(tier: str, exit_df: pd.DataFrame, loser_df: pd.DataFrame,
 
         val_loss /= max(len(val_dl), 1)
         scheduler.step(val_loss)
+
+        # Update progress bar
+        acc_e = correct_exit / max(total, 1) * 100
+        acc_l = correct_loser / max(total_loser, 1) * 100
+        pbar.set_postfix_str(f'exit={acc_e:.0f}% loser={acc_l:.0f}% vl={val_loss:.3f}')
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss

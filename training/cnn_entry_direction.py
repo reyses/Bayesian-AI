@@ -164,7 +164,8 @@ def train_one_tier(tier: str, entry_df: pd.DataFrame, direction_df: pd.DataFrame
     best_val_loss = float('inf')
     patience_counter = 0
 
-    for epoch in range(EPOCHS):
+    pbar = tqdm(range(EPOCHS), desc=f'    {tier}', unit='ep', leave=False)
+    for epoch in pbar:
         # Train
         model.train()
         train_loss = 0
@@ -202,6 +203,12 @@ def train_one_tier(tier: str, entry_df: pd.DataFrame, direction_df: pd.DataFrame
 
         val_loss /= max(len(val_dl), 1)
         scheduler.step(val_loss)
+
+        # Update progress bar
+        ae = correct['entry'] / max(total, 1) * 100
+        ad = correct['direction'] / max(total, 1) * 100
+        adur = correct['duration'] / max(total, 1) * 100
+        pbar.set_postfix_str(f'e={ae:.0f}% d={ad:.0f}% dur={adur:.0f}% vl={val_loss:.2f}')
 
         # Early stopping
         if val_loss < best_val_loss:
