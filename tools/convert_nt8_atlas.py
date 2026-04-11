@@ -193,7 +193,7 @@ def write_atlas(df, validate_only=False):
         out_df['high'] = out_df['high'].astype(np.float64)
         out_df['low'] = out_df['low'].astype(np.float64)
         out_df['close'] = out_df['close'].astype(np.float64)
-        out_df['volume'] = out_df['volume'].astype(np.uint64)
+        out_df['volume'] = out_df['volume'].fillna(0).astype(np.uint64)
 
         out_df = out_df.sort_values('timestamp').reset_index(drop=True)
 

@@ -1,0 +1,41 @@
+{
+  "description": "NT8 dataset configuration — OOS + live transition",
+  "source": "NinjaTrader 8 via BayesianHistoryDumper + live bridge",
+  "instrument": "MNQ 06-26",
+  "resolution": "5s",
+
+  "oos": {
+    "description": "Historical dump from NT8 chart (offline)",
+    "start": "2026-02-07",
+    "end": "2026-04-10",
+    "days": 60,
+    "method": "BayesianHistoryDumper indicator → CSV → convert_nt8_atlas.py"
+  },
+
+  "live": {
+    "description": "Real-time bars from NT8 bridge (online)",
+    "start": null,
+    "method": "live_engine.py captures to DATA/ATLAS_LIVE/, maintenance merges"
+  },
+
+  "transition": {
+    "description": "OOS ends, live begins. Same data source, same features.",
+    "oos_last_day": "2026-04-10",
+    "live_first_day": null,
+    "notes": "Once live captures enough days, OOS dataset grows automatically via maintenance merge."
+  },
+
+  "features": {
+    "path": "DATA/FEATURES_NT8_5s/",
+    "start": "2026-03-20",
+    "resolution": "5s",
+    "dimensions": 91,
+    "build_command": "python training/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start 2026-03-20"
+  },
+
+  "parity": {
+    "description": "Validated: 96.5% exact close match vs Databento on same-contract overlap",
+    "timestamp_convention": "bar open time (NT8 Time[0] - barPeriodS)",
+    "validated_date": "2026-04-11"
+  }
+}
