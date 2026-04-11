@@ -68,6 +68,12 @@ FREIGHT_TRAIN_VEL_DECAY = 0.50     # exit when |vel| drops below this fraction o
 REGIME_FLIP_CONVICTION_BARS = 12   # 1 minute (at 5s cadence) to prove thesis
 REGIME_FLIP_VR_BAIL = 0.30         # vr above this = regime shifting back to trending
 
+# ABSORPTION early conviction (from EDA: winners show z shrinking + volume fading)
+ABSORB_CONVICTION_BARS = 12        # 1 minute to prove absorption thesis
+ABSORB_Z_SHRINK_MIN = 0.10        # |z| must shrink by at least 10% from entry
+ABSORB_VOL_PERSIST_MAX = 1.5      # if vol_rel still above this at bar 24, bail
+ABSORB_VR_BAIL = 0.65             # vr above this = trending against absorption
+
 # Bar range gate — disabled (low bar_range still profitable via volume)
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
 
@@ -681,17 +687,31 @@ class BlendedEngine:
                 return 'exhaust_velocity_dead'
             return None
 
-        # ABSORPTION exit: volume dies or range expands or wicks gone
+        # ABSORPTION exit: early conviction + volume fade + vr
+        # EDA: winners have z shrinking + volume fading by bar 12
+        # Losers: z flat, volume persistent, vr rising
         if self.entry_tier == 'ABSORPTION':
-            vol = feat[_1M_VOL_REL_IDX]
-            bar_range = feat[_1M_OFFSET + 6]
-            wick = feat[_1M_WICK_IDX]
-            if vol < 0.5:
-                return 'absorb_volume_died'
-            if bar_range > 50:
-                return 'absorb_range_expanded'
-            if wick < 0.25:
-                return 'absorb_wicks_gone'
+            abs_z = abs(z)
+            vol_rel = feat[_1M_VOL_REL_IDX]
+
+            # Early conviction: z must shrink by 10%+ from entry by bar 12
+            if self.bars_held >= ABSORB_CONVICTION_BARS and self.bars_held < ABSORB_CONVICTION_BARS + 3:
+                z_shrink = (self._entry_abs_z - abs_z) / max(self._entry_abs_z, 0.01)
+                if z_shrink < ABSORB_Z_SHRINK_MIN:
+                    return 'absorb_no_conviction'
+
+            # Volume still elevated at bar 24 = absorption failing
+            if self.bars_held >= 24 and vol_rel > ABSORB_VOL_PERSIST_MAX:
+                return 'absorb_vol_persistent'
+
+            # VR rising = trending against us
+            if vr > ABSORB_VR_BAIL:
+                return 'absorb_vr_rising'
+
+            # Mean reached = absorption complete
+            if abs_z < 0.3:
+                return 'absorb_mean_reached'
+
             return None
 
         # Other tiers: two exit modes based on trade type
@@ -840,7 +860,8 @@ class BlendedEngine:
         # Entry context for tiered exits
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
         self._entry_velocity = abs(feat[_1M_VELOCITY_IDX])  # for FREIGHT_TRAIN decay exit
-        self._entry_abs_z = abs(feat[_1M_OFFSET + _Z])     # for REGIME_FLIP conviction check
+        self._entry_abs_z = abs(feat[_1M_OFFSET + _Z])     # for REGIME_FLIP/ABSORPTION conviction
+        self._entry_vol_rel = feat[_1M_VOL_REL_IDX]       # for ABSORPTION volume fade check
         # 5m velocity alignment with trade direction (exit patience signal)
         v5 = feat[_5M_VELOCITY_IDX]
         self._v5_aligned = ((direction == 'long' and v5 > 0) or
