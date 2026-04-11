@@ -53,6 +53,7 @@ from training.nightmare_blended import BlendedEngine
 from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
 from config.symbols import SYMBOL_MAP
 from live.order_manager import OrderManager
+from live.gui_bridge import GUIBridge
 
 TICK = 0.25
 TV = 0.50
@@ -72,11 +73,13 @@ class LiveEngineV2:
     """Production live engine — 7-step startup, physics-only."""
 
     def __init__(self, config: LiveConfig, dry_run: bool = False,
-                 skip_check: bool = False, skip_build: bool = False):
+                 skip_check: bool = False, skip_build: bool = False,
+                 gui_queue=None, shared_state=None):
         self._cfg = config
         self._dry_run = dry_run
         self._skip_check = skip_check
         self._skip_build = skip_build
+        self._shared_state = shared_state or {}
 
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
         if self._asset is None:
@@ -91,6 +94,9 @@ class LiveEngineV2:
 
         # Order management (NT8 is source of truth)
         self._orders = OrderManager(config)
+
+        # Dashboard
+        self._gui = GUIBridge(gui_queue)
 
         # State
         self._bar_count = 0
@@ -409,6 +415,11 @@ class LiveEngineV2:
         logger.info(f'  Listening for bars...')
 
         while not self._shutting_down:
+            # Check GUI shutdown request
+            if self._shared_state.get('shutdown'):
+                self._shutting_down = True
+                break
+
             try:
                 msg = await asyncio.wait_for(self._client.inbound.get(), timeout=30.0)
             except asyncio.TimeoutError:
@@ -505,8 +516,41 @@ class LiveEngineV2:
 
             self._write_ledger(bar['timestamp'], bar['close'], z, vr, vel, pnl, event)
 
+            # Dashboard updates
+            self._gui.push({
+                'type': 'TICK_UPDATE',
+                'price': bar['close'],
+                'bars': self._bar_count,
+                'unrealized': pnl,
+                'daily_pnl': self._daily_pnl,
+                'in_position': self._engine.in_pos,
+                'direction': self._engine.direction or '',
+                'tier': self._engine.entry_tier or '',
+                'z_se': z, 'vr': vr,
+                'is_1m': False,
+            })
+
+            if event.startswith('ENTRY'):
+                self._gui.push_trade_marker('ENTRY',
+                    'BUY' if self._engine.direction == 'long' else 'SELL',
+                    bar['close'])
+            elif event.startswith('EXIT'):
+                self._gui.push_trade_marker('EXIT', '', bar['close'],
+                    pnl=self._engine.trades[-1]['pnl'] if self._engine.trades else 0)
+
+            wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
+            gross_win = sum(t['pnl'] for t in self._engine.trades if t['pnl'] > 0)
+            gross_loss = sum(t['pnl'] for t in self._engine.trades if t['pnl'] <= 0)
+            z_pct = min(abs(z) / 2.0 * 100, 100)
+            self._gui.push_stats(
+                session_pnl=self._daily_pnl, session_wins=wins,
+                session_trades=self._trade_count,
+                gross_win=gross_win, gross_loss=gross_loss,
+                exit_buckets={}, belief_pct=z_pct,
+                in_position=self._engine.in_pos, daily_pnl=self._daily_pnl)
+
             # Status line
-            if self._feat_count % 12 == 0:  # every minute
+            if self._feat_count % 12 == 0:
                 pos = self._engine.direction or 'FLAT'
                 tier = self._engine.entry_tier or '-'
                 print(f'\r  {self._ts_str(bar["timestamp"])} | {bar["close"]:>10.2f} | '
@@ -628,12 +672,41 @@ def main():
     parser.add_argument('--dry-run', action='store_true', help='No orders to NT8')
     parser.add_argument('--skip-check', action='store_true')
     parser.add_argument('--skip-build', action='store_true')
+    parser.add_argument('--headless', action='store_true', help='No dashboard GUI')
     args = parser.parse_args()
 
     config = LiveConfig()
+    shared_state = {}
+    gui_queue = None
+
+    # Launch dashboard unless headless
+    if not args.headless:
+        import queue as stdlib_queue
+        import threading
+        import tkinter as tk
+
+        gui_queue = stdlib_queue.Queue(maxsize=5000)
+
+        def _run_dashboard():
+            try:
+                from visualization.dashboard import ProgressPopup
+                root = tk.Tk()
+                popup = ProgressPopup(root, gui_queue, shared_state=shared_state)
+                root.protocol('WM_DELETE_WINDOW',
+                              lambda: shared_state.update({'shutdown': True}))
+                root.mainloop()
+            except Exception as e:
+                logger.warning(f'Dashboard failed: {e}')
+
+        t = threading.Thread(target=_run_dashboard, daemon=True)
+        t.start()
+        logger.info('Dashboard launched')
+
     engine = LiveEngineV2(config, dry_run=args.dry_run,
                           skip_check=args.skip_check,
-                          skip_build=args.skip_build)
+                          skip_build=args.skip_build,
+                          gui_queue=gui_queue,
+                          shared_state=shared_state)
     asyncio.run(engine.run())
 
 
