@@ -42,8 +42,8 @@ MTF_5M_DECEL = 0.50
 MTF_1M_VEL_ALIVE = 99999.0 # disabled
 
 # EXHAUSTION_BAR entry — bar_range climax + velocity decelerating
-EXHAUST_BAR_RANGE_MIN = 99999.0  # DISABLED — set to 80 to activate
-EXHAUST_ACCEL_MIN = 99999.0      # DISABLED
+EXHAUST_BAR_RANGE_MIN = 80.0     # bar_range climax threshold
+EXHAUST_ACCEL_MIN = 20.0         # |acceleration| threshold
 # Direction: decel means velocity and acceleration have opposite signs
 
 # ABSORPTION entry — high volume + low range = big player absorbing
@@ -73,6 +73,12 @@ ABSORB_CONVICTION_BARS = 12        # 1 minute to prove absorption thesis
 ABSORB_Z_SHRINK_MIN = 0.10        # |z| must shrink by at least 10% from entry
 ABSORB_VOL_PERSIST_MAX = 1.5      # if vol_rel still above this at bar 24, bail
 ABSORB_VR_BAIL = 0.65             # vr above this = trending against absorption
+
+# EXHAUSTION_BAR (from EDA: winners enter deeper z + higher vr, revert fast)
+EXHAUST_Z_MIN = 1.4               # entry: must be deep in z extreme
+EXHAUST_VR_MIN = 0.70             # entry: must be trending (real exhaustion, not chop)
+EXHAUST_CONVICTION_BARS = 12      # exit: 1 minute to prove reversal
+EXHAUST_Z_SHRINK_MIN = 0.20      # exit: |z| must shrink 20%+ from entry
 
 # Bar range gate — disabled (low bar_range still profitable via volume)
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
@@ -526,10 +532,13 @@ class BlendedEngine:
                     self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
                                      cnn_flipped=False)
 
-                # EXHAUSTION_BAR: bar_range climax + decelerating
-                elif (feat[_1M_OFFSET + 6] > EXHAUST_BAR_RANGE_MIN and  # bar_range
-                      abs(feat[_1M_OFFSET + 4]) > EXHAUST_ACCEL_MIN and  # |acceleration|
-                      feat[_1M_OFFSET + 4] * feat[_1M_VELOCITY_IDX] < 0):  # decel
+                # EXHAUSTION_BAR: bar_range climax + decelerating + deep z + trending
+                # EDA: winners enter at |z|>1.4 + vr>0.70 (real exhaustion, not chop)
+                elif (feat[_1M_OFFSET + 6] > EXHAUST_BAR_RANGE_MIN and       # bar_range climax
+                      abs(feat[_1M_OFFSET + 4]) > EXHAUST_ACCEL_MIN and      # |acceleration|
+                      feat[_1M_OFFSET + 4] * feat[_1M_VELOCITY_IDX] < 0 and  # decelerating
+                      abs(z) > EXHAUST_Z_MIN and                              # deep in z extreme
+                      vr > EXHAUST_VR_MIN):                                   # trending (real exhaustion)
                     direction = 'short' if feat[_1M_VELOCITY_IDX] > 0 else 'long'
                     self._open_trade(direction, price, ts, time_str, feat, 'EXHAUSTION_BAR',
                                      cnn_flipped=False)
@@ -677,14 +686,21 @@ class BlendedEngine:
                 return 'mtf_1m_exhausted'
             return None
 
-        # EXHAUSTION_BAR exit: range compresses or velocity dies
+        # EXHAUSTION_BAR exit: early z conviction + mean reached
+        # EDA: winners z 1.59->1.08 by bar 12, losers z 1.26->1.24 (stuck)
         if self.entry_tier == 'EXHAUSTION_BAR':
-            bar_range = feat[_1M_OFFSET + 6]
-            vel = abs(feat[_1M_VELOCITY_IDX])
-            if bar_range < 30:
-                return 'exhaust_range_compressed'
-            if vel < 0.3:
-                return 'exhaust_velocity_dead'
+            abs_z = abs(z)
+
+            # Early conviction: z must shrink 20%+ by bar 12
+            if self.bars_held >= EXHAUST_CONVICTION_BARS and self.bars_held < EXHAUST_CONVICTION_BARS + 3:
+                z_shrink = (self._entry_abs_z - abs_z) / max(self._entry_abs_z, 0.01)
+                if z_shrink < EXHAUST_Z_SHRINK_MIN:
+                    return 'exhaust_no_conviction'
+
+            # Mean reached
+            if abs_z < 0.3:
+                return 'exhaust_mean_reached'
+
             return None
 
         # ABSORPTION exit: early conviction + volume fade + vr
