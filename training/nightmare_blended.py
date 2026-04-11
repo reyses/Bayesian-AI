@@ -155,13 +155,25 @@ TIER_MAP = {
 # 1h opposition threshold for FADE_AGAINST / RIDE_AGAINST
 H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
 
-# CNN model paths (default — training output dir)
+# CNN model paths (legacy — single model for all tiers)
 CNN_FLIP_PATH = 'training/output/nn/cnn_flip.pt'
 CNN_HOLD_PATH = 'training/output/nn/cnn_hold.pt'
 CNN_RISK_PATH = 'training/output/nn/cnn_risk.pt'
 
+# Per-tier CNN model dir (new — 5 jobs per tier)
+CNN_PER_TIER_DIR = 'training/output/nn'
+
 # Live release dir (packaged by training/release.py)
 LIVE_RELEASE_DIR = 'checkpoints/live_release'
+
+# Confidence thresholds (per-tier CNNs only act when confident)
+ENTRY_GATE_MIN = 0.60
+DIRECTION_CONFIDENCE_MIN = 0.75
+DURATION_CONFIDENCE_MIN = 0.60
+EXIT_CONFIDENCE_MIN = 0.70
+LOSER_CONFIDENCE_MIN = 0.80
+EXIT_CONFIRMATION_BARS = 3
+LOSER_CONFIRMATION_BARS = 3
 
 # Grid layout for CNN
 _N_CORE = 12
@@ -193,6 +205,9 @@ class BlendedEngine:
         self.bars_held = 0
         self._entry_ts = 0.0       # timestamp at entry — bars_held derived from this
         self._last_1m_ts = 0.0     # last 1m boundary seen — for cadence-independent counting
+        self._cnn_exit_confirm = 0     # consecutive bars CNN says EXIT
+        self._cnn_loser_confirm = 0    # consecutive bars CNN says DEAD
+        self._cnn_duration_class = 1   # default MEDIUM
         self.peak_pnl = 0.0
         self.passed_center = False  # for tier 3 overshoot decision
 
@@ -231,7 +246,8 @@ class BlendedEngine:
 
         if use_cnn:
             self._cnn_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            self._load_cnn_flip()
+            self._load_per_tier_cnns()   # v3: per-tier 5-job models
+            self._load_cnn_flip()       # legacy fallback
             self._load_cnn_hold()
             self._load_cnn_risk()
 
@@ -303,6 +319,117 @@ class BlendedEngine:
         self.cnn_risk_mean = checkpoint.get('grid_mean', np.zeros((1, 6, 13)))
         self.cnn_risk_std = checkpoint.get('grid_std', np.ones((1, 6, 13)))
         print(f'  CNN risk loaded ({self._cnn_device})')
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PER-TIER CNN SYSTEM (v3 — 5 jobs per tier, confidence-gated)
+    # ═══════════════════════════════════════════════════════════════════════
+
+    def _load_per_tier_cnns(self):
+        """Load per-tier entry/direction/duration + exit/loser models."""
+        self._tier_entry_dir_models = {}   # {tier: EntryDirectionNet}
+        self._tier_trade_mgr_models = {}   # {tier: TradeManagerNet}
+        self._tier_cnn_enabled = {}        # {tier: bool}
+
+        cnn_dir = self._model_dir or CNN_PER_TIER_DIR
+        if not os.path.exists(cnn_dir):
+            return
+
+        for tier_name in os.listdir(cnn_dir):
+            tier_path = os.path.join(cnn_dir, tier_name)
+            if not os.path.isdir(tier_path):
+                continue
+
+            # Entry/Direction/Duration
+            ed_path = os.path.join(tier_path, 'entry_direction.pt')
+            if os.path.exists(ed_path):
+                try:
+                    from training.cnn_entry_direction import EntryDirectionNet
+                    cp = torch.load(ed_path, map_location='cpu', weights_only=False)
+                    model = EntryDirectionNet().to(self._cnn_device)
+                    model.load_state_dict(cp['state_dict'])
+                    model.eval()
+                    self._tier_entry_dir_models[tier_name] = model
+                except Exception as e:
+                    print(f'  WARNING: Failed to load {ed_path}: {e}')
+
+            # Exit/Loser
+            tm_path = os.path.join(tier_path, 'trade_manager.pt')
+            if os.path.exists(tm_path):
+                try:
+                    from training.cnn_trade_manager import TradeManagerNet
+                    cp = torch.load(tm_path, map_location='cpu', weights_only=False)
+                    model = TradeManagerNet().to(self._cnn_device)
+                    model.load_state_dict(cp['state_dict'])
+                    model.eval()
+                    self._tier_trade_mgr_models[tier_name] = model
+                except Exception as e:
+                    print(f'  WARNING: Failed to load {tm_path}: {e}')
+
+            # Tier is CNN-enabled if at least entry_direction model loaded
+            if tier_name in self._tier_entry_dir_models:
+                self._tier_cnn_enabled[tier_name] = True
+
+        if self._tier_cnn_enabled:
+            tiers = ', '.join(sorted(self._tier_cnn_enabled.keys()))
+            print(f'  Per-tier CNNs loaded: {tiers}')
+
+    def _predict_entry_direction(self, feat, tier):
+        """Per-tier entry gate + direction + duration prediction.
+
+        Returns:
+            (entry_conf, direction, direction_conf, duration_class, duration_conf)
+            or None if no per-tier model for this tier.
+        """
+        model = self._tier_entry_dir_models.get(tier)
+        if model is None:
+            return None
+
+        grid = _feat_to_grid(feat)
+        grid_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
+
+        with torch.no_grad():
+            entry_p, dir_p, dur_p = model.predict_proba(grid_t)
+
+        entry_conf = float(entry_p[0, 1])  # P(good_entry)
+        dir_long_conf = float(dir_p[0, 1])  # P(long)
+        direction = 'long' if dir_long_conf > 0.5 else 'short'
+        direction_conf = max(dir_long_conf, 1 - dir_long_conf)
+
+        dur_probs = dur_p[0].cpu().numpy()
+        duration_class = int(dur_probs.argmax())
+        duration_conf = float(dur_probs.max())
+
+        return entry_conf, direction, direction_conf, duration_class, duration_conf
+
+    def _predict_exit_loser(self, feat, tier, bars_held, pnl, peak_pnl, entry_z):
+        """Per-tier exit + loser ID prediction.
+
+        Returns:
+            (exit_conf, loser_conf) — P(EXIT), P(DEAD)
+            or None if no per-tier model for this tier.
+        """
+        model = self._tier_trade_mgr_models.get(tier)
+        if model is None:
+            return None
+
+        feat_flat = np.array(feat, dtype=np.float32).flatten()
+        context = np.array([
+            bars_held / 60.0,      # normalize to hours
+            pnl / 100.0,           # normalize to $100 units
+            peak_pnl / 100.0,
+            entry_z,
+        ], dtype=np.float32)
+
+        x = np.concatenate([feat_flat, context])
+        x_t = torch.FloatTensor(x).unsqueeze(0).to(self._cnn_device)
+
+        with torch.no_grad():
+            exit_p, loser_p = model.predict_proba(x_t)
+
+        exit_conf = float(exit_p[0, 0])    # P(EXIT) — class 0
+        loser_conf = float(loser_p[0, 0])  # P(DEAD) — class 0
+
+        return exit_conf, loser_conf
 
     def _cnn_predict_risk(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
         """Predict RECOVER(1) or DEAD(0) when trade is negative."""
