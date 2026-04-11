@@ -486,87 +486,28 @@ class BlendedEngine:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
 
         # === ENTRY CHECK — 1m boundaries only ===
-        if not self.in_pos and is_1m and price > 100:  # sanity: reject price=0
-            # Path 1: NMP entry (z extreme + vr < 1)
-            if abs(z) > ROCHE and vr < VR_ENTRY:
-                # Bar range gate (disabled by default)
-                if feat[_5M_BAR_RANGE_IDX] < BAR_RANGE_MIN:
-                    return  # skip — too tight
+        if not self.in_pos and is_1m and price > 100:
+            # Unified tier classification (no NMP/non-NMP split)
+            direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
 
-                # Classify the full ExNMP tier + direction
-                direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            if tier is None:
+                return  # no tier qualifies
 
-                if tier is None:
-                    return  # breakout filter rejected this bar
+            # Per-tier CNN (when available)
+            if self.use_cnn and tier in self._tier_cnn_enabled:
+                pred = self._predict_entry_direction(feat, tier)
+                if pred is not None:
+                    entry_conf, cnn_dir, dir_conf, dur_class, dur_conf = pred
+                    if entry_conf < ENTRY_GATE_MIN:
+                        return
+                    if dir_conf > DIRECTION_CONFIDENCE_MIN and cnn_dir != direction:
+                        direction = cnn_dir
+                        cnn_flipped = True
+                    if dur_conf > DURATION_CONFIDENCE_MIN:
+                        self._cnn_duration_class = dur_class
 
-                # Per-tier CNN: entry gate + direction override + duration
-                if self.use_cnn and tier in self._tier_cnn_enabled:
-                    pred = self._predict_entry_direction(feat, tier)
-                    if pred is not None:
-                        entry_conf, cnn_dir, dir_conf, dur_class, dur_conf = pred
-
-                        # Entry gate: skip if CNN says bad entry
-                        if entry_conf < ENTRY_GATE_MIN:
-                            return  # CNN vetoed this entry
-
-                        # Direction override: if CNN is confident, use its direction
-                        if dir_conf > DIRECTION_CONFIDENCE_MIN and cnn_dir != direction:
-                            direction = cnn_dir
-                            cnn_flipped = True
-
-                        # Duration: set exit patience
-                        if dur_conf > DURATION_CONFIDENCE_MIN:
-                            self._cnn_duration_class = dur_class
-
-                self._open_trade(direction, price, ts, time_str, feat, tier,
-                                 cnn_flipped=cnn_flipped)
-
-            # Path 2: Non-NMP entries (z NOT extreme, other physics trigger)
-            elif abs(z) <= ROCHE and vr < VR_ENTRY:
-                hurst = feat[_1M_HURST_IDX]
-                v5 = abs(feat[_5M_VELOCITY_IDX])
-                v5_accel = feat[_5M_ACCEL_IDX]
-                v1 = abs(feat[_1M_VELOCITY_IDX])
-                dmi = feat[_1M_DMI_IDX]
-
-                # REGIME_FLIP: vr low + hurst low = regime shift
-                # EDA: 27% WR fading → 73% WR riding. Ride z, don't fade.
-                if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
-                    direction = 'long' if z > 0 else 'short'
-                    self._open_trade(direction, price, ts, time_str, feat, 'REGIME_FLIP',
-                                     cnn_flipped=False)
-
-                # MTF_EXHAUSTION: 5m decelerating + 1m alive + deep z + vr + volume
-                # EDA: 13% WR fading → 76% WR riding. Exhaustion = continuation, not reversal.
-                # RIDE the 5m direction (same sign), don't fade it.
-                elif (v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE and
-                      abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
-                      feat[_1M_VOL_REL_IDX] > MTF_VOL_MIN):
-                    direction = 'long' if feat[_5M_VELOCITY_IDX] > 0 else 'short'
-                    self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
-                                     cnn_flipped=False)
-
-                # EXHAUSTION_BAR: bar_range climax + decelerating + deep z + trending + DMI
-                # EDA: |dmi|>15 lifts WR from 38% to 44%, removes weak signals
-                elif (feat[_1M_OFFSET + 6] > EXHAUST_BAR_RANGE_MIN and       # bar_range climax
-                      abs(feat[_1M_OFFSET + 4]) > EXHAUST_ACCEL_MIN and      # |acceleration|
-                      feat[_1M_OFFSET + 4] * feat[_1M_VELOCITY_IDX] < 0 and  # decelerating
-                      abs(z) > EXHAUST_Z_MIN and                              # deep in z extreme
-                      vr > EXHAUST_VR_MIN and                                 # trending
-                      abs(feat[_1M_DMI_IDX]) > 15.0):                         # DMI committed
-                    direction = 'short' if feat[_1M_VELOCITY_IDX] > 0 else 'long'
-                    self._open_trade(direction, price, ts, time_str, feat, 'EXHAUSTION_BAR',
-                                     cnn_flipped=False)
-
-                # ABSORPTION: high volume + low range + wicks
-                # EDA: 24% WR fading → 76% WR riding. Absorption = continuation.
-                # RIDE z direction (same sign as z), don't fade it.
-                elif (feat[_1M_VOL_REL_IDX] > ABSORB_VOL_MIN and
-                      feat[_1M_OFFSET + 6] < ABSORB_RANGE_MAX and  # bar_range
-                      feat[_1M_WICK_IDX] > ABSORB_WICK_MIN):
-                    direction = 'long' if z > 0 else 'short'
-                    self._open_trade(direction, price, ts, time_str, feat, 'ABSORPTION',
-                                     cnn_flipped=False)
+            self._open_trade(direction, price, ts, time_str, feat, tier,
+                             cnn_flipped=cnn_flipped)
 
     def _classify_full_tier(self, feat, z):
         """Classify entry into tiered strategy.
@@ -609,6 +550,12 @@ class BlendedEngine:
         h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
                       (direction == 'short' and h1_z > H1_Z_MIN))
 
+        # Additional features for all tiers
+        v5_accel = feat[_5M_ACCEL_IDX]
+        v1 = abs(velocity)
+        hurst = feat[_1M_HURST_IDX]
+        vol_rel = feat[_1M_VOL_REL_IDX]
+
         # 1. FREIGHT_TRAIN — 0.1/day, 86% WR
         #    Ride extreme velocity, accelerating, regime not committed
         if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
@@ -617,7 +564,17 @@ class BlendedEngine:
             ft_dir = 'long' if velocity > 0 else 'short'
             return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 2. FADE_AGAINST — 2.9/day, 77% WR
+        # 2. MTF_EXHAUSTION — 3.3/day, 76% WR, $52/tr
+        #    5m decelerating + deep z + high vr + volume. RIDE 5m (flipped).
+        #    Lookback: require |1h_vel| > 40 (massive 1h commitment)
+        if (v5_accel < 0 and abs(v5_vel) > MTF_5M_VEL_MIN and
+                v1 > MTF_1M_VEL_ALIVE and
+                abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
+                vol_rel > MTF_VOL_MIN and abs(h1_vel) > 40.0):
+            mtf_dir = 'long' if v5_vel > 0 else 'short'
+            return mtf_dir, 'MTF_EXHAUSTION', True
+
+        # 3. FADE_AGAINST — 2.9/day, 77% WR
         #    Lookback: reject |5m_vel| > 10 (5m racing = breakout trap)
         if h1_against_fade and abs(v5_vel) < 10.0:
             return direction, 'FADE_AGAINST', False
