@@ -1425,9 +1425,52 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     if os.path.exists(oos_path):
         _check_new_baseline(oos_path)
 
+    # ── Final Summary (pasteable) ──────────────────────────────────────
     elapsed = _time.perf_counter() - pipeline_start
     print(f'\n{"="*60}')
-    print(f'BLENDED PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
+    print(f'PIPELINE REPORT')
+    print(f'{"="*60}')
+
+    # Collect all available results
+    report_files = {
+        'Physics OOS':     'training/output/blended/physics_oos_daily.csv',
+        'Physics NT8':     'training/output/blended/physics_oos_nt8_daily.csv',
+        'IS':              'training/output/blended/is_daily.csv',
+        'OOS':             'training/output/blended/oos_daily.csv',
+        'OOS-NT8':         'training/output/blended/oos_nt8_daily.csv',
+    }
+
+    print(f'{"Dataset":<16} {"$/day":>8} {"Trades":>8} {"WinDays":>10} {"Days":>6}')
+    print(f'{"-"*50}')
+    for label, path in report_files.items():
+        if os.path.exists(path):
+            rdf = pd.read_csv(path)
+            n_days = len(rdf)
+            per_day = rdf['pnl'].sum() / max(n_days, 1)
+            total_trades = int(rdf['trades'].sum())
+            win_days = int((rdf['pnl'] > 0).sum())
+            print(f'{label:<16} {per_day:>+8,.0f} {total_trades:>8,} {win_days:>4}/{n_days:<4} {n_days:>6}')
+
+    # Tier breakdown from latest IS trades
+    is_trades_path = 'training/output/trades/blended_is.pkl'
+    if os.path.exists(is_trades_path):
+        import pickle as _rpkl
+        with open(is_trades_path, 'rb') as f:
+            _rtr = _rpkl.load(f)
+        if _rtr:
+            from collections import Counter as _RC
+            print(f'\n{"Tier":<20} {"Trades":>7} {"WR":>5} {"$/tr":>8} {"$/day":>8}')
+            print(f'{"-"*50}')
+            tiers = _RC(t.get('entry_tier', '?') for t in _rtr)
+            n_is_days = len(set(t.get('day', '') for t in _rtr))
+            for tier, count in tiers.most_common():
+                sub = [t for t in _rtr if t.get('entry_tier') == tier]
+                wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+                avg = sum(t['pnl'] for t in sub) / len(sub)
+                per_day = sum(t['pnl'] for t in sub) / max(n_is_days, 1)
+                print(f'{str(tier):<20} {count:>7} {wr:>4.0f}% {avg:>8.1f} {per_day:>+8.0f}')
+
+    print(f'\n  Elapsed: {elapsed:.0f}s ({elapsed/60:.1f} min)')
     print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
