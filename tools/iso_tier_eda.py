@@ -120,9 +120,11 @@ def check_tier(feat, z):
     if h1_against:
         results.append(('FADE_AGAINST', direction))
 
-    # RIDE_AGAINST: 1h velocity opposes
-    h1_vel_against = ((direction == 'long' and h1_vel < -H1_AGAINST_Z_MIN) or
-                      (direction == 'short' and h1_vel > H1_AGAINST_Z_MIN))
+    # RIDE_AGAINST: 1h velocity opposes — tightened to |1h_vel| > 3.0
+    # EDA: winners 1h_vel=-7.3 (committed), losers 1h_vel=+0.4 (barely crossed)
+    RIDE_AGAINST_1H_VEL_MIN = 3.0
+    h1_vel_against = ((direction == 'long' and h1_vel < -RIDE_AGAINST_1H_VEL_MIN) or
+                      (direction == 'short' and h1_vel > RIDE_AGAINST_1H_VEL_MIN))
     if h1_vel_against and not h1_against:
         ride_dir = 'long' if h1_vel > 0 else 'short'
         results.append(('RIDE_AGAINST', ride_dir))
@@ -359,9 +361,20 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                         elif direction == 'short' and z_j > 0.3:
                             exit_reason = 'breakout_overshot'; exited = True
 
+                    elif tier == 'RIDE_AGAINST':
+                        # Ride exit: 1h velocity flips or mean reached
+                        _1h_vel_j = fj[48 + 3] if len(fj) > 51 else 0
+                        # 1h vel flipped against our ride direction
+                        if direction == 'long' and _1h_vel_j < 0:
+                            exit_reason = 'ride_1h_flipped'; exited = True
+                        elif direction == 'short' and _1h_vel_j > 0:
+                            exit_reason = 'ride_1h_flipped'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'mean_reached'; exited = True
+
                     else:
-                        # FADE_AGAINST, FADE_CALM, FADE_MOMENTUM, RIDE_AGAINST
-                        # Standard fade/ride physics
+                        # FADE_AGAINST, FADE_CALM, FADE_MOMENTUM
+                        # Standard fade physics
                         if abs_z_j < 0.3:
                             exit_reason = 'mean_reached'; exited = True
 
