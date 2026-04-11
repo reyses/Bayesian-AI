@@ -712,25 +712,24 @@ class BlendedEngine:
 
             return None
 
-        # MTF_EXHAUSTION exit: RIDING the 5m direction (flipped from fade)
-        # Entry: ride 5m momentum. Exit: 5m momentum dying.
+        # MTF_EXHAUSTION exit: SAME exit physics as original (fade exit)
+        # Direction is flipped at entry, but exit logic unchanged.
+        # Exit when the original fade thesis would have exited.
         if self.entry_tier == 'MTF_EXHAUSTION':
-            v5_vel = feat[_5M_VELOCITY_IDX]
             v5_accel = feat[_5M_ACCEL_IDX]
+            v1 = abs(feat[_1M_VELOCITY_IDX])
 
-            # 5m velocity flipped against our direction = ride is over
-            if self.direction == 'long' and v5_vel < -10:
-                return 'mtf_5m_reversed'
-            if self.direction == 'short' and v5_vel > 10:
-                return 'mtf_5m_reversed'
+            # 5m reaccelerated = original move resuming
+            if v5_accel > 0 and abs(feat[_5M_VELOCITY_IDX]) > 30:
+                return 'mtf_5m_reaccelerated'
 
-            # 5m decelerating hard = momentum exhausting
-            if abs(v5_vel) > 20 and v5_vel * v5_accel < 0:
-                return 'mtf_5m_decel'
+            # 1m velocity exhausted
+            if v1 < 0.3:
+                return 'mtf_1m_exhausted'
 
-            # VR dropped = regime shifting to mean-reverting (ride done)
-            if vr < 0.30:
-                return 'mtf_vr_dropped'
+            # Mean reached
+            if abs(z) < 0.3:
+                return 'mtf_mean_reached'
 
             return None
 

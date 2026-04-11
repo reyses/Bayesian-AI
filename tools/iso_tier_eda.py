@@ -155,13 +155,14 @@ def check_tier(feat, z):
     vol_rel = feat[_1M_VOL_REL] if len(feat) > _1M_VOL_REL else 0
     wick_1m = feat[_1M_WICK] if len(feat) > _1M_WICK else 0
 
-    # REGIME_FLIP: vr low + hurst low = just shifted to mean-reverting
+    # REGIME_FLIP: vr low + hurst low — direction FLIPPED (ride, not fade)
     if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
-        results.append(('REGIME_FLIP', direction))
+        flip_dir = 'long' if z > 0 else 'short'
+        results.append(('REGIME_FLIP', flip_dir))
 
-    # MTF_EXHAUSTION: 5m decelerating + 1m still alive
+    # MTF_EXHAUSTION: 5m decelerating + 1m alive — direction FLIPPED (ride 5m, not fade)
     if v5_accel < 0 and v5 > MTF_5M_VEL_MIN and v1 > MTF_1M_VEL_ALIVE:
-        mtf_dir = 'short' if feat[_5M_VEL] > 0 else 'long'
+        mtf_dir = 'long' if feat[_5M_VEL] > 0 else 'short'
         results.append(('MTF_EXHAUSTION', mtf_dir))
 
     # EXHAUSTION_BAR: bar_range climax + velocity decelerating
@@ -171,9 +172,10 @@ def check_tier(feat, z):
         ex_dir = 'short' if feat[_1M + _VEL] > 0 else 'long'
         results.append(('EXHAUSTION_BAR', ex_dir))
 
-    # ABSORPTION: high volume + low range + wicks
+    # ABSORPTION: high volume + low range + wicks — direction FLIPPED (ride, not fade)
     if vol_rel > ABSORB_VOL_MIN and bar_range < ABSORB_RANGE_MAX and wick_1m > ABSORB_WICK_MIN:
-        results.append(('ABSORPTION', direction))
+        flip_dir = 'long' if z > 0 else 'short'
+        results.append(('ABSORPTION', flip_dir))
 
     return results
 
@@ -336,15 +338,13 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             exit_reason = 'exhaust_mean'; exited = True
 
                     elif tier == 'MTF_EXHAUSTION':
-                        # Riding 5m — exit when 5m reverses or decelerates
-                        if direction == 'long' and v5_j < -10:
-                            exit_reason = 'mtf_5m_reversed'; exited = True
-                        elif direction == 'short' and v5_j > 10:
-                            exit_reason = 'mtf_5m_reversed'; exited = True
-                        elif abs(v5_j) > 20 and v5_j * v5a_j < 0:
-                            exit_reason = 'mtf_5m_decel'; exited = True
-                        elif vr_j < 0.30:
-                            exit_reason = 'mtf_vr_dropped'; exited = True
+                        # Same exit as original fade — direction flipped, exit unchanged
+                        if v5a_j > 0 and abs(v5_j) > 30:
+                            exit_reason = 'mtf_5m_reaccel'; exited = True
+                        elif abs(vel_j) < 0.3:
+                            exit_reason = 'mtf_1m_exhausted'; exited = True
+                        elif abs_z_j < 0.3:
+                            exit_reason = 'mtf_mean'; exited = True
 
                     elif tier == 'MTF_BREAKOUT':
                         # Ride until multi-TF alignment breaks
