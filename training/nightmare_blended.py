@@ -32,8 +32,8 @@ PEAK_DMI_MIN = 99999.0   # disabled
 # REGIME_FLIP entry — variance_ratio dropping = regime changing
 # Fires when |z| < ROCHE (NMP wouldn't trigger)
 REGIME_VR_DROP = 0.15     # vr dropped by at least this from recent high
-REGIME_VR_MAX = -1.0      # DISABLED — no filter separates W/L (EDA confirmed)
-REGIME_HURST_MAX = -1.0   # DISABLED
+REGIME_VR_MAX = 0.35       # low vr = mean-reverting regime
+REGIME_HURST_MAX = 0.45    # low hurst = anti-persistent
 
 # MTF_EXHAUSTION entry — DISABLED (triggers 7862 trades at 21% WR = -$142K)
 # Too loose: 5m deceleration happens constantly
@@ -47,9 +47,9 @@ EXHAUST_ACCEL_MIN = 20.0         # |acceleration| threshold
 # Direction: decel means velocity and acceleration have opposite signs
 
 # ABSORPTION entry — high volume + low range = big player absorbing
-ABSORB_VOL_MIN = 99999.0       # DISABLED — set to 1.5 to activate
-ABSORB_RANGE_MAX = -1.0        # DISABLED
-ABSORB_WICK_MIN = 99999.0      # DISABLED
+ABSORB_VOL_MIN = 1.5            # high relative volume
+ABSORB_RANGE_MAX = 40.0         # low bar range (absorption = tight range)
+ABSORB_WICK_MIN = 0.3           # wicks present (rejection)
 
 # Wick rejection thresholds
 WICK_5M_MIN = 0.83
@@ -525,10 +525,10 @@ class BlendedEngine:
                 v1 = abs(feat[_1M_VELOCITY_IDX])
                 dmi = feat[_1M_DMI_IDX]
 
-                # REGIME_FLIP: vr low + hurst low = just shifted to mean-reverting
+                # REGIME_FLIP: vr low + hurst low = regime shift
+                # EDA: 27% WR fading → 73% WR riding. Ride z, don't fade.
                 if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
-                    # Direction: fade the current z (price will revert to mean)
-                    direction = 'short' if z > 0 else 'long'
+                    direction = 'long' if z > 0 else 'short'
                     self._open_trade(direction, price, ts, time_str, feat, 'REGIME_FLIP',
                                      cnn_flipped=False)
 
@@ -555,10 +555,12 @@ class BlendedEngine:
                                      cnn_flipped=False)
 
                 # ABSORPTION: high volume + low range + wicks
+                # EDA: 24% WR fading → 76% WR riding. Absorption = continuation.
+                # RIDE z direction (same sign as z), don't fade it.
                 elif (feat[_1M_VOL_REL_IDX] > ABSORB_VOL_MIN and
                       feat[_1M_OFFSET + 6] < ABSORB_RANGE_MAX and  # bar_range
                       feat[_1M_WICK_IDX] > ABSORB_WICK_MIN):
-                    direction = 'short' if z > 0 else 'long'
+                    direction = 'long' if z > 0 else 'short'
                     self._open_trade(direction, price, ts, time_str, feat, 'ABSORPTION',
                                      cnn_flipped=False)
 
