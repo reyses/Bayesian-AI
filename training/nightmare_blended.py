@@ -593,13 +593,12 @@ class BlendedEngine:
             ft_dir = 'long' if velocity > 0 else 'short'
             return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 2. MTF_EXHAUSTION — 3.3/day, 76% WR, $52/tr
-        #    5m decelerating + deep z + high vr + volume. RIDE 5m (flipped).
-        #    Lookback: require |1h_vel| > 40 (massive 1h commitment)
+        # 2. MTF_EXHAUSTION — ride 5m (flipped direction)
+        #    5m decelerating + deep z + high vr + volume
         if (v5_accel < 0 and abs(v5_vel) > MTF_5M_VEL_MIN and
                 v1 > MTF_1M_VEL_ALIVE and
                 abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
-                vol_rel > MTF_VOL_MIN and abs(h1_vel) > 40.0):
+                vol_rel > MTF_VOL_MIN):
             mtf_dir = 'long' if v5_vel > 0 else 'short'
             return mtf_dir, 'MTF_EXHAUSTION', True
 
@@ -608,14 +607,12 @@ class BlendedEngine:
         if h1_against_fade and abs(v5_vel) < 10.0:
             return direction, 'FADE_AGAINST', False
 
-        # 3. CASCADE — 5.8/day, 71% WR
-        #    Lookback: reject |1h_vel| > 15 (extreme 1h = late entry)
-        if has_wick and h1_aligned and abs(h1_vel) < 15.0:
+        # 3. CASCADE — wick + 1h aligned (no lookback filter — was too tight)
+        if has_wick and h1_aligned:
             return direction, 'CASCADE', False
 
-        # 4. KILL_SHOT — 23.7/day, 72% WR
-        #    Lookback: require |1h_vel| > 5 (1h committed, not weak)
-        if has_wick and not h1_aligned and abs(h1_vel) > 5.0:
+        # 4. KILL_SHOT — wick, no 1h (no lookback filter — was too tight)
+        if has_wick and not h1_aligned:
             return direction, 'KILL_SHOT', False
 
         # 5. MTF_BREAKOUT — 81/day, 56% WR
