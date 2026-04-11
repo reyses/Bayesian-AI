@@ -64,6 +64,10 @@ FREIGHT_TRAIN_VR_MAX = 0.85        # reject late entries (regime already committ
 # Exit: velocity collapsed to < 50% of entry AND decelerating
 FREIGHT_TRAIN_VEL_DECAY = 0.50     # exit when |vel| drops below this fraction of entry |vel|
 
+# REGIME_FLIP early conviction (from EDA: winners show z shrinking by bar 12)
+REGIME_FLIP_CONVICTION_BARS = 12   # 1 minute (at 5s cadence) to prove thesis
+REGIME_FLIP_VR_BAIL = 0.30         # vr above this = regime shifting back to trending
+
 # Bar range gate — disabled (low bar_range still profitable via volume)
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
 
@@ -636,17 +640,25 @@ class BlendedEngine:
                 return 'freight_train_decel'
             return None
 
-        # REGIME_FLIP exit: regime shifts back to trending
+        # REGIME_FLIP exit: early conviction + regime physics
+        # EDA: by bar 12, winners have |z| shrinking, losers have |z| growing
+        # By bar 24, losers have vr > 0.28 (regime shifting back)
         if self.entry_tier == 'REGIME_FLIP':
-            hurst = feat[_1M_HURST_IDX]
-            # Exit when regime reverts to trending (our mean-reversion thesis is done)
-            if vr > 0.7:  # vr rising back toward trending
+            abs_z = abs(z)
+
+            # Early conviction: if z moved AWAY from zero by bar 12, thesis failed
+            if self.bars_held >= REGIME_FLIP_CONVICTION_BARS and self.bars_held < REGIME_FLIP_CONVICTION_BARS + 3:
+                if abs_z > self._entry_abs_z:
+                    return 'regime_no_conviction'
+
+            # VR rising = regime shifting back to trending (against our mean-reversion)
+            if vr > REGIME_FLIP_VR_BAIL:
                 return 'regime_vr_rising'
-            if hurst > 0.55:  # hurst back to persistent
-                return 'regime_hurst_rising'
-            # Also exit at mean (z near zero = reversion complete)
-            if abs(z) < 0.3:
+
+            # Mean reached = reversion complete, take profit
+            if abs_z < 0.3:
                 return 'regime_mean_reached'
+
             return None
 
         # MTF_EXHAUSTION exit: 5m recovers or 1m dies
@@ -828,6 +840,7 @@ class BlendedEngine:
         # Entry context for tiered exits
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
         self._entry_velocity = abs(feat[_1M_VELOCITY_IDX])  # for FREIGHT_TRAIN decay exit
+        self._entry_abs_z = abs(feat[_1M_OFFSET + _Z])     # for REGIME_FLIP conviction check
         # 5m velocity alignment with trade direction (exit patience signal)
         v5 = feat[_5M_VELOCITY_IDX]
         self._v5_aligned = ((direction == 'long' and v5 > 0) or
