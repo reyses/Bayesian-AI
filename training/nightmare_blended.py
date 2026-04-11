@@ -155,12 +155,7 @@ TIER_MAP = {
 # 1h opposition threshold for FADE_AGAINST / RIDE_AGAINST
 H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
 
-# CNN model paths (legacy — single model for all tiers)
-CNN_FLIP_PATH = 'training/output/nn/cnn_flip.pt'
-CNN_HOLD_PATH = 'training/output/nn/cnn_hold.pt'
-CNN_RISK_PATH = 'training/output/nn/cnn_risk.pt'
-
-# Per-tier CNN model dir (new — 5 jobs per tier)
+# Per-tier CNN model dir (5 jobs per tier)
 CNN_PER_TIER_DIR = 'training/output/nn'
 
 # Live release dir (packaged by training/release.py)
@@ -230,95 +225,25 @@ class BlendedEngine:
         self._cnn_device = None
 
         # CNN flip (direction)
-        self.cnn_flip = None
-        self.cnn_flip_mean = None
-        self.cnn_flip_std = None
+        # Per-tier CNN state (loaded by _load_per_tier_cnns)
+        self._tier_entry_dir_models = {}
+        self._tier_trade_mgr_models = {}
+        self._tier_cnn_enabled = {}
 
         # CNN hold (exit timing)
-        self.cnn_hold = None
-        self.cnn_hold_mean = None
-        self.cnn_hold_std = None
+        # (legacy CNN fields removed — per-tier system replaces them)
 
         # CNN risk (cut losers)
-        self.cnn_risk = None
-        self.cnn_risk_mean = None
-        self.cnn_risk_std = None
 
         if use_cnn:
             self._cnn_device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-            self._load_per_tier_cnns()   # v3: per-tier 5-job models
-            self._load_cnn_flip()       # legacy fallback
-            self._load_cnn_hold()
-            self._load_cnn_risk()
+            self._load_per_tier_cnns()
 
     def _resolve_cnn_path(self, default_path: str) -> str:
         """Resolve CNN path: release_dir if set, else default."""
         if self._model_dir:
             return os.path.join(self._model_dir, os.path.basename(default_path))
         return default_path
-
-    def _load_cnn_flip(self):
-        """Load CNN flip ensemble (majority vote from N fold models)."""
-        path = self._resolve_cnn_path(CNN_FLIP_PATH)
-        if not os.path.exists(path):
-            return
-        from training.cnn_flip import FlipCNN
-        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-
-        # Load ensemble if available, else single model
-        ensemble_states = checkpoint.get('ensemble', None)
-        if ensemble_states and len(ensemble_states) > 1:
-            self.cnn_flip_ensemble = []
-            for state in ensemble_states:
-                model = FlipCNN(use_path=False).to(self._cnn_device)
-                try:
-                    model.load_state_dict(state, strict=False)
-                except Exception:
-                    continue
-                model.eval()
-                self.cnn_flip_ensemble.append(model)
-            self.cnn_flip = self.cnn_flip_ensemble[0]  # backward compat
-            print(f'  CNN flip ensemble loaded: {len(self.cnn_flip_ensemble)} models ({self._cnn_device})')
-        else:
-            self.cnn_flip_ensemble = []
-            self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
-            try:
-                self.cnn_flip.load_state_dict(checkpoint['model_state'], strict=False)
-            except Exception:
-                self.cnn_flip = FlipCNN(use_path=False).to(self._cnn_device)
-            self.cnn_flip.eval()
-            print(f'  CNN flip loaded (single model, {self._cnn_device})')
-
-        self.cnn_flip_mean = checkpoint.get('entry_mean', np.zeros((1, 6, 13)))
-        self.cnn_flip_std = checkpoint.get('entry_std', np.ones((1, 6, 13)))
-
-    def _load_cnn_hold(self):
-        """Load CNN hold predictor."""
-        path = self._resolve_cnn_path(CNN_HOLD_PATH)
-        if not os.path.exists(path):
-            return
-        from training.cnn_hold import HoldCNN
-        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-        self.cnn_hold = HoldCNN().to(self._cnn_device)
-        self.cnn_hold.load_state_dict(checkpoint['model_state'])
-        self.cnn_hold.eval()
-        self.cnn_hold_mean = checkpoint.get('grid_mean', np.zeros((1, 6, 13)))
-        self.cnn_hold_std = checkpoint.get('grid_std', np.ones((1, 6, 13)))
-        print(f'  CNN hold loaded ({self._cnn_device})')
-
-    def _load_cnn_risk(self):
-        """Load CNN risk predictor."""
-        path = self._resolve_cnn_path(CNN_RISK_PATH)
-        if not os.path.exists(path):
-            return
-        from training.cnn_risk import RiskCNN
-        checkpoint = torch.load(path, map_location='cpu', weights_only=False)
-        self.cnn_risk = RiskCNN().to(self._cnn_device)
-        self.cnn_risk.load_state_dict(checkpoint['model_state'])
-        self.cnn_risk.eval()
-        self.cnn_risk_mean = checkpoint.get('grid_mean', np.zeros((1, 6, 13)))
-        self.cnn_risk_std = checkpoint.get('grid_std', np.ones((1, 6, 13)))
-        print(f'  CNN risk loaded ({self._cnn_device})')
 
     # ═══════════════════════════════════════════════════════════════════════
     # PER-TIER CNN SYSTEM (v3 — 5 jobs per tier, confidence-gated)
@@ -431,85 +356,6 @@ class BlendedEngine:
 
         return exit_conf, loser_conf
 
-    def _cnn_predict_risk(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
-        """Predict RECOVER(1) or DEAD(0) when trade is negative."""
-        if self.cnn_risk is None:
-            return None
-
-        grid = _feat_to_grid(feat_79d)
-        grid = (grid - self.cnn_risk_mean[0]) / self.cnn_risk_std[0].clip(min=1e-8)
-
-        grid_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
-
-        bars_norm = bars_held / max(300, 1)  # approximate proportion
-        pnl_norm = pnl / 50.0
-        peak_norm = peak_pnl / 50.0
-        depth = (peak_pnl - pnl) / 50.0
-        dir_sign = 1.0 if direction == 'long' else -1.0
-        tier_num = TIER_MAP.get(tier, 0)
-
-        ctx_t = torch.FloatTensor([[bars_norm, pnl_norm, peak_norm, depth, dir_sign, float(tier_num)]]).to(self._cnn_device)
-
-        with torch.no_grad():
-            out = self.cnn_risk(grid_t, ctx_t)
-            pred = out.argmax(dim=1).item()
-
-        return pred  # 0=DEAD, 1=RECOVER
-
-    def _cnn_predict_flip(self, feat_79d, tier_num):
-        """Predict SAME(0) or COUNTER(1) from 79D — ensemble majority vote."""
-        if self.cnn_flip is None:
-            return 0  # default: SAME (no flip)
-
-        grid = _feat_to_grid(feat_79d)
-        grid = (grid - self.cnn_flip_mean[0]) / self.cnn_flip_std[0].clip(min=1e-8)
-
-        entry_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
-        tier_t = torch.FloatTensor([[tier_num]]).to(self._cnn_device)
-
-        # Ensemble majority vote
-        if hasattr(self, 'cnn_flip_ensemble') and len(self.cnn_flip_ensemble) > 1:
-            votes = 0  # count COUNTER votes
-            with torch.no_grad():
-                for model in self.cnn_flip_ensemble:
-                    out = model(entry_t, tier=tier_t)
-                    if out.argmax(dim=1).item() == 1:
-                        votes += 1
-            # Majority: >50% must agree to flip
-            return 1 if votes > len(self.cnn_flip_ensemble) / 2 else 0
-        else:
-            # Single model fallback
-            with torch.no_grad():
-                out = self.cnn_flip(entry_t, tier=tier_t)
-                return out.argmax(dim=1).item()
-
-    def _cnn_predict_hold(self, feat_79d, bars_held, pnl, peak_pnl, direction, tier):
-        """Predict HOLD(1) or EXIT(0) from current 79D + context."""
-        if self.cnn_hold is None:
-            return None  # no prediction, fall through to physics exit
-
-        grid = _feat_to_grid(feat_79d)
-        grid = (grid - self.cnn_hold_mean[0]) / self.cnn_hold_std[0].clip(min=1e-8)
-
-        grid_t = torch.FloatTensor(grid).unsqueeze(0).unsqueeze(0).to(self._cnn_device)
-
-        # Context: [bars_norm, pnl_norm, peak_norm, dir_sign, tier]
-        # Note: training used proportional (bar/path_len), inference uses /500.
-        # The v1 model is robust to this mismatch ($605/$563 results used /500).
-        bars_norm = min(bars_held / 500.0, 1.0)
-        pnl_norm = pnl / 50.0
-        peak_norm = peak_pnl / 50.0
-        dir_sign = 1.0 if direction == 'long' else -1.0
-        tier_num = TIER_MAP.get(tier, 0)
-
-        ctx_t = torch.FloatTensor([[bars_norm, pnl_norm, peak_norm, dir_sign, float(tier_num)]]).to(self._cnn_device)
-
-        with torch.no_grad():
-            out = self.cnn_hold(grid_t, ctx_t)
-            pred = out.argmax(dim=1).item()
-
-        return pred  # 0=EXIT, 1=HOLD
-
     def on_state(self, state: Dict):
         self._bar_count += 1
         feat = state['features_79d']
@@ -571,45 +417,41 @@ class BlendedEngine:
             if pnl <= HARD_STOP:
                 self._close_trade(price, ts, time_str, 'hard_stop', feat)
 
-            # Exit logic — only at 1m boundaries
-            elif is_1m:
-                # CASCADE and KILL_SHOT: proven physics exit (p_center)
-                # BASE_NMP: CNN hold exit (trained on BASE_NMP regret)
-                if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
-                    exit_reason = self._check_exit(feat, z, vr, pnl)
-                    if exit_reason:
-                        self._close_trade(price, ts, time_str, exit_reason, feat)
-                elif self.entry_tier in ('FADE_CALM', 'FADE_MOMENTUM', 'FADE_AGAINST',
-                                        'RIDE_CALM', 'RIDE_MOMENTUM',
-                                        'RIDE_AGAINST', 'FREIGHT_TRAIN',
-                                        'PEAK', 'REGIME_FLIP', 'MTF_EXHAUSTION',
-                                        'EXHAUSTION_BAR', 'ABSORPTION',
-                                        'BASE_NMP', 'MANUAL'):
-                    # Giveback stop: if peak was meaningful and we gave back too much, exit
-                    if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
-                        self._close_trade(price, ts, time_str, 'giveback_stop', feat)
-                    # CNN exit layer
-                    elif pnl < 0 and self.cnn_risk is not None:
-                        # Negative: CNN risk decides recover or cut
-                        risk_pred = self._cnn_predict_risk(
-                            feat, self.bars_held, pnl, self.peak_pnl,
-                            self.direction, self.entry_tier)
-                        if risk_pred == 0:  # DEAD -> cut the trade
-                            self._close_trade(price, ts, time_str, 'cnn_risk_cut', feat)
-                    elif self.cnn_hold is not None:
-                        # Positive: CNN hold decides
-                        hold_pred = self._cnn_predict_hold(
-                            feat, self.bars_held, pnl, self.peak_pnl,
-                            self.direction, self.entry_tier)
-                        if hold_pred == 0:  # CNN says EXIT
-                            self._close_trade(price, ts, time_str, 'cnn_exit', feat)
+            # Exit logic — every bar (5s cadence matches training)
+            else:
+                # 1. Giveback stop (all tiers)
+                if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
+                    self._close_trade(price, ts, time_str, 'giveback_stop', feat)
+                    return
+
+                # 2. Per-tier CNN exit + loser (confidence-gated, confirmation required)
+                entry_z = self.entry_1m.get('z_se', 0) if self.entry_1m else 0
+                tier_pred = self._predict_exit_loser(
+                    feat, self.entry_tier, self.bars_held, pnl, self.peak_pnl, entry_z)
+
+                if tier_pred is not None:
+                    exit_conf, loser_conf = tier_pred
+
+                    # Loser ID: only when underwater
+                    if pnl < 0 and loser_conf > LOSER_CONFIDENCE_MIN:
+                        self._cnn_loser_confirm += 1
+                        if self._cnn_loser_confirm >= LOSER_CONFIRMATION_BARS:
+                            self._close_trade(price, ts, time_str, 'cnn_loser_cut', feat)
+                            return
                     else:
-                        # No CNN loaded — fall back to physics exits
-                        exit_reason = self._check_exit(feat, z, vr, pnl)
-                        if exit_reason:
-                            self._close_trade(price, ts, time_str, exit_reason, feat)
-                else:
-                    # No CNN → physics exits for all tiers
+                        self._cnn_loser_confirm = 0
+
+                    # Exit: when confident trade is done
+                    if exit_conf > EXIT_CONFIDENCE_MIN:
+                        self._cnn_exit_confirm += 1
+                        if self._cnn_exit_confirm >= EXIT_CONFIRMATION_BARS:
+                            self._close_trade(price, ts, time_str, 'cnn_exit', feat)
+                            return
+                    else:
+                        self._cnn_exit_confirm = 0
+
+                # 3. Physics exits (fallback — fires at 1m boundaries only)
+                elif is_1m:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
@@ -624,6 +466,25 @@ class BlendedEngine:
 
                 # Classify the full ExNMP tier + direction
                 direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+
+                # Per-tier CNN: entry gate + direction override + duration
+                if self.use_cnn and tier in self._tier_cnn_enabled:
+                    pred = self._predict_entry_direction(feat, tier)
+                    if pred is not None:
+                        entry_conf, cnn_dir, dir_conf, dur_class, dur_conf = pred
+
+                        # Entry gate: skip if CNN says bad entry
+                        if entry_conf < ENTRY_GATE_MIN:
+                            return  # CNN vetoed this entry
+
+                        # Direction override: if CNN is confident, use its direction
+                        if dir_conf > DIRECTION_CONFIDENCE_MIN and cnn_dir != direction:
+                            direction = cnn_dir
+                            cnn_flipped = True
+
+                        # Duration: set exit patience
+                        if dur_conf > DURATION_CONFIDENCE_MIN:
+                            self._cnn_duration_class = dur_class
 
                 self._open_trade(direction, price, ts, time_str, feat, tier,
                                  cnn_flipped=cnn_flipped)
@@ -726,20 +587,8 @@ class BlendedEngine:
             direction = 'long' if h1_vel > 0 else 'short'
             return direction, 'RIDE_AGAINST', False
 
-        # CNN predicts SAME/COUNTER (1h is not opposing, physics tiers exhausted)
-        if self.use_cnn and self.cnn_flip is not None:
-            tier_num = TIER_MAP.get('FADE_CALM', 0)
-            pred = self._cnn_predict_flip(feat, tier_num)
-
-            if pred == 1:  # COUNTER — flip direction, ride momentum
-                direction = 'long' if direction == 'short' else 'short'
-
-                # RIDE_MOMENTUM
-                if abs_vel >= VELOCITY_THRESHOLD:
-                    return direction, 'RIDE_MOMENTUM', True
-
-                # RIDE_CALM
-                return direction, 'RIDE_CALM', True
+        # Direction override now happens in on_state() via per-tier CNN
+        # _classify_full_tier returns physics default only
 
         # FADE_MOMENTUM
         if abs_vel >= VELOCITY_THRESHOLD:
