@@ -1185,29 +1185,19 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     import subprocess
 
     print(f'{"="*60}')
-    print(f'BLENDED CNN PIPELINE (5 CNNs)')
-    print(f'  1.   NMP baseline IS          ->  raw trades (7 physics tiers)')
-    print(f'  1b.  Physics OOS             ->  deterministic floor (CNN must beat)')
-    print(f'  2.   Regret (entry)          ->  better entry physics')
-    print(f'  2b.  CNN entry               ->  pattern discovery per tier')
-    print(f'  2c.  Forward pass            ->  tagged trades')
-    print(f'  2d.  Regret (direction)      ->  FADE or RIDE ground truth')
-    print(f'  3.   CNN flip                ->  train FADE/RIDE/SKIP')
-    print(f'  4.   Forward pass + flip     ->  corrected direction (9 tiers)')
-    print(f'  4b.  Regret (hold)           ->  optimal exit timing')
-    print(f'  5.   CNN hold                ->  train HOLD/EXIT')
-    print(f'  5b.  Forward pass + hold     ->  hold-managed trades')
-    print(f'  5c.  Regret (exit physics)   ->  where hold was wrong + why')
-    print(f'  5d.  CNN exit                ->  train exit physics override')
-    print(f'  5e.  Forward pass + exit     ->  hold + exit managed trades')
-    print(f'  5f.  Regret (risk)           ->  which trades never recover')
-    print(f'  6.   CNN risk                ->  train loser detector')
-    print(f'  7.   Forward pass (final)    ->  IS + OOS with all 5 CNNs')
+    print(f'BLENDED PIPELINE (per-tier CNNs)')
+    print(f'  1.   Physics IS + OOS + OOS-NT8 baselines')
+    print(f'  2.   Regret (oracle labels)')
+    print(f'  3.   Generate per-tier labels (entry/dir/duration/exit/loser)')
+    print(f'  4.   Train entry/direction/duration CNNs per tier')
+    print(f'  5.   Train exit/loser CNNs per tier')
+    print(f'  6.   Forward pass IS with per-tier CNNs')
+    print(f'  7.   Forward pass IS + OOS + OOS-NT8 (final)')
     print(f'  Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
     # Phase ordering for --from / --to
-    PHASES = ['1', '2', '2b', '2c', '2d', '3', '4', '4b', '5', '5b', '5c', '5d', '5e', '5f', '6', '7']
+    PHASES = ['1', '2', '3', '4', '5', '6', '7']
 
     def _should_run(phase_id):
         idx = PHASES.index(phase_id)
@@ -1301,142 +1291,65 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         _run_regret()
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    if _should_run('2b'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 2b: CNN entry (pattern discovery per tier)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        result = subprocess.run(
-            [sys.executable, 'training/cnn_entry.py', '--min-k', '4', '--max-k', '10'],
-            timeout=3600, capture_output=False)
-        if result.returncode != 0:
-            print(f'  CNN entry FAILED (exit code {result.returncode})')
-            return
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('2c'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 2c: Forward pass IS (trades tagged with patterns)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_blended_nmp('is', use_cnn=False)
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('2d'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 2d: Regret on pattern-tagged trades')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_regret()
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
     if _should_run('3'):
         print(f'\n{"="*40}')
-        print(f'PHASE 3: Train CNN flip (FADE/RIDE/SKIP)')
+        print(f'PHASE 3: Generate per-tier labels from regret')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
-        result = subprocess.run(
-            [sys.executable, 'training/cnn_flip.py', '--no-path'],
-            timeout=3600, capture_output=False)
-        if result.returncode != 0:
-            print(f'  CNN flip training FAILED (exit code {result.returncode})')
+        import pickle as _pkl
+        from training.physics_labels import generate_all_labels
+
+        trades_path = 'training/output/trades/blended_is.pkl'
+        regret_path = 'training/output/nn/regret_analysis.csv'
+        if not os.path.exists(trades_path) or not os.path.exists(regret_path):
+            print(f'  Missing trades or regret — run phases 1+2 first')
             return
+        with open(trades_path, 'rb') as f:
+            _trades = _pkl.load(f)
+        _regret_df = pd.read_csv(regret_path)
+        _tier_labels = generate_all_labels(_trades, _regret_df)
+
+        # Save labels for reproducibility
+        labels_path = 'training/output/nn/tier_labels.pkl'
+        with open(labels_path, 'wb') as f:
+            _pkl.dump(_tier_labels, f)
+        print(f'  Labels saved: {labels_path}')
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     if _should_run('4'):
         print(f'\n{"="*40}')
-        print(f'PHASE 4: Forward pass + flip (corrected trades, all 9 tiers)')
+        print(f'PHASE 4: Train per-tier entry/direction/duration CNNs')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
-        _run_blended_nmp('is', use_cnn=True)
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-        _log_phase('4. +CNN flip', trades_path='training/output/trades/blended_is.pkl')
-
-    if _should_run('4b'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 4b: Regret (exit timing ground truth)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_regret()
-        import shutil
-        src = 'training/output/nn/regret_analysis.csv'
-        dst = 'training/output/nn/regret_cnn_flipped.csv'
-        if os.path.exists(src):
-            shutil.copy2(src, dst)
-            print(f'  Saved: {dst}')
+        result = subprocess.run(
+            [sys.executable, 'training/cnn_entry_direction.py'],
+            timeout=3600, capture_output=False)
+        if result.returncode != 0:
+            print(f'  Entry/direction training FAILED')
+            return
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     if _should_run('5'):
         print(f'\n{"="*40}')
-        print(f'PHASE 5: Train CNN hold (exit timing predictor)')
+        print(f'PHASE 5: Train per-tier exit/loser CNNs')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
         result = subprocess.run(
-            [sys.executable, 'training/cnn_hold.py'],
+            [sys.executable, 'training/cnn_trade_manager.py'],
             timeout=3600, capture_output=False)
         if result.returncode != 0:
-            print(f'  CNN hold training FAILED (exit code {result.returncode})')
+            print(f'  Exit/loser training FAILED')
             return
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('5b'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 5b: Forward pass + hold (flip + hold trades)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_blended_nmp('is', use_cnn=True)
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('5c'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 5c: Regret (exit physics — where hold was wrong)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_regret()
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('5d'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 5d: CNN exit (exit physics override)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        result = subprocess.run(
-            [sys.executable, 'training/cnn_exit.py'],
-            timeout=3600, capture_output=False)
-        if result.returncode != 0:
-            print(f'  CNN exit training FAILED (exit code {result.returncode})')
-            # Non-fatal: continue without exit CNN
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('5e'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 5e: Forward pass + exit (hold + exit managed)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_blended_nmp('is', use_cnn=True)
-        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    if _should_run('5f'):
-        print(f'\n{"="*40}')
-        print(f'PHASE 5f: Regret (risk ground truth)')
-        print(f'{"="*40}')
-        t0 = _time.perf_counter()
-        _run_regret()
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     if _should_run('6'):
         print(f'\n{"="*40}')
-        print(f'PHASE 6: Train CNN risk (loser detector)'  )
+        print(f'PHASE 6: Forward pass IS with per-tier CNNs')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
-        result = subprocess.run(
-            [sys.executable, 'training/cnn_risk.py'],
-            timeout=3600, capture_output=False)
-        if result.returncode != 0:
-            print(f'  CNN risk training FAILED (exit code {result.returncode})')
-            return
+        _run_blended_nmp('is', use_cnn=True)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+        _log_phase('6. +CNN IS', trades_path='training/output/trades/blended_is.pkl')
 
     if _should_run('7'):
         print(f'\n{"="*40}')
