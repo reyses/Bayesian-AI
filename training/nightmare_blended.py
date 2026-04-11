@@ -236,6 +236,7 @@ class BlendedEngine:
         self.passed_center = False  # for tier 3 overshoot decision
 
         self._approach_buffer = []
+        self._entry_approach = []
         self._trade_path = []
 
         self.trades = []
