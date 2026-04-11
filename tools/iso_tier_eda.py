@@ -36,6 +36,7 @@ _1M = N_CORE  # 12
 _Z = 0
 _VR = 2
 _VEL = 3
+_ACCEL = 4
 _HURST = 7
 _DMI = 1
 
