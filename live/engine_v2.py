@@ -52,6 +52,7 @@ from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
 from training.nightmare_blended import BlendedEngine
 from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
 from config.symbols import SYMBOL_MAP
+from live.order_manager import OrderManager
 
 TICK = 0.25
 TV = 0.50
@@ -88,14 +89,15 @@ class LiveEngineV2:
         self._engine = None
         self._prev_vel = {}
 
+        # Order management (NT8 is source of truth)
+        self._orders = OrderManager(config)
+
         # State
         self._bar_count = 0
         self._feat_count = 0
         self._synced = False
         self._trading = False
         self._shutting_down = False
-        self._position_open = False
-        self._order_pending = False   # block new actions while waiting for fill
         self._daily_pnl = 0.0
         self._trade_count = 0
         self._last_ts = 0.0
@@ -412,14 +414,24 @@ class LiveEngineV2:
             except asyncio.TimeoutError:
                 continue
 
-            if msg.get('type') != MsgType.BAR:
-                if msg.get('type') == 'POSITION':
-                    qty = int(msg.get('qty', msg.get('quantity', 0)))
-                    if qty == 0 and self._position_open:
-                        logger.warning('  NT8 says FLAT — syncing local state')
-                        self._position_open = False
-                    elif qty != 0 and not self._position_open:
-                        logger.warning(f'  NT8 says POSITION qty={qty} — orphan detected')
+            msg_type = msg.get('type', '')
+            if msg_type == MsgType.FILL:
+                pnl = self._orders.on_fill(msg)
+                if pnl is not None:
+                    self._daily_pnl += pnl
+                    self._trade_count += 1
+                    # Correct engine entry price from real fill
+                    fill_px = float(msg.get('fill_price', 0))
+                    if fill_px and self._engine.in_pos:
+                        self._engine.entry_price = fill_px
+                continue
+            elif msg_type == 'ORDER_STATUS':
+                self._orders.on_order_status(msg)
+                continue
+            elif msg_type == 'POSITION':
+                self._orders.on_position(msg)
+                continue
+            elif msg_type != MsgType.BAR:
                 continue
 
             bar = self._extract_bar(msg)
@@ -463,36 +475,33 @@ class LiveEngineV2:
             new_trade = len(self._engine.trades) > prev_trades
 
             event = ''
-            if entered and not self._order_pending:
+            if entered and self._orders.can_enter:
                 event = f'ENTRY_{self._engine.entry_tier}'
                 if not self._dry_run:
-                    self._order_pending = True
                     await self._send_entry()
-                    self._order_pending = False
                 else:
                     logger.info(f'  [DRY] ENTRY {self._engine.direction} '
                                 f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
 
-            if exited and new_trade and not self._order_pending:
+            if exited and new_trade and self._orders.can_exit:
                 t = self._engine.trades[-1]
                 event = f'EXIT_{t.get("exit_reason", "?")}'
-                self._daily_pnl += t['pnl']
-                self._trade_count += 1
                 if not self._dry_run:
-                    self._order_pending = True
-                    await self._send_exit()
-                    self._order_pending = False
+                    await self._send_exit(t.get('exit_reason', 'signal'))
+                else:
+                    self._daily_pnl += t['pnl']
+                    self._trade_count += 1
                 logger.info(f'  {"[DRY] " if self._dry_run else ""}'
                             f'EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f} '
                             f'daily=${self._daily_pnl:.0f} #{self._trade_count}')
 
-            # Ledger
+            # Ledger — use OrderManager position for real PnL
             pnl = 0
-            if self._engine.in_pos:
-                if self._engine.direction == 'long':
-                    pnl = (bar['close'] - self._engine.entry_price) / TICK * TV
+            if self._orders.position.qty != 0:
+                if self._orders.position.side == 'LONG':
+                    pnl = (bar['close'] - self._orders.position.avg_price) / TICK * TV
                 else:
-                    pnl = (self._engine.entry_price - bar['close']) / TICK * TV
+                    pnl = (self._orders.position.avg_price - bar['close']) / TICK * TV
 
             self._write_ledger(bar['timestamp'], bar['close'], z, vr, vel, pnl, event)
 
@@ -505,106 +514,31 @@ class LiveEngineV2:
                       f'tr={self._trade_count} day=${self._daily_pnl:>+.0f}    ',
                       end='', flush=True)
 
-            # Periodic save
+            # Periodic maintenance
             if self._bar_count % 300 == 0:
                 self._periodic_save()
+                self._orders.cleanup_stale_orders(max_age_s=120.0)
 
     # ═══════════════════════════════════════════════════════════════════
-    # TRADE EXECUTION — wait for NT8 confirmation
+    # TRADE EXECUTION — via OrderManager (NT8 is source of truth)
     # ═══════════════════════════════════════════════════════════════════
 
     async def _send_entry(self):
-        """Send entry order and WAIT for fill confirmation from NT8."""
+        """Build and send entry order via OrderManager."""
         side = 'BUY' if self._engine.direction == 'long' else 'SELL'
-        order_id = f'v2_{self._trade_count}_{int(time.time())}'
-        msg = place_order(
-            order_id=order_id,
-            instrument=self._cfg.instrument,
-            account=self._cfg.account,
-            side=side, qty=1)
-        await self._client.send(msg)
-        logger.info(f'  ORDER SENT: {side} {self._engine.entry_tier} (waiting for fill...)')
-
-        # Wait for FILL confirmation
-        fill = await self._wait_for_fill(order_id, timeout=10.0)
-        if fill:
-            fill_price = float(fill.get('fill_price', self._last_price))
-            self._engine.entry_price = fill_price
-            self._position_open = True
-            logger.info(f'  FILLED: {side} @ {fill_price:.2f} '
-                        f'(engine had {self._last_price:.2f}, slippage={abs(fill_price - self._last_price):.2f})')
+        msg = self._orders.build_entry_order(side)
+        if msg:
+            await self._client.send(msg)
         else:
-            logger.warning(f'  NO FILL after 10s — position state uncertain')
-            self._position_open = True  # assume filled, will reconcile on POSITION msg
+            logger.warning(f'  OrderManager rejected entry: {side}')
 
-    async def _send_exit(self):
-        """Send close order and WAIT for confirmation."""
-        msg = close_position(
-            instrument=self._cfg.instrument,
-            account=self._cfg.account)
-        await self._client.send(msg)
-        logger.info(f'  CLOSE SENT (waiting for confirmation...)')
-
-        # Wait for POSITION with qty=0 or FILL confirmation
-        confirmed = await self._wait_for_flat(timeout=10.0)
-        if confirmed:
-            self._position_open = False
-            logger.info(f'  CLOSE CONFIRMED')
+    async def _send_exit(self, reason='signal'):
+        """Build and send exit order via OrderManager."""
+        msg = self._orders.build_exit_order(reason)
+        if msg:
+            await self._client.send(msg)
         else:
-            logger.warning(f'  CLOSE NOT CONFIRMED after 10s — will reconcile')
-            self._position_open = False  # assume closed
-
-    async def _wait_for_fill(self, order_id, timeout=10.0):
-        """Wait for FILL message matching order_id. Returns fill msg or None."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            try:
-                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                continue
-
-            if msg.get('type') == MsgType.FILL:
-                return msg
-            elif msg.get('type') == MsgType.BAR:
-                # Keep processing bars while waiting
-                bar = self._extract_bar(msg)
-                self._agg.feed(bar)
-                self._bar_count += 1
-                self._last_ts = bar['timestamp']
-                self._last_price = bar['close']
-                self._live_bars.append(bar)
-            elif msg.get('type') == 'POSITION':
-                qty = int(msg.get('qty', 0))
-                if qty != 0:
-                    return msg  # position opened = fill happened
-
-        return None
-
-    async def _wait_for_flat(self, timeout=10.0):
-        """Wait for POSITION with qty=0 confirming flat. Returns True/False."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            try:
-                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
-            except asyncio.TimeoutError:
-                continue
-
-            if msg.get('type') == 'POSITION':
-                qty = int(msg.get('qty', msg.get('quantity', 0)))
-                if qty == 0:
-                    return True
-            elif msg.get('type') == MsgType.FILL:
-                # Exit fill received
-                return True
-            elif msg.get('type') == MsgType.BAR:
-                bar = self._extract_bar(msg)
-                self._agg.feed(bar)
-                self._bar_count += 1
-                self._last_ts = bar['timestamp']
-                self._last_price = bar['close']
-                self._live_bars.append(bar)
-
-        return False
+            logger.warning(f'  OrderManager rejected exit: {reason}')
 
     # ═══════════════════════════════════════════════════════════════════
     # LEDGER + SAVE
@@ -642,8 +576,8 @@ class LiveEngineV2:
         logger.info('SHUTDOWN')
 
         # Close position if open
-        if self._position_open and not self._dry_run:
-            await self._send_exit()
+        if not self._orders.is_flat and not self._dry_run:
+            await self._send_exit('shutdown')
             await asyncio.sleep(2.0)
         self._engine.force_close()
 
