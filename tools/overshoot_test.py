@@ -14,8 +14,8 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nn_v2.sfe_ticker import FeatureTicker
-from nn_v2.nightmare_overshoot import OvershootEngine
+from training.sfe_ticker import FeatureTicker
+from training.nightmare_overshoot import OvershootEngine
 
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
@@ -108,8 +108,8 @@ def main():
         print(f'\n  Note: exit breakdown from daily summaries')
 
     # Save
-    os.makedirs('nn_v2/output/reports', exist_ok=True)
-    csv_path = f'nn_v2/output/reports/overshoot_{args.target}.csv'
+    os.makedirs('training/output/reports', exist_ok=True)
+    csv_path = f'training/output/reports/overshoot_{args.target}.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'\nCSV: {csv_path}')
 

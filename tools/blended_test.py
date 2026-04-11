@@ -17,8 +17,8 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nn_v2.sfe_ticker import FeatureTicker
-from nn_v2.nightmare_blended import BlendedEngine
+from training.sfe_ticker import FeatureTicker
+from training.nightmare_blended import BlendedEngine
 
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
@@ -130,14 +130,14 @@ def main():
         print(f'  {reason:<30} {count:>6} {wr:>5.0f}% ${avg:>7.1f}')
 
     # Save CSV with tier + exit reason
-    os.makedirs('nn_v2/output/reports', exist_ok=True)
+    os.makedirs('training/output/reports', exist_ok=True)
     flat = [{k: v for k, v in t.items() if not isinstance(v, (list, dict, np.ndarray))}
             for t in all_trades]
-    csv_path = f'nn_v2/output/reports/blended_{args.target}_trades.csv'
+    csv_path = f'training/output/reports/blended_{args.target}_trades.csv'
     pd.DataFrame(flat).to_csv(csv_path, index=False)
     print(f'\nTrade CSV: {csv_path}')
 
-    daily_path = f'nn_v2/output/reports/blended_{args.target}_daily.csv'
+    daily_path = f'training/output/reports/blended_{args.target}_daily.csv'
     pd.DataFrame(all_results).to_csv(daily_path, index=False)
     print(f'Daily CSV: {daily_path}')
 

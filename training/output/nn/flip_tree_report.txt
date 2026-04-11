@@ -1,0 +1,91 @@
+Flip Predictor Tree
+========================================
+Accuracy: 55.5%
+Depth: 8, Leaves: 123
+
+Top features:
+  15m_wick_ratio            0.129
+  1D_velocity               0.115
+  5m_wick_ratio             0.043
+  time_of_day               0.037
+  1h_dir_vol                0.036
+  5m_bar_range              0.031
+  1m_dir_vol                0.030
+  15m_p_at_center           0.028
+  5m_hurst                  0.028
+  1h_velocity               0.026
+  1m_bar_range              0.025
+  1h_wick_ratio             0.025
+  1m_acceleration           0.024
+  1h_dmi_diff               0.022
+  1D_wick_ratio             0.020
+
+Tree rules (first 50 lines):
+|--- 15m_wick_ratio <= 0.32
+|   |--- time_of_day <= 0.77
+|   |   |--- 1h_wick_ratio <= 0.76
+|   |   |   |--- 5m_wick_ratio <= 0.58
+|   |   |   |   |--- 1m_variance_ratio <= 0.21
+|   |   |   |   |   |--- 15m_p_at_center <= 0.44
+|   |   |   |   |   |   |--- class: 0
+|   |   |   |   |   |--- 15m_p_at_center >  0.44
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |   |   |--- 1m_variance_ratio >  0.21
+|   |   |   |   |   |--- 15m_bar_range <= 70.50
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |   |   |   |--- 15m_bar_range >  70.50
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |   |--- 5m_wick_ratio >  0.58
+|   |   |   |   |--- 5m_reversion_prob <= 0.98
+|   |   |   |   |   |--- 5m_bar_range <= 44.50
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |   |   |   |--- 5m_bar_range >  44.50
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |   |   |--- 5m_reversion_prob >  0.98
+|   |   |   |   |   |--- 5m_z_se <= -0.43
+|   |   |   |   |   |   |--- class: 1
+|   |   |   |   |   |--- 5m_z_se >  -0.43
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |--- 1h_wick_ratio >  0.76
+|   |   |   |--- 15m_dmi_gap <= 3.69
+|   |   |   |   |--- 15s_dmi_diff <= -16.12
+|   |   |   |   |   |--- class: 1
+|   |   |   |   |--- 15s_dmi_diff >  -16.12
+|   |   |   |   |   |--- 5m_reversion_prob <= 0.98
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |   |   |   |--- 5m_reversion_prob >  0.98
+|   |   |   |   |   |   |--- class: 0
+|   |   |   |--- 15m_dmi_gap >  3.69
+|   |   |   |   |--- 15s_vol_rel <= 2.76
+|   |   |   |   |   |--- 5m_wick_ratio <= 0.16
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |   |   |   |--- 5m_wick_ratio >  0.16
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |   |   |--- 15s_vol_rel >  2.76
+|   |   |   |   |   |--- 1h_dir_vol <= -0.27
+|   |   |   |   |   |   |--- class: 1
+|   |   |   |   |   |--- 1h_dir_vol >  -0.27
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |--- time_of_day >  0.77
+|   |   |--- 15m_wick_ratio <= 0.22
+|   |   |   |--- 5m_hurst <= 0.55
+|   |   |   |   |--- class: 0
+|   |   |   |--- 5m_hurst >  0.55
+|   |   |   |   |--- 15m_vol_rel <= 0.12
+|   |   |   |   |   |--- class: 1
+|   |   |   |   |--- 15m_vol_rel >  0.12
+|   |   |   |   |   |--- 1m_variance_ratio <= 0.56
+|   |   |   |   |   |   |--- truncated branch of depth 3
+|   |   |   |   |   |--- 1m_variance_ratio >  0.56
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |--- 15m_wick_ratio >  0.22
+|   |   |   |--- 15m_reversion_prob <= 0.98
+|   |   |   |   |--- 1D_variance_ratio <= 0.41
+|   |   |   |   |   |--- 15m_bar_range <= 119.00
+|   |   |   |   |   |   |--- class: 1
+|   |   |   |   |   |--- 15m_bar_range >  119.00
+|   |   |   |   |   |   |--- truncated branch of depth 2
+|   |   |   |   |--- 1D_variance_ratio >  0.41
+|   |   |   |   |   |--- 15s_vol_rel <= 1.19
+|   |   |   |   |   |   |--- class: 0
+|   

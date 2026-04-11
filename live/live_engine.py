@@ -14,7 +14,7 @@ Production trading loop with full infrastructure:
   - Reconnection handling
 
 Architecture:
-  NT8 -> 1s bars -> nn_v2.Aggregator -> SFE -> extract_79d -> BlendedEngine
+  NT8 -> 1s bars -> training.Aggregator -> SFE -> extract_79d -> BlendedEngine
   BlendedEngine -> entry/exit decisions -> OrderManager -> NT8
 
 Usage (via launcher):
@@ -41,9 +41,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
 from core.statistical_field_engine import StatisticalFieldEngine
 
-from nn_v2.nightmare_blended import BlendedEngine
-from nn_v2.aggregator import Aggregator
-from nn_v2.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
+from training.nightmare_blended import BlendedEngine
+from training.aggregator import Aggregator
+from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
 
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
@@ -52,7 +52,7 @@ from live.protocol import MsgType, close_position
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
 from live.trade_logger import TradeLogger
-from nn_v2.regret import compute_regret
+from training.regret import compute_regret
 from config.symbols import SYMBOL_MAP
 
 logger = logging.getLogger(__name__)
@@ -104,7 +104,7 @@ class LiveEngine:
         self._engine = BlendedEngine(use_cnn=False)
 
         # Override hard stop for live (training has it disabled)
-        import nn_v2.nightmare_blended as _blended
+        import training.nightmare_blended as _blended
         _blended.HARD_STOP = -150.0
         logger.info(f'Hard stop set to ${_blended.HARD_STOP}')
 
@@ -120,7 +120,7 @@ class LiveEngine:
         self._orders = OrderManager(config)
         self._gui = GUIBridge(gui_queue)
         self._session = SessionTracker(config)
-        # Post-trade regret analysis (nn_v2 regret engine)
+        # Post-trade regret analysis (training regret engine)
         self._regret_buffer = []  # stores recent closes for regret computation
         self._live_trades_for_brain = []  # accumulate trades for CNN retraining
         self._regret_log = []  # daily regret CSV data
@@ -362,7 +362,7 @@ class LiveEngine:
 
         ts = bar['timestamp']
 
-        # Build 79D via nn_v2 (single source of truth)
+        # Build 79D via training (single source of truth)
         feat, self._prev_velocities, states_by_tf, ohlcv_by_tf = \
             compute_79d_from_aggregator(
                 self._agg, self._sfe, self._prev_velocities, ts)

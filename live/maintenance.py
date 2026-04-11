@@ -30,8 +30,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.statistical_field_engine import StatisticalFieldEngine
 from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
-from nn_v2.aggregator import Aggregator
-from nn_v2.compute_79d import compute_79d_from_aggregator
+from training.aggregator import Aggregator
+from training.compute_79d import compute_79d_from_aggregator
 
 ATLAS_1S = 'DATA/ATLAS/1s'
 STATE_DIR = 'live/state'
@@ -249,7 +249,7 @@ def build_features_for_new_days():
 
     # Run the feature builder for missing days
     result = subprocess.run(
-        ['python', 'nn_v2/build_dataset.py', '--resolution', '5s',
+        ['python', 'training/build_dataset.py', '--resolution', '5s',
          '--start', missing[0].replace('_', '-'),
          '--end', missing[-1].replace('_', '-')],
         capture_output=True, text=True, timeout=3600)

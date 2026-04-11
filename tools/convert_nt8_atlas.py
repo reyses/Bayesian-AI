@@ -277,8 +277,8 @@ def main():
     print(f'DONE')
     print(f'  Next steps:')
     print(f'    rm -rf DATA/FEATURES_79D_5s/*')
-    print(f'    python nn_v2/build_dataset.py --resolution 5s')
-    print(f'    python nn_v2/run.py blended')
+    print(f'    python training/build_dataset.py --resolution 5s')
+    print(f'    python training/run.py blended')
     print(f'{"="*60}')
 
 

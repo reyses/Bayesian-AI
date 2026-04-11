@@ -3,7 +3,7 @@
 > Status: APPROVED SPEC — implement in next session
 
 ## Context
-nn_v2 pipeline built. NMP baseline established. Strategy tree + AI continuous
+training pipeline built. NMP baseline established. Strategy tree + AI continuous
 positioning tested. Honest sequential OOS = $45/day (bulk was $711 — lookahead).
 Need: per-day iteration with calibrated exits, chain trades, dense brain.
 
@@ -179,26 +179,26 @@ These are NOT strategy fixes. They become risk management guardrails:
 ### Modify:
 | File | Changes |
 |------|---------|
-| `nn_v2/gate.py` | Already updated — uses book for calibration + should_exit() |
-| `nn_v2/ai.py` | Chain logic: same dir = stay + update path, diff dir = flip |
-| `nn_v2/per_day.py` | Every day iterated, exhaust branches before adding new |
-| `nn_v2/memory.py` | Record chain history, path adherence, entry match |
-| `nn_v2/run.py` | Pipeline command updated, report at end |
+| `training/gate.py` | Already updated — uses book for calibration + should_exit() |
+| `training/ai.py` | Chain logic: same dir = stay + update path, diff dir = flip |
+| `training/per_day.py` | Every day iterated, exhaust branches before adding new |
+| `training/memory.py` | Record chain history, path adherence, entry match |
+| `training/run.py` | Pipeline command updated, report at end |
 
 ### Create:
 | File | Purpose |
 |------|---------|
-| `nn_v2/report.py` | End-of-run reporting with IS/OOS comparison table |
+| `training/report.py` | End-of-run reporting with IS/OOS comparison table |
 
 ### Do NOT modify:
-- `nn_v2/ticker.py` — dumb pipe, correct
-- `nn_v2/aggregator.py` — TF aggregation, correct
-- `nn_v2/build_dataset.py` — sheet music builder, correct
-- `nn_v2/sfe_ticker.py` — test mode replay, correct
-- `nn_v2/nightmare.py` — NMP seed generator, correct (but no longer used at runtime)
-- `nn_v2/regret.py` — counterfactual analysis, correct
-- `nn_v2/tree.py` — strategy tree, correct
-- `nn_v2/book.py` — strategy book generator, correct
+- `training/ticker.py` — dumb pipe, correct
+- `training/aggregator.py` — TF aggregation, correct
+- `training/build_dataset.py` — sheet music builder, correct
+- `training/sfe_ticker.py` — test mode replay, correct
+- `training/nightmare.py` — NMP seed generator, correct (but no longer used at runtime)
+- `training/regret.py` — counterfactual analysis, correct
+- `training/tree.py` — strategy tree, correct
+- `training/book.py` — strategy book generator, correct
 
 ---
 

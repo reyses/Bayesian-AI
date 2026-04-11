@@ -13,9 +13,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
 
 # Load data
-with open('nn_v2/output/trades/blended_is.pkl', 'rb') as f:
+with open('training/output/trades/blended_is.pkl', 'rb') as f:
     trades = pickle.load(f)
-regret = pd.read_csv('nn_v2/output/nn/regret_analysis.csv')
+regret = pd.read_csv('training/output/nn/regret_analysis.csv')
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
 n = min(len(trades), len(regret))

@@ -9,7 +9,7 @@ Reads OOS trades pickle and breaks down by:
 
 Usage:
     python tools/hourly_oos_report.py                          # from OOS trades
-    python tools/hourly_oos_report.py nn_v2/output/blended/oos_trades.pkl  # specific file
+    python tools/hourly_oos_report.py training/output/blended/oos_trades.pkl  # specific file
 """
 import os
 import sys
@@ -22,7 +22,7 @@ from collections import defaultdict
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
-def hourly_report(trades_path='nn_v2/output/blended/oos_trades.pkl'):
+def hourly_report(trades_path='training/output/blended/oos_trades.pkl'):
     if not os.path.exists(trades_path):
         # Try physics trades
         alt = trades_path.replace('oos_trades', 'physics_oos_trades')
@@ -125,5 +125,5 @@ def hourly_report(trades_path='nn_v2/output/blended/oos_trades.pkl'):
 
 
 if __name__ == '__main__':
-    path = sys.argv[1] if len(sys.argv) > 1 else 'nn_v2/output/blended/oos_trades.pkl'
+    path = sys.argv[1] if len(sys.argv) > 1 else 'training/output/blended/oos_trades.pkl'
     hourly_report(path)

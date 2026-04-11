@@ -20,10 +20,10 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nn_v2.sfe_ticker import FeatureTicker
-from nn_v2.nightmare_killshot import KillShotEngine
-from nn_v2.nightmare_wick_overshoot import WickOvershootEngine
-from nn_v2.nightmare_cascade import CascadeEngine
+from training.sfe_ticker import FeatureTicker
+from training.nightmare_killshot import KillShotEngine
+from training.nightmare_wick_overshoot import WickOvershootEngine
+from training.nightmare_cascade import CascadeEngine
 
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
@@ -138,19 +138,19 @@ def main():
         print(f'  {label:<20} {n:>7} {wr:>5.0f}% ${avg:>7.1f} ${per_day:>6.0f} ${total_pnl:>8,.0f}')
 
     # Save
-    os.makedirs('nn_v2/output/reports', exist_ok=True)
+    os.makedirs('training/output/reports', exist_ok=True)
     for label in all_strategy_trades:
         results, trades = all_strategy_trades[label]
-        csv_path = f'nn_v2/output/reports/{label.lower()}_{args.target}.csv'
+        csv_path = f'training/output/reports/{label.lower()}_{args.target}.csv'
         pd.DataFrame(results).to_csv(csv_path, index=False)
 
         # Save trades for regret analysis
         import pickle
-        trade_path = f'nn_v2/output/reports/{label.lower()}_{args.target}_trades.pkl'
+        trade_path = f'training/output/reports/{label.lower()}_{args.target}_trades.pkl'
         with open(trade_path, 'wb') as f:
             pickle.dump(trades, f)
 
-    print(f'\nResults saved to nn_v2/output/reports/')
+    print(f'\nResults saved to training/output/reports/')
 
 
 if __name__ == '__main__':

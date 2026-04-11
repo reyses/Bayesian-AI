@@ -1,0 +1,246 @@
+
+======================================================================
+STRATEGY BOOK — 115 leaves (raw + regret profiles)
+======================================================================
+  Total trades: 12453
+  Actual PnL:  $9,770
+
+  Regret action distribution (what SHOULD have happened):
+    same_early               992 (   8%)  optimal=$  179,834
+    same_at_exit              16 (   0%)  optimal=$    2,142
+    same_extended           5303 (  43%)  optimal=$1,770,961
+    counter_early             90 (   1%)  optimal=$    4,413
+    counter_at_exit           12 (   0%)  optimal=$    4,372
+    counter_extended        6040 (  49%)  optimal=$1,970,042
+
+  All leaves (by trade count):
+    ID     N TreeStrat             WR  Actual$  Regret TopAction          TopPct
+  --------------------------------------------------------------------------------
+   108  1066 short_extended      62% $   2259 $   204 same_extended       50%
+   233   857 long_extended       62% $   1693 $   238 same_extended       46%
+   105   776 short_extended      61% $   1522 $   256 counter_extended    48%
+   111   717 long_extended       61% $   2334 $   296 counter_extended    49%
+   236   461 long_extended       59% $    315 $   386 counter_extended    49%
+    49   450 short_extended      61% $   1760 $   298 counter_extended    57%
+   107   396 long_extended       59% $    167 $   154 same_extended       50%
+   115   389 short_extended      61% $    119 $   338 counter_extended    48%
+   243   370 long_extended       60% $    288 $   374 counter_extended    49%
+   211   366 long_extended       64% $    482 $   195 counter_extended    46%
+    59   351 short_extended      61% $   1250 $   253 counter_extended    52%
+    56   315 short_extended      54% $  -1255 $   302 counter_extended    48%
+   226   304 long_extended       59% $     70 $   562 counter_extended    52%
+    55   263 short_extended      61% $     91 $   237 counter_extended    52%
+    40   233 short_extended      59% $   1056 $   268 counter_extended    43%
+    24   204 short_extended      59% $    780 $   641 counter_extended    52%
+   186   201 short_extended      53% $  -1412 $   360 counter_extended    49%
+    86   184 short_extended      62% $    718 $   552 counter_extended    52%
+     9   169 short_extended      60% $   2376 $   836 same_extended       45%
+   169   164 short_extended      58% $   -158 $   284 same_extended       38%
+    12   163 short_extended      53% $  -3612 $   657 counter_extended    52%
+   237   157 long_extended       64% $    299 $   178 counter_extended    54%
+   114   141 long_extended       55% $   -198 $   200 counter_extended    53%
+    29   140 short_extended      60% $    506 $   507 counter_extended    51%
+   234   123 short_extended      61% $   1144 $   262 same_extended       50%
+    38   116 short_extended      41% $  -2428 $   399 same_extended       47%
+   227   116 long_extended       61% $    -26 $   309 counter_extended    47%
+   170   115 short_extended      60% $    591 $   404 counter_extended    47%
+   112   106 long_extended       54% $   -434 $   436 same_extended       41%
+   138   103 long_extended       48% $   -664 $   564 same_extended       61%
+    28   102 long_extended       45% $   -505 $   330 counter_extended    49%
+   175    98 short_extended      68% $    493 $   293 counter_extended    50%
+   183    98 long_extended       41% $   -754 $   563 counter_extended    50%
+    58    89 short_extended      60% $    182 $   232 same_extended       45%
+   167    80 short_extended      62% $    250 $   220 same_extended       44%
+   151    64 long_extended       55% $   -295 $   698 same_extended       59%
+   148    63 long_extended       60% $   -382 $   292 same_extended       56%
+    21    63 short_extended      59% $    406 $   254 same_extended       51%
+   104    61 long_extended       75% $    610 $   290 counter_extended    46%
+    83    61 short_extended      74% $    182 $   461 same_extended       44%
+    73    58 short_extended      64% $    170 $    99 counter_extended    43%
+   244    57 long_extended       63% $     64 $   273 counter_extended    56%
+    98    55 short_extended      55% $    -75 $   560 same_extended       53%
+   166    51 long_extended       59% $    -67 $   200 counter_extended    51%
+   144    50 long_extended       52% $   -123 $   220 counter_extended    60%
+    15    46 short_extended      52% $   -334 $   501 counter_extended    59%
+   240    43 short_extended      49% $   -734 $   429 counter_extended    58%
+   212    43 long_extended       77% $    374 $   233 same_extended       47%
+    69    42 short_extended      48% $   -294 $   151 counter_extended    67%
+   220    42 long_extended       57% $   -164 $   358 counter_extended    55%
+   241    41 long_extended       73% $    256 $   313 counter_extended    41%
+    91    41 long_extended       76% $    134 $   217 counter_extended    51%
+    48    40 short_extended      55% $   -434 $   300 counter_extended    62%
+   209    40 long_extended       72% $      8 $   208 same_extended       50%
+   130    39 long_long           51% $      2 $    34 counter_extended    41%
+    41    39 long_extended       49% $    247 $   408 counter_extended    67%
+    37    39 short_extended      36% $   -682 $   350 counter_extended    72%
+    62    39 long_extended       72% $    158 $    50 same_extended       33%
+   187    35 short_extended      66% $    347 $   277 counter_extended    66%
+   214    35 long_extended       71% $    240 $   230 counter_extended    43%
+   172    34 short_extended      65% $    -28 $   251 counter_extended    56%
+    74    33 short_fast          64% $    310 $    22 same_early          64%
+   253    33 long_medium         42% $    -82 $    26 same_early          39%
+   182    32 long_extended       59% $    496 $   516 same_extended       56%
+   174    31 short_extended      55% $     84 $   282 counter_extended    55%
+    66    31 long_extended       58% $     86 $   130 same_early          42%
+   141    31 short_extended      65% $     47 $   231 same_extended       55%
+   143    31 long_extended       68% $    150 $   301 counter_extended    55%
+   246    31 short_extended      58% $     75 $   195 counter_extended    55%
+   131    29 short_fast          55% $   -162 $    40 same_early          52%
+    82    29 long_extended       66% $    100 $   332 counter_extended    45%
+    94    28 short_extended      36% $   -748 $   970 same_extended       86%
+   189    28 long_extended       61% $   -124 $   159 same_early          54%
+   154    28 short_extended      50% $     52 $    73 same_extended       43%
+   160    27 short_extended      70% $    -29 $   156 same_extended       48%
+   132    26 long_medium         42% $   -194 $    30 counter_early       35%
+   222    26 long_extended       42% $    -70 $   382 counter_extended    54%
+     8    26 short_extended      27% $   -988 $   702 counter_extended    81%
+   208    26 long_extended       69% $    305 $   213 counter_extended    54%
+    93    25 short_extended      56% $    412 $   718 counter_extended    68%
+   159    25 short_extended      60% $    -98 $   128 counter_extended    48%
+   228    25 long_extended       64% $    344 $   209 counter_extended    40%
+   133    24 short_fast          38% $    151 $     4 same_early          67%
+    65    24 short_extended      54% $     40 $    75 counter_extended    58%
+    25    24 short_extended      54% $   -224 $   214 counter_extended    42%
+   180    24 short_extended      54% $   -336 $   353 counter_extended    50%
+    70    23 short_extended      35% $   -154 $    83 counter_extended    65%
+   254    23 short_fast          65% $     14 $     8 same_early          74%
+   147    23 short_extended      65% $     20 $   194 counter_extended    61%
+   247    23 long_extended       48% $   -177 $   224 counter_extended    48%
+    31    22 short_extended      50% $    -64 $   820 counter_extended    50%
+    17    22 long_extended       55% $   -140 $   475 counter_extended    55%
+   179    22 long_extended       50% $     70 $   226 same_extended       45%
+   252    22 long_extended       41% $     14 $    51 same_early          59%
+    79    22 long_extended       68% $     74 $   183 same_extended       41%
+    85    22 short_extended      45% $   -624 $   628 same_extended       45%
+    96    22 long_extended       55% $    391 $   634 counter_extended    45%
+   223    22 short_extended      68% $    230 $   281 same_extended       45%
+   157    22 long_extended       73% $    406 $   235 same_extended       55%
+    72    21 long_fast           67% $     71 $    70 same_extended       29%
+   190    21 short_extended      62% $    124 $    58 counter_extended    48%
+    99    21 short_extended      48% $   -616 $   947 counter_extended    57%
+    32    20 short_extended      55% $    117 $   752 same_extended       55%
+   215    20 long_extended       60% $    176 $   472 counter_extended    50%
+   150    20 long_extended       65% $    175 $  1026 counter_extended    60%
+   251    20 short_long          45% $   -103 $    34 same_early          45%
+    11    20 short_extended      65% $    614 $   472 counter_extended    45%
+    90    20 long_extended       65% $     46 $   479 counter_extended    55%
+   156    20 long_extended       75% $    151 $   208 counter_extended    40%
+    16    19 short_extended      68% $    514 $   377 counter_extended    58%
+   219    19 long_extended       58% $    -22 $   248 same_extended       63%
+    22    18 long_extended       44% $    -92 $   173 counter_extended    56%
+   193     1 long_extended      100% $     92 $   644 counter_extended   100%
+   196     1 long_extended        0% $    -26 $   974 counter_extended   100%
+   200     1 long_extended      100% $      2 $     6 counter_extended   100%
+
+  ======================================================================
+  DETAILED PLAYBOOKS (top 5 by trade count)
+  ======================================================================
+
+  --- Leaf 108 (tree: short_extended) ---
+  Trades: 1066 | WR: 62% | Actual: $2259 | Regret: $204/trade
+  REGRET PROFILE:
+    same_early               57 (  5%) avg=$    90  #
+    same_extended           529 ( 50%) avg=$   214  #########
+    counter_early             1 (  0%) avg=$     2  
+    counter_at_exit           1 (  0%) avg=$    26  
+    counter_extended        478 ( 45%) avg=$   211  ########
+  APPROACH: 1 bars pre-entry captured
+  ENTRY signature (top features):
+    1D_bar_range              mean= +710.81  std=480.66
+    1h_bar_range              mean= +172.37  std=118.98
+    15m_bar_range             mean= +100.33  std= 69.88
+    5m_bar_range              mean=  +68.03  std= 48.67
+    1m_bar_range              mean=  +38.68  std= 28.80
+    1D_velocity               mean=  -30.17  std= 65.50
+    15s_bar_range             mean=  +15.05  std= 16.44
+  SAME PATH:    $  -0.0  $  -0.0  $  -0.0  $  -0.0  $  +0.0  $  +0.0  $  +0.0  $  +0.1  $  +0.1  $  +0.0 ...
+    Peak: $1.0 at bar 23 | Exit bar: 184
+  COUNTER PATH: $  +0.0  $  +0.0  $  +0.0  $  +0.0  $  -0.0  $  -0.0  $  -0.0  $  -0.1  $  -0.1  $  -0.0 ...
+    Peak: $0.0 at bar 3 | Exit bar: 174
+
+  --- Leaf 233 (tree: long_extended) ---
+  Trades: 857 | WR: 62% | Actual: $1693 | Regret: $238/trade
+  REGRET PROFILE:
+    same_early               40 (  5%) avg=$    80  
+    same_extended           396 ( 46%) avg=$   257  #########
+    counter_early             1 (  0%) avg=$     4  
+    counter_extended        420 ( 49%) avg=$   240  #########
+  APPROACH: 1 bars pre-entry captured
+  ENTRY signature (top features):
+    1D_bar_range              mean=+1413.10  std=805.57
+    1h_bar_range              mean= +177.61  std=109.60
+    1D_velocity               mean= +158.99  std=120.04
+    15m_bar_range             mean= +100.69  std= 71.53
+    5m_bar_range              mean=  +68.17  std= 49.58
+    1m_bar_range              mean=  +38.81  std= 32.97
+    1h_velocity               mean=  +17.02  std= 21.21
+  SAME PATH:    $  +0.0  $  -0.0  $  +0.1  $  +0.0  $  +0.0  $  +0.1  $  +0.1  $  +0.1  $  +0.1  $  +0.1 ...
+    Peak: $2.0 at bar 26 | Exit bar: 203
+  COUNTER PATH: $  +0.0  $  +0.0  $  -0.1  $  -0.0  $  -0.0  $  -0.1  $  -0.1  $  -0.1  $  -0.1  $  -0.1 ...
+    Peak: $0.0 at bar 1 | Exit bar: 199
+
+  --- Leaf 105 (tree: short_extended) ---
+  Trades: 776 | WR: 61% | Actual: $1522 | Regret: $256/trade
+  REGRET PROFILE:
+    same_early               39 (  5%) avg=$   101  #
+    same_at_exit              3 (  0%) avg=$   123  
+    same_extended           357 ( 46%) avg=$   263  #########
+    counter_early             1 (  0%) avg=$    50  
+    counter_extended        376 ( 48%) avg=$   270  #########
+  APPROACH: 1 bars pre-entry captured
+  ENTRY signature (top features):
+    1D_bar_range              mean=+1500.30  std=619.09
+    1h_bar_range              mean= +172.85  std= 95.86
+    1D_velocity               mean= -106.17  std=106.14
+    15m_bar_range             mean= +100.70  std= 64.62
+    5m_bar_range              mean=  +70.93  std= 53.53
+    1m_bar_range              mean=  +38.72  std= 30.62
+    15s_dmi_gap               mean=  +14.55  std= 10.62
+  SAME PATH:    $  -0.0  $  -0.0  $  -0.1  $  -0.1  $  -0.0  $  +0.0  $  +0.0  $  +0.0  $  +0.0  $  -0.1 ...
+    Peak: $0.3 at bar 19 | Exit bar: 194
+  COUNTER PATH: $  +0.0  $  +0.0  $  +0.1  $  +0.1  $  +0.0  $  -0.0  $  -0.0  $  -0.0  $  -0.0  $  +0.1 ...
+    Peak: $0.2 at bar 10 | Exit bar: 196
+
+  --- Leaf 111 (tree: long_extended) ---
+  Trades: 717 | WR: 61% | Actual: $2334 | Regret: $296/trade
+  REGRET PROFILE:
+    same_early               87 ( 12%) avg=$   235  ##
+    same_at_exit              2 (  0%) avg=$   337  
+    same_extended           272 ( 38%) avg=$   322  #######
+    counter_early             2 (  0%) avg=$    32  
+    counter_at_exit           2 (  0%) avg=$    71  
+    counter_extended        352 ( 49%) avg=$   301  #########
+  APPROACH: 1 bars pre-entry captured
+  ENTRY signature (top features):
+    1D_bar_range              mean=+1335.80  std=802.13
+    1h_bar_range              mean= +386.14  std=224.37
+    15m_bar_range             mean= +194.27  std=136.51
+    5m_bar_range              mean= +129.43  std= 91.67
+    1D_velocity               mean=  -76.68  std=103.17
+    1m_bar_range              mean=  +72.01  std= 63.62
+    1h_velocity               mean=  +56.33  std= 36.80
+  SAME PATH:    $  +0.0  $  +0.0  $  +0.0  $  -0.0  $  +0.0  $  -0.0  $  -0.0  $  +0.0  $  +0.1  $  +0.0 ...
+    Peak: $1.0 at bar 26 | Exit bar: 161
+  COUNTER PATH: $  +0.0  $  -0.0  $  -0.0  $  +0.0  $  -0.0  $  +0.0  $  +0.0  $  -0.0  $  -0.1  $  -0.0 ...
+    Peak: $0.0 at bar 5 | Exit bar: 158
+
+  --- Leaf 236 (tree: long_extended) ---
+  Trades: 461 | WR: 59% | Actual: $315 | Regret: $386/trade
+  REGRET PROFILE:
+    same_early               14 (  3%) avg=$   161  
+    same_at_exit              1 (  0%) avg=$   144  
+    same_extended           221 ( 48%) avg=$   364  #########
+    counter_extended        225 ( 49%) avg=$   425  #########
+  APPROACH: 1 bars pre-entry captured
+  ENTRY signature (top features):
+    1D_bar_range              mean=+1731.41  std=1260.54
+    1h_bar_range              mean= +272.54  std=260.04
+    1D_velocity               mean= +204.54  std=181.91
+    15m_bar_range             mean= +142.93  std=148.51
+    5m_bar_range              mean=  +94.34  std=101.98
+    1m_bar_range              mean=  +55.20  std= 68.12
+    1h_velocity               mean=  +34.10  std= 44.36
+  SAME PATH:    $  +0.0  $  -0.0  $  -0.0  $  -0.0  $  +0.0  $  -0.0  $  +0.0  $  +0.0  $  +0.1  $  +0.0 ...
+    Peak: $1.6 at bar 28 | Exit bar: 208
+  COUNTER PATH: $  -0.0  $  +0.0  $  +0.0  $  +0.0  $  -0.0  $  +0.0  $  -0.0  $  -0.0  $  -0.1  $  -0.0 ...
+    Peak: $0.1 at bar 10 | Exit bar: 209

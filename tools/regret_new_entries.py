@@ -2,7 +2,7 @@
 import pickle, numpy as np, pandas as pd, sys, os, glob
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D
-from nn_v2.regret import compute_all_regrets
+from training.regret import compute_all_regrets
 from tqdm import tqdm
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}

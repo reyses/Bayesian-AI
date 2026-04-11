@@ -16,14 +16,14 @@ from core.features_79d import FEATURE_NAMES_79D, TF_ORDER
 
 # Load data
 print('Loading data...')
-with open('nn_v2/output/trades/blended_is.pkl', 'rb') as f:
+with open('training/output/trades/blended_is.pkl', 'rb') as f:
     trades = pickle.load(f)
-regret = pd.read_csv('nn_v2/output/nn/regret_analysis.csv')
+regret = pd.read_csv('training/output/nn/regret_analysis.csv')
 
 # Load pattern assignments
 patterns = {}
 for tier in ['cascade', 'kill_shot', 'base_nmp']:
-    path = f'nn_v2/output/entry/patterns_{tier}.pkl'
+    path = f'training/output/entry/patterns_{tier}.pkl'
     try:
         with open(path, 'rb') as f:
             data = pickle.load(f)

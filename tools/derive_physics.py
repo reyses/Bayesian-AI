@@ -23,7 +23,7 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core.features_79d import FEATURE_NAMES_79D, TF_ORDER
 
-CORRECTED_LOG = 'nn_v2/output/trades/corrected_is.pkl'
+CORRECTED_LOG = 'training/output/trades/corrected_is.pkl'
 
 # Hold duration buckets (same as tree.py)
 HOLD_BUCKETS = [(0, 3, 'fast'), (3, 8, 'medium'), (8, 16, 'long'), (16, 999, 'extended')]

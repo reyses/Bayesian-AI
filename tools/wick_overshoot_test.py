@@ -20,8 +20,8 @@ from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from nn_v2.sfe_ticker import FeatureTicker
-from nn_v2.nightmare_wick_overshoot import WickOvershootEngine
+from training.sfe_ticker import FeatureTicker
+from training.nightmare_wick_overshoot import WickOvershootEngine
 
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_5S = 'DATA/ATLAS/5s'
@@ -203,13 +203,13 @@ def main():
                 print(f'    Peak >= ${thresh:>4}: {n:>4} trades | actual avg ${avg_actual:.1f} | peak at {avg_peak_bar:.0f} bars ({avg_peak_bar*5/60:.1f} min)')
 
     # Save
-    os.makedirs('nn_v2/output/reports', exist_ok=True)
-    csv_path = f'nn_v2/output/reports/wick_overshoot_{args.target}.csv'
+    os.makedirs('training/output/reports', exist_ok=True)
+    csv_path = f'training/output/reports/wick_overshoot_{args.target}.csv'
     pd.DataFrame(all_results).to_csv(csv_path, index=False)
     print(f'\nCSV: {csv_path}')
 
     if all_trades_with_regret:
-        trade_path = f'nn_v2/output/reports/wick_overshoot_{args.target}_trades.csv'
+        trade_path = f'training/output/reports/wick_overshoot_{args.target}_trades.csv'
         flat = [{k: v for k, v in t.items() if not isinstance(v, (list, dict, np.ndarray))}
                 for t in all_trades_with_regret]
         pd.DataFrame(flat).to_csv(trade_path, index=False)

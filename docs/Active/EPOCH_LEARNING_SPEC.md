@@ -99,7 +99,7 @@ After all 277 days have been through the LEARN phase:
 ## Pipeline (updated):
 
 ```
-python nn_v2/run.py pipeline
+python training/run.py pipeline
 
 TRAIN:
   Step 1:  NMP on IS                                (generates trades)
@@ -129,18 +129,18 @@ VALIDATE (H1):
 
 | File | Change |
 |------|--------|
-| `nn_v2/per_day.py` | Rewrite: per-day epochs with book updates + retry |
-| `nn_v2/book.py` | Add `update_leaf()` method for epoch adjustments |
-| `nn_v2/run.py` | Pipeline step 5 calls new per_day |
+| `training/per_day.py` | Rewrite: per-day epochs with book updates + retry |
+| `training/book.py` | Add `update_leaf()` method for epoch adjustments |
+| `training/run.py` | Pipeline step 5 calls new per_day |
 
 ## Files NOT modified:
-- `nn_v2/nightmare.py` — data source, correct
-- `nn_v2/regret.py` — analysis tool, correct
-- `nn_v2/tree.py` — frozen classifier, correct
-- `nn_v2/ai.py` — executor, correct (reads book, doesn't modify it)
-- `nn_v2/gate.py` — classifier + exit checker, correct
-- `nn_v2/report.py` — reporting, correct
-- `nn_v2/memory.py` — brain accumulator, correct
+- `training/nightmare.py` — data source, correct
+- `training/regret.py` — analysis tool, correct
+- `training/tree.py` — frozen classifier, correct
+- `training/ai.py` — executor, correct (reads book, doesn't modify it)
+- `training/gate.py` — classifier + exit checker, correct
+- `training/report.py` — reporting, correct
+- `training/memory.py` — brain accumulator, correct
 
 ## Risk assessment:
 - **Overfitting**: each day's lever-pulling could create day-specific adjustments

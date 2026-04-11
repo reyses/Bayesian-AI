@@ -22,11 +22,11 @@ MNQ futures trading system. Statistical regression bands + Bayesian learning.
 NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
-- **Blended pipeline**: `python nn_v2/run.py blended` (full 7-phase training)
-- **Blended partial**: `python nn_v2/run.py blended --from 3 --to 5`
+- **Blended pipeline**: `python training/run.py blended` (full 7-phase training)
+- **Blended partial**: `python training/run.py blended --from 3 --to 5`
 - **Live trading**: `python -m live.launcher`
 - **Maintenance**: `python -m live.maintenance --days 30`
-- **ISO pipeline**: `python nn_v2_iso/run_iso.py` (isolated non-NMP entries)
+- **ISO pipeline**: `python training_iso/run_iso.py` (isolated non-NMP entries)
 
 ## Key Files
 - `core/statistical_field_engine.py` — regression, z-scores, probability (CUDA)
@@ -51,7 +51,7 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
   - 3 CNNs: flip (SAME/COUNTER), hold (HOLD/EXIT), risk (RECOVER/DEAD)
   - Exits: 3-bar confirmation, oscillation decay, tiered RIDE by 1h_z
   - Safety branch: `safe/v740` at commit `ce0674f9`
-- **ISO pipeline** (nn_v2_iso): isolated testing for non-NMP entries
+- **ISO pipeline** (training_iso): isolated testing for non-NMP entries
   - REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION — separate CNN training
 - **Next**: CNN exit, tier-based sizing, live SIM deployment
 
@@ -78,7 +78,7 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 When a pipeline run achieves a new OOS $/day record:
 1. **Tag it**: `git tag vXXX -m "BASELINE: OOS $XXX/day on YY days"`
 2. **Safety branch**: `git branch safe/vXXX` and push to remote
-3. **Track CNN models**: `git add -f nn_v2/output/nn/cnn_*.pt` (700KB each)
+3. **Track CNN models**: `git add -f training/output/nn/cnn_*.pt` (700KB each)
 4. **Report auto-generated**: pipeline saves to `reports/findings/baseline_*.md`
 5. **Journal entry**: detailed breakdown with IS/OOS summary, tier table, exit table
 6. **Update baseline_best.json**: pipeline does this automatically
