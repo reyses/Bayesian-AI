@@ -193,7 +193,7 @@ def run_eda(trades, target_tiers):
     # Save trades
     out_dir = 'training/output/trades'
     os.makedirs(out_dir, exist_ok=True)
-    tier_label = '_'.join(sorted(set(t.get('entry_tier', '?') for t in trades))).lower()
+    tier_label = '_'.join(sorted(set(str(t.get('entry_tier', 'unknown')) for t in trades))).lower()
     pkl_path = os.path.join(out_dir, f'iso_{tier_label}.pkl')
     with open(pkl_path, 'wb') as f:
         pickle.dump(trades, f)
