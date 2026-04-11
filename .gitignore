@@ -29,6 +29,9 @@ training/training_progress.json
 *.parquet
 !DATA/ATLAS_1MONTH/**/*.parquet
 nul
+DATA/ATLAS_NT8/
+DATA/ATLAS_TEST/
+DATA/FEATURES_NT8_*/
 DATA/Ninja trader Download/
 debug_outputs/
 checkpoints/
