@@ -32,8 +32,8 @@ PEAK_DMI_MIN = 99999.0   # disabled
 # REGIME_FLIP entry — variance_ratio dropping = regime changing
 # Fires when |z| < ROCHE (NMP wouldn't trigger)
 REGIME_VR_DROP = 0.15     # vr dropped by at least this from recent high
-REGIME_VR_MAX = -1.0      # DISABLED — set to 0.35 to activate
-REGIME_HURST_MAX = -1.0   # DISABLED — set to 0.45 to activate
+REGIME_VR_MAX = -1.0      # DISABLED — no filter separates W/L (EDA confirmed)
+REGIME_HURST_MAX = -1.0   # DISABLED
 
 # MTF_EXHAUSTION entry — DISABLED (triggers 7862 trades at 21% WR = -$142K)
 # Too loose: 5m deceleration happens constantly
@@ -542,13 +542,14 @@ class BlendedEngine:
                     self._open_trade(direction, price, ts, time_str, feat, 'MTF_EXHAUSTION',
                                      cnn_flipped=False)
 
-                # EXHAUSTION_BAR: bar_range climax + decelerating + deep z + trending
-                # EDA: winners enter at |z|>1.4 + vr>0.70 (real exhaustion, not chop)
+                # EXHAUSTION_BAR: bar_range climax + decelerating + deep z + trending + DMI
+                # EDA: |dmi|>15 lifts WR from 38% to 44%, removes weak signals
                 elif (feat[_1M_OFFSET + 6] > EXHAUST_BAR_RANGE_MIN and       # bar_range climax
                       abs(feat[_1M_OFFSET + 4]) > EXHAUST_ACCEL_MIN and      # |acceleration|
                       feat[_1M_OFFSET + 4] * feat[_1M_VELOCITY_IDX] < 0 and  # decelerating
                       abs(z) > EXHAUST_Z_MIN and                              # deep in z extreme
-                      vr > EXHAUST_VR_MIN):                                   # trending (real exhaustion)
+                      vr > EXHAUST_VR_MIN and                                 # trending
+                      abs(feat[_1M_DMI_IDX]) > 15.0):                         # DMI committed
                     direction = 'short' if feat[_1M_VELOCITY_IDX] > 0 else 'long'
                     self._open_trade(direction, price, ts, time_str, feat, 'EXHAUSTION_BAR',
                                      cnn_flipped=False)
