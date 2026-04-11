@@ -123,9 +123,9 @@ def check_tier(feat, z):
     if has_wick and not h1_aligned and abs(h1_vel) > 5.0:
         results.append(('KILL_SHOT', direction))
 
-    # ── CASCADE: wick + 1h aligned — reject |1h_vel| > 10 (extreme opposition = trap)
+    # ── CASCADE: wick + 1h aligned — reject |1h_vel| > 15 (extreme = late entry)
     # Lookback: winners 1h_vel=-1.6, losers -19.0
-    if has_wick and h1_aligned and abs(h1_vel) < 10.0:
+    if has_wick and h1_aligned and abs(h1_vel) < 15.0:
         results.append(('CASCADE', direction))
 
     # ── FREIGHT_TRAIN: extreme velocity + accelerating + vr < 0.85
@@ -342,25 +342,28 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                             exit_reason = 'freight_decel'; exited = True
 
                     elif tier == 'REGIME_FLIP':
+                        # FLIPPED direction — riding z, not fading
+                        # z growing = GOOD (riding), z shrinking toward 0 = BAD
                         if bars_1m >= 1 and bars_1m < 2:
-                            if abs_z_j > entry_abs_z:
-                                exit_reason = 'regime_no_conviction'; exited = True
+                            if abs_z_j < entry_abs_z * 0.9:  # z shrinking = ride failing
+                                exit_reason = 'regime_ride_failing'; exited = True
                         if vr_j > 0.30:
                             exit_reason = 'regime_vr_rising'; exited = True
                         elif abs_z_j < 0.3:
-                            exit_reason = 'regime_mean'; exited = True
+                            exit_reason = 'regime_z_collapsed'; exited = True
 
                     elif tier == 'ABSORPTION':
+                        # FLIPPED direction — riding z, not fading
+                        # z growing = GOOD, z shrinking = BAD
                         if bars_1m >= 1 and bars_1m < 2:
-                            z_shrink = (entry_abs_z - abs_z_j) / max(entry_abs_z, 0.01)
-                            if z_shrink < 0.10:
-                                exit_reason = 'absorb_no_conviction'; exited = True
+                            if abs_z_j < entry_abs_z * 0.9:  # z shrinking = ride failing
+                                exit_reason = 'absorb_ride_failing'; exited = True
                         if bars_1m >= 2 and vol_j > 1.5:
                             exit_reason = 'absorb_vol_persistent'; exited = True
                         elif vr_j > 0.65:
                             exit_reason = 'absorb_vr_rising'; exited = True
                         elif abs_z_j < 0.3:
-                            exit_reason = 'absorb_mean'; exited = True
+                            exit_reason = 'absorb_z_collapsed'; exited = True
 
                     elif tier == 'EXHAUSTION_BAR':
                         if bars_1m >= 1 and bars_1m < 2:
