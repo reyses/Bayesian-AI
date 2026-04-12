@@ -671,27 +671,27 @@ class BlendedEngine:
         # Chain data: KILL_SHOT→FADE_CALM (4150), RIDE_AGAINST→MTF_BREAKOUT (1467),
         #             CASCADE→FADE_CALM (867), KILL_SHOT→FADE_AGAINST (622)
 
-        # 1. KILL_SHOT — wick rejection (earliest physics signal, triggers 60% of chains)
-        if has_wick and not h1_aligned:
-            return direction, 'KILL_SHOT', False
-
-        # 2. CASCADE — wick + 1h aligned
-        if has_wick and h1_aligned:
-            return direction, 'CASCADE', False
-
-        # 3. RIDE_AGAINST — 1h velocity opposes (fires first 22% of chains)
-        h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
-                          (direction == 'short' and h1_vel > 3.0))
-        if h1_vel_against and not h1_against_fade:
-            ride_dir = 'long' if h1_vel > 0 else 'short'
-            return ride_dir, 'RIDE_AGAINST', False
-
-        # 4. FREIGHT_TRAIN — extreme velocity, accelerating (rare, never first in chains)
+        # 1. FREIGHT_TRAIN — extreme velocity, accelerating (rare, highest $/tr)
         if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
                 velocity * acceleration > 0 and
                 vr < FREIGHT_TRAIN_VR_MAX):
             ft_dir = 'long' if velocity > 0 else 'short'
             return ft_dir, 'FREIGHT_TRAIN', True
+
+        # 2. KILL_SHOT — wick rejection (triggers 60% of chains)
+        if has_wick and not h1_aligned:
+            return direction, 'KILL_SHOT', False
+
+        # 3. CASCADE — wick + 1h aligned
+        if has_wick and h1_aligned:
+            return direction, 'CASCADE', False
+
+        # 4. RIDE_AGAINST — 1h velocity opposes (fires first 22% of chains)
+        h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
+                          (direction == 'short' and h1_vel > 3.0))
+        if h1_vel_against and not h1_against_fade:
+            ride_dir = 'long' if h1_vel > 0 else 'short'
+            return ride_dir, 'RIDE_AGAINST', False
 
         # 5. FADE_AGAINST — 1h z extreme against fade
         if h1_against_fade and abs(v5_vel) < 10.0:
