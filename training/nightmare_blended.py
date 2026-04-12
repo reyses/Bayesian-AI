@@ -459,18 +459,6 @@ class BlendedEngine:
 
             # Exit logic — every bar (5s cadence matches training)
             else:
-                # 0. Reverse warning — LOG ONLY (research, no action)
-                # The reverse_warning flag is set but we don't act on it.
-                # Trade path records the event for post-analysis.
-                if self._reverse_warning and not getattr(self, '_reverse_logged', False):
-                    self._trade_path.append({
-                        'bar': self.bars_held, 'timestamp': ts, 'price': price,
-                        'pnl': pnl, 'peak_pnl': self.peak_pnl,
-                        'features_79d': feat.copy(),
-                        'event': 'REVERSE_WARNING',
-                    })
-                    self._reverse_logged = True
-
                 # 1. Giveback stop (all tiers)
                 if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
                     self._close_trade(price, ts, time_str, 'giveback_stop', feat)
@@ -581,10 +569,8 @@ class BlendedEngine:
         MAX_CHAIN_CONTRACTS = 3
         if self.in_pos and is_1m and price > 100:
             direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
-            if tier_new is not None:
-                if direction_new != self.direction:
-                    # Reverse signal — tighten all exits
-                    self._reverse_warning = True
+            # Reverse signal: data shows 53% WR both directions = no signal.
+            # Do nothing on opposite direction — it's noise, not a warning.
 
             if (tier_new is not None and
                     direction_new == self.direction and
