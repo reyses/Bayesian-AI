@@ -679,19 +679,19 @@ class BlendedEngine:
         if has_wick and h1_aligned:
             return direction, 'CASCADE', False
 
-        # 3. FREIGHT_TRAIN — extreme velocity, accelerating
-        if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
-                velocity * acceleration > 0 and
-                vr < FREIGHT_TRAIN_VR_MAX):
-            ft_dir = 'long' if velocity > 0 else 'short'
-            return ft_dir, 'FREIGHT_TRAIN', True
-
-        # 4. RIDE_AGAINST — 1h velocity opposes (second signal in chains)
+        # 3. RIDE_AGAINST — 1h velocity opposes (fires first 22% of chains)
         h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
                           (direction == 'short' and h1_vel > 3.0))
         if h1_vel_against and not h1_against_fade:
             ride_dir = 'long' if h1_vel > 0 else 'short'
             return ride_dir, 'RIDE_AGAINST', False
+
+        # 4. FREIGHT_TRAIN — extreme velocity, accelerating (rare, never first in chains)
+        if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
+                velocity * acceleration > 0 and
+                vr < FREIGHT_TRAIN_VR_MAX):
+            ft_dir = 'long' if velocity > 0 else 'short'
+            return ft_dir, 'FREIGHT_TRAIN', True
 
         # 5. FADE_AGAINST — 1h z extreme against fade
         if h1_against_fade and abs(v5_vel) < 10.0:
