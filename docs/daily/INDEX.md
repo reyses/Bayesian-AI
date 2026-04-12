@@ -2,7 +2,7 @@
 
 | Date | Summary |
 |------|---------|
-| 2026-04-11 | Chained lightning: $3,065 IS, $3,371 OOS, $4,180 NT8. Parallel contracts (+64% vs single). Engine v2 built. Dashboard v2. Chain sequence analysis (KILL_SHOT triggers 60%). |
+| 2026-04-11 | MEGA SESSION: $3,011 IS, $3,319 OOS, $4,144 NT8. Chained lightning (chains=64% of PnL, higher WR). 12-tier waterfall EDA. Direction flips (MTF_EXHAUSTION 13%→77%). Engine v2 + Dashboard v2. NT8 60-day dump. Diagnostic pipeline. |
 | 2026-04-10 | Parity mega-session: SFE review, training/live 5s cadence, timestamp bars_held, feed_bar() incremental API (validated 1e-5), NT8 vs Databento data mismatch found ($220 contract diff + 5s timestamp offset), dual OOS architecture (Databento OOS-1 + NT8 OOS-2). |
 | 2026-04-09 | $740/day OOS (74 days). 10 ExNMP tiers (PEAK added). KILL_SHOT 1-bar, tiered RIDE exits, 5m exit patience. Entry research: exhaustion bar, absorption, delta divergence, regime flip, MTF exhaustion. |
 | 2026-04-08 | Live hardening + pipeline + exit physics. SFE OHLCV mismatch fixed, dashboard cleaned, 8 live bugs. Oscillation discovery (100% long trades oscillate). FADE/RIDE exit modes. 3-bar confirmation. 4 ExNMP sub-tiers (fade/ride x calm/momentum). Full pipeline: $462/day IS, $340/day OOS (94% win days). |
