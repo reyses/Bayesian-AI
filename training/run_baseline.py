@@ -83,26 +83,43 @@ def print_report(datasets, tier_trades=None):
               f'{win_days:>4}/{n:<4}  {n:>6}')
 
     if tier_trades:
+        # Split primary vs chain
+        primary = [t for t in tier_trades if not str(t.get('exit_reason', '')).startswith('chain_')]
+        chains = [t for t in tier_trades if str(t.get('exit_reason', '')).startswith('chain_')]
+        n_days = len(set(t.get('day', '') for t in tier_trades)) or 1
+
         print()
+        print(f'PRIMARY TRADES:')
         print(f'{"Tier":<20} {"Trades":>7} {"WR":>5} {"$/tr":>8} {"$/day":>8}')
         print(f'{"-"*52}')
 
-        tiers = Counter(t.get('entry_tier', '?') for t in tier_trades)
-        n_days = len(set(t.get('day', '') for t in tier_trades)) or 1
-
-        for tier, count in sorted(tiers.items(), key=lambda x: -sum(
-                t['pnl'] for t in tier_trades if t.get('entry_tier') == x[0])):
-            sub = [t for t in tier_trades if t.get('entry_tier') == tier]
+        p_tiers = Counter(t.get('entry_tier', '?') for t in primary)
+        for tier, count in sorted(p_tiers.items(), key=lambda x: -sum(
+                t['pnl'] for t in primary if t.get('entry_tier') == x[0])):
+            sub = [t for t in primary if t.get('entry_tier') == tier]
             wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
             avg = np.mean([t['pnl'] for t in sub])
             per_day = sum(t['pnl'] for t in sub) / n_days
             print(f'{str(tier):<20} {count:>7} {wr:>4.0f}% {avg:>8.1f} {per_day:>+8.0f}')
+        print(f'{"TOTAL PRIMARY":<20} {len(primary):>7} {"":>5} {"":>8} '
+              f'{sum(t["pnl"] for t in primary)/n_days:>+8.0f}')
 
-        # Chain lightning stats
-        chains = [t for t in tier_trades if any(
-            p.get('chain') for p in t.get('path', []) if isinstance(p, dict))]
         if chains:
-            print(f'\n  Chained lightning: {len(chains)} trades upgraded mid-position')
+            print()
+            print(f'CHAIN TRADES:')
+            print(f'{"Tier":<20} {"Trades":>7} {"WR":>5} {"$/tr":>8} {"$/day":>8}')
+            print(f'{"-"*52}')
+
+            c_tiers = Counter(t.get('entry_tier', '?') for t in chains)
+            for tier, count in sorted(c_tiers.items(), key=lambda x: -sum(
+                    t['pnl'] for t in chains if t.get('entry_tier') == x[0])):
+                sub = [t for t in chains if t.get('entry_tier') == tier]
+                wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+                avg = np.mean([t['pnl'] for t in sub])
+                per_day = sum(t['pnl'] for t in sub) / n_days
+                print(f'{str(tier):<20} {count:>7} {wr:>4.0f}% {avg:>8.1f} {per_day:>+8.0f}')
+            print(f'{"TOTAL CHAIN":<20} {len(chains):>7} {"":>5} {"":>8} '
+                  f'{sum(t["pnl"] for t in chains)/n_days:>+8.0f}')
 
     print()
     print('=' * 65)
