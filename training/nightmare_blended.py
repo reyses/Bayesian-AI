@@ -238,6 +238,7 @@ class BlendedEngine:
         self._approach_buffer = []
         self._entry_approach = []
         self._trade_path = []
+        self._chain_contracts = []  # parallel contracts from chained lightning
 
         # Oscillation tracking (set properly in _open_trade, defaults here for safety)
         self._z_sign = 1.0
@@ -494,10 +495,103 @@ class BlendedEngine:
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
 
-        # === CHAINED LIGHTNING — disabled, replaced by parallel trades ===
-        # TODO: implement multi-contract position array
-        # Each new setup opens a NEW contract with its own exit physics
-        # instead of upgrading the existing trade's tier
+        # === CHAIN CONTRACT EXITS — each exits independently ===
+        if self._chain_contracts and is_1m:
+            closed_chains = []
+            for i, cc in enumerate(self._chain_contracts):
+                cc['bars_held'] = int((ts - cc['entry_ts']) // 60)
+
+                if cc['direction'] == 'long':
+                    cc_pnl = (price - cc['entry_price']) / TICK * TV
+                else:
+                    cc_pnl = (cc['entry_price'] - price) / TICK * TV
+                cc['peak_pnl'] = max(cc['peak_pnl'], cc_pnl)
+
+                # Run this contract's tier exit physics
+                # Save/restore main trade state to reuse _check_exit
+                saved = (self.entry_tier, self.bars_held, self.peak_pnl,
+                         self._entry_abs_z, self._entry_velocity,
+                         self._tier_p_center_bars, self._p_center_bars)
+
+                self.entry_tier = cc['entry_tier']
+                self.bars_held = cc['bars_held']
+                self.peak_pnl = cc['peak_pnl']
+                self._entry_abs_z = cc['entry_abs_z']
+                self._entry_velocity = cc['entry_velocity']
+                self._tier_p_center_bars = cc.get('_tier_p_center_bars', 0)
+                self._p_center_bars = cc.get('_p_center_bars', 0)
+
+                exit_reason = self._check_exit(feat, z, vr, cc_pnl)
+
+                # Save back counter state
+                cc['_tier_p_center_bars'] = self._tier_p_center_bars
+                cc['_p_center_bars'] = self._p_center_bars
+
+                # Restore main trade state
+                (self.entry_tier, self.bars_held, self.peak_pnl,
+                 self._entry_abs_z, self._entry_velocity,
+                 self._tier_p_center_bars, self._p_center_bars) = saved
+
+                # Hard stop
+                if cc_pnl <= HARD_STOP:
+                    exit_reason = 'hard_stop'
+
+                # Giveback
+                if cc['peak_pnl'] >= GIVEBACK_MIN_PEAK and cc_pnl < cc['peak_pnl'] * GIVEBACK_KEEP:
+                    exit_reason = 'giveback_stop'
+
+                if exit_reason:
+                    self.trades.append({
+                        'dir': cc['direction'],
+                        'entry_price': cc['entry_price'],
+                        'pnl': cc_pnl,
+                        'peak': cc['peak_pnl'],
+                        'held': cc['bars_held'],
+                        'entry_tier': cc['entry_tier'],
+                        'exit_reason': f'chain_{exit_reason}',
+                        'cnn_flipped': cc.get('cnn_flipped', False),
+                        'entry_79d': cc['entry_79d'].tolist() if hasattr(cc['entry_79d'], 'tolist') else cc['entry_79d'],
+                        'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
+                        'approach': [],
+                        'path': [],
+                    })
+                    self.daily_pnl += cc_pnl
+                    closed_chains.append(i)
+
+            # Remove closed chains (reverse order to preserve indices)
+            for i in reversed(closed_chains):
+                self._chain_contracts.pop(i)
+
+        # === CHAINED LIGHTNING — parallel contracts ===
+        # Same direction: open additional contract
+        # Opposite direction: FLATTEN ALL (reverse signal = thesis invalidated)
+        if self.in_pos and is_1m and price > 100:
+            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
+            if tier_new is not None:
+                if direction_new != self.direction:
+                    # Reverse signal — flatten everything
+                    self._close_trade(price, ts, time_str, 'reverse_signal', feat)
+                    return
+
+            if (tier_new is not None and
+                    direction_new == self.direction and
+                    tier_new != self.entry_tier):
+                # Open parallel contract
+                self._chain_contracts.append({
+                    'entry_price': price,
+                    'entry_tier': tier_new,
+                    'direction': direction_new,
+                    'entry_ts': ts,
+                    'bars_held': 0,
+                    'peak_pnl': 0.0,
+                    'entry_79d': feat.copy(),
+                    'entry_1m': {'z_se': z, 'vr': feat[_1M_OFFSET + _VR]},
+                    'entry_abs_z': abs(z),
+                    'entry_velocity': abs(feat[_1M_VELOCITY_IDX]),
+                    '_p_center_bars': 0,
+                    '_tier_p_center_bars': 0,
+                    'cnn_flipped': flipped_new,
+                })
 
         # === ENTRY CHECK — 1m boundaries only ===
         if not self.in_pos and is_1m and price > 100:
@@ -975,6 +1069,28 @@ class BlendedEngine:
         self.direction = None
         self.entry_tier = None
         self._trade_path = []
+
+        # Close all chain contracts when main trade closes
+        for cc in self._chain_contracts:
+            if cc['direction'] == 'long':
+                cc_pnl = (price - cc['entry_price']) / TICK * TV
+            else:
+                cc_pnl = (cc['entry_price'] - price) / TICK * TV
+            self.daily_pnl += cc_pnl
+            self.trades.append({
+                'dir': cc['direction'],
+                'entry_price': cc['entry_price'],
+                'pnl': cc_pnl,
+                'peak': cc.get('peak_pnl', 0),
+                'held': int((ts - cc['entry_ts']) // 60) if cc.get('entry_ts') else 0,
+                'entry_tier': cc['entry_tier'],
+                'exit_reason': f'chain_parent_{exit_reason}',
+                'cnn_flipped': cc.get('cnn_flipped', False),
+                'entry_79d': cc.get('entry_79d', []),
+                'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
+                'approach': [], 'path': [],
+            })
+        self._chain_contracts = []
 
     def force_close(self, reason='end_of_day'):
         if self.in_pos:
