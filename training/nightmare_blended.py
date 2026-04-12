@@ -459,16 +459,17 @@ class BlendedEngine:
 
             # Exit logic — every bar (5s cadence matches training)
             else:
-                # 0. Reverse warning — tighten exits
-                if self._reverse_warning:
-                    # Tight giveback: keep 70% of any peak > $10
-                    if self.peak_pnl >= 10 and pnl < self.peak_pnl * 0.70:
-                        self._close_trade(price, ts, time_str, 'reverse_giveback', feat)
-                        return
-                    # Tight mean: exit at z < 0.8 instead of 0.3
-                    if abs(z) < 0.8 and not self.cnn_flipped:
-                        self._close_trade(price, ts, time_str, 'reverse_mean', feat)
-                        return
+                # 0. Reverse warning — LOG ONLY (research, no action)
+                # The reverse_warning flag is set but we don't act on it.
+                # Trade path records the event for post-analysis.
+                if self._reverse_warning and not getattr(self, '_reverse_logged', False):
+                    self._trade_path.append({
+                        'bar': self.bars_held, 'timestamp': ts, 'price': price,
+                        'pnl': pnl, 'peak_pnl': self.peak_pnl,
+                        'features_79d': feat.copy(),
+                        'event': 'REVERSE_WARNING',
+                    })
+                    self._reverse_logged = True
 
                 # 1. Giveback stop (all tiers)
                 if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
@@ -1001,7 +1002,8 @@ class BlendedEngine:
         self.in_pos = True
         self.direction = direction
         self.entry_price = price
-        self._reverse_warning = False  # fresh trade, no warning
+        self._reverse_warning = False
+        self._reverse_logged = False
         self.entry_79d = feat.copy()
         self.entry_1m = {
             'z_se': feat[_1M_OFFSET + _Z],
