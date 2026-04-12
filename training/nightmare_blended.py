@@ -239,6 +239,7 @@ class BlendedEngine:
         self._entry_approach = []
         self._trade_path = []
         self._chain_contracts = []  # parallel contracts from chained lightning
+        self._reverse_warning = False  # tighten exits when opposite signal fires
 
         # Oscillation tracking (set properly in _open_trade, defaults here for safety)
         self._z_sign = 1.0
@@ -458,6 +459,17 @@ class BlendedEngine:
 
             # Exit logic — every bar (5s cadence matches training)
             else:
+                # 0. Reverse warning — tighten exits
+                if self._reverse_warning:
+                    # Tight giveback: keep 70% of any peak > $10
+                    if self.peak_pnl >= 10 and pnl < self.peak_pnl * 0.70:
+                        self._close_trade(price, ts, time_str, 'reverse_giveback', feat)
+                        return
+                    # Tight mean: exit at z < 0.8 instead of 0.3
+                    if abs(z) < 0.8 and not self.cnn_flipped:
+                        self._close_trade(price, ts, time_str, 'reverse_mean', feat)
+                        return
+
                 # 1. Giveback stop (all tiers)
                 if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
                     self._close_trade(price, ts, time_str, 'giveback_stop', feat)
@@ -564,16 +576,14 @@ class BlendedEngine:
 
         # === CHAINED LIGHTNING — parallel contracts ===
         # Same direction: open additional contract (max 3 total)
-        # Opposite direction: FLATTEN ALL (reverse signal = thesis invalidated)
+        # Opposite direction: tighten exits (early warning, not panic flatten)
         MAX_CHAIN_CONTRACTS = 3
         if self.in_pos and is_1m and price > 100:
             direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
             if tier_new is not None:
                 if direction_new != self.direction:
-                    # Reverse signal — flatten main + all chains
-                    self._flatten_all_chains(price, ts, feat, 'reverse_signal')
-                    self._close_trade(price, ts, time_str, 'reverse_signal', feat)
-                    return
+                    # Reverse signal — tighten all exits
+                    self._reverse_warning = True
 
             if (tier_new is not None and
                     direction_new == self.direction and
@@ -991,6 +1001,7 @@ class BlendedEngine:
         self.in_pos = True
         self.direction = direction
         self.entry_price = price
+        self._reverse_warning = False  # fresh trade, no warning
         self.entry_79d = feat.copy()
         self.entry_1m = {
             'z_se': feat[_1M_OFFSET + _Z],
