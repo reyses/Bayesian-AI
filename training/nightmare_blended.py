@@ -664,16 +664,40 @@ class BlendedEngine:
         hurst = feat[_1M_HURST_IDX]
         vol_rel = feat[_1M_VOL_REL_IDX]
 
-        # 1. FREIGHT_TRAIN — 0.1/day, 86% WR
-        #    Ride extreme velocity, accelerating, regime not committed
+        # Ordered by SEQUENCE OF APPEARANCE (which signal fires first in chains):
+        # KILL_SHOT triggers first 60% of the time (wick = earliest physics)
+        # Then general conditions confirm (FADE_CALM, MTF_BREAKOUT)
+        #
+        # Chain data: KILL_SHOT→FADE_CALM (4150), RIDE_AGAINST→MTF_BREAKOUT (1467),
+        #             CASCADE→FADE_CALM (867), KILL_SHOT→FADE_AGAINST (622)
+
+        # 1. KILL_SHOT — wick rejection (earliest physics signal, triggers 60% of chains)
+        if has_wick and not h1_aligned:
+            return direction, 'KILL_SHOT', False
+
+        # 2. CASCADE — wick + 1h aligned
+        if has_wick and h1_aligned:
+            return direction, 'CASCADE', False
+
+        # 3. FREIGHT_TRAIN — extreme velocity, accelerating
         if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
                 velocity * acceleration > 0 and
                 vr < FREIGHT_TRAIN_VR_MAX):
             ft_dir = 'long' if velocity > 0 else 'short'
             return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 2. MTF_EXHAUSTION — ride 5m (flipped direction)
-        #    5m decelerating + deep z + high vr + volume
+        # 4. RIDE_AGAINST — 1h velocity opposes (second signal in chains)
+        h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
+                          (direction == 'short' and h1_vel > 3.0))
+        if h1_vel_against and not h1_against_fade:
+            ride_dir = 'long' if h1_vel > 0 else 'short'
+            return ride_dir, 'RIDE_AGAINST', False
+
+        # 5. FADE_AGAINST — 1h z extreme against fade
+        if h1_against_fade and abs(v5_vel) < 10.0:
+            return direction, 'FADE_AGAINST', False
+
+        # 6. MTF_EXHAUSTION — ride 5m (flipped)
         if (v5_accel < 0 and abs(v5_vel) > MTF_5M_VEL_MIN and
                 v1 > MTF_1M_VEL_ALIVE and
                 abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
@@ -681,21 +705,7 @@ class BlendedEngine:
             mtf_dir = 'long' if v5_vel > 0 else 'short'
             return mtf_dir, 'MTF_EXHAUSTION', True
 
-        # 3. FADE_AGAINST — 2.9/day, 77% WR
-        #    Lookback: reject |5m_vel| > 10 (5m racing = breakout trap)
-        if h1_against_fade and abs(v5_vel) < 10.0:
-            return direction, 'FADE_AGAINST', False
-
-        # 3. CASCADE — wick + 1h aligned (no lookback filter — was too tight)
-        if has_wick and h1_aligned:
-            return direction, 'CASCADE', False
-
-        # 4. KILL_SHOT — wick, no 1h (no lookback filter — was too tight)
-        if has_wick and not h1_aligned:
-            return direction, 'KILL_SHOT', False
-
-        # 5. MTF_BREAKOUT — 81/day, 56% WR
-        #    Lookback: require dmi aligned with ride direction
+        # 7. MTF_BREAKOUT — multi-TF aligned (confirms RIDE_AGAINST)
         z_5m = abs(feat[2 * _N_CORE + _Z])
         z_15m = abs(feat[3 * _N_CORE + _Z])
         if z_5m > 1.3 and z_15m > 1.3:
@@ -705,16 +715,7 @@ class BlendedEngine:
             if dmi_aligned:
                 return breakout_dir, 'MTF_BREAKOUT', True
 
-        # 6. RIDE_AGAINST — 36/day, 52% WR
-        #    Lookback: require |1h_vel| > 3 (1h committed)
-        h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
-                          (direction == 'short' and h1_vel > 3.0))
-        if h1_vel_against and not h1_against_fade:
-            ride_dir = 'long' if h1_vel > 0 else 'short'
-            return ride_dir, 'RIDE_AGAINST', False
-
-        # 7. FADE_CALM — 40/day, 66% WR (default)
-        #    Lookback: reject when 5m + 1h both oppose fade direction
+        # 8. FADE_CALM — default (confirms all specific triggers)
         higher_tf_opposing = False
         if direction == 'long' and v5_vel < -3 and h1_vel < -3:
             higher_tf_opposing = True
@@ -723,7 +724,6 @@ class BlendedEngine:
         if not higher_tf_opposing:
             return direction, 'FADE_CALM', False
 
-        # No tier qualifies (higher TFs opposing, no wick, no special condition)
         return None, None, False
 
     def _check_exit(self, feat, z, vr, pnl):
