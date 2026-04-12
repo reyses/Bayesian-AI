@@ -563,19 +563,22 @@ class BlendedEngine:
                 self._chain_contracts.pop(i)
 
         # === CHAINED LIGHTNING — parallel contracts ===
-        # Same direction: open additional contract
+        # Same direction: open additional contract (max 3 total)
         # Opposite direction: FLATTEN ALL (reverse signal = thesis invalidated)
+        MAX_CHAIN_CONTRACTS = 3
         if self.in_pos and is_1m and price > 100:
             direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
             if tier_new is not None:
                 if direction_new != self.direction:
-                    # Reverse signal — flatten everything
+                    # Reverse signal — flatten main + all chains
+                    self._flatten_all_chains(price, ts, feat, 'reverse_signal')
                     self._close_trade(price, ts, time_str, 'reverse_signal', feat)
                     return
 
             if (tier_new is not None and
                     direction_new == self.direction and
-                    tier_new != self.entry_tier):
+                    tier_new != self.entry_tier and
+                    len(self._chain_contracts) < MAX_CHAIN_CONTRACTS):
                 # Open parallel contract
                 self._chain_contracts.append({
                     'entry_price': price,
@@ -1034,6 +1037,29 @@ class BlendedEngine:
         self._peak_amplitude = abs(feat[_1M_OFFSET + _Z])  # tracks max oscillation swing
         self._current_amplitude = abs(feat[_1M_OFFSET + _Z])
 
+    def _flatten_all_chains(self, price, ts, feat, reason):
+        """Close all chain contracts immediately."""
+        for cc in self._chain_contracts:
+            if cc['direction'] == 'long':
+                cc_pnl = (price - cc['entry_price']) / TICK * TV
+            else:
+                cc_pnl = (cc['entry_price'] - price) / TICK * TV
+            self.daily_pnl += cc_pnl
+            self.trades.append({
+                'dir': cc['direction'],
+                'entry_price': cc['entry_price'],
+                'pnl': cc_pnl,
+                'peak': cc.get('peak_pnl', 0),
+                'held': int((ts - cc['entry_ts']) // 60) if cc.get('entry_ts') else 0,
+                'entry_tier': cc['entry_tier'],
+                'exit_reason': f'chain_{reason}',
+                'cnn_flipped': cc.get('cnn_flipped', False),
+                'entry_79d': cc.get('entry_79d', []),
+                'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
+                'approach': [], 'path': [],
+            })
+        self._chain_contracts = []
+
     def _close_trade(self, price, ts, time_str, exit_reason, feat):
         if not self.in_pos:
             return
@@ -1070,34 +1096,23 @@ class BlendedEngine:
         self.entry_tier = None
         self._trade_path = []
 
-        # Close all chain contracts when main trade closes
-        for cc in self._chain_contracts:
-            if cc['direction'] == 'long':
-                cc_pnl = (price - cc['entry_price']) / TICK * TV
-            else:
-                cc_pnl = (cc['entry_price'] - price) / TICK * TV
-            self.daily_pnl += cc_pnl
-            self.trades.append({
-                'dir': cc['direction'],
-                'entry_price': cc['entry_price'],
-                'pnl': cc_pnl,
-                'peak': cc.get('peak_pnl', 0),
-                'held': int((ts - cc['entry_ts']) // 60) if cc.get('entry_ts') else 0,
-                'entry_tier': cc['entry_tier'],
-                'exit_reason': f'chain_parent_{exit_reason}',
-                'cnn_flipped': cc.get('cnn_flipped', False),
-                'entry_79d': cc.get('entry_79d', []),
-                'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
-                'approach': [], 'path': [],
-            })
-        self._chain_contracts = []
+        # Chain contracts stay alive — they exit independently
+        # Only reverse_signal flattens all chains
 
     def force_close(self, reason='end_of_day'):
+        # Flatten all chain contracts first
+        if self._chain_contracts:
+            ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
+            feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
+            if feat is None:
+                feat = np.zeros(91)
+            self._flatten_all_chains(self._last_price, ts, feat, reason)
+
         if self.in_pos:
             ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
             feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
             if feat is None:
-                feat = np.zeros(79)
+                feat = np.zeros(91)
             time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'
             self._close_trade(self._last_price, ts, time_str, reason, feat)
 
