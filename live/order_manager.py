@@ -141,7 +141,7 @@ class OrderManager:
             logger.error(f"Invalid side: {side}")
             return None
 
-        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        oid = self._make_order_id(side, tag='ENTRY')
         rec = OrderRecord(order_id=oid, side=side,
                           qty=self._cfg.max_position_size,
                           submit_time=time.time())
@@ -185,7 +185,7 @@ class OrderManager:
             logger.error(f"Scale-in side mismatch: {side} vs position {self.position.side}")
             return None
 
-        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        oid = self._make_order_id(side, tag='CHAIN')
         rec = OrderRecord(order_id=oid, side=side, qty=1,
                           submit_time=time.time())
         self._orders[oid] = rec
@@ -213,7 +213,7 @@ class OrderManager:
         # Opposite side to close 1 contract
         close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
 
-        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        oid = self._make_order_id(close_side, tag='CHEXIT')
         rec = OrderRecord(order_id=oid, side=close_side, qty=1,
                           submit_time=time.time())
         self._orders[oid] = rec
@@ -436,6 +436,15 @@ class OrderManager:
         logger.info("Daily counters reset")
 
     # ── Internal ──────────────────────────────────────────────────────
+
+    def _make_order_id(self, side: str, tag: str = '') -> str:
+        """Generate a readable order ID: BAY_ENTRY_S_001
+        Format: BAY_{tag}_{L/S}_{sequence}
+        """
+        self._trade_count += 0  # don't increment here, just read
+        dir_char = 'L' if side == 'BUY' else 'S'
+        seq = len(self._orders) + 1
+        return f"{tag}_{dir_char}_{seq:03d}"
 
     def _init_csv(self):
         if not os.path.exists(self._log_path):

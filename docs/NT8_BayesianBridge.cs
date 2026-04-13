@@ -492,12 +492,21 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void OnOrderUpdate(object sender, OrderEventArgs e)
         {
+            string status = e.Order.OrderState.ToString();
+            string oid = e.Order.Name ?? "";
             string json = "{"
                 + Q("type") + ":" + Q("ORDER_STATUS") + ","
-                + Q("order_id") + ":" + Q(e.Order.Name) + ","
-                + Q("status") + ":" + Q(e.Order.OrderState.ToString())
+                + Q("order_id") + ":" + Q(oid) + ","
+                + Q("status") + ":" + Q(status)
                 + "}";
             SendRawJson(json);
+
+            // Log all order state changes for our orders
+            if (oid.StartsWith("ENTRY") || oid.StartsWith("CHAIN") || oid.StartsWith("CHEXIT")
+                || oid == "BAY_CLOSE" || oid.StartsWith("BAY_"))
+            {
+                Print("   ORDER " + oid + " -> " + status);
+            }
         }
 
         // Session tracking for NT8 output
@@ -525,17 +534,33 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             // Verbose trade logging to NT8 output
             string orderName = e.Execution.Order.Name ?? "";
-            if (orderName.StartsWith("BAY_"))
+            bool isEntry = orderName.StartsWith("ENTRY_") || orderName.StartsWith("BAY_");
+            bool isChainEntry = orderName.StartsWith("CHAIN_");
+            bool isChainExit = orderName.StartsWith("CHEXIT_");
+            bool isClose = orderName == "BAY_CLOSE" || orderName == "Close";
+
+            if (isEntry)
             {
-                // Entry
                 _lastEntryPrice = e.Execution.Price;
                 _lastEntrySide = side;
                 Print(">> ENTRY " + side + " @ " + e.Execution.Price.ToString("F2")
+                    + "  id=" + orderName
                     + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
             }
-            else if (orderName == "Close" && _lastEntryPrice > 0)
+            else if (isChainEntry)
             {
-                // Exit — compute PnL
+                Print(">> CHAIN " + side + " @ " + e.Execution.Price.ToString("F2")
+                    + "  id=" + orderName
+                    + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
+            }
+            else if (isChainExit)
+            {
+                Print("<< CHAIN EXIT @ " + e.Execution.Price.ToString("F2")
+                    + "  id=" + orderName
+                    + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
+            }
+            else if (isClose && _lastEntryPrice > 0)
+            {
                 double pnl = 0;
                 if (_lastEntrySide == "BUY")
                     pnl = (e.Execution.Price - _lastEntryPrice) * 2.0;  // MNQ $2/point
@@ -555,6 +580,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + "  PnL=$" + _sessionPnl.ToString("F2"));
 
                 _lastEntryPrice = 0;
+            }
+            else
+            {
+                // Unknown order — log everything for debug
+                Print("?? FILL " + side + " x" + e.Execution.Quantity
+                    + " @ " + e.Execution.Price.ToString("F2")
+                    + "  id=" + orderName
+                    + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
             }
         }
 
