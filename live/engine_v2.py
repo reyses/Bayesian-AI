@@ -506,13 +506,15 @@ class LiveEngineV2:
                        'pnl', 'peak', 'contracts', 'event']
         self._ledger.write(','.join(ledger_cols) + '\n')
 
-        # Trade log — one row per entry/exit, matches run_baseline output for parity
+        # Trade log — one row per entry/exit, with requested vs actual for slippage
         self._trade_log_path = f'reports/live/v2_trades_{self._session_date}.csv'
         self._trade_log = open(self._trade_log_path, 'w', encoding='utf-8')
-        trade_cols = ['timestamp', 'type', 'tier', 'direction', 'price',
+        trade_cols = ['timestamp', 'type', 'tier', 'direction',
+                      'requested_price', 'fill_price', 'slippage',
                       'pnl', 'bars_held', 'exit_reason', 'is_chain',
                       'contracts', 'daily_pnl']
         self._trade_log.write(','.join(trade_cols) + '\n')
+        self._pending_requests = {}  # order_id → requested_price
 
         self._trading = True
 
@@ -543,16 +545,32 @@ class LiveEngineV2:
             if msg_type == MsgType.FILL:
                 pnl_from_fill = self._orders.on_fill(msg)
                 fill_px = float(msg.get('fill_price', 0))
+                oid = msg.get('order_id', '')
+
+                # Log FILL row with slippage
+                req = self._pending_requests.pop(oid, {})
+                req_px = req.get('requested_price', fill_px)
+                self._log_trade_event(
+                    float(msg.get('fill_time', time.time())),
+                    f'FILL_{req.get("type", "?")}',
+                    req.get('tier', '?'), req.get('direction', '?'),
+                    req_px, fill_px,
+                    pnl_from_fill or 0, 0, oid,
+                    req.get('is_chain', False))
+                slip = fill_px - req_px
+                if req.get('direction') == 'short':
+                    slip = -slip
+                logger.info(f'  FILL {oid} @ {fill_px:.2f} '
+                            f'(requested {req_px:.2f}, slip={slip:+.2f})')
+
                 if fill_px and self._engine.in_pos:
                     # Correct engine entry price from NT8 actual fill
                     side = msg.get('side', '')
                     same_dir = ((self._engine.direction == 'long' and side == 'BUY') or
                                 (self._engine.direction == 'short' and side == 'SELL'))
                     if same_dir and not self._engine._chain_contracts:
-                        # Primary entry fill
                         self._engine.entry_price = fill_px
                     elif same_dir and self._engine._chain_contracts:
-                        # Chain entry fill — correct last chain
                         self._engine._chain_contracts[-1]['entry_price'] = fill_px
                 # Sync realized PnL from NT8
                 self._daily_pnl = self._orders.daily_pnl
@@ -623,11 +641,17 @@ class LiveEngineV2:
                 side = 'BUY' if self._engine.direction == 'long' else 'SELL'
                 order_msg = self._orders.build_entry_order(side)
                 if order_msg:
+                    self._pending_requests[order_msg['order_id']] = {
+                        'requested_price': bar['close'],
+                        'tier': self._engine.entry_tier,
+                        'direction': self._engine.direction,
+                        'is_chain': False, 'type': 'ENTRY',
+                    }
                     await self._client.send(order_msg)
                 events.append(f'ENTRY_{self._engine.entry_tier}')
                 self._log_trade_event(bar['timestamp'], 'ENTRY',
                     self._engine.entry_tier, self._engine.direction,
-                    bar['close'], 0, 0, '', False)
+                    bar['close'], 0, 0, 0, '', False)
                 logger.info(f'  ENTRY {self._engine.direction} '
                             f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
 
@@ -638,11 +662,17 @@ class LiveEngineV2:
                 if self._orders.can_scale_in:
                     order_msg = self._orders.build_scale_in_order(side)
                     if order_msg:
+                        self._pending_requests[order_msg['order_id']] = {
+                            'requested_price': bar['close'],
+                            'tier': cc['entry_tier'],
+                            'direction': cc['direction'],
+                            'is_chain': True, 'type': 'CHAIN_ENTRY',
+                        }
                         await self._client.send(order_msg)
                 events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
                 self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
                     cc['entry_tier'], cc['direction'],
-                    bar['close'], 0, 0, '', True)
+                    bar['close'], 0, 0, 0, '', True)
                 logger.info(f'  CHAIN ENTRY {cc["entry_tier"]} '
                             f'@ {bar["close"]:.2f} (contracts={curr_chains + 1})')
 
@@ -651,16 +681,21 @@ class LiveEngineV2:
             if chain_exit_count > 0:
                 for ci in range(chain_exit_count):
                     ct = self._engine.trades[-(new_trades - ci - (1 if exited else 0))]
-                    # Scale-out 1 contract if position still > 1
                     if self._orders.position.qty > 1:
                         order_msg = self._orders.build_scale_out_order(
                             reason=ct.get('exit_reason', 'chain_exit'))
                         if order_msg:
+                            self._pending_requests[order_msg['order_id']] = {
+                                'requested_price': bar['close'],
+                                'tier': ct.get('entry_tier', '?'),
+                                'direction': ct.get('direction', '?'),
+                                'is_chain': True, 'type': 'CHAIN_EXIT',
+                            }
                             await self._client.send(order_msg)
                     events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
                     self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
                         ct.get('entry_tier', '?'), ct.get('direction', '?'),
-                        bar['close'], ct['pnl'], ct.get('held', 0),
+                        bar['close'], 0, ct['pnl'], ct.get('held', 0),
                         ct.get('exit_reason', ''), True)
                     logger.info(f'  CHAIN EXIT {ct.get("exit_reason")} '
                                 f'pnl=${ct["pnl"]:.1f}')
@@ -677,7 +712,7 @@ class LiveEngineV2:
                 events.append(f'EXIT_{t.get("exit_reason", "?")}')
                 self._log_trade_event(bar['timestamp'], 'EXIT',
                     t.get('entry_tier', '?'), t.get('direction', '?'),
-                    bar['close'], t['pnl'], t.get('held', 0),
+                    bar['close'], 0, t['pnl'], t.get('held', 0),
                     t.get('exit_reason', ''), False)
                 logger.info(f'  EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f}')
 
@@ -761,12 +796,22 @@ class LiveEngineV2:
     # TRADE LOG — one row per entry/exit for parity comparison
     # ═══════════════════════════════════════════════════════════════════
 
-    def _log_trade_event(self, ts, event_type, tier, direction, price,
+    def _log_trade_event(self, ts, event_type, tier, direction,
+                         requested_price, fill_price,
                          pnl, bars_held, exit_reason, is_chain):
-        """Write one trade event row. Matches run_baseline trade format."""
+        """Write one trade event row with slippage tracking.
+
+        requested_price: what the engine saw when it decided to trade
+        fill_price: what NT8 actually filled at (0 if not yet filled)
+        """
         if self._trade_log is None:
             return
-        row = [f'{ts:.0f}', event_type, tier, direction, f'{price:.2f}',
+        slip = fill_price - requested_price if fill_price > 0 else 0
+        # Normalize: positive slippage = worse fill
+        if direction == 'short' or (direction == '' and event_type.startswith('EXIT')):
+            slip = -slip  # for shorts, higher fill on entry = worse
+        row = [f'{ts:.0f}', event_type, tier, direction,
+               f'{requested_price:.2f}', f'{fill_price:.2f}', f'{slip:.2f}',
                f'{pnl:.1f}', str(bars_held), exit_reason,
                '1' if is_chain else '0',
                str(self._orders.position.qty),
