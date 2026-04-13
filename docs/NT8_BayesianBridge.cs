@@ -824,6 +824,13 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             Print("BayesianBridge: PLACE_ORDER " + side + " " + qty + " id=" + orderId);
 
+            if (_account == null)
+            {
+                Print("BayesianBridge: REJECTED — _account is null (check AccountName setting)");
+                SendOrderRejected(orderId, "account_null");
+                return;
+            }
+
             try
             {
                 Order order = _account.CreateOrder(
@@ -844,6 +851,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             catch (Exception ex)
             {
                 Print("BayesianBridge: Order submit failed: " + ex.Message);
+                SendOrderRejected(orderId, ex.Message);
             }
         }
 
@@ -948,6 +956,17 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 Print("BayesianBridge: Send failed: " + ex.Message);
             }
+        }
+
+        private void SendOrderRejected(string orderId, string reason)
+        {
+            string json = "{"
+                + Q("type") + ":" + Q("ORDER_STATUS") + ","
+                + Q("order_id") + ":" + Q(orderId) + ","
+                + Q("status") + ":" + Q("Rejected") + ","
+                + Q("reason") + ":" + Q(reason)
+                + "}";
+            SendRawJson(json);
         }
 
         private void SendPositionSnapshot()
