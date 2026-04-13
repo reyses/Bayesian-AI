@@ -154,15 +154,86 @@ class OrderManager:
         logger.info(f"ORDER -> {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
         return msg
 
+    @property
+    def can_scale_in(self) -> bool:
+        """True when in position, same direction scale-in is safe, and under max contracts."""
+        if self.position.qty == 0:
+            return False
+        if self.position.qty >= self._cfg.max_contracts:
+            return False
+        if self._awaiting_entry_fill or self._awaiting_exit_fill:
+            return False
+        if self._daily_loss_limit_hit:
+            return False
+        return True
+
+    def build_scale_in_order(self, side: str) -> Optional[dict]:
+        """Add 1 contract to existing position (chain entry at OrderManager level).
+
+        Same direction as current position. Returns None if blocked.
+        """
+        if not self.can_scale_in:
+            logger.warning(f"Scale-in blocked: qty={self.position.qty} "
+                           f"max={self._cfg.max_contracts} "
+                           f"pending_entry={self._awaiting_entry_fill} "
+                           f"pending_exit={self._awaiting_exit_fill}")
+            return None
+
+        # Safety: side must match current position
+        expected_side = 'BUY' if self.position.side == 'LONG' else 'SELL'
+        if side != expected_side:
+            logger.error(f"Scale-in side mismatch: {side} vs position {self.position.side}")
+            return None
+
+        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        rec = OrderRecord(order_id=oid, side=side, qty=1,
+                          submit_time=time.time())
+        self._orders[oid] = rec
+
+        msg = place_order(oid, self._cfg.instrument,
+                          self._cfg.account, side, 1)
+        self._awaiting_entry_fill = True
+        logger.info(f"SCALE-IN -> {side} +1 {self._cfg.instrument} "
+                     f"(total will be {self.position.qty + 1})  id={oid}")
+        return msg
+
+    def build_scale_out_order(self, reason: str = 'chain_exit') -> Optional[dict]:
+        """Remove 1 contract from position (chain exit at OrderManager level).
+
+        If this is the last contract, use build_exit_order instead.
+        Returns None if blocked or position qty <= 1.
+        """
+        if self.position.qty <= 1:
+            logger.warning(f"Scale-out blocked: qty={self.position.qty} (use build_exit_order)")
+            return None
+        if self._awaiting_entry_fill or self._awaiting_exit_fill:
+            logger.warning(f"Scale-out blocked: pending order")
+            return None
+
+        # Opposite side to close 1 contract
+        close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
+
+        oid = f"BAY_{uuid.uuid4().hex[:8]}"
+        rec = OrderRecord(order_id=oid, side=close_side, qty=1,
+                          submit_time=time.time())
+        self._orders[oid] = rec
+
+        msg = place_order(oid, self._cfg.instrument,
+                          self._cfg.account, close_side, 1)
+        self._awaiting_exit_fill = True
+        logger.info(f"SCALE-OUT -> {close_side} -1 {self._cfg.instrument} "
+                     f"(total will be {self.position.qty - 1})  id={oid}  ({reason})")
+        return msg
+
     def build_exit_order(self, reason: str = 'signal') -> Optional[dict]:
-        """Build a CLOSE_POSITION message. Blocks if already exiting or flat."""
+        """Build a CLOSE_POSITION message. Closes ALL contracts. Blocks if already exiting or flat."""
         if not self.can_exit:
             if self._awaiting_exit_fill:
                 logger.warning(f"Exit blocked: already awaiting exit fill ({reason})")
             return None
         self.exit_rejected = False
         self._awaiting_exit_fill = True
-        logger.info(f"EXIT -> close {self.position.side} ({reason})")
+        logger.info(f"EXIT -> close ALL {self.position.side} x{self.position.qty} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
     def build_flip_order(self, reason: str = 'pp_flip') -> Optional[dict]:
@@ -186,11 +257,12 @@ class OrderManager:
     def on_fill(self, msg: dict) -> Optional[float]:
         """Handle a FILL message from NT8.
 
-        Returns PnL (float) on exit fills, None on entry fills.
+        Returns PnL (float) on exit/scale-out fills, None on entry/scale-in fills.
         """
-        # Clear both flags — fill resolves whatever was pending
+        was_awaiting_exit = self._awaiting_exit_fill
         self._awaiting_entry_fill = False
         self._awaiting_exit_fill = False
+
         oid = msg.get('order_id', '')
         rec = self._orders.get(oid)
         if rec:
@@ -202,61 +274,86 @@ class OrderManager:
         fill_px = float(msg['fill_price'])
         qty = int(msg.get('qty', 1))
 
-        # Determine if this is an entry or exit fill
-        # Guard: if we were awaiting an exit fill, this IS the exit even if POSITION cleared first
-        if self._awaiting_exit_fill:
-            is_exit = True
-        elif self.is_flat:
-            is_exit = False
-        else:
-            is_exit = True
-
-        if not is_exit:
-            # Entry fill
+        # Classify fill: entry/scale-in (adds to position) vs exit/scale-out (reduces)
+        if self.position.qty == 0:
+            # Was flat → this is a fresh entry
             self.position = PositionState(
                 side='LONG' if side == 'BUY' else 'SHORT',
-                qty=min(qty, self._cfg.max_position_size),
+                qty=qty,
                 avg_price=fill_px,
                 entry_time=time.time(),
             )
-            logger.info(f"FILL entry: {self.position.side} @ {fill_px}")
+            logger.info(f"FILL entry: {self.position.side} x{qty} @ {fill_px}")
             return None
+
+        # Already in position — is this adding or reducing?
+        same_direction = ((self.position.side == 'LONG' and side == 'BUY') or
+                          (self.position.side == 'SHORT' and side == 'SELL'))
+
+        if same_direction:
+            # Scale-in (chain entry): add contracts, update avg price
+            old_qty = self.position.qty
+            new_qty = old_qty + qty
+            # Weighted average entry price
+            new_avg = (self.position.avg_price * old_qty + fill_px * qty) / new_qty
+            self.position.qty = min(new_qty, self._cfg.max_contracts)
+            self.position.avg_price = new_avg
+            logger.info(f"FILL scale-in: {self.position.side} +{qty} @ {fill_px} "
+                        f"(total={self.position.qty}, avg={new_avg:.2f})")
+            return None
+
         else:
-            # Exit fill  -- PnL uses position qty (1), NOT fill qty (may be 2 for flip)
-            entry_px = self.position.avg_price
-            exit_qty = self.position.qty
-            if self.position.side == 'LONG':
-                pnl = (fill_px - entry_px) * exit_qty * self._cfg.point_value
+            # Opposite direction = reducing/closing
+            if qty >= self.position.qty or was_awaiting_exit:
+                # Full close (or close_position which closes all)
+                exit_qty = self.position.qty
+                entry_px = self.position.avg_price
+                if self.position.side == 'LONG':
+                    pnl = (fill_px - entry_px) * exit_qty * self._cfg.point_value
+                else:
+                    pnl = (entry_px - fill_px) * exit_qty * self._cfg.point_value
+
+                self.last_exit_info = {
+                    'entry_px': entry_px, 'exit_px': fill_px,
+                    'side': self.position.side, 'qty': exit_qty,
+                }
+                self._daily_pnl += pnl
+                self._trade_count += 1
+                self._log_trade(fill_px, pnl, reason='fill')
+
+                # Flip: qty > position = close + open opposite
+                remaining = qty - self.position.qty
+                if remaining > 0:
+                    new_side = 'LONG' if side == 'BUY' else 'SHORT'
+                    logger.info(f"FILL flip: {self.position.side}->{new_side} @ {fill_px} "
+                                f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
+                    self.position = PositionState(
+                        side=new_side, qty=remaining,
+                        avg_price=fill_px, entry_time=time.time(),
+                    )
+                else:
+                    logger.info(f"FILL close-all: {self.position.side} x{exit_qty} @ {fill_px} "
+                                f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
+                    self.position = PositionState()  # flat
+
             else:
-                pnl = (entry_px - fill_px) * exit_qty * self._cfg.point_value
+                # Scale-out (chain exit): reduce by qty, PnL on those contracts
+                entry_px = self.position.avg_price
+                if self.position.side == 'LONG':
+                    pnl = (fill_px - entry_px) * qty * self._cfg.point_value
+                else:
+                    pnl = (entry_px - fill_px) * qty * self._cfg.point_value
 
-            # Preserve fill info before clearing position (for trade log)
-            self.last_exit_info = {
-                'entry_px': entry_px, 'exit_px': fill_px,
-                'side': self.position.side,
-            }
+                self.position.qty -= qty
+                self._daily_pnl += pnl
+                self._trade_count += 1
+                self._log_trade(fill_px, pnl, reason='scale_out')
 
-            self._daily_pnl += pnl
-            self._trade_count += 1
+                logger.info(f"FILL scale-out: -{qty} @ {fill_px} "
+                            f"PnL=${pnl:+.2f} (remaining={self.position.qty})  "
+                            f"daily=${self._daily_pnl:+.2f}")
 
-            self._log_trade(fill_px, pnl, reason='fill')
-
-            # Flip order: qty > position.qty means close + open opposite
-            if qty > self.position.qty:
-                new_side = 'LONG' if side == 'BUY' else 'SHORT'
-                new_qty = qty - self.position.qty
-                logger.info(f"FILL flip: {self.position.side}->{new_side} @ {fill_px}  "
-                            f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
-                self.position = PositionState(
-                    side=new_side, qty=new_qty,
-                    avg_price=fill_px, entry_time=time.time(),
-                )
-            else:
-                logger.info(f"FILL exit: {self.position.side} @ {fill_px}  "
-                            f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
-                self.position = PositionState()  # flat
-
-            # Check daily loss limit (0 = disabled)
+            # Check daily loss limit
             if self._cfg.max_daily_loss_usd > 0 and self._daily_pnl <= -self._cfg.max_daily_loss_usd:
                 self._daily_loss_limit_hit = True
                 logger.warning(f"DAILY LOSS LIMIT HIT: ${self._daily_pnl:.2f}")

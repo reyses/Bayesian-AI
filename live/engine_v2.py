@@ -1,22 +1,26 @@
 """
-Live Engine V2 — clean production pipeline, 7-step startup.
+Live Engine V2 — production pipeline, 7-step startup, SIM account.
 
 1. CHECK    → Is ATLAS_NT8 current? If not, dump missing days
 2. BUILD    → Build features for any new days
-3. WARMUP   → Load last N days into aggregator + SFE
-4. SYNC     → Connect NT8, receive bars into ATLAS_LIVE
+3. WARMUP   → Load ATLAS_NT8 + ATLAS_LIVE delta into aggregator
+4. SYNC     → Connect NT8, receive history bars
 5. CATCH-UP → Compute features until Python time == NT8 time
-6. VERIFY   → Latency < 1s? Parity confirmed?
-7. TRADE    → Engine starts making decisions
+6. VERIFY   → Latency < 1s? Sync confirmed?
+7. TRADE    → Engine makes decisions, orders via OrderManager
 
-No legacy CNN. No GUI coupling. Ledger is the monitoring tool.
-Physics-only BlendedEngine with rarity-ordered waterfall.
+Physics-only BlendedEngine with chained lightning (parallel contracts).
+All orders go to NT8 SIM account. No dry-run — SIM IS the test.
+
+Outputs:
+    reports/live/v2_ledger_YYYY_MM_DD.csv   — every 5s bar + features + state
+    reports/live/v2_trades_YYYY_MM_DD.csv   — entry/exit events for parity check
 
 Usage:
     python -m live.engine_v2                     # full production run
-    python -m live.engine_v2 --dry-run           # no orders sent to NT8
     python -m live.engine_v2 --skip-check        # skip step 1 (assume current)
     python -m live.engine_v2 --skip-build        # skip step 2
+    python -m live.engine_v2 --headless          # no dashboard GUI
 """
 import warnings
 warnings.filterwarnings('ignore', module='numba')
@@ -64,6 +68,10 @@ ATLAS_LIVE = 'DATA/ATLAS_LIVE'
 FEATURES_NT8 = 'DATA/FEATURES_NT8_5s'
 NT8_CONFIG = 'config/nt8_dataset.json'
 
+# Checkpoints — dual system (NT8 seed + live rolling)
+NT8_CHECKPOINT = os.path.join(ATLAS_NT8, 'checkpoint.json')
+LIVE_CHECKPOINT = 'live/state/checkpoint.json'
+
 # Sync thresholds
 MAX_SYNC_LAG_S = 10.0    # max seconds behind NT8 before trading allowed
 WARMUP_DAYS = 5           # days of history to load for aggregator context
@@ -72,11 +80,10 @@ WARMUP_DAYS = 5           # days of history to load for aggregator context
 class LiveEngineV2:
     """Production live engine — 7-step startup, physics-only."""
 
-    def __init__(self, config: LiveConfig, dry_run: bool = False,
+    def __init__(self, config: LiveConfig,
                  skip_check: bool = False, skip_build: bool = False,
                  gui_queue=None, shared_state=None):
         self._cfg = config
-        self._dry_run = dry_run
         self._skip_check = skip_check
         self._skip_build = skip_build
         self._shared_state = shared_state or {}
@@ -110,9 +117,11 @@ class LiveEngineV2:
         self._last_price = 0.0
         self._session_date = time.strftime('%Y_%m_%d')
 
-        # Ledger
+        # Ledger (every 5s bar) + trade log (entry/exit events)
         self._ledger = None
         self._ledger_path = None
+        self._trade_log = None
+        self._trade_log_path = None
 
         # Live bar capture
         self._live_bars = []
@@ -128,7 +137,7 @@ class LiveEngineV2:
         logger.info('LIVE ENGINE V2 — Physics Only')
         logger.info(f'  Instrument: {self._cfg.instrument}')
         logger.info(f'  Account:    {self._cfg.account}')
-        logger.info(f'  Dry run:    {self._dry_run}')
+        logger.info(f'  Account:    {self._cfg.account} (SIM)')
         logger.info('=' * 60)
 
         try:
@@ -143,6 +152,10 @@ class LiveEngineV2:
 
             # Steps 4-7: online (need NT8 connection)
             self._client = NT8Client(self._cfg)
+            # Tell NT8 to only send bars after our warmup — skip redundant history
+            if self._last_ts > 0:
+                self._client.set_resume_timestamp(self._last_ts)
+                logger.info(f'  Delta sync from {self._ts_str(self._last_ts)}')
             connected = await self._client.connect()
             if not connected:
                 logger.error('Failed to connect to NT8')
@@ -244,24 +257,43 @@ class LiveEngineV2:
         self._sfe = StatisticalFieldEngine()
         self._engine = BlendedEngine(use_cnn=False)
 
-        # Load last N days of 1s bars from ATLAS (Databento) for context
-        atlas_1s = 'DATA/ATLAS/1s'
-        if os.path.exists(atlas_1s):
-            day_files = sorted(glob.glob(os.path.join(atlas_1s, '*.parquet')))[-WARMUP_DAYS:]
-            warmup_bars = 0
-            for fpath in day_files:
-                df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
-                for _, row in df.iterrows():
-                    self._agg.feed({
-                        'timestamp': row['timestamp'],
-                        'open': row['open'], 'high': row['high'],
-                        'low': row['low'], 'close': row['close'],
-                        'volume': row.get('volume', 0),
-                    })
-                    warmup_bars += 1
-            logger.info(f'  ATLAS warmup: {warmup_bars:,} bars')
+        # Pick newest checkpoint: live vs NT8 (compare last_ts)
+        best_path, best_ts = None, 0
+        for path in [LIVE_CHECKPOINT, NT8_CHECKPOINT]:
+            if os.path.exists(path):
+                try:
+                    with open(path, encoding='utf-8') as f:
+                        ts = json.load(f).get('last_ts', 0)
+                    if ts > best_ts:
+                        best_path, best_ts = path, ts
+                except (json.JSONDecodeError, KeyError):
+                    logger.warning(f'  Corrupt checkpoint: {path}')
 
-        # Compute one feature to verify warmup
+        if best_path:
+            last_ts, self._prev_vel = self._agg.load_checkpoint(best_path)
+            self._last_ts = last_ts
+            bar_counts = {tf: len(bars) for tf, bars in self._agg.history.items() if bars}
+            logger.info(f'  Checkpoint: {os.path.basename(os.path.dirname(best_path))}/'
+                        f'{os.path.basename(best_path)}')
+            logger.info(f'  Bars: {bar_counts}')
+            logger.info(f'  Last: {self._ts_str(last_ts)}')
+
+            # Feed ATLAS_LIVE delta (bars after checkpoint)
+            delta_bars = self._feed_delta(last_ts)
+            if delta_bars:
+                logger.info(f'  LIVE delta: {delta_bars:,} bars')
+        else:
+            # Cold start: no checkpoint, replay last N days from ATLAS_NT8/5s
+            logger.warning('  No checkpoint found — cold start')
+            warmup_bars = 0
+            atlas_nt8_5s = os.path.join(ATLAS_NT8, '5s')
+            if os.path.exists(atlas_nt8_5s):
+                day_files = sorted(glob.glob(os.path.join(atlas_nt8_5s, '*.parquet')))[-WARMUP_DAYS:]
+                for fpath in day_files:
+                    warmup_bars += self._feed_parquet(fpath)
+                logger.info(f'  Cold start: {warmup_bars:,} bars ({len(day_files)} days)')
+
+        # Verify: compute one feature
         if self._agg.get_bar_count('1m') >= SFE_MIN_BARS:
             last_ts = self._agg.get_closed_bars('1m')[-1]['timestamp']
             feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
@@ -273,7 +305,37 @@ class LiveEngineV2:
             else:
                 logger.warning('  Warmup feature returned None')
         else:
-            logger.warning(f'  Not enough 1m bars: {self._agg.get_bar_count("1m")} < {SFE_MIN_BARS}')
+            logger.warning(f'  Not enough 1m bars: '
+                           f'{self._agg.get_bar_count("1m")} < {SFE_MIN_BARS}')
+
+    def _feed_delta(self, after_ts: float) -> int:
+        """Feed ATLAS_LIVE 5s bars newer than after_ts into aggregator."""
+        atlas_live_5s = os.path.join(ATLAS_LIVE, '5s')
+        if not os.path.exists(atlas_live_5s):
+            return 0
+        total = 0
+        for fpath in sorted(glob.glob(os.path.join(atlas_live_5s, '*.parquet'))):
+            total += self._feed_parquet(fpath, after_ts=after_ts)
+        return total
+
+    def _feed_parquet(self, fpath, after_ts=0.0):
+        """Feed a parquet file into aggregator. Returns bar count."""
+        df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
+        if after_ts > 0:
+            df = df[df['timestamp'] > after_ts]
+        count = 0
+        for _, row in df.iterrows():
+            ts = row['timestamp']
+            self._agg.feed({
+                'timestamp': ts,
+                'open': row['open'], 'high': row['high'],
+                'low': row['low'], 'close': row['close'],
+                'volume': row.get('volume', 0),
+            })
+            self._last_ts = ts
+            self._last_price = row['close']
+            count += 1
+        return count
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 4: SYNC — connect NT8, receive history
@@ -319,42 +381,43 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 5: CATCH-UP')
 
-        pending_5s = None
-
-        def on_bar_close(tf, bar):
-            nonlocal pending_5s
-            if tf == '5s':
-                pending_5s = bar
-
-        self._agg.on_bar_close = on_bar_close
-        catchup_feats = 0
+        # Feed bars into aggregator until caught up to wall time.
+        # No feature computation — just build aggregator state.
+        catchup_bars = 0
+        wall_time = time.time()
 
         while True:
             try:
-                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=5.0)
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=2.0)
             except asyncio.TimeoutError:
-                # No more bars queued — we've caught up
-                break
+                break  # queue drained
 
             if msg.get('type') != MsgType.BAR:
                 continue
 
             bar = self._extract_bar(msg)
-            pending_5s = None
             self._agg.feed(bar)
             self._last_ts = bar['timestamp']
             self._last_price = bar['close']
+            catchup_bars += 1
 
-            if pending_5s is None:
-                continue
+            # Break once we're within 10s of wall time (caught up)
+            if self._last_ts > 0 and (wall_time - self._last_ts) < MAX_SYNC_LAG_S:
+                break
 
+        # Compute ONE feature to verify + warm prev_velocities
+        if self._agg.get_bar_count('1m') >= SFE_MIN_BARS:
             feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
-                self._agg, self._sfe, self._prev_vel, bar['timestamp'])
+                self._agg, self._sfe, self._prev_vel, self._last_ts)
             if feat is not None:
-                catchup_feats += 1
-
-        logger.info(f'  Catch-up: {catchup_feats} features computed')
-        logger.info(f'  Last bar: {self._ts_str(self._last_ts)} price={self._last_price:.2f}')
+                logger.info(f'  Caught up: {catchup_bars:,} bars | '
+                            f'z={feat[12]:.2f} vr={feat[14]:.2f}')
+            else:
+                logger.info(f'  Caught up: {catchup_bars:,} bars (feature=None)')
+        else:
+            logger.info(f'  Caught up: {catchup_bars:,} bars')
+        logger.info(f'  Last bar: {self._ts_str(self._last_ts)} '
+                    f'price={self._last_price:.2f}')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 6: VERIFY — latency check
@@ -392,14 +455,23 @@ class LiveEngineV2:
         logger.info('STEP 7: TRADING')
         logger.info('=' * 60)
 
-        # Open ledger
+        # Open ledger (every 5s bar) + trade log (entry/exit events only)
         os.makedirs('reports/live', exist_ok=True)
         self._ledger_path = f'reports/live/v2_ledger_{self._session_date}.csv'
-        self._ledger = open(self._ledger_path, 'w')
-        cols = ['timestamp', 'price', 'z', 'vr', 'vel',
-                'in_pos', 'direction', 'tier', 'bars_held', 'pnl', 'peak',
-                'event']
-        self._ledger.write(','.join(cols) + '\n')
+        self._ledger = open(self._ledger_path, 'w', encoding='utf-8')
+        ledger_cols = ['timestamp', 'price', 'z', 'vr', 'vel',
+                       'in_pos', 'direction', 'tier', 'bars_held',
+                       'pnl', 'peak', 'contracts', 'event']
+        self._ledger.write(','.join(ledger_cols) + '\n')
+
+        # Trade log — one row per entry/exit, matches run_baseline output for parity
+        self._trade_log_path = f'reports/live/v2_trades_{self._session_date}.csv'
+        self._trade_log = open(self._trade_log_path, 'w', encoding='utf-8')
+        trade_cols = ['timestamp', 'type', 'tier', 'direction', 'price',
+                      'pnl', 'bars_held', 'exit_reason', 'is_chain',
+                      'contracts', 'daily_pnl']
+        self._trade_log.write(','.join(trade_cols) + '\n')
+
         self._trading = True
 
         pending_5s = None
@@ -412,10 +484,10 @@ class LiveEngineV2:
         self._agg.on_bar_close = on_bar_close
 
         logger.info(f'  Ledger: {self._ledger_path}')
+        logger.info(f'  Trades: {self._trade_log_path}')
         logger.info(f'  Listening for bars...')
 
         while not self._shutting_down:
-            # Check GUI shutdown request
             if self._shared_state.get('shutdown'):
                 self._shutting_down = True
                 break
@@ -427,14 +499,11 @@ class LiveEngineV2:
 
             msg_type = msg.get('type', '')
             if msg_type == MsgType.FILL:
-                pnl = self._orders.on_fill(msg)
-                if pnl is not None:
-                    self._daily_pnl += pnl
-                    self._trade_count += 1
-                    # Correct engine entry price from real fill
-                    fill_px = float(msg.get('fill_price', 0))
-                    if fill_px and self._engine.in_pos:
-                        self._engine.entry_price = fill_px
+                self._orders.on_fill(msg)
+                # Correct engine primary entry price from real fill
+                fill_px = float(msg.get('fill_price', 0))
+                if fill_px and self._engine.in_pos:
+                    self._engine.entry_price = fill_px
                 continue
             elif msg_type == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
@@ -469,9 +538,10 @@ class LiveEngineV2:
             vr = feat[14]
             vel = feat[15]
 
-            # Feed engine
+            # ── Feed engine, detect all events ─────────────────────────
             prev_in_pos = self._engine.in_pos
             prev_trades = len(self._engine.trades)
+            prev_chains = len(self._engine._chain_contracts)
 
             state = {
                 'features_79d': feat,
@@ -480,48 +550,108 @@ class LiveEngineV2:
             }
             self._engine.on_state(state)
 
-            # Detect events
             entered = self._engine.in_pos and not prev_in_pos
             exited = not self._engine.in_pos and prev_in_pos
-            new_trade = len(self._engine.trades) > prev_trades
+            new_trades = len(self._engine.trades) - prev_trades
+            curr_chains = len(self._engine._chain_contracts)
+            chain_opened = curr_chains > prev_chains
 
-            event = ''
+            events = []
+
+            # ── PRIMARY ENTRY ──────────────────────────────────────────
             if entered and self._orders.can_enter:
-                event = f'ENTRY_{self._engine.entry_tier}'
-                if not self._dry_run:
-                    await self._send_entry()
+                side = 'BUY' if self._engine.direction == 'long' else 'SELL'
+                order_msg = self._orders.build_entry_order(side)
+                if order_msg:
+                    await self._client.send(order_msg)
+                events.append(f'ENTRY_{self._engine.entry_tier}')
+                self._log_trade_event(bar['timestamp'], 'ENTRY',
+                    self._engine.entry_tier, self._engine.direction,
+                    bar['close'], 0, 0, '', False)
+                logger.info(f'  ENTRY {self._engine.direction} '
+                            f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
+
+            # ── CHAIN ENTRY (scale-in) ─────────────────────────────────
+            if chain_opened and self._engine.in_pos:
+                cc = self._engine._chain_contracts[-1]
+                side = 'BUY' if cc['direction'] == 'long' else 'SELL'
+                if self._orders.can_scale_in:
+                    order_msg = self._orders.build_scale_in_order(side)
+                    if order_msg:
+                        await self._client.send(order_msg)
+                events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
+                self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
+                    cc['entry_tier'], cc['direction'],
+                    bar['close'], 0, 0, '', True)
+                logger.info(f'  CHAIN ENTRY {cc["entry_tier"]} '
+                            f'@ {bar["close"]:.2f} (contracts={curr_chains + 1})')
+
+            # ── CHAIN EXITS (scale-out, before primary exit) ───────────
+            chain_exit_count = new_trades - (1 if exited else 0)
+            if chain_exit_count > 0:
+                for ci in range(chain_exit_count):
+                    ct = self._engine.trades[-(new_trades - ci - (1 if exited else 0))]
+                    # Scale-out 1 contract if position still > 1
+                    if self._orders.position.qty > 1:
+                        order_msg = self._orders.build_scale_out_order(
+                            reason=ct.get('exit_reason', 'chain_exit'))
+                        if order_msg:
+                            await self._client.send(order_msg)
+                    events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
+                    self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
+                        ct.get('entry_tier', '?'), ct.get('direction', '?'),
+                        bar['close'], ct['pnl'], ct.get('held', 0),
+                        ct.get('exit_reason', ''), True)
+                    logger.info(f'  CHAIN EXIT {ct.get("exit_reason")} '
+                                f'pnl=${ct["pnl"]:.1f}')
+
+            # ── PRIMARY EXIT (close remaining) ─────────────────────────
+            if exited and new_trades > 0:
+                t = self._engine.trades[-1] if chain_exit_count == 0 else \
+                    self._engine.trades[-(new_trades)]
+                if self._orders.can_exit:
+                    order_msg = self._orders.build_exit_order(
+                        reason=t.get('exit_reason', 'signal'))
+                    if order_msg:
+                        await self._client.send(order_msg)
+                events.append(f'EXIT_{t.get("exit_reason", "?")}')
+                self._log_trade_event(bar['timestamp'], 'EXIT',
+                    t.get('entry_tier', '?'), t.get('direction', '?'),
+                    bar['close'], t['pnl'], t.get('held', 0),
+                    t.get('exit_reason', ''), False)
+                logger.info(f'  EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f}')
+
+            # ── PnL tracking (engine is always source of truth) ────────
+            self._daily_pnl = self._engine.daily_pnl
+            self._trade_count = len(self._engine.trades)
+
+            # Unrealized PnL (primary + chains)
+            unrealized = 0
+            if self._engine.in_pos:
+                px = bar['close']
+                if self._engine.direction == 'long':
+                    unrealized = (px - self._engine.entry_price) / TICK * TV
                 else:
-                    logger.info(f'  [DRY] ENTRY {self._engine.direction} '
-                                f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
+                    unrealized = (self._engine.entry_price - px) / TICK * TV
+                for cc in self._engine._chain_contracts:
+                    if cc['direction'] == 'long':
+                        unrealized += (px - cc['entry_price']) / TICK * TV
+                    else:
+                        unrealized += (cc['entry_price'] - px) / TICK * TV
 
-            if exited and new_trade and self._orders.can_exit:
-                t = self._engine.trades[-1]
-                event = f'EXIT_{t.get("exit_reason", "?")}'
-                if not self._dry_run:
-                    await self._send_exit(t.get('exit_reason', 'signal'))
-                else:
-                    self._daily_pnl += t['pnl']
-                    self._trade_count += 1
-                logger.info(f'  {"[DRY] " if self._dry_run else ""}'
-                            f'EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f} '
-                            f'daily=${self._daily_pnl:.0f} #{self._trade_count}')
+            n_contracts = 1 + curr_chains if self._engine.in_pos else 0
+            event_str = ' '.join(events)
 
-            # Ledger — use OrderManager position for real PnL
-            pnl = 0
-            if self._orders.position.qty != 0:
-                if self._orders.position.side == 'LONG':
-                    pnl = (bar['close'] - self._orders.position.avg_price) / TICK * TV
-                else:
-                    pnl = (self._orders.position.avg_price - bar['close']) / TICK * TV
+            # ── Write ledger row ───────────────────────────────────────
+            self._write_ledger(bar['timestamp'], bar['close'], z, vr, vel,
+                               unrealized, event_str, n_contracts)
 
-            self._write_ledger(bar['timestamp'], bar['close'], z, vr, vel, pnl, event)
-
-            # Dashboard updates
+            # ── Dashboard ──────────────────────────────────────────────
             self._gui.push({
                 'type': 'TICK_UPDATE',
                 'price': bar['close'],
                 'bars': self._bar_count,
-                'unrealized': pnl,
+                'unrealized': unrealized,
                 'daily_pnl': self._daily_pnl,
                 'in_position': self._engine.in_pos,
                 'direction': self._engine.direction or '',
@@ -530,65 +660,64 @@ class LiveEngineV2:
                 'is_1m': False,
             })
 
-            if event.startswith('ENTRY'):
+            if 'ENTRY' in event_str and 'CHAIN' not in event_str.split()[0]:
                 self._gui.push_trade_marker('ENTRY',
                     'BUY' if self._engine.direction == 'long' else 'SELL',
                     bar['close'])
-            elif event.startswith('EXIT'):
-                self._gui.push_trade_marker('EXIT', '', bar['close'],
-                    pnl=self._engine.trades[-1]['pnl'] if self._engine.trades else 0)
+            if 'EXIT' in event_str and 'CHAIN' not in event_str.split()[-1]:
+                last_pnl = self._engine.trades[-1]['pnl'] if self._engine.trades else 0
+                self._gui.push_trade_marker('EXIT', '', bar['close'], pnl=last_pnl)
 
             wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
             gross_win = sum(t['pnl'] for t in self._engine.trades if t['pnl'] > 0)
             gross_loss = sum(t['pnl'] for t in self._engine.trades if t['pnl'] <= 0)
             z_pct = min(abs(z) / 2.0 * 100, 100)
+            eb = {'reversed': 0, 'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0,
+                  'q100plus': 0, 'forced': 0}
             self._gui.push_stats(
                 session_pnl=self._daily_pnl, session_wins=wins,
                 session_trades=self._trade_count,
                 gross_win=gross_win, gross_loss=gross_loss,
-                exit_buckets={}, belief_pct=z_pct,
+                exit_buckets=eb, belief_pct=z_pct,
                 in_position=self._engine.in_pos, daily_pnl=self._daily_pnl)
 
-            # Status line
+            # ── Status line ────────────────────────────────────────────
             if self._feat_count % 12 == 0:
                 pos = self._engine.direction or 'FLAT'
                 tier = self._engine.entry_tier or '-'
+                chain_str = f'+{curr_chains}ch' if curr_chains else ''
                 print(f'\r  {self._ts_str(bar["timestamp"])} | {bar["close"]:>10.2f} | '
-                      f'{pos:>5} {tier:>15} | z={z:>+5.1f} vr={vr:.2f} | '
+                      f'{pos:>5} {tier:>15} {chain_str:>4} | z={z:>+5.1f} vr={vr:.2f} | '
                       f'tr={self._trade_count} day=${self._daily_pnl:>+.0f}    ',
                       end='', flush=True)
 
-            # Periodic maintenance
+            # ── Periodic maintenance ───────────────────────────────────
             if self._bar_count % 300 == 0:
                 self._periodic_save()
                 self._orders.cleanup_stale_orders(max_age_s=120.0)
 
     # ═══════════════════════════════════════════════════════════════════
-    # TRADE EXECUTION — via OrderManager (NT8 is source of truth)
+    # TRADE LOG — one row per entry/exit for parity comparison
     # ═══════════════════════════════════════════════════════════════════
 
-    async def _send_entry(self):
-        """Build and send entry order via OrderManager."""
-        side = 'BUY' if self._engine.direction == 'long' else 'SELL'
-        msg = self._orders.build_entry_order(side)
-        if msg:
-            await self._client.send(msg)
-        else:
-            logger.warning(f'  OrderManager rejected entry: {side}')
-
-    async def _send_exit(self, reason='signal'):
-        """Build and send exit order via OrderManager."""
-        msg = self._orders.build_exit_order(reason)
-        if msg:
-            await self._client.send(msg)
-        else:
-            logger.warning(f'  OrderManager rejected exit: {reason}')
+    def _log_trade_event(self, ts, event_type, tier, direction, price,
+                         pnl, bars_held, exit_reason, is_chain):
+        """Write one trade event row. Matches run_baseline trade format."""
+        if self._trade_log is None:
+            return
+        row = [f'{ts:.0f}', event_type, tier, direction, f'{price:.2f}',
+               f'{pnl:.1f}', str(bars_held), exit_reason,
+               '1' if is_chain else '0',
+               str(self._orders.position.qty),
+               f'{self._daily_pnl:.1f}']
+        self._trade_log.write(','.join(row) + '\n')
+        self._trade_log.flush()
 
     # ═══════════════════════════════════════════════════════════════════
     # LEDGER + SAVE
     # ═══════════════════════════════════════════════════════════════════
 
-    def _write_ledger(self, ts, price, z, vr, vel, pnl, event):
+    def _write_ledger(self, ts, price, z, vr, vel, pnl, event, n_contracts=0):
         if self._ledger is None:
             return
         row = [f'{ts:.0f}', f'{price:.2f}', f'{z:.4f}', f'{vr:.4f}', f'{vel:.2f}',
@@ -598,17 +727,20 @@ class LiveEngineV2:
                str(self._engine.bars_held),
                f'{pnl:.1f}',
                f'{self._engine.peak_pnl:.1f}',
+               str(n_contracts),
                event]
         self._ledger.write(','.join(row) + '\n')
 
     def _periodic_save(self):
-        if self._ledger:
+        if self._ledger and not self._ledger.closed:
             self._ledger.flush()
+        # Save aggregator checkpoint (live)
+        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel)
         # Save live bars to ATLAS_LIVE
         if self._live_bars:
             from live.incremental_writer import IncrementalWriter
             writer = IncrementalWriter(ATLAS_LIVE, self._session_date)
-            writer.save_all_chunks({'1s': self._live_bars})
+            writer.save_all_chunks({'5s': self._live_bars})
 
     # ═══════════════════════════════════════════════════════════════════
     # SHUTDOWN
@@ -619,26 +751,41 @@ class LiveEngineV2:
         logger.info('')
         logger.info('SHUTDOWN')
 
-        # Close position if open
-        if not self._orders.is_flat and not self._dry_run:
-            await self._send_exit('shutdown')
+        # Close all positions (primary + chains)
+        if not self._orders.is_flat:
+            order_msg = self._orders.build_exit_order(reason='shutdown')
+            if order_msg:
+                await self._client.send(order_msg)
             await asyncio.sleep(2.0)
         self._engine.force_close()
 
-        # Save ledger
+        # Save final checkpoint
+        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel)
+        logger.info(f'  Checkpoint saved: {LIVE_CHECKPOINT}')
+
+        # Save ledger + trade log
         if self._ledger:
             self._ledger.flush()
             self._ledger.close()
             logger.info(f'  Ledger: {self._ledger_path}')
+        if hasattr(self, '_trade_log') and self._trade_log:
+            self._trade_log.flush()
+            self._trade_log.close()
+            logger.info(f'  Trades: {self._trade_log_path}')
 
         # Save live data
         self._periodic_save()
 
-        # Summary
-        logger.info(f'  Bars:   {self._bar_count:,}')
-        logger.info(f'  Feats:  {self._feat_count:,}')
-        logger.info(f'  Trades: {self._trade_count}')
-        logger.info(f'  PnL:    ${self._daily_pnl:.0f}')
+        # Summary — engine is source of truth
+        wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
+        chains = sum(1 for t in self._engine.trades
+                     if str(t.get('exit_reason', '')).startswith('chain_'))
+        logger.info(f'  Bars:     {self._bar_count:,}')
+        logger.info(f'  Feats:    {self._feat_count:,}')
+        logger.info(f'  Trades:   {self._trade_count} ({chains} chains)')
+        logger.info(f'  Win rate: {wins}/{self._trade_count} '
+                    f'({wins/max(self._trade_count,1)*100:.0f}%)')
+        logger.info(f'  PnL:      ${self._daily_pnl:.0f}')
 
         # Disconnect
         if self._client:
@@ -669,7 +816,6 @@ class LiveEngineV2:
 
 def main():
     parser = argparse.ArgumentParser(description='Live Engine V2')
-    parser.add_argument('--dry-run', action='store_true', help='No orders to NT8')
     parser.add_argument('--skip-check', action='store_true')
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--headless', action='store_true', help='No dashboard GUI')
@@ -702,7 +848,7 @@ def main():
         t.start()
         logger.info('Dashboard launched')
 
-    engine = LiveEngineV2(config, dry_run=args.dry_run,
+    engine = LiveEngineV2(config,
                           skip_check=args.skip_check,
                           skip_build=args.skip_build,
                           gui_queue=gui_queue,

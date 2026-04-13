@@ -258,3 +258,101 @@ class Aggregator:
 
         _logger.info(f'Warmup loaded: {loaded} (stale={stale_hours:.1f}h)')
         return manifest
+
+    # ══════════════════════════════════════════════════════════════════
+    # CHECKPOINT — single JSON file, shared between training and live
+    # ══════════════════════════════════════════════════════════════════
+
+    def save_checkpoint(self, path: str, velocities: dict = None):
+        """Save full aggregator state to a single JSON checkpoint.
+
+        Contains bar history per TF, accumulator partial state, and
+        prev_velocities. Used by build_dataset.py (NT8 checkpoint) and
+        engine_v2.py (live checkpoint).
+        """
+        import os, json
+        from datetime import datetime, timezone
+
+        os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+
+        bar_counts = {}
+        bars_out = {}
+        for tf, bars in self.history.items():
+            if not bars:
+                continue
+            bar_counts[tf] = len(bars)
+            bars_out[tf] = bars  # already list of dicts
+
+        # Capture accumulator partial bar state
+        accumulators = {}
+        for tf, acc in self._accumulators.items():
+            if acc.count > 0:
+                accumulators[tf] = {
+                    'current_start': acc.current_start,
+                    'open': acc.open,
+                    'high': acc.high,
+                    'low': acc.low,
+                    'close': acc.close,
+                    'volume': acc.volume,
+                    'count': acc.count,
+                }
+
+        # Find last timestamp across all TFs
+        last_ts = 0.0
+        last_price = 0.0
+        for bars in self.history.values():
+            if bars and bars[-1]['timestamp'] > last_ts:
+                last_ts = bars[-1]['timestamp']
+                last_price = bars[-1]['close']
+
+        checkpoint = {
+            'version': 3,
+            'last_ts': last_ts,
+            'last_price': last_price,
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'bar_counts': bar_counts,
+            'velocities': velocities or {},
+            'accumulators': accumulators,
+            'bars': bars_out,
+        }
+
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(checkpoint, f)
+
+    def load_checkpoint(self, path: str):
+        """Load aggregator state from JSON checkpoint.
+
+        Returns (last_ts, velocities) so caller knows where to resume.
+        Restores bar history and accumulator partial state.
+        """
+        import json, logging
+        _logger = logging.getLogger(__name__)
+
+        with open(path, encoding='utf-8') as f:
+            cp = json.load(f)
+
+        if cp.get('version', 0) < 3:
+            raise ValueError(f'Checkpoint version {cp.get("version")} < 3')
+
+        # Restore bar history
+        for tf, bars in cp.get('bars', {}).items():
+            self.history[tf] = bars
+
+        # Restore accumulator partial state
+        for tf, acc_state in cp.get('accumulators', {}).items():
+            if tf in self._accumulators:
+                acc = self._accumulators[tf]
+                acc.current_start = acc_state['current_start']
+                acc.open = acc_state['open']
+                acc.high = acc_state['high']
+                acc.low = acc_state['low']
+                acc.close = acc_state['close']
+                acc.volume = acc_state['volume']
+                acc.count = acc_state['count']
+
+        bar_counts = cp.get('bar_counts', {})
+        last_ts = cp.get('last_ts', 0)
+        velocities = cp.get('velocities', {})
+
+        _logger.info(f'Checkpoint loaded: {bar_counts} last_ts={last_ts:.0f}')
+        return last_ts, velocities

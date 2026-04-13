@@ -14,7 +14,7 @@ class LiveConfig:
 
     # ── Instrument ──────────────────────────────────────────────────────
     instrument: str = "MNQ 06-26"     # NT8 instrument name (front month)
-    account: str = "Playback101"      # Must match NT8 BayesianBridge account
+    account: str = "Sim101"            # Must match NT8 BayesianBridge account
     asset_ticker: str = "MNQ"         # Maps to config.symbols.SYMBOL_MAP
     point_value: float = 2.0          # $/point  -- MNQ=$2, NQ=$20, ES=$50, MES=$5
     tick_size: float = 0.25           # Min price increment
@@ -24,8 +24,8 @@ class LiveConfig:
 
     # ── Engine ──────────────────────────────────────────────────────────
     warmup_bars: int = 240            # Bars before first signal (auto-scaled to anchor TF)
-    base_resolution_s: int = 15      # Bar size from NT8
-    anchor_tf: str = '15s'           # Primary signal TF: 1s,5s,15s,30s,1m,3m,5m
+    base_resolution_s: int = 5       # Bar size from NT8 (5s chart)
+    anchor_tf: str = '5s'            # Primary signal TF — matches training pipeline
 
     # ── Ping-Pong ─────────────────────────────────────────────────────
     ping_pong: bool = False           # Continuous wave-riding with direction refinement
@@ -40,5 +40,6 @@ class LiveConfig:
     pp_max_hold_bars: int = 0         # Override max hold (0 = inherit)
 
     # ── Risk ────────────────────────────────────────────────────────────
-    max_position_size: int = 1        # Single contract for paper
+    max_position_size: int = 1        # Contracts per entry (1 per primary/chain)
+    max_contracts: int = 3            # Absolute max simultaneous contracts (primary + chains)
     max_daily_loss_usd: float = 0.0    # 0 = disabled (sim mode)

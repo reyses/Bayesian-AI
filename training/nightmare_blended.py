@@ -219,7 +219,8 @@ def _feat_to_grid(feat_79d):
 class BlendedEngine:
     """One NMP engine with tiered exit physics + CNN direction flip."""
 
-    def __init__(self, use_cnn=True, release_dir=None):
+    def __init__(self, use_cnn=True, release_dir=None, skip_thin_market=False):
+        self.skip_thin_market = skip_thin_market  # skip Sunday + holiday entries
         self.in_pos = False
         self.direction = None
         self.entry_price = 0.0
@@ -594,6 +595,11 @@ class BlendedEngine:
                 })
 
         # === ENTRY CHECK — 1m boundaries only ===
+        # Skip thin-market sessions (Sundays + holiday-adjacent)
+        if self.skip_thin_market:
+            dt = datetime.utcfromtimestamp(ts)
+            if dt.weekday() == 6:  # Sunday
+                return
         if not self.in_pos and is_1m and price > 100:
             # Unified tier classification (no NMP/non-NMP split)
             direction, tier, cnn_flipped = self._classify_full_tier(feat, z)

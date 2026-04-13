@@ -1,0 +1,100 @@
+
+======================================================================
+BASELINE REPORT (physics only, no CNN) [skip-sundays]
+Generated: 2026-04-12 17:01:01
+======================================================================
+
+Dataset             $/day   Trades      WinDays   Days
+--------------------------------------------------------
+IS                 +3,592   64,142  231/231  (100%)  231
+OOS                +3,939   17,155   59/62   (95%)   62
+OOS-NT8            +4,975    4,678   16/16   (100%)   16
+
+PRIMARY TRADES:
+Tier                  Trades    WR     $/tr    $/day
+----------------------------------------------------
+RIDE_AGAINST            9704   63%     15.6     +656
+FADE_CALM               9905   61%     12.2     +521
+FADE_AGAINST            1525   62%     14.6      +96
+KILL_SHOT               1337   57%      2.6      +15
+FREIGHT_TRAIN              2  100%     96.5       +1
+MTF_EXHAUSTION             3   33%    -25.3       -0
+CASCADE                  310   49%     -3.6       -5
+MTF_BREAKOUT             247   38%     -5.1       -5
+TOTAL PRIMARY          23033                   +1278
+
+CHAIN TRADES:
+Tier                  Trades    WR     $/tr    $/day
+----------------------------------------------------
+RIDE_AGAINST           17773   58%     13.5    +1040
+FADE_CALM              17618   65%     12.3     +941
+FADE_AGAINST            2938   71%     19.5     +248
+KILL_SHOT               2083   69%      6.8      +61
+MTF_BREAKOUT             418   55%      6.1      +11
+CASCADE                  259   67%      8.6      +10
+FREIGHT_TRAIN             15   80%     43.2       +3
+MTF_EXHAUSTION             5   40%     -6.1       -0
+TOTAL CHAIN            41109                   +2313
+
+IS DISTRIBUTION:
+  Mean:   $+3,592
+  Median: $+2,979
+  Mode:   $+2,750 bucket (20 days)
+  P5/P25/P75/P95: $+752 / $+2,032 / $+4,626 / $+8,110
+  Worst:  $+39 (2025_05_06)
+  Best:   $+19,770 (2025_04_09)
+
+OOS DISTRIBUTION:
+  Mean:   $+3,939
+  Median: $+3,834
+  Mode:   $+2,250 bucket (6 days)
+  P5/P25/P75/P95: $+242 / $+2,499 / $+5,156 / $+7,378
+  Worst:  $-728 (2026_03_20)
+  Best:   $+8,432 (2026_02_17)
+
+OOS-NT8 DISTRIBUTION:
+  Mean:   $+4,975
+  Median: $+5,253
+  Mode:   $+5,000 bucket (2 days)
+  P5/P25/P75/P95: $+1,280 / $+3,047 / $+6,726 / $+8,081
+  Worst:  $+784 (2026_04_03)
+  Best:   $+9,646 (2026_04_07)
+
+DAY-OF-WEEK ANALYSIS:
+  IS:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday          44    44  100%   +3,361        -
+  Tuesday         46    46  100%   +3,842        -
+  Wednesday       48    48  100%   +3,597        -
+  Thursday        46    46  100%   +3,588        -
+  Friday          47    47  100%   +3,562        -
+
+  OOS:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday          12    11   92%   +3,793        -
+  Tuesday         11    11  100%   +4,498        -
+  Wednesday       13    13  100%   +4,108        -
+  Thursday        13    13  100%   +4,159        -
+  Friday          13    11   85%   +3,210        1
+
+  OOS-NT8:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday           3     3  100%   +4,654        -
+  Tuesday          3     3  100%   +8,067        -
+  Wednesday        3     3  100%   +4,026        -
+  Thursday         3     3  100%   +4,785        -
+  Friday           4     4  100%   +3,752        -
+
+LOSING DAYS:
+  IS: NONE
+  OOS (1 losing):
+  Day            DOW             PnL  Trades
+  ------------------------------------------
+  2026_03_20     Friday         -728      47
+  → 0/1 are Sundays
+
+  OOS-NT8: NONE
+======================================================================

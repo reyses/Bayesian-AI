@@ -266,6 +266,43 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
     return pd.DataFrame(rows) if rows else pd.DataFrame(), prev_velocities, sfe_cache
 
 
+WARMUP_DAYS_CHECKPOINT = 10  # days of 5s bars to include in checkpoint
+
+
+def _save_checkpoint_for_live(all_days: list, anchor_tf: str, prev_velocities: dict):
+    """Build aggregator from last N days and save checkpoint for live engine."""
+    from training.aggregator import Aggregator
+
+    checkpoint_path = os.path.join(ATLAS_ROOT, 'checkpoint.json')
+    days_to_load = all_days[-WARMUP_DAYS_CHECKPOINT:]
+    if not days_to_load:
+        return
+
+    print(f'\nBuilding checkpoint for live engine...')
+    agg = Aggregator(history_limit=2000)
+
+    total_bars = 0
+    for day_name in tqdm(days_to_load, desc='  Checkpoint', unit='day', leave=False):
+        # Load 5s bars for this day
+        fpath = os.path.join(ATLAS_ROOT, anchor_tf, f'{day_name}.parquet')
+        if not os.path.exists(fpath):
+            continue
+        df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
+        for _, row in df.iterrows():
+            agg.feed({
+                'timestamp': row['timestamp'],
+                'open': row['open'], 'high': row['high'],
+                'low': row['low'], 'close': row['close'],
+                'volume': row.get('volume', 0),
+            })
+            total_bars += 1
+
+    agg.save_checkpoint(checkpoint_path, velocities=prev_velocities)
+    bar_counts = {tf: len(bars) for tf, bars in agg.history.items() if bars}
+    print(f'  Checkpoint saved: {checkpoint_path}')
+    print(f'  {total_bars:,} bars from {len(days_to_load)} days: {bar_counts}')
+
+
 def main():
     global ATLAS_ROOT, OUTPUT_DIR
     args = parse_args()
@@ -352,6 +389,10 @@ def main():
                 if col in df.columns:
                     v = df[col].var()
                     print(f'  {col}: var={v:.6f} {"ALIVE" if v > 1e-6 else "DEAD"}')
+
+    # Save aggregator checkpoint for live engine startup
+    # Build aggregator from last WARMUP_DAYS of 5s bars
+    _save_checkpoint_for_live(all_days_full, anchor_tf, prev_velocities)
 
 
 if __name__ == '__main__':
