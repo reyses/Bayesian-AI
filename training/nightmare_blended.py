@@ -1121,6 +1121,55 @@ class BlendedEngine:
             time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'
             self._close_trade(self._last_price, ts, time_str, reason, feat)
 
+    def get_trade_state(self) -> dict:
+        """Snapshot of current trade for checkpoint/recovery."""
+        if not self.in_pos:
+            return {'in_pos': False}
+        chains = []
+        for cc in self._chain_contracts:
+            chains.append({
+                'direction': cc['direction'],
+                'entry_price': cc['entry_price'],
+                'entry_ts': cc.get('entry_ts', 0),
+                'entry_tier': cc['entry_tier'],
+            })
+        return {
+            'in_pos': True,
+            'direction': self.direction,
+            'entry_price': self.entry_price,
+            'entry_ts': self._entry_ts,
+            'entry_tier': self.entry_tier,
+            'bars_held': self.bars_held,
+            'peak_pnl': self.peak_pnl,
+            'daily_pnl': self.daily_pnl,
+            'trade_count': len(self.trades),
+            'chains': chains,
+        }
+
+    def restore_trade_state(self, state: dict):
+        """Restore an in-flight trade from checkpoint (crash recovery)."""
+        if not state.get('in_pos', False):
+            return
+        self.in_pos = True
+        self.direction = state['direction']
+        self.entry_price = state['entry_price']
+        self._entry_ts = state['entry_ts']
+        self.entry_tier = state['entry_tier']
+        self.bars_held = state.get('bars_held', 0)
+        self.peak_pnl = state.get('peak_pnl', 0)
+        self.daily_pnl = state.get('daily_pnl', 0)
+        # Restore chain contracts
+        self._chain_contracts = []
+        for cc_state in state.get('chains', []):
+            self._chain_contracts.append({
+                'direction': cc_state['direction'],
+                'entry_price': cc_state['entry_price'],
+                'entry_ts': cc_state.get('entry_ts', 0),
+                'entry_tier': cc_state['entry_tier'],
+                'entry_79d': np.zeros(91),  # not recoverable, not needed for exit physics
+                'cnn_flipped': False,
+            })
+
     def reset(self):
         self.in_pos = False
         self.direction = None

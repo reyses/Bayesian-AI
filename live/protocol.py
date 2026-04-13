@@ -24,16 +24,17 @@ HEADER_FMT = '>I'              # big-endian unsigned int
 class MsgType(str, Enum):
     """All valid message types on the wire."""
     # NT8 -> Python
-    BAR          = 'BAR'
-    PARTIAL_BAR  = 'PARTIAL_BAR'
-    FILL         = 'FILL'
-    ORDER_STATUS = 'ORDER_STATUS'
-    POSITION     = 'POSITION'
-    CONNECTED    = 'CONNECTED'
-    HEARTBEAT    = 'HEARTBEAT'
-    DOM            = 'DOM'
-    HISTORY_DONE   = 'HISTORY_DONE'
-    ACCOUNT_UPDATE = 'ACCOUNT_UPDATE'
+    BAR              = 'BAR'
+    PARTIAL_BAR      = 'PARTIAL_BAR'
+    FILL             = 'FILL'
+    ORDER_STATUS     = 'ORDER_STATUS'
+    ORDER_ACK        = 'ORDER_ACK'       # bridge confirms order receipt
+    POSITION         = 'POSITION'
+    CONNECTED        = 'CONNECTED'
+    HEARTBEAT        = 'HEARTBEAT'       # enhanced: includes position state
+    DOM              = 'DOM'
+    HISTORY_DONE     = 'HISTORY_DONE'
+    ACCOUNT_UPDATE   = 'ACCOUNT_UPDATE'
 
     # Python -> NT8
     PLACE_ORDER      = 'PLACE_ORDER'
@@ -41,6 +42,7 @@ class MsgType(str, Enum):
     CANCEL_ORDER     = 'CANCEL_ORDER'
     SUBSCRIBE        = 'SUBSCRIBE'
     REQUEST_HISTORY  = 'REQUEST_HISTORY'
+    REQUEST_POSITION = 'REQUEST_POSITION'  # proactive position sync
     RESUME_FROM      = 'RESUME_FROM'
     # HEARTBEAT is shared
 
@@ -51,9 +53,10 @@ _REQUIRED: Dict[str, tuple] = {
     'PARTIAL_BAR':  ('instrument', 'timestamp', 'open', 'high', 'low', 'close', 'volume'),
     'FILL':         ('order_id', 'side', 'qty', 'fill_price', 'fill_time'),
     'ORDER_STATUS': ('order_id', 'status'),
+    'ORDER_ACK':    ('order_id',),
     'POSITION':     ('instrument', 'qty'),
     'CONNECTED':    ('account',),
-    'HEARTBEAT':    (),
+    'HEARTBEAT':    (),  # position_qty/side/avg_price optional (enhanced)
     'DOM':            ('bid', 'ask'),
     'HISTORY_DONE':      (),
     'ACCOUNT_UPDATE':    ('cash_value',),
@@ -186,6 +189,11 @@ def request_history() -> dict:
 def resume_from(last_timestamp: float) -> dict:
     """Request only bars after last_timestamp (delta sync)."""
     return {'type': MsgType.RESUME_FROM, 'last_timestamp': last_timestamp}
+
+
+def request_position() -> dict:
+    """Ask bridge for current position snapshot."""
+    return {'type': MsgType.REQUEST_POSITION}
 
 
 def heartbeat() -> dict:

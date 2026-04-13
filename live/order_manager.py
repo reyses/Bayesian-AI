@@ -360,6 +360,43 @@ class OrderManager:
 
             return pnl
 
+    def on_order_ack(self, msg: dict):
+        """Handle ORDER_ACK — bridge confirms receipt of our order."""
+        oid = msg.get('order_id', '')
+        rec = self._orders.get(oid)
+        if rec:
+            logger.info(f"ACK received: {oid} (bridge has it)")
+        else:
+            logger.warning(f"ACK for unknown order: {oid}")
+
+    def on_heartbeat(self, msg: dict):
+        """Handle enhanced heartbeat — reconcile position state.
+
+        If bridge says FLAT but we think we're in position (or vice versa),
+        bridge wins. This catches drift from missed FILL/POSITION messages.
+        """
+        nt8_qty = int(msg.get('position_qty', 0))
+        nt8_side = msg.get('position_side', 'FLAT')
+
+        our_qty = self.position.qty
+        our_side = self.position.side or 'FLAT'
+
+        # Check for drift
+        if nt8_qty == 0 and our_qty != 0:
+            logger.warning(f"HEARTBEAT DRIFT: NT8=FLAT but we think {our_side} x{our_qty} — syncing to FLAT")
+            self.position = PositionState()
+            self._awaiting_entry_fill = False
+            self._awaiting_exit_fill = False
+        elif nt8_qty != 0 and our_qty == 0 and not self._awaiting_entry_fill:
+            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} but we think FLAT — syncing")
+            self.position = PositionState(
+                side=nt8_side, qty=nt8_qty,
+                avg_price=float(msg.get('position_avg_price', 0)),
+            )
+        elif nt8_qty != our_qty and nt8_qty != 0:
+            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} vs local={our_side} x{our_qty}")
+            self.position.qty = nt8_qty
+
     def on_order_status(self, msg: dict):
         """Handle an ORDER_STATUS message from NT8."""
         oid = msg.get('order_id', '')

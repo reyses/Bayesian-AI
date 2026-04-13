@@ -817,9 +817,23 @@ namespace NinjaTrader.NinjaScript.Indicators
                             + inst + ", bar_period_s=" + bps);
                         break;
                     case "HEARTBEAT":
+                        // Enhanced heartbeat — includes position state for drift detection
+                        Position hbPos = FindPosition();
+                        int hbQty = 0;
+                        string hbSide = "FLAT";
+                        double hbAvg = 0;
+                        if (hbPos != null && hbPos.MarketPosition != MarketPosition.Flat)
+                        {
+                            hbQty = hbPos.Quantity;
+                            hbSide = hbPos.MarketPosition == MarketPosition.Long ? "LONG" : "SHORT";
+                            hbAvg = hbPos.AveragePrice;
+                        }
                         string hb = "{"
                             + Q("type") + ":" + Q("HEARTBEAT") + ","
-                            + Q("server_time") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
+                            + Q("server_time") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow)) + ","
+                            + Q("position_qty") + ":" + hbQty + ","
+                            + Q("position_side") + ":" + Q(hbSide) + ","
+                            + Q("position_avg_price") + ":" + D2S(hbAvg)
                             + "}";
                         SendRawJson(hb);
                         break;
@@ -831,6 +845,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string lastTs = GetVal(cmd, "last_timestamp", "0");
                         Print("BayesianBridge: Delta sync from ts=" + lastTs);
                         SendHistoryBufferFrom(double.Parse(lastTs));
+                        break;
+                    case "REQUEST_POSITION":
+                        Print("BayesianBridge: Position requested by Python");
+                        SendPositionSnapshot();
+                        SendAccountUpdate();
                         break;
                     default:
                         Print("BayesianBridge: Unknown command: " + msgType);
@@ -856,6 +875,9 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
 
             Print("BayesianBridge: PLACE_ORDER " + side + " " + qty + " id=" + orderId);
+
+            // ACK — confirm receipt before submitting
+            SendOrderAck(orderId);
 
             if (_account == null)
             {
@@ -989,6 +1011,16 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 Print("BayesianBridge: Send failed: " + ex.Message);
             }
+        }
+
+        private void SendOrderAck(string orderId)
+        {
+            string json = "{"
+                + Q("type") + ":" + Q("ORDER_ACK") + ","
+                + Q("order_id") + ":" + Q(orderId) + ","
+                + Q("server_time") + ":" + D2S(ToUnixSeconds(DateTime.UtcNow))
+                + "}";
+            SendRawJson(json);
         }
 
         private void SendOrderRejected(string orderId, string reason)

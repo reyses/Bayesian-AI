@@ -163,6 +163,7 @@ class LiveEngineV2:
 
             await self._step4_sync()
             await self._step5_catchup()
+            self._step5b_recover_trade()
             self._step6_verify()
 
             if self._synced:
@@ -269,8 +270,10 @@ class LiveEngineV2:
                 except (json.JSONDecodeError, KeyError):
                     logger.warning(f'  Corrupt checkpoint: {path}')
 
+        self._saved_trade_state = {}  # for recovery after NT8 connects
         if best_path:
-            last_ts, self._prev_vel = self._agg.load_checkpoint(best_path)
+            last_ts, self._prev_vel, self._saved_trade_state = \
+                self._agg.load_checkpoint(best_path)
             self._last_ts = last_ts
             bar_counts = {tf: len(bars) for tf, bars in self._agg.history.items() if bars}
             logger.info(f'  Checkpoint: {os.path.basename(os.path.dirname(best_path))}/'
@@ -420,6 +423,45 @@ class LiveEngineV2:
                     f'price={self._last_price:.2f}')
 
     # ═══════════════════════════════════════════════════════════════════
+    # STEP 5b: RECOVER — restore in-flight trade if NT8 has open position
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _step5b_recover_trade(self):
+        """If NT8 has an open position and checkpoint has matching trade state,
+        restore engine to continue managing the trade.
+        """
+        nt8_pos = self._orders.position
+        saved = self._saved_trade_state
+
+        if nt8_pos.qty == 0 and not saved.get('in_pos', False):
+            logger.info('  RECOVERY: both flat — clean start')
+            return
+
+        if nt8_pos.qty == 0 and saved.get('in_pos', False):
+            logger.warning('  RECOVERY: checkpoint had trade but NT8 is flat — trade closed while offline')
+            return
+
+        if nt8_pos.qty != 0 and not saved.get('in_pos', False):
+            logger.warning(f'  RECOVERY: NT8 has {nt8_pos.side} x{nt8_pos.qty} '
+                           f'but no trade in checkpoint — unknown trade, monitoring only')
+            return
+
+        # Both have a position — verify they match
+        if nt8_pos.qty != 0 and saved.get('in_pos', False):
+            saved_dir = saved.get('direction', '')
+            nt8_dir = 'long' if nt8_pos.side == 'LONG' else 'short'
+
+            if saved_dir == nt8_dir:
+                self._engine.restore_trade_state(saved)
+                n_chains = len(saved.get('chains', []))
+                logger.info(f'  RECOVERY: restored {saved_dir} {saved.get("entry_tier")} '
+                            f'@ {saved.get("entry_price", 0):.2f} '
+                            f'(chains={n_chains}, peak=${saved.get("peak_pnl", 0):.0f})')
+            else:
+                logger.error(f'  RECOVERY: direction mismatch — NT8={nt8_dir} '
+                             f'checkpoint={saved_dir} — NOT restoring')
+
+    # ═══════════════════════════════════════════════════════════════════
     # STEP 6: VERIFY — latency check
     # ═══════════════════════════════════════════════════════════════════
 
@@ -505,11 +547,19 @@ class LiveEngineV2:
                 if fill_px and self._engine.in_pos:
                     self._engine.entry_price = fill_px
                 continue
+            elif msg_type == MsgType.ORDER_ACK:
+                self._orders.on_order_ack(msg)
+                continue
             elif msg_type == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
                 continue
             elif msg_type == 'POSITION':
                 self._orders.on_position(msg)
+                continue
+            elif msg_type == MsgType.HEARTBEAT:
+                # Enhanced heartbeat — reconcile position
+                if 'position_qty' in msg:
+                    self._orders.on_heartbeat(msg)
                 continue
             elif msg_type != MsgType.BAR:
                 continue
@@ -734,8 +784,10 @@ class LiveEngineV2:
     def _periodic_save(self):
         if self._ledger and not self._ledger.closed:
             self._ledger.flush()
-        # Save aggregator checkpoint (live)
-        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel)
+        # Save aggregator checkpoint (live) with trade state for recovery
+        trade_state = self._engine.get_trade_state() if self._engine else {}
+        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel,
+                                  trade_state=trade_state)
         # Save live bars to ATLAS_LIVE
         if self._live_bars:
             from live.incremental_writer import IncrementalWriter
@@ -759,8 +811,10 @@ class LiveEngineV2:
             await asyncio.sleep(2.0)
         self._engine.force_close()
 
-        # Save final checkpoint
-        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel)
+        # Save final checkpoint with trade state (for recovery on restart)
+        trade_state = self._engine.get_trade_state() if self._engine else {}
+        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel,
+                                  trade_state=trade_state)
         logger.info(f'  Checkpoint saved: {LIVE_CHECKPOINT}')
 
         # Save ledger + trade log

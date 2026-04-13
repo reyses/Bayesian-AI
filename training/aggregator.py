@@ -263,12 +263,14 @@ class Aggregator:
     # CHECKPOINT — single JSON file, shared between training and live
     # ══════════════════════════════════════════════════════════════════
 
-    def save_checkpoint(self, path: str, velocities: dict = None):
+    def save_checkpoint(self, path: str, velocities: dict = None,
+                        trade_state: dict = None):
         """Save full aggregator state to a single JSON checkpoint.
 
-        Contains bar history per TF, accumulator partial state, and
-        prev_velocities. Used by build_dataset.py (NT8 checkpoint) and
-        engine_v2.py (live checkpoint).
+        Contains bar history per TF, accumulator partial state,
+        prev_velocities, and optionally the current trade state
+        for crash recovery. Used by build_dataset.py (NT8 checkpoint)
+        and engine_v2.py (live checkpoint).
         """
         import os, json
         from datetime import datetime, timezone
@@ -314,6 +316,7 @@ class Aggregator:
             'velocities': velocities or {},
             'accumulators': accumulators,
             'bars': bars_out,
+            'trade_state': trade_state or {},
         }
 
         with open(path, 'w', encoding='utf-8') as f:
@@ -353,6 +356,7 @@ class Aggregator:
         bar_counts = cp.get('bar_counts', {})
         last_ts = cp.get('last_ts', 0)
         velocities = cp.get('velocities', {})
+        trade_state = cp.get('trade_state', {})
 
         _logger.info(f'Checkpoint loaded: {bar_counts} last_ts={last_ts:.0f}')
-        return last_ts, velocities
+        return last_ts, velocities, trade_state
