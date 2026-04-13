@@ -65,6 +65,7 @@ TV = 0.50
 # Paths
 ATLAS_NT8 = 'DATA/ATLAS_NT8'
 ATLAS_LIVE = 'DATA/ATLAS_LIVE'
+FEATURES_LIVE = 'DATA/FEATURES_LIVE_5s'
 FEATURES_NT8 = 'DATA/FEATURES_NT8_5s'
 NT8_CONFIG = 'config/nt8_dataset.json'
 
@@ -612,6 +613,7 @@ class LiveEngineV2:
                 continue
 
             self._feat_count += 1
+            self._live_79d.append({'timestamp': bar['timestamp'], 'features': feat.copy()})
             z = feat[12]
             vr = feat[14]
             vel = feat[15]
@@ -844,11 +846,39 @@ class LiveEngineV2:
         trade_state = self._engine.get_trade_state() if self._engine else {}
         self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel,
                                   trade_state=trade_state)
+        # Save live features — same schema as build_dataset output
+        self._save_live_features()
         # Save live bars to ATLAS_LIVE
         if self._live_bars:
             from live.incremental_writer import IncrementalWriter
             writer = IncrementalWriter(ATLAS_LIVE, self._session_date)
             writer.save_all_chunks({'5s': self._live_bars})
+
+    def _save_live_features(self):
+        """Save accumulated 91D features to parquet — same format as build_dataset."""
+        if not self._live_79d:
+            return
+        from core.features_79d import FEATURE_NAMES_79D
+        os.makedirs(FEATURES_LIVE, exist_ok=True)
+
+        # Group by UTC date
+        by_date = {}
+        for row in self._live_79d:
+            ts = row['timestamp']
+            day = datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%Y_%m_%d')
+            by_date.setdefault(day, []).append(row)
+
+        for day, rows in by_date.items():
+            timestamps = [r['timestamp'] for r in rows]
+            features = np.array([r['features'] for r in rows])
+            data = {'timestamp': timestamps}
+            for i, name in enumerate(FEATURE_NAMES_79D):
+                data[name] = features[:, i] if i < features.shape[1] else 0.0
+            df = pd.DataFrame(data)
+            df['timestamp'] = df['timestamp'].astype(np.int64)
+            out_path = os.path.join(FEATURES_LIVE, f'{day}.parquet')
+            df.to_parquet(out_path, index=False)
+        logger.info(f'  Live features: {len(self._live_79d)} rows -> {FEATURES_LIVE}/')
 
     # ═══════════════════════════════════════════════════════════════════
     # SHUTDOWN
