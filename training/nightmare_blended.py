@@ -219,8 +219,10 @@ def _feat_to_grid(feat_79d):
 class BlendedEngine:
     """One NMP engine with tiered exit physics + CNN direction flip."""
 
-    def __init__(self, use_cnn=True, release_dir=None, skip_thin_market=False):
+    def __init__(self, use_cnn=True, release_dir=None, skip_thin_market=False,
+                 live_mode=False):
         self.skip_thin_market = skip_thin_market  # skip Sunday + holiday entries
+        self.live_mode = live_mode  # True = PnL from NT8 fills, False = instafill (training)
         self.in_pos = False
         self.direction = None
         self.entry_price = 0.0

@@ -256,7 +256,7 @@ class LiveEngineV2:
 
         self._agg = Aggregator(history_limit=2000)
         self._sfe = StatisticalFieldEngine()
-        self._engine = BlendedEngine(use_cnn=False)
+        self._engine = BlendedEngine(use_cnn=False, live_mode=True)
 
         # Pick newest checkpoint: live vs NT8 (compare last_ts)
         best_path, best_ts = None, 0
@@ -541,11 +541,21 @@ class LiveEngineV2:
 
             msg_type = msg.get('type', '')
             if msg_type == MsgType.FILL:
-                self._orders.on_fill(msg)
-                # Correct engine primary entry price from real fill
+                pnl_from_fill = self._orders.on_fill(msg)
                 fill_px = float(msg.get('fill_price', 0))
                 if fill_px and self._engine.in_pos:
-                    self._engine.entry_price = fill_px
+                    # Correct engine entry price from NT8 actual fill
+                    side = msg.get('side', '')
+                    same_dir = ((self._engine.direction == 'long' and side == 'BUY') or
+                                (self._engine.direction == 'short' and side == 'SELL'))
+                    if same_dir and not self._engine._chain_contracts:
+                        # Primary entry fill
+                        self._engine.entry_price = fill_px
+                    elif same_dir and self._engine._chain_contracts:
+                        # Chain entry fill — correct last chain
+                        self._engine._chain_contracts[-1]['entry_price'] = fill_px
+                # Sync realized PnL from NT8
+                self._daily_pnl = self._orders.daily_pnl
                 continue
             elif msg_type == MsgType.ORDER_ACK:
                 self._orders.on_order_ack(msg)
@@ -671,11 +681,12 @@ class LiveEngineV2:
                     t.get('exit_reason', ''), False)
                 logger.info(f'  EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f}')
 
-            # ── PnL tracking (engine is always source of truth) ────────
-            self._daily_pnl = self._engine.daily_pnl
+            # ── PnL tracking ───────────────────────────────────────────
+            # Realized: NT8 fills via OrderManager (ground truth)
+            self._daily_pnl = self._orders.daily_pnl
             self._trade_count = len(self._engine.trades)
 
-            # Unrealized PnL (primary + chains)
+            # Unrealized: from NT8 fill prices (corrected in engine on FILL)
             unrealized = 0
             if self._engine.in_pos:
                 px = bar['close']
