@@ -559,6 +559,13 @@ class LiveEngineV2:
             self._last_price = bar['close']
             self._live_bars.append(bar)
 
+            # Catch-up detection: if bar is stale (> MAX_SYNC_LAG_S old),
+            # we're processing backdated bars (post-panic recovery, etc).
+            # Update features but DON'T trade — prevents firing orders
+            # on stale physics and re-triggering the panic.
+            bar_lag = time.time() - bar['timestamp']
+            is_catchup = bar_lag > MAX_SYNC_LAG_S
+
             # Compute features via LiveFeatureEngine (same path as training)
             feat = self._lfe.on_bar(bar)
 
@@ -570,6 +577,12 @@ class LiveEngineV2:
             z = feat[12]
             vr = feat[14]
             vel = feat[15]
+
+            if is_catchup:
+                if self._bar_count % 100 == 0:
+                    logger.info(f'  CATCH-UP: {bar_lag:.0f}s behind wall '
+                                f'(processing {self._bar_count} backdated bars)')
+                continue  # skip engine + orders while backfilling
 
             # ── Feed engine, detect all events ─────────────────────────
             prev_in_pos = self._engine.in_pos
