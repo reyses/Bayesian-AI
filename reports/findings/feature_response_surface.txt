@@ -1,0 +1,131 @@
+================================================================================
+FEATURE RESPONSE SURFACE — IS dataset
+Generated: 2026-04-14 07:22
+================================================================================
+
+Trades analyzed: 89,022
+Winners: 53,778 (60%)
+Losers: 35,244
+
+TOP 20 FEATURES BY EFFECT SIZE (winners vs losers, |Cohen d|):
+Feature                      Cohen d    p-value     Win mean    Loss mean
+---------------------------------------------------------------------------
+15m_wick_ratio                -0.269     0.0000       0.5332       0.6010 ***
+1h_wick_ratio                 -0.259     0.0000       0.5091       0.5715 ***
+15m_reversion_prob            -0.176     0.0000       0.9265       0.9488 ***
+15m_p_at_center               -0.149     0.0000       0.4833       0.5189 ***
+5m_reversion_prob             -0.143     0.0000       0.9415       0.9542 ***
+5m_p_at_center                -0.140     0.0000       0.4869       0.5193 ***
+5m_wick_ratio                 -0.129     0.0000       0.5720       0.6041 ***
+15m_bar_range                 +0.123     0.0000     160.1409     142.0709 ***
+1m_variance_ratio             +0.095     0.0000       0.4444       0.4200 ***
+1h_reversion_prob             -0.086     0.0000       0.9227       0.9351 ***
+5m_vol_rel                    +0.085     0.0000       1.0973       1.0224 ***
+1h_bar_range                  +0.084     0.0000     330.6238     306.0730 ***
+15m_vol_rel                   +0.082     0.0000       1.2746       1.1590 ***
+15m_z_high                    +0.076     0.0000       0.7053       0.6208 ***
+1h_p_at_center                -0.075     0.0000       0.4792       0.4973 ***
+5m_bar_range                  +0.066     0.0000      89.3331      83.7560 ***
+15s_variance_ratio            -0.063     0.0000       0.4541       0.4715 ***
+1h_vol_rel                    +0.051     0.0000       1.0451       0.9855 ***
+15m_z_low                     -0.049     0.0000      -0.7993      -0.7409 ***
+1h_z_high                     +0.044     0.0000       0.6453       0.5944 ***
+
+TOP 20 FEATURES BY GRADIENT BOOSTING IMPORTANCE:
+Feature                     Importance
+----------------------------------------
+15m_velocity                    0.2216
+15m_wick_ratio                  0.1675
+1h_wick_ratio                   0.1359
+1h_velocity                     0.0924
+1m_dmi_gap                      0.0447
+5m_wick_ratio                   0.0444
+1h_dir_vol                      0.0290
+15m_dir_vol                     0.0250
+1m_variance_ratio               0.0216
+15m_bar_range                   0.0202
+5m_velocity                     0.0176
+15m_p_at_center                 0.0150
+5m_reversion_prob               0.0133
+1m_dmi_diff                     0.0124
+5m_p_at_center                  0.0122
+15m_reversion_prob              0.0114
+1m_p_at_center                  0.0106
+time_of_day                     0.0101
+1m_bar_range                    0.0072
+5m_variance_ratio               0.0062
+
+================================================================================
+PER-TIER FEATURE DRIVERS
+================================================================================
+
+RIDE_AGAINST: 47527 trades, WR=58%, avg=$+8.6
+  Top features:
+    15m_wick_ratio            d= -0.43 p=0.0000 ***
+    5m_wick_ratio             d= -0.35 p=0.0000 ***
+    1h_wick_ratio             d= -0.24 p=0.0000 ***
+    5m_p_at_center            d= -0.23 p=0.0000 ***
+    15m_reversion_prob        d= -0.21 p=0.0000 ***
+
+FADE_CALM: 29476 trades, WR=62%, avg=$+12.5
+  Top features:
+    1h_wick_ratio             d= -0.36 p=0.0000 ***
+    15m_reversion_prob        d= -0.19 p=0.0000 ***
+    15m_wick_ratio            d= -0.18 p=0.0000 ***
+    15m_p_at_center           d= -0.17 p=0.0000 ***
+    5m_p_at_center            d= -0.10 p=0.0000 ***
+
+FADE_AGAINST: 5325 trades, WR=66%, avg=$+17.1
+  Top features:
+    1h_wick_ratio             d= -0.42 p=0.0000 ***
+    5m_dmi_gap                d= -0.20 p=0.0000 ***
+    1h_bar_range              d= +0.19 p=0.0000 ***
+    1h_p_at_center            d= -0.17 p=0.0000 ***
+    15m_wick_ratio            d= -0.16 p=0.0000 ***
+
+KILL_SHOT: 4654 trades, WR=64%, avg=$+5.3
+  Top features:
+    1m_p_at_center            d= -0.56 p=0.0000 ***
+    1m_reversion_prob         d= -0.37 p=0.0000 ***
+    1m_vol_rel                d= +0.25 p=0.0000 ***
+    15s_vol_rel               d= +0.16 p=0.0000 ***
+    1m_variance_ratio         d= +0.16 p=0.0000 ***
+
+MTF_BREAKOUT: 1092 trades, WR=43%, avg=$-0.3
+  Top features:
+    5m_wick_ratio             d= -0.70 p=0.0000 ***
+    1h_wick_ratio             d= +0.59 p=0.0000 ***
+    15m_wick_ratio            d= -0.26 p=0.0000 ***
+    1D_z_low                  d= +0.24 p=0.0001 ***
+    5m_p_at_center            d= -0.23 p=0.0002 ***
+
+CASCADE: 922 trades, WR=66%, avg=$+3.2
+  Top features:
+    1m_p_at_center            d= -0.33 p=0.0000 ***
+    1m_vol_rel                d= +0.25 p=0.0003 ***
+    1m_dmi_gap                d= +0.22 p=0.0015 **
+    1D_variance_ratio         d= +0.21 p=0.0031 **
+    1m_reversion_prob         d= -0.19 p=0.0043 **
+
+================================================================================
+UNUSED FEATURES WITH SIGNAL (not in current physics):
+================================================================================
+Feature                      Cohen d    p-value
+--------------------------------------------------
+1h_wick_ratio                 -0.259     0.0000
+15m_reversion_prob            -0.176     0.0000
+15m_p_at_center               -0.149     0.0000
+5m_reversion_prob             -0.143     0.0000
+5m_p_at_center                -0.140     0.0000
+15m_bar_range                 +0.123     0.0000
+1h_reversion_prob             -0.086     0.0000
+5m_vol_rel                    +0.085     0.0000
+1h_bar_range                  +0.084     0.0000
+15m_vol_rel                   +0.082     0.0000
+15m_z_high                    +0.076     0.0000
+1h_p_at_center                -0.075     0.0000
+5m_bar_range                  +0.066     0.0000
+15s_variance_ratio            -0.063     0.0000
+1h_vol_rel                    +0.051     0.0000
+
+================================================================================
