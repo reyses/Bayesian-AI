@@ -109,6 +109,9 @@ class LiveEngineV2:
         self._trading = False
         self._shutting_down = False
         self._broker_connected = True  # NT8 <-> broker status (assume OK at start)
+        self._nt8_realized_pnl = None  # set from ACCOUNT_UPDATE messages
+        self._nt8_unrealized_pnl = 0.0
+        self._nt8_cash_value = 0.0
         self._daily_pnl = 0.0
         self._trade_count = 0
         self._last_ts = 0.0
@@ -548,6 +551,12 @@ class LiveEngineV2:
                 if 'position_qty' in msg:
                     self._orders.on_heartbeat(msg)
                 continue
+            elif msg_type == 'ACCOUNT_UPDATE':
+                # NT8 is the source of truth for realized PnL
+                self._nt8_realized_pnl = float(msg.get('realized_pnl', 0))
+                self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
+                self._nt8_cash_value = float(msg.get('cash_value', 0))
+                continue
             elif msg_type == 'CONNECTION_LOST':
                 self._broker_connected = False
                 logger.error('  BROKER DISCONNECTED — blocking new orders, waiting for restore')
@@ -709,13 +718,18 @@ class LiveEngineV2:
                 logger.info(f'  EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f}')
 
             # ── PnL tracking ───────────────────────────────────────────
-            # Realized: NT8 fills via OrderManager (ground truth)
-            self._daily_pnl = self._orders.daily_pnl
+            # Realized: NT8 ACCOUNT_UPDATE is the absolute source of truth
+            # (matches what NT8 shows on screen). Falls back to OrderManager
+            # before first ACCOUNT_UPDATE arrives.
+            self._daily_pnl = getattr(self, '_nt8_realized_pnl', None)
+            if self._daily_pnl is None:
+                self._daily_pnl = self._orders.daily_pnl
             self._trade_count = len(self._engine.trades)
 
-            # Unrealized: from NT8 fill prices (corrected in engine on FILL)
-            unrealized = 0
-            if self._engine.in_pos:
+            # Unrealized: NT8 ACCOUNT_UPDATE is truth, fallback to engine calc
+            unrealized = self._nt8_unrealized_pnl
+            if unrealized == 0 and self._engine.in_pos:
+                # Fallback before first ACCOUNT_UPDATE
                 px = bar['close']
                 if self._engine.direction == 'long':
                     unrealized = (px - self._engine.entry_price) / TICK * TV
