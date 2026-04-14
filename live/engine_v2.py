@@ -50,9 +50,7 @@ logger = logging.getLogger('engine_v2')
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.protocol import MsgType, subscribe, place_order, close_position
-from training.aggregator import Aggregator
-from core.statistical_field_engine import StatisticalFieldEngine
-from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
+from training.live_feature_engine import LiveFeatureEngine
 from training.nightmare_blended import BlendedEngine
 from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
 from config.symbols import SYMBOL_MAP
@@ -95,10 +93,8 @@ class LiveEngineV2:
 
         # Core components (initialized in startup steps)
         self._client = None
-        self._agg = None
-        self._sfe = None
+        self._lfe = None      # LiveFeatureEngine (100% parity with training)
         self._engine = None
-        self._prev_vel = {}
 
         # Order management (NT8 is source of truth)
         self._orders = OrderManager(config)
@@ -255,91 +251,47 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 3: WARMUP')
 
-        self._agg = Aggregator(history_limit=2000)
-        self._sfe = StatisticalFieldEngine()
-        self._engine = BlendedEngine(use_cnn=False, live_mode=True)
+        # LiveFeatureEngine: same batch SFE path as build_dataset (100% parity)
+        self._lfe = LiveFeatureEngine(ATLAS_NT8)
+        bar_counts = self._lfe.load_history()
+        logger.info(f'  Loaded: {bar_counts}')
 
-        # Pick newest checkpoint: live vs NT8 (compare last_ts)
+        # Load velocities from checkpoint
         best_path, best_ts = None, 0
         for path in [LIVE_CHECKPOINT, NT8_CHECKPOINT]:
             if os.path.exists(path):
                 try:
                     with open(path, encoding='utf-8') as f:
-                        ts = json.load(f).get('last_ts', 0)
+                        cp = json.load(f)
+                    ts = cp.get('last_ts', 0)
                     if ts > best_ts:
                         best_path, best_ts = path, ts
                 except (json.JSONDecodeError, KeyError):
                     logger.warning(f'  Corrupt checkpoint: {path}')
 
-        self._saved_trade_state = {}  # for recovery after NT8 connects
+        self._saved_trade_state = {}
         if best_path:
-            last_ts, self._prev_vel, self._saved_trade_state = \
-                self._agg.load_checkpoint(best_path)
-            self._last_ts = last_ts
-            bar_counts = {tf: len(bars) for tf, bars in self._agg.history.items() if bars}
-            logger.info(f'  Checkpoint: {os.path.basename(os.path.dirname(best_path))}/'
-                        f'{os.path.basename(best_path)}')
-            logger.info(f'  Bars: {bar_counts}')
-            logger.info(f'  Last: {self._ts_str(last_ts)}')
+            with open(best_path, encoding='utf-8') as f:
+                cp = json.load(f)
+            self._lfe.load_velocities(cp.get('velocities', {}))
+            self._saved_trade_state = cp.get('trade_state', {})
+            self._last_ts = cp.get('last_ts', 0)
+            logger.info(f'  Velocities from: {os.path.basename(best_path)}')
 
-            # Feed ATLAS_LIVE delta (bars after checkpoint)
-            delta_bars = self._feed_delta(last_ts)
-            if delta_bars:
-                logger.info(f'  LIVE delta: {delta_bars:,} bars')
-        else:
-            # Cold start: no checkpoint, replay last N days from ATLAS_NT8/5s
-            logger.warning('  No checkpoint found — cold start')
-            warmup_bars = 0
-            atlas_nt8_5s = os.path.join(ATLAS_NT8, '5s')
-            if os.path.exists(atlas_nt8_5s):
-                day_files = sorted(glob.glob(os.path.join(atlas_nt8_5s, '*.parquet')))[-WARMUP_DAYS:]
-                for fpath in day_files:
-                    warmup_bars += self._feed_parquet(fpath)
-                logger.info(f'  Cold start: {warmup_bars:,} bars ({len(day_files)} days)')
+        self._engine = BlendedEngine(use_cnn=False, live_mode=True)
 
-        # Verify: compute one feature
-        if self._agg.get_bar_count('1m') >= SFE_MIN_BARS:
-            last_ts = self._agg.get_closed_bars('1m')[-1]['timestamp']
-            feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
-                self._agg, self._sfe, self._prev_vel, last_ts)
+        # Verify: compute one feature from last loaded bar
+        if '1m' in self._lfe._bars and len(self._lfe._bars['1m']) > 0:
+            last_1m_ts = float(self._lfe._bars['1m']['timestamp'].iloc[-1])
+            feat = self._lfe._compute_features(last_1m_ts)
             if feat is not None:
                 logger.info(f'  WARMED UP: z={feat[12]:.2f} vr={feat[14]:.2f} '
-                            f'1m={self._agg.get_bar_count("1m")} '
-                            f'1h={self._agg.get_bar_count("1h")}')
+                            f'1m={len(self._lfe._bars.get("1m", []))} '
+                            f'1h={len(self._lfe._bars.get("1h", []))}')
             else:
                 logger.warning('  Warmup feature returned None')
         else:
-            logger.warning(f'  Not enough 1m bars: '
-                           f'{self._agg.get_bar_count("1m")} < {SFE_MIN_BARS}')
-
-    def _feed_delta(self, after_ts: float) -> int:
-        """Feed ATLAS_LIVE 5s bars newer than after_ts into aggregator."""
-        atlas_live_5s = os.path.join(ATLAS_LIVE, '5s')
-        if not os.path.exists(atlas_live_5s):
-            return 0
-        total = 0
-        for fpath in sorted(glob.glob(os.path.join(atlas_live_5s, '*.parquet'))):
-            total += self._feed_parquet(fpath, after_ts=after_ts)
-        return total
-
-    def _feed_parquet(self, fpath, after_ts=0.0):
-        """Feed a parquet file into aggregator. Returns bar count."""
-        df = pd.read_parquet(fpath).sort_values('timestamp').reset_index(drop=True)
-        if after_ts > 0:
-            df = df[df['timestamp'] > after_ts]
-        count = 0
-        for _, row in df.iterrows():
-            ts = row['timestamp']
-            self._agg.feed({
-                'timestamp': ts,
-                'open': row['open'], 'high': row['high'],
-                'low': row['low'], 'close': row['close'],
-                'volume': row.get('volume', 0),
-            })
-            self._last_ts = ts
-            self._last_price = row['close']
-            count += 1
-        return count
+            logger.warning('  No 1m bars loaded')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 4: SYNC — connect NT8, receive history
@@ -363,7 +315,7 @@ class LiveEngineV2:
 
             if msg.get('type') == MsgType.BAR:
                 bar = self._extract_bar(msg)
-                self._agg.feed(bar)
+                self._lfe.on_bar(bar)  # appends if new
                 bar_count += 1
             elif msg.get('type') == MsgType.HISTORY_DONE:
                 history_done = True
@@ -373,9 +325,7 @@ class LiveEngineV2:
 
         elapsed = time.perf_counter() - t0
         logger.info(f'  History: {bar_count:,} bars in {elapsed:.1f}s')
-        logger.info(f'  Aggregator: 1m={self._agg.get_bar_count("1m")} '
-                    f'5m={self._agg.get_bar_count("5m")} '
-                    f'1h={self._agg.get_bar_count("1h")}')
+        logger.info(f'  Bars: {self._lfe.bar_counts}')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 5: CATCH-UP — process bars until current
@@ -385,8 +335,7 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 5: CATCH-UP')
 
-        # Feed bars into aggregator until caught up to wall time.
-        # No feature computation — just build aggregator state.
+        # Feed bars into LiveFeatureEngine until caught up to wall time.
         catchup_bars = 0
         wall_time = time.time()
 
@@ -400,7 +349,7 @@ class LiveEngineV2:
                 continue
 
             bar = self._extract_bar(msg)
-            self._agg.feed(bar)
+            self._lfe.on_bar(bar)  # appends to bar stores if new
             self._last_ts = bar['timestamp']
             self._last_price = bar['close']
             catchup_bars += 1
@@ -409,15 +358,11 @@ class LiveEngineV2:
             if self._last_ts > 0 and (wall_time - self._last_ts) < MAX_SYNC_LAG_S:
                 break
 
-        # Compute ONE feature to verify + warm prev_velocities
-        if self._agg.get_bar_count('1m') >= SFE_MIN_BARS:
-            feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
-                self._agg, self._sfe, self._prev_vel, self._last_ts)
-            if feat is not None:
-                logger.info(f'  Caught up: {catchup_bars:,} bars | '
-                            f'z={feat[12]:.2f} vr={feat[14]:.2f}')
-            else:
-                logger.info(f'  Caught up: {catchup_bars:,} bars (feature=None)')
+        # Verify with one feature
+        feat = self._lfe._compute_features(self._last_ts) if self._last_ts > 0 else None
+        if feat is not None:
+            logger.info(f'  Caught up: {catchup_bars:,} bars | '
+                        f'z={feat[12]:.2f} vr={feat[14]:.2f}')
         else:
             logger.info(f'  Caught up: {catchup_bars:,} bars')
         logger.info(f'  Last bar: {self._ts_str(self._last_ts)} '
@@ -519,15 +464,6 @@ class LiveEngineV2:
 
         self._trading = True
 
-        pending_5s = None
-
-        def on_bar_close(tf, bar):
-            nonlocal pending_5s
-            if tf == '5s':
-                pending_5s = bar
-
-        self._agg.on_bar_close = on_bar_close
-
         logger.info(f'  Ledger: {self._ledger_path}')
         logger.info(f'  Trades: {self._trade_log_path}')
         logger.info(f'  Listening for bars...')
@@ -599,15 +535,8 @@ class LiveEngineV2:
             self._last_price = bar['close']
             self._live_bars.append(bar)
 
-            pending_5s = None
-            self._agg.feed(bar)
-
-            if pending_5s is None:
-                continue
-
-            # Compute features
-            feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
-                self._agg, self._sfe, self._prev_vel, bar['timestamp'])
+            # Compute features via LiveFeatureEngine (same path as training)
+            feat = self._lfe.on_bar(bar)
 
             if feat is None:
                 continue
@@ -842,10 +771,21 @@ class LiveEngineV2:
     def _periodic_save(self):
         if self._ledger and not self._ledger.closed:
             self._ledger.flush()
-        # Save aggregator checkpoint (live) with trade state for recovery
-        trade_state = self._engine.get_trade_state() if self._engine else {}
-        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel,
-                                  trade_state=trade_state)
+        # Save checkpoint (velocities + trade state for recovery)
+        if self._lfe:
+            trade_state = self._engine.get_trade_state() if self._engine else {}
+            # Save velocities + trade state as JSON checkpoint
+            os.makedirs(os.path.dirname(LIVE_CHECKPOINT) or '.', exist_ok=True)
+            import json as _json
+            cp = {
+                'version': 3,
+                'last_ts': self._last_ts,
+                'velocities': self._lfe.prev_velocities,
+                'trade_state': trade_state,
+                'bar_counts': self._lfe.bar_counts,
+            }
+            with open(LIVE_CHECKPOINT, 'w', encoding='utf-8') as f:
+                _json.dump(cp, f)
         # Save live features — same schema as build_dataset output
         self._save_live_features()
         # Save live bars to ATLAS_LIVE
@@ -897,10 +837,8 @@ class LiveEngineV2:
             await asyncio.sleep(2.0)
         self._engine.force_close()
 
-        # Save final checkpoint with trade state (for recovery on restart)
-        trade_state = self._engine.get_trade_state() if self._engine else {}
-        self._agg.save_checkpoint(LIVE_CHECKPOINT, velocities=self._prev_vel,
-                                  trade_state=trade_state)
+        # Save final checkpoint
+        self._periodic_save()
         logger.info(f'  Checkpoint saved: {LIVE_CHECKPOINT}')
 
         # Save ledger + trade log
