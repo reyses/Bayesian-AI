@@ -162,6 +162,8 @@ _1M_DMI_IDX = 13       # TF1*12 + 1 (was 11)
 _1M_WICK_IDX = 77      # helper_start(72) + TF1*3 + 2 (was 65)
 _1M_REVERSION_IDX = 20 # TF1*12 + 8 (was 18)
 
+MAX_HOLD_BARS = 720       # 60 minutes at 5s cadence — no trade hangs forever
+
 APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
 # Tier encoding for CNN
@@ -498,6 +500,9 @@ class BlendedEngine:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
+                    # 4. Max-hold safety — no trade hangs forever (60 min = 720 bars at 5s)
+                    elif self.bars_held >= MAX_HOLD_BARS:
+                        self._close_trade(price, ts, time_str, 'max_hold', feat)
 
         # === CHAIN CONTRACT EXITS — each exits independently ===
         if self._chain_contracts and is_1m:
@@ -874,6 +879,34 @@ class BlendedEngine:
                 return 'absorb_mean_reached'
 
             return None
+
+        # RIDE_AGAINST exit: riding 1h velocity, exit when momentum dies
+        if self.entry_tier == 'RIDE_AGAINST':
+            velocity = feat[_1M_VELOCITY_IDX]
+            h1_vel = feat[_1H_VELOCITY_IDX]
+
+            # 1h velocity reversed (the 1h trend we're riding is dying)
+            entry_h1_sign = 1.0 if self.direction == 'long' else -1.0
+            h1_against = (h1_vel * entry_h1_sign) < 0
+            if h1_against and self.bars_held >= 3:
+                return 'ride_h1_reversed'
+
+            # 1m velocity exhausted (momentum dead)
+            if abs(velocity) < RIDE_VELOCITY_EXHAUSTED and self.bars_held >= 3:
+                self._ride_vel_bars = getattr(self, '_ride_vel_bars', 0) + 1
+                if self._ride_vel_bars >= RIDE_EXIT_BARS:
+                    return 'ride_velocity_exhausted'
+            else:
+                self._ride_vel_bars = 0
+
+            # Mean reached (z faded back to center — ride done)
+            if abs(z) < FADE_Z_EXIT and self.bars_held >= 3:
+                return 'fade_mean_reached'
+
+            return None
+
+        # FADE_AGAINST exit: fading z with 1h opposing, same as FADE_CALM
+        # Falls through to the generic fade/ride exit below
 
         # Other tiers: two exit modes based on trade type
         p_center = feat[_1M_P_CENTER_IDX]
