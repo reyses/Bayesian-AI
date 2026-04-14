@@ -474,6 +474,18 @@ class LiveEngineV2:
                 self._shutting_down = True
                 break
 
+            # Stale bar detection: if no bars for 60s during market hours,
+            # assume NT8 is in panic state → block new orders
+            if self._last_ts > 0:
+                stale_s = time.time() - self._last_ts
+                if stale_s > 60 and self._broker_connected:
+                    logger.error(f'  STALE BARS: {stale_s:.0f}s since last bar — '
+                                 f'assuming NT8 panic, blocking new orders')
+                    self._broker_connected = False
+                elif stale_s < 15 and not self._broker_connected:
+                    logger.warning(f'  BARS FLOWING AGAIN — broker OK, unblocking orders')
+                    self._broker_connected = True
+
             try:
                 msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
             except asyncio.TimeoutError:
