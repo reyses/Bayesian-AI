@@ -477,6 +477,12 @@ class LiveEngineV2:
                 self._shutting_down = True
                 break
 
+            # Dashboard requested a manual save
+            if self._shared_state.get('save_now'):
+                logger.info('  MANUAL SAVE requested from dashboard')
+                self._periodic_save()
+                self._shared_state['save_now'] = False
+
             # Stale bar detection: time since last bar ARRIVAL at our process
             # (monotonic clock, not wall time — independent of timezone/clock drift)
             last_arrival = getattr(self, '_last_arrival', 0)

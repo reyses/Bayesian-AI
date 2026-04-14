@@ -212,6 +212,20 @@ class TradingDashboard:
                                   command=self._on_sell)
         self.btn_sell.pack(side=tk.LEFT, padx=2)
 
+        # Second row — save button
+        btn_row2 = tk.Frame(ctrl_card, bg=BG_CARD)
+        btn_row2.pack(fill=tk.X, pady=(4, 0))
+
+        self.btn_save = tk.Button(btn_row2, text='SAVE NOW', bg=BLUE, fg=WHITE,
+                                   font=('Consolas', 11, 'bold'), width=14,
+                                   command=self._on_save)
+        self.btn_save.pack(side=tk.LEFT, padx=2)
+
+        self.lbl_save_status = tk.Label(btn_row2, text='',
+                                         font=('Consolas', 9),
+                                         bg=BG_CARD, fg=GREEN)
+        self.lbl_save_status.pack(side=tk.LEFT, padx=5)
+
     # ── Queue polling ──
 
     def _poll_queue(self):
@@ -419,6 +433,15 @@ class TradingDashboard:
 
     def _on_sell(self):
         self.shared_state['manual_order'] = 'SELL'
+
+    def _on_save(self):
+        """Request engine to flush all buffers to disk immediately."""
+        self.shared_state['save_now'] = True
+        self.lbl_save_status.config(text='saving...', fg=AMBER)
+        # Clear the status after 2 seconds
+        self.root.after(2000, lambda: self.lbl_save_status.config(text='saved',
+                                                                    fg=GREEN))
+        self.root.after(5000, lambda: self.lbl_save_status.config(text=''))
 
 
 # Alias for engine_v2 compatibility
