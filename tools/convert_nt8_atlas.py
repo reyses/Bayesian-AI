@@ -45,6 +45,8 @@ def parse_args():
                    help='Report validation without writing parquets')
     p.add_argument('--backup', action='store_true',
                    help='Backup existing ATLAS/5s before overwriting')
+    p.add_argument('--start', type=str, default=None,
+                   help='Only process days from this date (YYYY-MM-DD)')
     return p.parse_args()
 
 
@@ -173,7 +175,7 @@ def validate(df):
     return issues, stats
 
 
-def write_atlas(df, validate_only=False):
+def write_atlas(df, validate_only=False, start_date=None):
     """Write daily parquet files to ATLAS/5s/."""
     if validate_only:
         return
@@ -185,6 +187,8 @@ def write_atlas(df, validate_only=False):
     written = 0
 
     for day_name, day_df in tqdm(days, desc='Writing parquets', unit='day'):
+        if start_date and day_name < start_date.replace('-', '_'):
+            continue
         out_df = day_df[['timestamp', 'open', 'high', 'low', 'close', 'volume']].copy()
 
         # Enforce ATLAS schema
@@ -203,6 +207,55 @@ def write_atlas(df, validate_only=False):
 
     df.drop(columns=['_day'], inplace=True)
     print(f'  Written: {written} daily parquets to {ATLAS_OUT}/')
+
+
+HIGHER_TFS = {
+    '15s': 15, '30s': 30, '1m': 60, '5m': 300, '15m': 900, '1h': 3600,
+}
+
+
+def aggregate_higher_tfs(df_5s, start_date=None):
+    """Aggregate 5s bars to 1m, 5m, 15m, 1h and write per-day parquets."""
+    atlas_root = os.path.dirname(ATLAS_OUT)  # DATA/ATLAS_NT8
+
+    for tf_name, tf_seconds in HIGHER_TFS.items():
+        tf_dir = os.path.join(atlas_root, tf_name)
+        os.makedirs(tf_dir, exist_ok=True)
+
+        # Assign each bar to its TF boundary
+        df = df_5s.copy()
+        df['_tf_ts'] = (df['timestamp'] // tf_seconds) * tf_seconds
+        df['_day'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.strftime('%Y_%m_%d')
+
+        # Aggregate to TF bars
+        tf_bars = df.groupby(['_day', '_tf_ts']).agg(
+            timestamp=('_tf_ts', 'first'),
+            open=('open', 'first'),
+            high=('high', 'max'),
+            low=('low', 'min'),
+            close=('close', 'last'),
+            volume=('volume', 'sum'),
+        ).reset_index(drop=True)
+        tf_bars['_day'] = pd.to_datetime(tf_bars['timestamp'], unit='s', utc=True).dt.strftime('%Y_%m_%d')
+
+        # Write per-day parquets
+        written = 0
+        for day_name, day_df in tf_bars.groupby('_day'):
+            if start_date and day_name < start_date.replace('-', '_'):
+                continue
+            out_df = day_df.drop(columns=['_day']).sort_values('timestamp').reset_index(drop=True)
+            out_df['timestamp'] = out_df['timestamp'].astype(np.int64)
+            out_df['open'] = out_df['open'].astype(np.float64)
+            out_df['high'] = out_df['high'].astype(np.float64)
+            out_df['low'] = out_df['low'].astype(np.float64)
+            out_df['close'] = out_df['close'].astype(np.float64)
+            out_df['volume'] = out_df['volume'].fillna(0).astype(np.uint64)
+
+            out_path = os.path.join(tf_dir, f'{day_name}.parquet')
+            out_df.to_parquet(out_path, index=False)
+            written += 1
+
+        print(f'  {tf_name}: {written} days, {len(tf_bars)} bars -> {tf_dir}/')
 
 
 def main():
@@ -271,7 +324,11 @@ def main():
 
     # Write
     print(f'\nWriting ATLAS parquets...')
-    write_atlas(stitched)
+    write_atlas(stitched, start_date=args.start)
+
+    # Aggregate 5s → higher TFs
+    print(f'\nAggregating higher timeframes...')
+    aggregate_higher_tfs(stitched, start_date=args.start)
 
     print(f'\n{"="*60}')
     print(f'DONE')

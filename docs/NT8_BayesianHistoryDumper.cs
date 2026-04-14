@@ -60,6 +60,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                  Description = "Subdirectory name (e.g. MNQ_06-26)")]
         public string ContractLabel { get; set; }
 
+        [NinjaScriptProperty]
+        [Display(Name = "Start Date", GroupName = "Settings", Order = 2,
+                 Description = "Only dump bars from this date onwards (YYYY_MM_DD)")]
+        public string StartDate { get; set; }
+
         // ── Lifecycle ──
 
         protected override void OnStateChange()
@@ -76,6 +81,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // Defaults — user can override in UI
                 OutputDirectory = @"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\DATA\ATLAS_NT8\5s";
                 ContractLabel   = "MNQ_06-26";
+                StartDate       = "2026_03_20";
             }
             else if (State == State.DataLoaded)
             {
@@ -124,6 +130,10 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Use open-time for day grouping (matches Databento convention)
             DateTime openTime = barTime.AddSeconds(-barPeriodS);
             string day = openTime.ToString("yyyy_MM_dd");
+
+            // Skip bars before StartDate
+            if (StartDate.Length > 0 && day.CompareTo(StartDate) < 0)
+                return;
 
             // Day boundary — rotate file
             if (day != _currentDay)
