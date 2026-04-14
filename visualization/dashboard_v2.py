@@ -66,6 +66,12 @@ class TradingDashboard:
         self.account_size = 0.0
         self.account_realized = 0.0
         self.account_unrealized = 0.0
+        # Engine state tracking
+        self.engine_state = 'INIT'
+        self.bar_count = 0
+        self.last_bar_ts = 0
+        self.bar_rate = 0.0  # bars/min
+        self.activity = ''
 
         self._build_ui()
         self.root.after(100, self._poll_queue)
@@ -100,6 +106,27 @@ class TradingDashboard:
         self.lbl_unrealized = tk.Label(status_frame, text='', font=('Consolas', 12),
                                        bg=BG_CARD, fg=GREY)
         self.lbl_unrealized.pack(side=tk.RIGHT, padx=5)
+
+        # ── Engine health bar (state + bar flow) ──
+        health_frame = tk.Frame(self.root, bg=BG_CARD, height=24)
+        health_frame.pack(fill=tk.X, padx=4, pady=(0, 2))
+        health_frame.pack_propagate(False)
+
+        self.lbl_state = tk.Label(health_frame, text='● INIT',
+                                   font=('Consolas', 10, 'bold'),
+                                   bg=BG_CARD, fg=AMBER)
+        self.lbl_state.pack(side=tk.LEFT, padx=10)
+
+        self.lbl_bar_flow = tk.Label(health_frame,
+                                      text='bars: 0  |  last: --  |  rate: --',
+                                      font=('Consolas', 10),
+                                      bg=BG_CARD, fg=GREY)
+        self.lbl_bar_flow.pack(side=tk.LEFT, padx=10)
+
+        self.lbl_activity = tk.Label(health_frame, text='',
+                                      font=('Consolas', 10),
+                                      bg=BG_CARD, fg=CYAN)
+        self.lbl_activity.pack(side=tk.RIGHT, padx=10)
 
         # ── Body: left (chart area) + right (stats + trades + controls) ──
         body = tk.Frame(self.root, bg=BG)
@@ -249,6 +276,15 @@ class TradingDashboard:
             self._update_account()
             return
 
+        if msg_type == 'ENGINE_STATE':
+            self.engine_state = msg.get('state', '')
+            self.bar_count = msg.get('bar_count', 0)
+            self.last_bar_ts = msg.get('last_bar_ts', 0)
+            self.bar_rate = msg.get('bar_rate', 0)
+            self.activity = msg.get('activity', '')
+            self._update_engine_state()
+            return
+
         if msg_type == 'TICK_UPDATE':
             price = msg.get('price', 0)
             self.last_price = price
@@ -284,6 +320,28 @@ class TradingDashboard:
 
         elif msg_type == 'STATS':
             pass  # stats handled via TICK_UPDATE
+
+    def _update_engine_state(self):
+        """Update engine health bar — state + bar flow + activity."""
+        state_colors = {
+            'INIT': AMBER, 'WARMUP': AMBER, 'SYNCING': AMBER,
+            'TRADING': GREEN, 'CATCH_UP': BLUE,
+            'BROKER_DISCONNECTED': RED, 'STALE': RED, 'SHUTDOWN': GREY,
+        }
+        color = state_colors.get(self.engine_state, GREY)
+        self.lbl_state.config(text=f'● {self.engine_state}', fg=color)
+
+        # Bar flow
+        if self.last_bar_ts > 0:
+            t = time.strftime('%H:%M:%S', time.gmtime(self.last_bar_ts))
+            rate_str = f'{self.bar_rate:.1f}/min' if self.bar_rate > 0 else '--'
+            self.lbl_bar_flow.config(
+                text=f'bars: {self.bar_count:,}  |  last: {t}  |  rate: {rate_str}')
+        else:
+            self.lbl_bar_flow.config(text=f'bars: {self.bar_count}  |  waiting...')
+
+        # Activity
+        self.lbl_activity.config(text=self.activity)
 
     def _update_account(self):
         """Update NT8 account card."""

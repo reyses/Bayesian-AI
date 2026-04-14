@@ -818,6 +818,9 @@ class LiveEngineV2:
                 from live.protocol import request_position
                 await self._client.send(request_position())
 
+            # ── Engine state push (every bar) ──────────────────────────
+            self._push_engine_state()
+
             # Stale order cleanup every 5 min
             if self._bar_count % 60 == 0:
                 self._orders.cleanup_stale_orders(max_age_s=120.0)
@@ -825,6 +828,55 @@ class LiveEngineV2:
     # ═══════════════════════════════════════════════════════════════════
     # TRADE LOG — one row per entry/exit for parity comparison
     # ═══════════════════════════════════════════════════════════════════
+
+    def _push_engine_state(self):
+        """Push engine health to dashboard — state, bar flow, activity."""
+        # Derive state
+        if self._shutting_down:
+            state = 'SHUTDOWN'
+        elif not self._broker_connected:
+            state = 'BROKER_DISCONNECTED'
+        elif not self._synced:
+            state = 'SYNCING'
+        elif self._last_ts == 0:
+            state = 'WARMUP'
+        else:
+            # Check if bars are fresh (inter-arrival < 10s avg)
+            window = getattr(self, '_arrival_window', [])
+            if len(window) >= 5:
+                avg_arrival = sum(window) / len(window)
+                if avg_arrival < 1.0:
+                    state = 'CATCH_UP'
+                elif avg_arrival > 30:
+                    state = 'STALE'
+                else:
+                    state = 'TRADING'
+            else:
+                state = 'TRADING'
+
+        # Bars per minute from arrival window
+        bar_rate = 0.0
+        window = getattr(self, '_arrival_window', [])
+        if len(window) >= 3:
+            avg_s = sum(window) / len(window)
+            if avg_s > 0:
+                bar_rate = 60.0 / avg_s
+
+        # Activity description
+        activity = ''
+        if self._engine and self._engine.in_pos:
+            n_chains = len(self._engine._chain_contracts)
+            chain_str = f' +{n_chains}ch' if n_chains else ''
+            activity = f'{self._engine.direction} {self._engine.entry_tier}{chain_str}'
+
+        self._gui.push({
+            'type': 'ENGINE_STATE',
+            'state': state,
+            'bar_count': self._bar_count,
+            'last_bar_ts': self._last_ts,
+            'bar_rate': bar_rate,
+            'activity': activity,
+        })
 
     def _log_trade_event(self, ts, event_type, tier, direction,
                          requested_price, fill_price,
