@@ -534,6 +534,14 @@ class LiveEngineV2:
                 continue
             elif msg_type == 'POSITION':
                 self._orders.on_position(msg)
+                # If NT8 says flat but engine thinks it's in a trade, force-close
+                # to keep state in sync. NT8 is ground truth.
+                if (self._orders.position.qty == 0 and self._engine
+                        and self._engine.in_pos):
+                    logger.warning(f'  POSITION sync: NT8 flat but engine in '
+                                   f'{self._engine.direction} {self._engine.entry_tier} '
+                                   f'— forcing engine flat')
+                    self._engine.force_close(reason='nt8_position_sync')
                 continue
             elif msg_type == MsgType.HEARTBEAT:
                 # Enhanced heartbeat — reconcile position
@@ -775,6 +783,13 @@ class LiveEngineV2:
             if self._bar_count % 300 == 0:
                 self._periodic_save()
                 self._orders.cleanup_stale_orders(max_age_s=120.0)
+
+            # ── Position sync every 12 bars (~1 min) ──────────────────
+            # Forces NT8 to send POSITION snapshot — catches silent state
+            # drift (panic flatten, broker reject, manual flatten in NT8)
+            if self._bar_count % 12 == 0:
+                from live.protocol import request_position
+                await self._client.send(request_position())
 
     # ═══════════════════════════════════════════════════════════════════
     # TRADE LOG — one row per entry/exit for parity comparison
