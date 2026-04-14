@@ -162,8 +162,6 @@ _1M_DMI_IDX = 13       # TF1*12 + 1 (was 11)
 _1M_WICK_IDX = 77      # helper_start(72) + TF1*3 + 2 (was 65)
 _1M_REVERSION_IDX = 20 # TF1*12 + 8 (was 18)
 
-MAX_HOLD_BARS = 720       # 60 minutes at 5s cadence — no trade hangs forever
-
 APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
 # Tier encoding for CNN
@@ -500,9 +498,6 @@ class BlendedEngine:
                     exit_reason = self._check_exit(feat, z, vr, pnl)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
-                    # 4. Max-hold safety — no trade hangs forever (60 min = 720 bars at 5s)
-                    elif self.bars_held >= MAX_HOLD_BARS:
-                        self._close_trade(price, ts, time_str, 'max_hold', feat)
 
         # === CHAIN CONTRACT EXITS — each exits independently ===
         if self._chain_contracts and is_1m:
