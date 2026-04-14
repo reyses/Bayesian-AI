@@ -768,8 +768,12 @@ class BlendedEngine:
             abs_vel = abs(velocity)
             vel_ratio = abs_vel / max(self._entry_velocity, 1.0)
 
+            # Primary: velocity collapsed AND decelerating
             if vel_ratio < FREIGHT_TRAIN_VEL_DECAY and velocity * acceleration < 0:
                 return 'freight_train_decel'
+            # Fallback: velocity dropped below threshold (no longer a freight train)
+            if abs_vel < VELOCITY_THRESHOLD:
+                return 'freight_train_vel_dead'
             return None
 
         # REGIME_FLIP exit: early conviction + regime physics
@@ -828,6 +832,10 @@ class BlendedEngine:
                 return 'breakout_overshot'
             if self.direction == 'short' and z > 0.3:
                 return 'breakout_overshot'
+
+            # 1m velocity exhausted — momentum driving breakout is dead
+            if abs(feat[_1M_VELOCITY_IDX]) < RIDE_VELOCITY_EXHAUSTED and self.bars_held >= 5:
+                return 'breakout_vel_exhausted'
 
             return None
 
@@ -930,6 +938,11 @@ class BlendedEngine:
                     return 'fade_mean_reached'
                 if self._p_center_bars >= FADE_P_CENTER_BARS:
                     return 'fade_p_center'
+                # Fade stalled: z moved AWAY from zero (momentum against us)
+                if self.bars_held >= 12:
+                    abs_z = abs(z)
+                    if abs_z > self._entry_abs_z * 1.2:
+                        return 'fade_z_expanding'
                 return None
 
             # Phase 1: crossed zero at least once — oscillation mode
@@ -946,6 +959,10 @@ class BlendedEngine:
             # Safety: if oscillating and sustained at center, take the profit
             if self._zero_crossings >= 2 and self._p_center_bars >= FADE_P_CENTER_BARS:
                 return 'fade_oscillation_center'
+
+            # High crossing count = exhausted oscillation, take what we have
+            if self._zero_crossings >= 5:
+                return 'fade_oscillation_exhausted'
 
             return None
 
