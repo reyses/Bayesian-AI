@@ -474,9 +474,9 @@ class LiveEngineV2:
                 break
 
             try:
-                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=30.0)
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
             except asyncio.TimeoutError:
-                continue
+                continue  # check shutdown flag every 1s
 
             msg_type = msg.get('type', '')
             if msg_type == MsgType.FILL:
@@ -916,8 +916,10 @@ def main():
                 from visualization.dashboard_v2 import TradingDashboard
                 root = tk.Tk()
                 popup = TradingDashboard(root, gui_queue, shared_state=shared_state)
-                root.protocol('WM_DELETE_WINDOW',
-                              lambda: shared_state.update({'shutdown': True}))
+                def _on_close():
+                    shared_state['shutdown'] = True
+                    root.destroy()
+                root.protocol('WM_DELETE_WINDOW', _on_close)
                 root.mainloop()
             except Exception as e:
                 logger.warning(f'Dashboard failed: {e}')
