@@ -43,20 +43,30 @@ OUTPUT_DIR = 'reports/findings'
 CHOP_15M_WICK_MAX = 0.62
 CHOP_1H_WICK_MAX = 0.60
 KILLSHOT_P_CENTER_MAX = 0.5
+LEVEL_MIN_HEADROOM_Z = 0.5  # min z-space to nearest S/R level
 
 # 1h_wick_ratio is at index 86 (helper_start=72 + TF4*3 + 2)
 _1H_WICK_IDX = 86
+
+# z_high/z_low indices per TF (within the 12 core features, indices 10 and 11)
+# 1h tf=4: 4*12 + 10 = 58 (z_high), 4*12 + 11 = 59 (z_low)
+# 1D tf=5: 5*12 + 10 = 70 (z_high), 5*12 + 11 = 71 (z_low)
+_1H_Z_HIGH = 58
+_1H_Z_LOW = 59
+_1D_Z_HIGH = 70
+_1D_Z_LOW = 71
 
 
 class FilteredEngine(BlendedEngine):
     """BlendedEngine with optional entry filters for hypothesis testing."""
 
     def __init__(self, chop_filter=False, killshot_center=False,
-                 no_mtf_breakout=False, **kwargs):
+                 no_mtf_breakout=False, gravity_well=False, **kwargs):
         super().__init__(**kwargs)
         self._chop_filter = chop_filter
         self._killshot_center = killshot_center
         self._no_mtf_breakout = no_mtf_breakout
+        self._gravity_well = gravity_well
 
     def _classify_full_tier(self, feat, z):
         # Apply chop filter — block all entries in chop regimes
@@ -76,6 +86,33 @@ class FilteredEngine(BlendedEngine):
         # Disable MTF_BREAKOUT
         if self._no_mtf_breakout and tier == 'MTF_BREAKOUT':
             return None, None, False
+
+        # Gravity well: block trades against gravity (low headroom in direction)
+        # Uses 1h_z_high/z_low and 1D_z_high/z_low as gravity well boundaries
+        if self._gravity_well and direction is not None:
+            # Current z relative to 1h regression
+            # If long, headroom = 1h_z_high - current_1h_z (room until ceiling)
+            # If short, headroom = current_1h_z - 1h_z_low (room until floor)
+            # We use the 1h and 1D wells as the "tested gravity field"
+            cur_z_1h = feat[48]  # 1h_z_se index
+            cur_z_1d = feat[60]  # 1D_z_se index
+            z_high_1h = feat[_1H_Z_HIGH]
+            z_low_1h = feat[_1H_Z_LOW]
+            z_high_1d = feat[_1D_Z_HIGH]
+            z_low_1d = feat[_1D_Z_LOW]
+
+            if direction == 'long':
+                # Going up: how much room before hitting the well's ceiling
+                head_1h = z_high_1h - cur_z_1h
+                head_1d = z_high_1d - cur_z_1d
+            else:
+                # Going down: how much room before hitting the well's floor
+                head_1h = cur_z_1h - z_low_1h
+                head_1d = cur_z_1d - z_low_1d
+
+            min_head = min(head_1h, head_1d)
+            if min_head < LEVEL_MIN_HEADROOM_Z:
+                return None, None, False
 
         return direction, tier, flipped
 
@@ -224,8 +261,9 @@ def main():
         ('CHOP_FILTER', {'chop_filter': True}),
         ('KILLSHOT_CENTER', {'killshot_center': True}),
         ('NO_MTF_BREAKOUT', {'no_mtf_breakout': True}),
+        ('GRAVITY_WELL', {'gravity_well': True}),
         ('ALL', {'chop_filter': True, 'killshot_center': True,
-                 'no_mtf_breakout': True}),
+                 'no_mtf_breakout': True, 'gravity_well': True}),
     ]
 
     results = []
