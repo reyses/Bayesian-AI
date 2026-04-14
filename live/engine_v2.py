@@ -320,6 +320,10 @@ class LiveEngineV2:
             if msg.get('type') == MsgType.BAR:
                 bar = self._extract_bar(msg)
                 self._lfe.on_bar(bar)  # appends if new
+                # Track latest bar we've seen so Step 6 verify knows current state
+                if bar['timestamp'] > self._last_ts:
+                    self._last_ts = bar['timestamp']
+                    self._last_price = bar['close']
                 bar_count += 1
             elif msg.get('type') == MsgType.HISTORY_DONE:
                 history_done = True
@@ -429,13 +433,14 @@ class LiveEngineV2:
         if lag < MAX_SYNC_LAG_S:
             self._synced = True
             logger.info(f'  SYNC VERIFIED — lag {lag:.1f}s < {MAX_SYNC_LAG_S}s')
-        elif lag < 3600:
-            # Within an hour — probably playback or slow feed
-            self._synced = True
-            logger.warning(f'  LAG WARNING: {lag:.0f}s behind — proceeding anyway')
         else:
-            self._synced = False
-            logger.error(f'  SYNC FAILED: {lag:.0f}s behind — NOT TRADING')
+            # Any lag > 10s: proceed but start in "waiting for live bars" mode.
+            # Market closures, session gaps, weekend = any lag possible.
+            # Real-time guard rails (broker_connected, catch_up detection,
+            # stale bar detection) protect us during the trading loop itself.
+            self._synced = True
+            logger.warning(f'  LAG: {lag:.0f}s — proceeding, will enter live '
+                           f'when first fresh bar arrives')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 7: TRADE — main loop
