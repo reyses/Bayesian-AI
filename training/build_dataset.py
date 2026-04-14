@@ -55,6 +55,8 @@ def parse_args():
     p.add_argument('--resolution', type=str, default='1m', choices=['5s', '15s', '1m'])
     p.add_argument('--atlas', type=str, default=None,
                    help='ATLAS root dir (default: DATA/ATLAS). Use DATA/ATLAS_NT8 for NT8 data.')
+    p.add_argument('--incremental', action='store_true',
+                   help='Use FeatureProcessor: load checkpoint, process only new days')
     return p.parse_args()
 
 
@@ -311,10 +313,16 @@ def main():
     # Switch data source if --atlas specified
     if args.atlas:
         ATLAS_ROOT = args.atlas
-        # Derive output dir from atlas name: DATA/ATLAS_NT8 → DATA/FEATURES_NT8
-        atlas_name = os.path.basename(ATLAS_ROOT.rstrip('/'))  # e.g. "ATLAS_NT8"
-        feat_name = atlas_name.replace('ATLAS', 'FEATURES')    # e.g. "FEATURES_NT8"
+        atlas_name = os.path.basename(ATLAS_ROOT.rstrip('/'))
+        feat_name = atlas_name.replace('ATLAS', 'FEATURES')
         OUTPUT_DIR = os.path.join('DATA', feat_name)
+
+    # Incremental mode: use FeatureProcessor (same path as live)
+    if args.incremental:
+        from training.feature_processor import FeatureProcessor
+        fp = FeatureProcessor(atlas_root=ATLAS_ROOT)
+        fp.process_new_days()
+        return
 
     out_dir = f'{OUTPUT_DIR}_{anchor_tf}'
     os.makedirs(out_dir, exist_ok=True)
