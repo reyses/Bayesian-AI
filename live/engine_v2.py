@@ -829,6 +829,15 @@ class LiveEngineV2:
         logger.info('')
         logger.info('SHUTDOWN')
 
+        # Release GPU memory
+        try:
+            from numba import cuda
+            if cuda.is_available():
+                cuda.close()
+                logger.info('  GPU memory released')
+        except Exception:
+            pass
+
         # Close all positions (primary + chains)
         if not self._orders.is_flat:
             order_msg = self._orders.build_exit_order(reason='shutdown')
