@@ -63,6 +63,9 @@ class TradingDashboard:
         self.direction = ''
         self.tier = ''
         self.unrealized = 0.0
+        self.account_size = 0.0
+        self.account_realized = 0.0
+        self.account_unrealized = 0.0
 
         self._build_ui()
         self.root.after(100, self._poll_queue)
@@ -118,6 +121,28 @@ class TradingDashboard:
         right = tk.Frame(body, bg=BG, width=320)
         right.pack(side=tk.RIGHT, fill=tk.Y)
         right.pack_propagate(False)
+
+        # NT8 Account card
+        acct_card = tk.Frame(right, bg=BG_CARD, padx=10, pady=8)
+        acct_card.pack(fill=tk.X, pady=(0, 4))
+
+        tk.Label(acct_card, text='ACCOUNT (NT8)', font=('Consolas', 10, 'bold'),
+                 bg=BG_CARD, fg=GREY).pack(anchor=tk.W)
+
+        self.lbl_acct_size = tk.Label(acct_card, text='$0', font=('Consolas', 14, 'bold'),
+                                       bg=BG_CARD, fg=WHITE)
+        self.lbl_acct_size.pack(anchor=tk.W)
+
+        acct_row = tk.Frame(acct_card, bg=BG_CARD)
+        acct_row.pack(fill=tk.X, pady=2)
+        self.lbl_acct_realized = tk.Label(acct_row, text='Day $0',
+                                           font=('Consolas', 11),
+                                           bg=BG_CARD, fg=GREEN)
+        self.lbl_acct_realized.pack(side=tk.LEFT)
+        self.lbl_acct_unrealized = tk.Label(acct_row, text='Unrl $0',
+                                             font=('Consolas', 11),
+                                             bg=BG_CARD, fg=GREY)
+        self.lbl_acct_unrealized.pack(side=tk.RIGHT)
 
         # Session stats card
         stats_card = tk.Frame(right, bg=BG_CARD, padx=10, pady=8)
@@ -203,6 +228,13 @@ class TradingDashboard:
     def _handle_msg(self, msg):
         msg_type = msg.get('type', '')
 
+        if msg_type == 'ACCOUNT_UPDATE':
+            self.account_size = msg.get('cash_value', 0)
+            self.account_realized = msg.get('realized_pnl', 0)
+            self.account_unrealized = msg.get('unrealized_pnl', 0)
+            self._update_account()
+            return
+
         if msg_type == 'TICK_UPDATE':
             price = msg.get('price', 0)
             self.last_price = price
@@ -238,6 +270,17 @@ class TradingDashboard:
 
         elif msg_type == 'STATS':
             pass  # stats handled via TICK_UPDATE
+
+    def _update_account(self):
+        """Update NT8 account card."""
+        self.lbl_acct_size.config(text=f'${self.account_size:,.0f}')
+        r_color = GREEN if self.account_realized >= 0 else RED
+        u_color = GREEN if self.account_unrealized >= 0 else (
+            RED if self.account_unrealized < 0 else GREY)
+        self.lbl_acct_realized.config(text=f'Day ${self.account_realized:+,.0f}',
+                                       fg=r_color)
+        self.lbl_acct_unrealized.config(text=f'Unrl ${self.account_unrealized:+,.0f}',
+                                         fg=u_color)
 
     def _update_status(self):
         """Update status bar."""

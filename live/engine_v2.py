@@ -556,6 +556,13 @@ class LiveEngineV2:
                 self._nt8_realized_pnl = float(msg.get('realized_pnl', 0))
                 self._nt8_unrealized_pnl = float(msg.get('unrealized_pnl', 0))
                 self._nt8_cash_value = float(msg.get('cash_value', 0))
+                # Push to dashboard
+                self._gui.push({
+                    'type': 'ACCOUNT_UPDATE',
+                    'cash_value': self._nt8_cash_value,
+                    'realized_pnl': self._nt8_realized_pnl,
+                    'unrealized_pnl': self._nt8_unrealized_pnl,
+                })
                 continue
             elif msg_type == 'CONNECTION_LOST':
                 self._broker_connected = False
