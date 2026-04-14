@@ -3378,3 +3378,81 @@ WHAT THE MODEL NEEDS (from EDA):
      a. Plateau: slow, visible, safe (small bars, declining velocity, DMI converging)
      b. Sudden: fast, dangerous (big bar, velocity spike, volume spike)
   Levels provide WHERE. Features provide WHAT TYPE. TF hierarchy provides SCALE.
+
+================================================================================
+2026-04-14: LIVE PARITY ACHIEVED + FEATURE RESPONSE SURFACE
+================================================================================
+
+CORE DISCOVERY: 100% feature parity training vs live
+  Original engine_v2 used compute_79d_from_aggregator (per-bar SFE)
+  diverged from build_dataset process_one_day (batch SFE per TF) by 92.5%.
+  Same bars, different SFE state accumulation.
+  
+  Fix: LiveFeatureEngine — loads pre-built TF parquets, uses identical
+  windowing as process_one_day. Result: 130,943/130,949 cells exact (100.0%).
+  85/91 features perfect, 6 acceleration diffs at bar 0 only (fixed by
+  loading prev_velocities from checkpoint).
+
+FEATURE RESPONSE SURFACE (89K IS trades):
+  Top 5 by Cohen d (separation winners vs losers):
+    15m_wick_ratio:    -0.27 (high wick = chop = losses)
+    1h_wick_ratio:     -0.26
+    15m_reversion_prob:-0.18
+    15m_p_at_center:   -0.15
+    5m_reversion_prob: -0.14
+  
+  Top 5 by gradient boosting importance:
+    15m_velocity:      0.22  (NOT in current physics)
+    15m_wick_ratio:    0.17
+    1h_wick_ratio:     0.14
+    1h_velocity:       0.09  (NOT in current physics)
+    1m_dmi_gap:        0.04  (NOT in current physics)
+  
+  Per-tier insights:
+    MTF_BREAKOUT: BROKEN. 43 percent WR. -dollar/trade. 5m_wick d=-0.70.
+    KILL_SHOT: 1m_p_at_center d=-0.56 (entries near center are losers).
+    RIDE_AGAINST: 15m_wick d=-0.43 (chop kills it).
+
+GRAVITY WELL CONCEPT (user insight):
+  z_high / z_low are not lines they are attractor wells.
+  Price gets pulled back to regression mean from extreme z.
+  Deeper historical extreme = stronger gravity.
+  Trading WITH gravity = good. Trading INTO a well with no headroom = bad.
+  
+  level_tracker.py implements: 1D layer (60 days persistent), 1h layer
+  (5 days tactical). At entry compute headroom in direction. Block if < 0.5z.
+
+PANIC PROTECTION (3 layers):
+  1. Bridge CONNECTION_LOST message (NT8 -> broker drop)
+  2. Stale bar detection (no arrivals 60s on monotonic clock)
+  3. Catch-up flood detection (avg inter-arrival < 1s)
+  All use time.monotonic() — timezone/clock drift independent.
+  When triggered: block all new orders, keep listening, reconcile on recovery.
+
+EXIT PHYSICS AUDIT:
+  Found stuck primary trades (RIDE_AGAINST 339 min max, FADE_AGAINST 659 min).
+  Root: tiers fall through to generic exit which doesnt fire at non-extreme z.
+  
+  Fixes:
+    RIDE_AGAINST: dedicated exit (1h vel reversal + mean reached + vel exhausted)
+    FADE_CALM Phase 0: z-expanding exit (z moved 20pct away from zero by bar 12)
+    FADE_CALM Phase 1: oscillation exhausted (5+ zero crossings)
+    FREIGHT_TRAIN: velocity-dead fallback
+    MTF_BREAKOUT: velocity exhausted exit
+  
+  Negative exits (NEW): opposing tier with HIGHER conviction closes trade.
+  TIER_STRENGTH: FREIGHT_TRAIN(8) > KILL_SHOT(7) > CASCADE(6) > FADE_AGAINST(5)
+  > RIDE_AGAINST(4) > MTF_BREAKOUT(3) > MTF_EXHAUSTION(2) > FADE_CALM(1).
+
+NEW MODULES:
+  training/live_feature_engine.py - 100 percent parity feature engine for live
+  training/level_tracker.py        - gravity well S/R from z extremes
+  tools/feature_response_surface.py- mine 91 features for predictive signal
+  tools/hypothesis_test.py         - A/B test entry filter configs
+  tools/parity_check.py            - diff live trades vs baseline
+  tools/sunday_hourly_eda.py       - bucket Sunday losses by hour
+
+NEXT:
+  1. Run hypothesis_test.py to validate filters
+  2. If filters help, wire into nightmare_blended.py
+  3. Live SIM session with all hardening

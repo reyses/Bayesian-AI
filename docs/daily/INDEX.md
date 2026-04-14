@@ -2,6 +2,9 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-04-14 | LIVE PARITY ACHIEVED. LiveFeatureEngine 7.5%→100% parity (130,943/130,949 cells exact). Engine v2 hardening: NT8 panic protection (3 layers), state sync, GPU/RAM cleanup, ACCOUNT_UPDATE dashboard. RIDE_AGAINST + FADE_CALM exit fixes. Negative exits via TIER_STRENGTH. Feature response surface: chop is #1 loser signal (15m_wick d=-0.27). MTF_BREAKOUT broken (43% WR). Gravity well concept implemented. ATLAS_NT8 clean rebuild (Mar 20+ NT8 + Mar 2-19 Databento context). |
+| 2026-04-13 | First live SIM deployment. Dashboard wiring fixed (q100plus key, X button). Chains scale-in/out. Slippage tracking. Discovered feature path divergence between training and live (92% mismatch). Sunday session -$1,339 (thin market, expected). |
+| 2026-04-12 | Sunday gate analysis: 11/13 IS losing days are Sundays. Skip-Sundays = 100% IS win rate. Built per-day baseline runner with DOW breakdown. Started live SIM deployment. |
 | 2026-04-11 | MEGA SESSION: $3,011 IS, $3,319 OOS, $4,144 NT8. Chained lightning (chains=64% of PnL, higher WR). 12-tier waterfall EDA. Direction flips (MTF_EXHAUSTION 13%→77%). Engine v2 + Dashboard v2. NT8 60-day dump. Diagnostic pipeline. |
 | 2026-04-10 | Parity mega-session: SFE review, training/live 5s cadence, timestamp bars_held, feed_bar() incremental API (validated 1e-5), NT8 vs Databento data mismatch found ($220 contract diff + 5s timestamp offset), dual OOS architecture (Databento OOS-1 + NT8 OOS-2). |
 | 2026-04-09 | $740/day OOS (74 days). 10 ExNMP tiers (PEAK added). KILL_SHOT 1-bar, tiered RIDE exits, 5m exit patience. Entry research: exhaustion bar, absorption, delta divergence, regime flip, MTF exhaustion. |
