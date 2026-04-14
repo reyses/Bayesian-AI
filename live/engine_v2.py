@@ -980,7 +980,57 @@ class LiveEngineV2:
         logger.info('')
         logger.info('SHUTDOWN')
 
-        # Release GPU + RAM
+        # 1. Close positions (need _orders and _engine still alive)
+        if self._orders and not self._orders.is_flat:
+            order_msg = self._orders.build_exit_order(reason='shutdown')
+            if order_msg and self._client:
+                await self._client.send(order_msg)
+            await asyncio.sleep(2.0)
+        if self._engine:
+            self._engine.force_close()
+
+        # 2. Final save (need _lfe and _engine still alive)
+        try:
+            self._periodic_save()
+            logger.info(f'  Checkpoint saved: {LIVE_CHECKPOINT}')
+        except Exception as e:
+            logger.error(f'  Checkpoint save failed: {e}')
+
+        # 3. Close file handles
+        if self._ledger:
+            try:
+                self._ledger.flush()
+                self._ledger.close()
+                logger.info(f'  Ledger: {self._ledger_path}')
+            except Exception:
+                pass
+        if hasattr(self, '_trade_log') and self._trade_log:
+            try:
+                self._trade_log.flush()
+                self._trade_log.close()
+                logger.info(f'  Trades: {self._trade_log_path}')
+            except Exception:
+                pass
+
+        # 4. Summary (still needs _engine)
+        wins = 0
+        chains = 0
+        if self._engine:
+            wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
+            chains = sum(1 for t in self._engine.trades
+                         if str(t.get('exit_reason', '')).startswith('chain_'))
+        logger.info(f'  Bars:     {self._bar_count:,}')
+        logger.info(f'  Feats:    {self._feat_count:,}')
+        logger.info(f'  Trades:   {self._trade_count} ({chains} chains)')
+        logger.info(f'  Win rate: {wins}/{self._trade_count} '
+                    f'({wins/max(self._trade_count,1)*100:.0f}%)')
+        logger.info(f'  PnL:      ${self._daily_pnl:.0f}')
+
+        # 5. Disconnect
+        if self._client:
+            await self._client.disconnect()
+
+        # 6. Release GPU + RAM (AFTER everything else uses engine/lfe)
         try:
             from numba import cuda
             if cuda.is_available():
@@ -994,46 +1044,6 @@ class LiveEngineV2:
         import gc
         gc.collect()
         logger.info('  Memory released')
-
-        # Close all positions (primary + chains)
-        if not self._orders.is_flat:
-            order_msg = self._orders.build_exit_order(reason='shutdown')
-            if order_msg:
-                await self._client.send(order_msg)
-            await asyncio.sleep(2.0)
-        self._engine.force_close()
-
-        # Save final checkpoint
-        self._periodic_save()
-        logger.info(f'  Checkpoint saved: {LIVE_CHECKPOINT}')
-
-        # Save ledger + trade log
-        if self._ledger:
-            self._ledger.flush()
-            self._ledger.close()
-            logger.info(f'  Ledger: {self._ledger_path}')
-        if hasattr(self, '_trade_log') and self._trade_log:
-            self._trade_log.flush()
-            self._trade_log.close()
-            logger.info(f'  Trades: {self._trade_log_path}')
-
-        # Save live data
-        self._periodic_save()
-
-        # Summary — engine is source of truth
-        wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
-        chains = sum(1 for t in self._engine.trades
-                     if str(t.get('exit_reason', '')).startswith('chain_'))
-        logger.info(f'  Bars:     {self._bar_count:,}')
-        logger.info(f'  Feats:    {self._feat_count:,}')
-        logger.info(f'  Trades:   {self._trade_count} ({chains} chains)')
-        logger.info(f'  Win rate: {wins}/{self._trade_count} '
-                    f'({wins/max(self._trade_count,1)*100:.0f}%)')
-        logger.info(f'  PnL:      ${self._daily_pnl:.0f}')
-
-        # Disconnect
-        if self._client:
-            await self._client.disconnect()
         logger.info('  Done')
 
     # ═══════════════════════════════════════════════════════════════════
