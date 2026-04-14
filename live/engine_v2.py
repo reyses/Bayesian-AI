@@ -108,6 +108,7 @@ class LiveEngineV2:
         self._synced = False
         self._trading = False
         self._shutting_down = False
+        self._broker_connected = True  # NT8 <-> broker status (assume OK at start)
         self._daily_pnl = 0.0
         self._trade_count = 0
         self._last_ts = 0.0
@@ -526,6 +527,17 @@ class LiveEngineV2:
                 if 'position_qty' in msg:
                     self._orders.on_heartbeat(msg)
                 continue
+            elif msg_type == 'CONNECTION_LOST':
+                self._broker_connected = False
+                logger.error('  BROKER DISCONNECTED — blocking new orders, waiting for restore')
+                continue
+            elif msg_type == 'CONNECTION_RESTORED':
+                self._broker_connected = True
+                logger.warning('  BROKER RESTORED — requesting position snapshot')
+                # Query actual NT8 position to reconcile after disconnect
+                from live.protocol import request_position
+                await self._client.send(request_position())
+                continue
             elif msg_type != MsgType.BAR:
                 continue
 
@@ -568,7 +580,7 @@ class LiveEngineV2:
             events = []
 
             # ── PRIMARY ENTRY ──────────────────────────────────────────
-            if entered and self._orders.can_enter:
+            if entered and self._orders.can_enter and self._broker_connected:
                 side = 'BUY' if self._engine.direction == 'long' else 'SELL'
                 order_msg = self._orders.build_entry_order(side)
                 if order_msg:
@@ -590,7 +602,7 @@ class LiveEngineV2:
             if chain_opened and self._engine.in_pos:
                 cc = self._engine._chain_contracts[-1]
                 side = 'BUY' if cc['direction'] == 'long' else 'SELL'
-                if self._orders.can_scale_in:
+                if self._orders.can_scale_in and self._broker_connected:
                     order_msg = self._orders.build_scale_in_order(side)
                     if order_msg:
                         self._pending_requests[order_msg['order_id']] = {
@@ -612,7 +624,7 @@ class LiveEngineV2:
             if chain_exit_count > 0:
                 for ci in range(chain_exit_count):
                     ct = self._engine.trades[-(new_trades - ci - (1 if exited else 0))]
-                    if self._orders.position.qty > 1:
+                    if self._orders.position.qty > 1 and self._broker_connected:
                         order_msg = self._orders.build_scale_out_order(
                             reason=ct.get('exit_reason', 'chain_exit'))
                         if order_msg:
@@ -635,7 +647,7 @@ class LiveEngineV2:
             if exited and new_trades > 0:
                 t = self._engine.trades[-1] if chain_exit_count == 0 else \
                     self._engine.trades[-(new_trades)]
-                if self._orders.can_exit:
+                if self._orders.can_exit and self._broker_connected:
                     order_msg = self._orders.build_exit_order(
                         reason=t.get('exit_reason', 'signal'))
                     if order_msg:
