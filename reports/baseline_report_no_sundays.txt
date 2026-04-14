@@ -1,14 +1,14 @@
 
 ======================================================================
 BASELINE REPORT (physics only, no CNN) [skip-sundays]
-Generated: 2026-04-12 17:01:01
+Generated: 2026-04-13 16:52:50
 ======================================================================
 
 Dataset             $/day   Trades      WinDays   Days
 --------------------------------------------------------
 IS                 +3,592   64,142  231/231  (100%)  231
 OOS                +3,939   17,155   59/62   (95%)   62
-OOS-NT8            +4,975    4,678   16/16   (100%)   16
+OOS-NT8            +5,207    4,009   14/14   (100%)   14
 
 PRIMARY TRADES:
 Tier                  Trades    WR     $/tr    $/day
@@ -53,12 +53,12 @@ OOS DISTRIBUTION:
   Best:   $+8,432 (2026_02_17)
 
 OOS-NT8 DISTRIBUTION:
-  Mean:   $+4,975
-  Median: $+5,253
-  Mode:   $+5,000 bucket (2 days)
-  P5/P25/P75/P95: $+1,280 / $+3,047 / $+6,726 / $+8,081
-  Worst:  $+784 (2026_04_03)
-  Best:   $+9,646 (2026_04_07)
+  Mean:   $+5,207
+  Median: $+5,239
+  Mode:   $+7,000 bucket (2 days)
+  P5/P25/P75/P95: $+2,476 / $+4,305 / $+6,785 / $+7,314
+  Worst:  $+786 (2026_04_03)
+  Best:   $+7,550 (2026_04_02)
 
 DAY-OF-WEEK ANALYSIS:
   IS:
@@ -82,11 +82,11 @@ DAY-OF-WEEK ANALYSIS:
   OOS-NT8:
   Day           Days   Win    WR    $/day   Losing
   --------------------------------------------------
-  Monday           3     3  100%   +4,654        -
-  Tuesday          3     3  100%   +8,067        -
-  Wednesday        3     3  100%   +4,026        -
-  Thursday         3     3  100%   +4,785        -
-  Friday           4     4  100%   +3,752        -
+  Monday           3     3  100%   +4,792        -
+  Tuesday          3     3  100%   +6,457        -
+  Wednesday        3     3  100%   +4,206        -
+  Thursday         2     2  100%   +6,262        -
+  Friday           3     3  100%   +4,671        -
 
 LOSING DAYS:
   IS: NONE

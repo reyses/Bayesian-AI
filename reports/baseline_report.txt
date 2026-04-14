@@ -1,0 +1,119 @@
+
+======================================================================
+BASELINE REPORT (physics only, no CNN)
+Generated: 2026-04-13 16:48:47
+======================================================================
+
+Dataset             $/day   Trades      WinDays   Days
+--------------------------------------------------------
+IS                 +3,015   65,416  263/277  (95%)  277
+OOS                +3,316   17,360   66/74   (89%)   74
+OOS-NT8            +4,721      912    3/4    (75%)    4
+
+PRIMARY TRADES:
+Tier                  Trades    WR     $/tr    $/day
+----------------------------------------------------
+RIDE_AGAINST            9895   63%     15.4     +551
+FADE_CALM              10119   61%     12.0     +440
+FADE_AGAINST            1581   63%     14.1      +81
+KILL_SHOT               1371   57%      2.6      +13
+FREIGHT_TRAIN              2  100%     96.5       +1
+MTF_EXHAUSTION             5   40%     -9.5       -0
+MTF_BREAKOUT             250   38%     -5.0       -5
+CASCADE                  320   48%     -4.1       -5
+TOTAL PRIMARY          23543                   +1076
+
+CHAIN TRADES:
+Tier                  Trades    WR     $/tr    $/day
+----------------------------------------------------
+RIDE_AGAINST           18047   58%     13.4     +872
+FADE_CALM              17943   65%     12.2     +790
+FADE_AGAINST            3035   70%     18.9     +207
+KILL_SHOT               2136   69%      6.7      +51
+MTF_BREAKOUT             429   53%      5.6       +9
+CASCADE                  262   68%      8.5       +8
+FREIGHT_TRAIN             15   80%     43.2       +2
+MTF_EXHAUSTION             6   50%      2.8       +0
+TOTAL CHAIN            41873                   +1939
+
+IS DISTRIBUTION:
+  Mean:   $+3,015
+  Median: $+2,704
+  Mode:   $+0 bucket (32 days)
+  P5/P25/P75/P95: $+0 / $+1,276 / $+4,190 / $+7,837
+  Worst:  $-1,426 (2025_12_18)
+  Best:   $+19,770 (2025_04_09)
+
+OOS DISTRIBUTION:
+  Mean:   $+3,316
+  Median: $+3,416
+  Mode:   $+0 bucket (10 days)
+  P5/P25/P75/P95: $-99 / $+1,446 / $+4,951 / $+7,059
+  Worst:  $-728 (2026_03_20)
+  Best:   $+8,432 (2026_02_17)
+
+DAY-OF-WEEK ANALYSIS:
+  IS:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday          44    44  100%   +3,361        -
+  Tuesday         46    46  100%   +3,842        -
+  Wednesday       48    48  100%   +3,597        -
+  Thursday        48    46   96%   +3,403        2
+  Friday          47    47  100%   +3,562        -
+  Sunday          44    32   73%     +163       11
+
+  OOS:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday          12    11   92%   +3,793        -
+  Tuesday         11    11  100%   +4,498        -
+  Wednesday       13    13  100%   +4,108        -
+  Thursday        13    13  100%   +4,159        -
+  Friday          13    11   85%   +3,210        1
+  Sunday          12     7   58%     +101        4
+
+  OOS-NT8:
+  Day           Days   Win    WR    $/day   Losing
+  --------------------------------------------------
+  Monday           1     1  100%   +5,326        -
+  Tuesday          1     1  100%   +7,186        -
+  Friday           1     1  100%   +6,956        -
+  Sunday           1     0    0%     -586        1
+
+LOSING DAYS:
+  IS (13 losing):
+  Day            DOW             PnL  Trades
+  ------------------------------------------
+  2025_12_18     Thursday     -1,426     167
+  2025_04_13     Sunday         -537      23
+  2025_10_19     Sunday         -518      13
+  2025_04_20     Sunday         -350      17
+  2025_01_02     Thursday       -256     164
+  2025_03_02     Sunday         -236      14
+  2025_06_15     Sunday         -188      21
+  2025_02_02     Sunday         -188      21
+  2025_07_13     Sunday         -173      34
+  2025_08_24     Sunday         -109      26
+  2025_05_18     Sunday          -90      27
+  2025_06_01     Sunday          -54      21
+  2025_11_09     Sunday          -46      18
+  → 11/13 are Sundays
+
+  OOS (5 losing):
+  Day            DOW             PnL  Trades
+  ------------------------------------------
+  2026_03_20     Friday         -728      47
+  2026_01_25     Sunday         -603      16
+  2026_01_18     Sunday         -200      12
+  2026_02_01     Sunday         -106      16
+  2026_02_15     Sunday          -94      15
+  → 4/5 are Sundays
+
+  OOS-NT8 (1 losing):
+  Day            DOW             PnL  Trades
+  ------------------------------------------
+  2026_03_22     Sunday         -586      31
+  → 1/1 are Sundays
+
+======================================================================
