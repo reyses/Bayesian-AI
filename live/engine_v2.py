@@ -612,6 +612,11 @@ class LiveEngineV2:
             if feat is None:
                 continue
 
+            # Dedup: skip if we already saved features for this ts
+            last_saved_ts = self._live_79d[-1]['timestamp'] if self._live_79d else 0
+            if bar['timestamp'] <= last_saved_ts:
+                continue
+
             self._feat_count += 1
             self._live_79d.append({'timestamp': bar['timestamp'], 'features': feat.copy()})
             z = feat[12]

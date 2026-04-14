@@ -101,23 +101,23 @@ class LiveFeatureEngine:
     # ══════════════════════════════════════════════════════════════════
 
     def on_bar(self, bar: dict) -> Optional[np.ndarray]:
-        """Feed one 5s bar. Aggregates to higher TFs, computes features.
+        """Feed one 5s bar. Dedupes replays (NT8 reconnect flood).
 
-        For bars already in the pre-loaded history (timestamp <= _last_loaded_ts),
-        skips appending — just computes features from existing bars.
-        For NEW bars (live), appends and aggregates normally.
-
-        Args:
-            bar: {timestamp, open, high, low, close, volume}
-
-        Returns:
-            91D feature vector, or None if insufficient data.
+        For any bar we have NOT seen before (ts > highest in 5s store),
+        append it and aggregate to higher TFs. Otherwise skip to avoid
+        double-counting volumes or corrupting the SFE window.
         """
         ts = bar['timestamp']
-        is_new = ts > self._last_loaded_ts.get('5s', 0)
+
+        # Check if we already have this bar (pre-loaded or already appended)
+        if '5s' in self._bars and len(self._bars['5s']) > 0:
+            highest_seen = float(self._bars['5s']['timestamp'].iloc[-1])
+        else:
+            highest_seen = 0
+
+        is_new = ts > highest_seen
 
         if is_new:
-            # New live bar — append 5s and aggregate to higher TFs
             self._append_bar('5s', bar)
             for tf in TF_ORDER:
                 if tf == '5s':
@@ -126,7 +126,10 @@ class LiveFeatureEngine:
                 if completed:
                     self._append_bar(tf, completed)
 
-        # Compute features (uses pre-loaded + any new bars)
+        # Compute features either way — but if not new, return None to signal
+        # "no new data" so caller skips the feature save
+        if not is_new:
+            return None
         return self._compute_features(ts)
 
     # ══════════════════════════════════════════════════════════════════
