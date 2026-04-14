@@ -806,16 +806,15 @@ class LiveEngineV2:
                       end='', flush=True)
 
             # ── Periodic maintenance ───────────────────────────────────
-            if self._bar_count % 300 == 0:
-                self._periodic_save()
-                self._orders.cleanup_stale_orders(max_age_s=120.0)
-
-            # ── Position sync every 12 bars (~1 min) ──────────────────
-            # Forces NT8 to send POSITION snapshot — catches silent state
-            # drift (panic flatten, broker reject, manual flatten in NT8)
+            # Every minute (12 bars @ 5s): save state + sync position
             if self._bar_count % 12 == 0:
+                self._periodic_save()
                 from live.protocol import request_position
                 await self._client.send(request_position())
+
+            # Stale order cleanup every 5 min
+            if self._bar_count % 60 == 0:
+                self._orders.cleanup_stale_orders(max_age_s=120.0)
 
     # ═══════════════════════════════════════════════════════════════════
     # TRADE LOG — one row per entry/exit for parity comparison
