@@ -474,15 +474,16 @@ class LiveEngineV2:
                 self._shutting_down = True
                 break
 
-            # Stale bar detection: if no bars for 60s during market hours,
-            # assume NT8 is in panic state → block new orders
-            if self._last_ts > 0:
-                stale_s = time.time() - self._last_ts
-                if stale_s > 60 and self._broker_connected:
-                    logger.error(f'  STALE BARS: {stale_s:.0f}s since last bar — '
+            # Stale bar detection: time since last bar ARRIVAL at our process
+            # (monotonic clock, not wall time — independent of timezone/clock drift)
+            last_arrival = getattr(self, '_last_arrival', 0)
+            if last_arrival > 0:
+                silence_s = time.monotonic() - last_arrival
+                if silence_s > 60 and self._broker_connected:
+                    logger.error(f'  STALE: {silence_s:.0f}s since last bar arrived — '
                                  f'assuming NT8 panic, blocking new orders')
                     self._broker_connected = False
-                elif stale_s < 15 and not self._broker_connected:
+                elif silence_s < 15 and not self._broker_connected:
                     logger.warning(f'  BARS FLOWING AGAIN — broker OK, unblocking orders')
                     self._broker_connected = True
 
@@ -559,12 +560,27 @@ class LiveEngineV2:
             self._last_price = bar['close']
             self._live_bars.append(bar)
 
-            # Catch-up detection: if bar is stale (> MAX_SYNC_LAG_S old),
-            # we're processing backdated bars (post-panic recovery, etc).
-            # Update features but DON'T trade — prevents firing orders
-            # on stale physics and re-triggering the panic.
-            bar_lag = time.time() - bar['timestamp']
-            is_catchup = bar_lag > MAX_SYNC_LAG_S
+            # Catch-up detection: measure how fast bars are arriving at our
+            # process (inter-arrival delta), not wall clock vs bar timestamp.
+            # This is timezone/clock independent — it just measures bar flood rate.
+            #
+            # Real-time: bars arrive ~5s apart (one at a time)
+            # Catch-up: bars flood in <1s apart (NT8 dumps post-panic)
+            arrival_now = time.monotonic()
+            inter_arrival = arrival_now - getattr(self, '_last_arrival', arrival_now)
+            self._last_arrival = arrival_now
+
+            # Rolling buffer of last 10 arrivals to smooth out jitter
+            if not hasattr(self, '_arrival_window'):
+                self._arrival_window = []
+            self._arrival_window.append(inter_arrival)
+            if len(self._arrival_window) > 10:
+                self._arrival_window.pop(0)
+
+            avg_arrival = sum(self._arrival_window) / len(self._arrival_window)
+            # Flood: average inter-arrival is much less than bar period (5s)
+            # Threshold: if avg < 1s and we have 10 samples, we're flooding
+            is_catchup = (len(self._arrival_window) >= 10 and avg_arrival < 1.0)
 
             # Compute features via LiveFeatureEngine (same path as training)
             feat = self._lfe.on_bar(bar)
@@ -580,8 +596,8 @@ class LiveEngineV2:
 
             if is_catchup:
                 if self._bar_count % 100 == 0:
-                    logger.info(f'  CATCH-UP: {bar_lag:.0f}s behind wall '
-                                f'(processing {self._bar_count} backdated bars)')
+                    logger.info(f'  CATCH-UP: {avg_arrival*1000:.0f}ms inter-arrival '
+                                f'(flooding {self._bar_count} bars)')
                 continue  # skip engine + orders while backfilling
 
             # ── Feed engine, detect all events ─────────────────────────
