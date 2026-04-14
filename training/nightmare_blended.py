@@ -184,6 +184,19 @@ TIER_MAP = {
 # 1h opposition threshold for FADE_AGAINST / RIDE_AGAINST
 H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
 
+# Tier conviction strength (higher = stronger signal, used for negative exits)
+# An opposing tier exits the current trade only if it's stronger
+TIER_STRENGTH = {
+    'FREIGHT_TRAIN': 8,     # extreme velocity — strongest
+    'KILL_SHOT': 7,         # wick rejection — very high conviction
+    'CASCADE': 6,           # wick + 1h aligned
+    'FADE_AGAINST': 5,      # fade with 1h opposition
+    'RIDE_AGAINST': 4,      # 1h velocity ride
+    'MTF_BREAKOUT': 3,      # multi-TF alignment
+    'MTF_EXHAUSTION': 2,    # 5m deceleration
+    'FADE_CALM': 1,         # default fade — weakest, never overrides
+}
+
 # Per-tier CNN model dir (5 jobs per tier)
 CNN_PER_TIER_DIR = 'training/output/nn'
 
@@ -568,12 +581,20 @@ class BlendedEngine:
 
         # === CHAINED LIGHTNING — parallel contracts ===
         # Same direction: open additional contract (max 3 total)
-        # Opposite direction: tighten exits (early warning, not panic flatten)
+        # === NEGATIVE EXIT + CHAINED LIGHTNING ===
         MAX_CHAIN_CONTRACTS = 3
         if self.in_pos and is_1m and price > 100:
             direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
-            # Reverse signal: data shows 53% WR both directions = no signal.
-            # Do nothing on opposite direction — it's noise, not a warning.
+
+            # Negative exit: opposing setup fires = current trade's thesis is dead
+            # Only exit if the opposing tier has HIGHER conviction than current tier
+            if (tier_new is not None and direction_new != self.direction):
+                opposing_strength = TIER_STRENGTH.get(tier_new, 0)
+                current_strength = TIER_STRENGTH.get(self.entry_tier, 0)
+                if opposing_strength > current_strength:
+                    self._close_trade(price, ts, time_str,
+                                      f'negative_exit_{tier_new}', feat)
+                    return
 
             if (tier_new is not None and
                     direction_new == self.direction and
