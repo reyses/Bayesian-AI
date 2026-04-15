@@ -29,6 +29,7 @@ class MsgType(str, Enum):
     FILL             = 'FILL'
     ORDER_STATUS     = 'ORDER_STATUS'
     ORDER_ACK        = 'ORDER_ACK'       # bridge confirms order receipt
+    TRADE_CLOSED     = 'TRADE_CLOSED'    # NT8 round-trip with PnL
     POSITION         = 'POSITION'
     CONNECTED        = 'CONNECTED'
     HEARTBEAT        = 'HEARTBEAT'       # enhanced: includes position state
@@ -54,6 +55,7 @@ _REQUIRED: Dict[str, tuple] = {
     'FILL':         ('order_id', 'side', 'qty', 'fill_price', 'fill_time'),
     'ORDER_STATUS': ('order_id', 'status'),
     'ORDER_ACK':    ('order_id',),
+    'TRADE_CLOSED': ('order_id', 'side', 'entry_price', 'exit_price', 'pnl'),
     'POSITION':     ('instrument', 'qty'),
     'CONNECTED':    ('account',),
     'HEARTBEAT':    (),  # position_qty/side/avg_price optional (enhanced)

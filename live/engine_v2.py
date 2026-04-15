@@ -123,6 +123,9 @@ class LiveEngineV2:
         self._ledger_path = None
         self._trade_log = None
         self._trade_log_path = None
+        # NT8 ground-truth trade log (from TRADE_CLOSED events)
+        self._nt8_trade_log = None
+        self._nt8_trade_log_path = None
 
         # Live bar capture
         self._live_bars = []
@@ -461,7 +464,7 @@ class LiveEngineV2:
                        'pnl', 'peak', 'contracts', 'event']
         self._ledger.write(','.join(ledger_cols) + '\n')
 
-        # Trade log — one row per entry/exit, with requested vs actual for slippage
+        # Trade log — engine's internal view (for parity vs backtest)
         self._trade_log_path = f'reports/live/v2_trades_{self._session_date}.csv'
         self._trade_log = open(self._trade_log_path, 'w', encoding='utf-8')
         trade_cols = ['timestamp', 'type', 'tier', 'direction',
@@ -469,7 +472,14 @@ class LiveEngineV2:
                       'pnl', 'bars_held', 'exit_reason', 'is_chain',
                       'contracts', 'daily_pnl']
         self._trade_log.write(','.join(trade_cols) + '\n')
-        self._pending_requests = {}  # order_id → requested_price
+        self._pending_requests = {}
+
+        # NT8 trade log — ground truth from TRADE_CLOSED events (for reconciliation)
+        self._nt8_trade_log_path = f'reports/live/nt8_trades_{self._session_date}.csv'
+        self._nt8_trade_log = open(self._nt8_trade_log_path, 'w', encoding='utf-8')
+        nt8_cols = ['fill_time', 'order_id', 'side', 'entry_price',
+                    'exit_price', 'pnl', 'qty', 'is_chain']
+        self._nt8_trade_log.write(','.join(nt8_cols) + '\n')
 
         self._trading = True
 
@@ -542,6 +552,10 @@ class LiveEngineV2:
                 continue
             elif msg_type == MsgType.ORDER_ACK:
                 self._orders.on_order_ack(msg)
+                continue
+            elif msg_type == MsgType.TRADE_CLOSED:
+                # NT8 ground-truth round-trip event
+                self._on_nt8_trade_closed(msg)
                 continue
             elif msg_type == 'ORDER_STATUS':
                 self._orders.on_order_status(msg)
@@ -834,6 +848,39 @@ class LiveEngineV2:
     # TRADE LOG — one row per entry/exit for parity comparison
     # ═══════════════════════════════════════════════════════════════════
 
+    def _on_nt8_trade_closed(self, msg):
+        """Handle TRADE_CLOSED — NT8 ground-truth round trip."""
+        order_id = msg.get('order_id', '')
+        side = msg.get('side', '')
+        entry = float(msg.get('entry_price', 0))
+        exit_p = float(msg.get('exit_price', 0))
+        pnl = float(msg.get('pnl', 0))
+        fill_time = float(msg.get('fill_time', time.time()))
+        qty = int(msg.get('qty', 1))
+        is_chain = bool(msg.get('is_chain', False))
+
+        # Write to NT8 ground-truth log
+        if self._nt8_trade_log:
+            row = [f'{fill_time:.0f}', order_id, side,
+                   f'{entry:.2f}', f'{exit_p:.2f}', f'{pnl:.2f}',
+                   str(qty), '1' if is_chain else '0']
+            self._nt8_trade_log.write(','.join(row) + '\n')
+            self._nt8_trade_log.flush()
+
+        # Push to dashboard trade log + trade marker
+        self._gui.push({
+            'type': 'NT8_TRADE',
+            'order_id': order_id, 'side': side,
+            'entry_price': entry, 'exit_price': exit_p,
+            'pnl': pnl, 'fill_time': fill_time,
+            'is_chain': is_chain,
+        })
+        self._gui.push_trade_marker('NT8_EXIT', side, exit_p, pnl=pnl)
+
+        logger.info(f'  NT8 TRADE: {order_id} {side} '
+                    f'{entry:.2f}→{exit_p:.2f} pnl=${pnl:+.2f}'
+                    f'{" [chain]" if is_chain else ""}')
+
     def _push_engine_state(self):
         """Push engine health to dashboard — state, bar flow, activity."""
         # Derive state
@@ -1014,6 +1061,13 @@ class LiveEngineV2:
                 self._trade_log.flush()
                 self._trade_log.close()
                 logger.info(f'  Trades: {self._trade_log_path}')
+            except Exception:
+                pass
+        if hasattr(self, '_nt8_trade_log') and self._nt8_trade_log:
+            try:
+                self._nt8_trade_log.flush()
+                self._nt8_trade_log.close()
+                logger.info(f'  NT8 trades: {self._nt8_trade_log_path}')
             except Exception:
                 pass
 

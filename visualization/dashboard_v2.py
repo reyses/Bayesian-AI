@@ -300,23 +300,36 @@ class TradingDashboard:
             self._update_status()
             self._draw_price_chart()
 
+        elif msg_type == 'NT8_TRADE':
+            # Ground truth from NT8 — always display these
+            side = msg.get('side', '')
+            entry = msg.get('entry_price', 0)
+            exit_p = msg.get('exit_price', 0)
+            pnl = msg.get('pnl', 0)
+            is_chain = msg.get('is_chain', False)
+            self.trade_count += 1
+            if pnl > 0:
+                self.win_count += 1
+            self.trades.append({
+                'time': time.strftime('%H:%M:%S'),
+                'side': side,
+                'price': exit_p,
+                'entry': entry,
+                'pnl': pnl,
+                'action': 'CHAIN' if is_chain else 'EXIT',
+            })
+            self.pnl_curve.append(self.daily_pnl)
+            self._update_log()
+            self._draw_equity()
+
         elif msg_type == 'TRADE_MARKER':
             action = msg.get('action', '')
             side = msg.get('side', '')
             price = msg.get('price', 0)
             pnl = msg.get('pnl', 0)
-            if action == 'EXIT':
-                self.trade_count += 1
-                if pnl > 0:
-                    self.win_count += 1
-                self.trades.append({
-                    'time': time.strftime('%H:%M'),
-                    'side': side, 'price': price,
-                    'pnl': pnl, 'action': action,
-                })
-                self.pnl_curve.append(self.daily_pnl)
-                self._update_log()
-                self._draw_equity()
+            # ENTRY markers only — EXITs now come from NT8_TRADE
+            if action == 'ENTRY':
+                pass  # could annotate chart, but don't touch trade log
 
         elif msg_type == 'STATS':
             pass  # stats handled via TICK_UPDATE

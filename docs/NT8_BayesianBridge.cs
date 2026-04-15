@@ -553,17 +553,29 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + "  id=" + orderName
                     + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
             }
-            else if (isChainExit)
+            else if (isChainExit && _lastEntryPrice > 0)
             {
+                // Chain exit = partial close. Compute PnL for 1 contract, emit event.
+                double cpnl = 0;
+                if (_lastEntrySide == "BUY")
+                    cpnl = (e.Execution.Price - _lastEntryPrice) * 2.0;
+                else
+                    cpnl = (_lastEntryPrice - e.Execution.Price) * 2.0;
+
                 Print("<< CHAIN EXIT @ " + e.Execution.Price.ToString("F2")
+                    + "  PnL=" + (cpnl >= 0 ? "+$" : "-$") + Math.Abs(cpnl).ToString("F2")
                     + "  id=" + orderName
                     + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
+
+                SendTradeClosed(orderName, _lastEntrySide,
+                    _lastEntryPrice, e.Execution.Price, cpnl,
+                    e.Execution.Time, 1, true);
             }
             else if (isClose && _lastEntryPrice > 0)
             {
                 double pnl = 0;
                 if (_lastEntrySide == "BUY")
-                    pnl = (e.Execution.Price - _lastEntryPrice) * 2.0;  // MNQ $2/point
+                    pnl = (e.Execution.Price - _lastEntryPrice) * 2.0;
                 else
                     pnl = (_lastEntryPrice - e.Execution.Price) * 2.0;
 
@@ -578,6 +590,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                     + "  [" + e.Execution.Time.ToString("HH:mm:ss") + "]");
                 Print("   Session: " + _sessionTrades + " trades  WR=" + wr.ToString("F0") + "%"
                     + "  PnL=$" + _sessionPnl.ToString("F2"));
+
+                SendTradeClosed(orderName, _lastEntrySide,
+                    _lastEntryPrice, e.Execution.Price, pnl,
+                    e.Execution.Time, e.Execution.Quantity, false);
 
                 _lastEntryPrice = 0;
             }
@@ -1011,6 +1027,25 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 Print("BayesianBridge: Send failed: " + ex.Message);
             }
+        }
+
+        private void SendTradeClosed(string orderId, string side,
+                                      double entryPrice, double exitPrice,
+                                      double pnl, DateTime fillTime, int qty,
+                                      bool isChain)
+        {
+            string json = "{"
+                + Q("type") + ":" + Q("TRADE_CLOSED") + ","
+                + Q("order_id") + ":" + Q(orderId) + ","
+                + Q("side") + ":" + Q(side) + ","
+                + Q("entry_price") + ":" + D2S(entryPrice) + ","
+                + Q("exit_price") + ":" + D2S(exitPrice) + ","
+                + Q("pnl") + ":" + D2S(pnl) + ","
+                + Q("fill_time") + ":" + D2S(ToUnixSeconds(fillTime)) + ","
+                + Q("qty") + ":" + qty + ","
+                + Q("is_chain") + ":" + (isChain ? "true" : "false")
+                + "}";
+            SendRawJson(json);
         }
 
         private void SendOrderAck(string orderId)
