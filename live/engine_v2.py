@@ -498,6 +498,18 @@ class LiveEngineV2:
                 self._periodic_save()
                 self._shared_state['save_now'] = False
 
+            # Dashboard manual order (FLATTEN/BUY/SELL)
+            if self._shared_state.get('manual_order'):
+                action = self._shared_state.pop('manual_order')
+                logger.warning(f'  MANUAL {action} from dashboard')
+                if action == 'FLATTEN':
+                    if not self._orders.is_flat:
+                        order_msg = self._orders.build_exit_order(reason='manual')
+                        if order_msg:
+                            await self._client.send(order_msg)
+                    if self._engine and self._engine.in_pos:
+                        self._engine.force_close(reason='manual_flatten')
+
             # Stale bar detection: time since last bar ARRIVAL at our process
             # (monotonic clock, not wall time — independent of timezone/clock drift)
             last_arrival = getattr(self, '_last_arrival', 0)
@@ -524,6 +536,16 @@ class LiveEngineV2:
 
                 # Log FILL row with slippage
                 req = self._pending_requests.pop(oid, {})
+
+                # Classify unknown fills (manual flatten, shutdown close, etc.)
+                if not req:
+                    if oid in ('Close', 'BAY_CLOSE') or oid.startswith('Close'):
+                        req = {'type': 'FLATTEN', 'tier': 'MANUAL',
+                               'direction': '', 'requested_price': fill_px}
+                    else:
+                        req = {'type': 'UNKNOWN', 'tier': '?',
+                               'direction': '?', 'requested_price': fill_px}
+
                 req_px = req.get('requested_price', fill_px)
                 self._log_trade_event(
                     float(msg.get('fill_time', time.time())),
@@ -694,31 +716,47 @@ class LiveEngineV2:
                             f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
 
             # ── CHAIN ENTRY (scale-in) ─────────────────────────────────
+            # The engine added a chain to its _chain_contracts. We must
+            # ROLL BACK that chain if we can't actually open it in NT8,
+            # otherwise the engine state diverges (phantom chains).
             if chain_opened and self._engine.in_pos:
                 cc = self._engine._chain_contracts[-1]
                 side = 'BUY' if cc['direction'] == 'long' else 'SELL'
-                if self._orders.can_scale_in and self._broker_connected:
+
+                can_open = (self._orders.can_scale_in and self._broker_connected)
+                order_msg = None
+                if can_open:
                     order_msg = self._orders.build_scale_in_order(side)
-                    if order_msg:
-                        self._pending_requests[order_msg['order_id']] = {
-                            'requested_price': bar['close'],
-                            'tier': cc['entry_tier'],
-                            'direction': cc['direction'],
-                            'is_chain': True, 'type': 'CHAIN_ENTRY',
-                        }
-                        await self._client.send(order_msg)
-                events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
-                self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
-                    cc['entry_tier'], cc['direction'],
-                    bar['close'], 0, 0, 0, '', True)
-                logger.info(f'  CHAIN ENTRY {cc["entry_tier"]} '
-                            f'@ {bar["close"]:.2f} (contracts={curr_chains + 1})')
+
+                if order_msg:
+                    # Sent to NT8 — track for fill reconciliation
+                    self._pending_requests[order_msg['order_id']] = {
+                        'requested_price': bar['close'],
+                        'tier': cc['entry_tier'],
+                        'direction': cc['direction'],
+                        'is_chain': True, 'type': 'CHAIN_ENTRY',
+                    }
+                    await self._client.send(order_msg)
+                    events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
+                    self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
+                        cc['entry_tier'], cc['direction'],
+                        bar['close'], 0, 0, 0, '', True)
+                    logger.info(f'  CHAIN ENTRY {cc["entry_tier"]} '
+                                f'@ {bar["close"]:.2f} (contracts={curr_chains + 1})')
+                else:
+                    # Couldn't open — roll back the phantom chain
+                    self._engine._chain_contracts.pop()
+                    curr_chains -= 1
+                    logger.warning(f'  CHAIN ROLLBACK {cc["entry_tier"]}: '
+                                   f'can_scale_in={self._orders.can_scale_in} '
+                                   f'broker={self._broker_connected}')
 
             # ── CHAIN EXITS (scale-out, before primary exit) ───────────
             chain_exit_count = new_trades - (1 if exited else 0)
             if chain_exit_count > 0:
                 for ci in range(chain_exit_count):
                     ct = self._engine.trades[-(new_trades - ci - (1 if exited else 0))]
+                    # Only log + send if NT8 actually has chains to close
                     if self._orders.position.qty > 1 and self._broker_connected:
                         order_msg = self._orders.build_scale_out_order(
                             reason=ct.get('exit_reason', 'chain_exit'))
@@ -730,13 +768,14 @@ class LiveEngineV2:
                                 'is_chain': True, 'type': 'CHAIN_EXIT',
                             }
                             await self._client.send(order_msg)
-                    events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
-                    self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
-                        ct.get('entry_tier', '?'), ct.get('direction', '?'),
-                        bar['close'], 0, ct['pnl'], ct.get('held', 0),
-                        ct.get('exit_reason', ''), True)
-                    logger.info(f'  CHAIN EXIT {ct.get("exit_reason")} '
-                                f'pnl=${ct["pnl"]:.1f}')
+                            events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
+                            self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
+                                ct.get('entry_tier', '?'), ct.get('direction', '?'),
+                                bar['close'], 0, ct['pnl'], ct.get('held', 0),
+                                ct.get('exit_reason', ''), True)
+                            logger.info(f'  CHAIN EXIT {ct.get("exit_reason")} '
+                                        f'pnl=${ct["pnl"]:.1f}')
+                    # else: phantom chain — silently ignore (engine internal noise)
 
             # ── PRIMARY EXIT (close remaining) ─────────────────────────
             if exited and new_trades > 0:
