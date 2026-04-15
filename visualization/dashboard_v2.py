@@ -72,6 +72,8 @@ class TradingDashboard:
         self.last_bar_ts = 0
         self.bar_rate = 0.0  # bars/min
         self.activity = ''
+        # Recent NT8 fill display
+        self.last_nt8_fill_text = ''
 
         self._build_ui()
         self.root.after(100, self._poll_queue)
@@ -318,6 +320,11 @@ class TradingDashboard:
                 'pnl': pnl,
                 'action': 'CHAIN' if is_chain else 'EXIT',
             })
+            # Track for status bar
+            sign = '+' if pnl >= 0 else ''
+            tag = 'CHN' if is_chain else 'TRD'
+            self.last_nt8_fill_text = (f'{tag} {side} {entry:.2f}->{exit_p:.2f} '
+                                        f'{sign}${pnl:.0f}')
             self.pnl_curve.append(self.daily_pnl)
             self._update_log()
             self._draw_equity()
@@ -353,8 +360,13 @@ class TradingDashboard:
         else:
             self.lbl_bar_flow.config(text=f'bars: {self.bar_count}  |  waiting...')
 
-        # Activity
-        self.lbl_activity.config(text=self.activity)
+        # Activity: current position + last NT8 fill
+        act_parts = []
+        if self.activity:
+            act_parts.append(self.activity)
+        if self.last_nt8_fill_text:
+            act_parts.append(self.last_nt8_fill_text)
+        self.lbl_activity.config(text='  |  '.join(act_parts))
 
     def _update_account(self):
         """Update NT8 account card."""

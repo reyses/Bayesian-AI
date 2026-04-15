@@ -481,9 +481,13 @@ class BlendedEngine:
                     return
 
                 # 2. Per-tier CNN exit + loser (confidence-gated, confirmation required)
-                entry_z = self.entry_1m.get('z_se', 0) if self.entry_1m else 0
-                tier_pred = self._predict_exit_loser(
-                    feat, self.entry_tier, self.bars_held, pnl, self.peak_pnl, entry_z)
+                # Short-circuit when CNN disabled to avoid per-bar dict lookup
+                if self.use_cnn:
+                    entry_z = self.entry_1m.get('z_se', 0) if self.entry_1m else 0
+                    tier_pred = self._predict_exit_loser(
+                        feat, self.entry_tier, self.bars_held, pnl, self.peak_pnl, entry_z)
+                else:
+                    tier_pred = None
 
                 if tier_pred is not None:
                     exit_conf, loser_conf = tier_pred

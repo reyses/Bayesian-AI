@@ -261,9 +261,17 @@ class LiveEngineV2:
         # LiveFeatureEngine: same batch SFE path as build_dataset (100% parity)
         self._lfe = LiveFeatureEngine(ATLAS_NT8)
         bar_counts = self._lfe.load_history()
-        logger.info(f'  Loaded: {bar_counts}')
+        # Pretty-print bar counts per TF on one line for diagnostics
+        bc_str = '  '.join(f'{tf}={n:,}' for tf, n in sorted(bar_counts.items()))
+        logger.info(f'  Loaded: {bc_str}')
 
-        # Load velocities from checkpoint
+        # Show last bar timestamp per TF (helps spot stale data)
+        if '5s' in self._lfe._bars and len(self._lfe._bars['5s']) > 0:
+            last_5s = float(self._lfe._bars['5s']['timestamp'].iloc[-1])
+            age_s = time.time() - last_5s
+            logger.info(f'  Last 5s bar: {self._ts_str(last_5s)} ({age_s/60:.0f} min ago)')
+
+        # Load velocities from checkpoint (newest of LIVE vs NT8)
         best_path, best_ts = None, 0
         for path in [LIVE_CHECKPOINT, NT8_CHECKPOINT]:
             if os.path.exists(path):
@@ -283,7 +291,11 @@ class LiveEngineV2:
             self._lfe.load_velocities(cp.get('velocities', {}))
             self._saved_trade_state = cp.get('trade_state', {})
             self._last_ts = cp.get('last_ts', 0)
-            logger.info(f'  Velocities from: {os.path.basename(best_path)}')
+            cp_age_min = (time.time() - cp.get('last_ts', 0)) / 60
+            logger.info(f'  Checkpoint: {os.path.basename(best_path)} '
+                        f'(age {cp_age_min:.0f} min, {len(cp.get("velocities", {}))} velocities)')
+        else:
+            logger.warning('  No checkpoint found — cold start')
 
         self._engine = BlendedEngine(use_cnn=False, live_mode=True)
 
