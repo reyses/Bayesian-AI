@@ -198,7 +198,13 @@ class LiveEngineV2:
         except Exception as e:
             logger.error(f'Fatal: {e}', exc_info=True)
         finally:
-            await self._shutdown()
+            try:
+                await self._shutdown()
+            except Exception as e:
+                logger.error(f'Shutdown failed: {e}')
+            # Absolute last resort — if _shutdown() didn't os._exit(),
+            # force-kill here. Dashboard close must ALWAYS terminate.
+            os._exit(0)
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 1: CHECK — is ATLAS_NT8 current?
