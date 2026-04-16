@@ -444,6 +444,23 @@ class LiveEngineV2:
         logger.info(f'  History: {bar_count:,} bars in {elapsed:.1f}s')
         logger.info(f'  Bars: {self._lfe.bar_counts}')
 
+        # ── Gap check: does the NT8 dump cover from ATLAS_NT8 to now? ──
+        # If there's a gap > 5 minutes between the pre-loaded data and the
+        # first bar from NT8, features will be stale. Refuse to trade.
+        MAX_GAP_S = 300  # 5 minutes — any more means missing bars
+        if '5s' in self._lfe._bars and len(self._lfe._bars['5s']) > 0:
+            last_5s_ts = float(self._lfe._bars['5s']['timestamp'].iloc[-1])
+            gap_s = time.time() - last_5s_ts
+            if gap_s > MAX_GAP_S:
+                gap_min = gap_s / 60
+                logger.error(f'  GAP DETECTED: last bar is {gap_min:.0f} min old')
+                logger.error(f'  NT8 dump did not cover the gap between ATLAS_NT8 and now.')
+                logger.error(f'  Run: python tools/convert_nt8_atlas.py --contract MNQ_06-26')
+                logger.error(f'  Then: python training/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start <date>')
+                logger.error(f'  REFUSING TO TRADE — features would be stale.')
+                self._shutting_down = True
+                return
+
     # ═══════════════════════════════════════════════════════════════════
     # STEP 5: CATCH-UP — process bars until current
     # ═══════════════════════════════════════════════════════════════════
