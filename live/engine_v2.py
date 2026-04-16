@@ -391,11 +391,7 @@ class LiveEngineV2:
 
             if msg.get('type') == MsgType.BAR:
                 bar = self._extract_bar(msg)
-                self._lfe.on_bar(bar)  # appends if new
-                # Track latest bar we've seen so Step 6 verify knows current state
-                if bar['timestamp'] > self._last_ts:
-                    self._last_ts = bar['timestamp']
-                    self._last_price = bar['close']
+                self._ingest_bar(bar)
                 bar_count += 1
             elif msg.get('type') == MsgType.HISTORY_DONE:
                 history_done = True
@@ -433,9 +429,7 @@ class LiveEngineV2:
                 continue
 
             bar = self._extract_bar(msg)
-            self._lfe.on_bar(bar)  # appends to bar stores if new
-            self._last_ts = bar['timestamp']
-            self._last_price = bar['close']
+            self._ingest_bar(bar)
             catchup_bars += 1
 
             # Break once we're within 10s of wall time (caught up)
@@ -578,10 +572,8 @@ class LiveEngineV2:
                 continue
 
             bar = self._extract_bar(msg)
-            self._lfe.on_bar(bar)
-            if bar['timestamp'] > self._last_ts:
-                self._last_ts = bar['timestamp']
-                self._last_price = bar['close']
+            self._ingest_bar(bar)
+            if bar['timestamp'] > self._last_ts - 1:
                 bars_honed += 1
 
     # ═══════════════════════════════════════════════════════════════════
@@ -864,46 +856,24 @@ class LiveEngineV2:
                 continue
 
             bar = self._extract_bar(msg)
-            self._bar_count += 1
-            self._last_ts = bar['timestamp']
-            self._last_price = bar['close']
-            self._live_bars.append(bar)
 
-            # Catch-up detection: measure how fast bars are arriving at our
-            # process (inter-arrival delta), not wall clock vs bar timestamp.
-            # This is timezone/clock independent — it just measures bar flood rate.
-            #
-            # Real-time: bars arrive ~5s apart (one at a time)
-            # Catch-up: bars flood in <1s apart (NT8 dumps post-panic)
+            # Catch-up detection: measure how fast bars are arriving
             arrival_now = time.monotonic()
             inter_arrival = arrival_now - getattr(self, '_last_arrival', arrival_now)
             self._last_arrival = arrival_now
-
-            # Rolling buffer of last 10 arrivals to smooth out jitter
             if not hasattr(self, '_arrival_window'):
                 self._arrival_window = []
             self._arrival_window.append(inter_arrival)
             if len(self._arrival_window) > 10:
                 self._arrival_window.pop(0)
-
             avg_arrival = sum(self._arrival_window) / len(self._arrival_window)
-            # Flood: average inter-arrival is much less than bar period (5s)
-            # Threshold: if avg < 1s and we have 10 samples, we're flooding
             is_catchup = (len(self._arrival_window) >= 10 and avg_arrival < 1.0)
 
-            # Compute features via LiveFeatureEngine (same path as training)
-            feat = self._lfe.on_bar(bar)
-
+            # Ingest: compute features + save (shared with Steps 4/5/6)
+            feat = self._ingest_bar(bar)
             if feat is None:
                 continue
 
-            # Dedup: skip if we already saved features for this ts
-            last_saved_ts = self._live_79d[-1]['timestamp'] if self._live_79d else 0
-            if bar['timestamp'] <= last_saved_ts:
-                continue
-
-            self._feat_count += 1
-            self._live_79d.append({'timestamp': bar['timestamp'], 'features': feat.copy()})
             z = feat[12]
             vr = feat[14]
             vel = feat[15]
@@ -1172,10 +1142,10 @@ class LiveEngineV2:
                       f'tr={self._trade_count} day=${self._daily_pnl:>+.0f}    ',
                       end='', flush=True)
 
-            # ── Periodic maintenance ───────────────────────────────────
-            # Every minute (12 bars @ 5s): save state + sync position
-            if self._bar_count % 12 == 0:
-                self._periodic_save()
+            # ── Position sync ──────────────────────────────────────────
+            # Every 15s (3 bars @ 5s): request NT8 position for reconciliation
+            # (periodic save already happens in _ingest_bar)
+            if self._bar_count % 3 == 0:
                 from live.protocol import request_position
                 await self._client.send(request_position())
 
@@ -1494,6 +1464,44 @@ class LiveEngineV2:
         # holding the interpreter alive after a clean shutdown. We've
         # already saved state, closed positions, and flushed logs.
         os._exit(0)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # BAR PROCESSING — shared across all steps
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _ingest_bar(self, bar: dict) -> 'Optional[np.ndarray]':
+        """Process one 5s bar: feed to LFE, save features + bar data.
+
+        Called from Steps 4/5/6/7. Always accumulates bars and features
+        so the live dataset builds continuously from first bar received.
+        Returns the feature vector if computed, None if duplicate/skip.
+        """
+        ts = bar['timestamp']
+        if ts > self._last_ts:
+            self._last_ts = ts
+            self._last_price = bar['close']
+
+        # Feed to LFE (dedupes internally)
+        feat = self._lfe.on_bar(bar)
+        if feat is None:
+            return None
+
+        # Dedup feature save
+        last_saved_ts = self._live_79d[-1]['timestamp'] if self._live_79d else 0
+        if ts <= last_saved_ts:
+            return feat
+
+        # Accumulate bar + features for periodic save
+        self._bar_count += 1
+        self._feat_count += 1
+        self._live_bars.append(bar)
+        self._live_79d.append({'timestamp': ts, 'features': feat.copy()})
+
+        # Periodic save every 3 bars (15s) — during ALL steps, not just Step 7
+        if self._bar_count % 3 == 0:
+            self._periodic_save()
+
+        return feat
 
     # ═══════════════════════════════════════════════════════════════════
     # HELPERS
