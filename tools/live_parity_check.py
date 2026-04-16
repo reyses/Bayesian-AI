@@ -39,48 +39,51 @@ TF_SECONDS = {
 }
 
 
-def step1_merge():
-    """Merge ATLAS_NT8 5s + live chunks into ATLAS_PARITY/5s/."""
-    print('STEP 1: Merge ATLAS_NT8 + live bars → ATLAS_PARITY')
+def step1_build_atlas():
+    """Build ATLAS_PARITY from live bar chunks only (no NT8 merge).
 
-    # Copy ATLAS_NT8/5s/ parquets
+    Copies ATLAS_NT8 history for warmup context (prior days), then
+    overwrites the live session day(s) with ONLY the live bar data.
+    This ensures parity features are computed from the exact same
+    bars the live engine received.
+    """
+    print('STEP 1: Build ATLAS_PARITY from live bars')
+
+    chunk_files = sorted(glob.glob(os.path.join(ATLAS_LIVE_CHUNKS, '*.parquet')))
+    if not chunk_files:
+        print('  No live chunks found — nothing to build')
+        return
+
+    # Determine which days have live data
+    live_days = set()
+    for cf in chunk_files:
+        day_name = os.path.basename(cf).split('_0000')[0]
+        live_days.add(day_name)
+    print(f'  Live days: {sorted(live_days)}')
+
+    # Copy ATLAS_NT8 for warmup context (days WITHOUT live data)
     src_5s = os.path.join(ATLAS_NT8, '5s')
     dst_5s = os.path.join(ATLAS_PARITY, '5s')
     os.makedirs(dst_5s, exist_ok=True)
 
     copied = 0
     for f in sorted(glob.glob(os.path.join(src_5s, '*.parquet'))):
-        shutil.copy2(f, dst_5s)
-        copied += 1
-    print(f'  Copied {copied} NT8 parquets')
+        day = os.path.basename(f).replace('.parquet', '')
+        if day not in live_days:
+            shutil.copy2(f, dst_5s)
+            copied += 1
+    print(f'  Copied {copied} NT8 warmup parquets (prior days)')
 
-    # Append live chunks
-    chunk_files = sorted(glob.glob(os.path.join(ATLAS_LIVE_CHUNKS, '*.parquet')))
-    if not chunk_files:
-        print('  No live chunks found — nothing to merge')
-        return
-
-    merged = 0
+    # Write live bar chunks as the ONLY source for live days
     for cf in chunk_files:
         live_df = pd.read_parquet(cf)
-        # Extract day from filename or from timestamps
         day_name = os.path.basename(cf).split('_0000')[0]
         dst_path = os.path.join(dst_5s, f'{day_name}.parquet')
+        live_df = live_df.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
+        live_df.to_parquet(dst_path, index=False)
+        print(f'  {day_name}: {len(live_df)} live bars (no NT8 merge)')
 
-        if os.path.exists(dst_path):
-            # Merge with existing
-            existing = pd.read_parquet(dst_path)
-            combined = pd.concat([existing, live_df], ignore_index=True)
-            combined = combined.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
-            combined.to_parquet(dst_path, index=False)
-            new_bars = len(combined) - len(existing)
-            print(f'  {day_name}: merged {new_bars} new bars (total {len(combined)})')
-        else:
-            live_df.to_parquet(dst_path, index=False)
-            print(f'  {day_name}: created ({len(live_df)} bars)')
-        merged += 1
-
-    print(f'  Merged {merged} chunk files')
+    print(f'  ATLAS_PARITY built — live days use ONLY live bars')
 
 
 def step2_aggregate():
@@ -298,7 +301,7 @@ def main():
     if os.path.exists(FEATURES_PARITY):
         shutil.rmtree(FEATURES_PARITY)
 
-    step1_merge()
+    step1_build_atlas()
     step2_aggregate()
     step3_build_features()
     step4_feature_parity()
