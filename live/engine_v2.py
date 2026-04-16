@@ -157,6 +157,9 @@ class LiveEngineV2:
         logger.info('=' * 60)
 
         try:
+            # Step 0: clean live accumulation folders (fresh start every session)
+            self._step0_clean_live()
+
             # Steps 1-2: offline (no connection needed)
             if not self._skip_check:
                 self._step1_check()
@@ -204,6 +207,44 @@ class LiveEngineV2:
                 logger.error(f'Shutdown failed: {e}')
                 # Even if shutdown fails, force-exit so the process doesn't hang
                 os._exit(1)
+
+    # ═══════════════════════════════════════════════════════════════════
+    # STEP 0: CLEAN — fresh start for live accumulation
+    # ═══════════════════════════════════════════════════════════════════
+
+    def _step0_clean_live(self):
+        """Clear live accumulation folders so each session starts clean.
+
+        Previous session data is already in ATLAS_NT8 (via the converter).
+        The live folders are a rolling buffer — stale fragments from prior
+        sessions cause patchy data and confuse warmup.
+        """
+        logger.info('')
+        logger.info('STEP 0: CLEAN LIVE FOLDERS')
+
+        import shutil
+        cleaned = 0
+
+        # Clear live feature parquets
+        if os.path.exists(FEATURES_LIVE):
+            for f in glob.glob(os.path.join(FEATURES_LIVE, '*.parquet')):
+                os.remove(f)
+                cleaned += 1
+
+        # Clear live bar chunks
+        chunks_dir = os.path.join(ATLAS_LIVE, '5s', '_chunks')
+        if os.path.exists(chunks_dir):
+            for f in glob.glob(os.path.join(chunks_dir, '*.parquet')):
+                os.remove(f)
+                cleaned += 1
+
+        # Reset in-memory accumulators
+        self._live_bars.clear()
+        self._live_79d.clear()
+
+        logger.info(f'  Cleaned {cleaned} stale files')
+        logger.info(f'  {FEATURES_LIVE}/ — empty')
+        logger.info(f'  {ATLAS_LIVE}/5s/_chunks/ — empty')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 1: CHECK — is ATLAS_NT8 current?
