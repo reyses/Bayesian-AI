@@ -102,12 +102,17 @@ P_CENTER_EXIT_BARS_KILLSHOT = 2  # kill shot: 2-bar confirmation ($740 config)
 Z_EXIT = 0.5
 
 # Hard stop — circuit breaker, overrides all CNNs
-# Disabled for training (let regret see full paths). Live engine has its own hard stop.
-HARD_STOP = -99999.0  # disabled — set to -150.0 for live
+# Training: disabled (let regret see full paths)
+# Live: set via BlendedEngine(live_mode=True) which overrides these
+HARD_STOP = -99999.0  # disabled in training
+HARD_STOP_LIVE = -150.0  # max loss per trade in live ($150)
 
 # Giveback stop — protect profits from round-tripping
-GIVEBACK_MIN_PEAK = 99999.0   # disabled — set to ~$10 to activate
-GIVEBACK_KEEP = 0.0           # disabled — set to ~0.40 to activate
+# Training: disabled. Live: activated via live_mode=True
+GIVEBACK_MIN_PEAK = 99999.0   # disabled in training
+GIVEBACK_KEEP = 0.0           # disabled in training
+GIVEBACK_MIN_PEAK_LIVE = 15.0  # once peak > $15, protect it
+GIVEBACK_KEEP_LIVE = 0.40      # keep 40% of peak
 
 # Regime shift early detection: DMI leading + VR confirming
 DMI_AGAINST_THRESHOLD = 5.0   # |dmi_diff| opposing trade direction
@@ -236,6 +241,11 @@ class BlendedEngine:
                  live_mode=False):
         self.skip_thin_market = skip_thin_market  # skip Sunday + holiday entries
         self.live_mode = live_mode  # True = PnL from NT8 fills, False = instafill (training)
+
+        # Live circuit breakers (training keeps them disabled for regret)
+        self._hard_stop = HARD_STOP_LIVE if live_mode else HARD_STOP
+        self._giveback_min_peak = GIVEBACK_MIN_PEAK_LIVE if live_mode else GIVEBACK_MIN_PEAK
+        self._giveback_keep = GIVEBACK_KEEP_LIVE if live_mode else GIVEBACK_KEEP
         self.in_pos = False
         self.direction = None
         self.entry_price = 0.0
@@ -470,13 +480,13 @@ class BlendedEngine:
             })
 
             # Hard stop — fires every bar, overrides everything
-            if pnl <= HARD_STOP:
+            if pnl <= self._hard_stop:
                 self._close_trade(price, ts, time_str, 'hard_stop', feat)
 
             # Exit logic — every bar (5s cadence matches training)
             else:
                 # 1. Giveback stop (all tiers)
-                if self.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < self.peak_pnl * GIVEBACK_KEEP:
+                if self.peak_pnl >= self._giveback_min_peak and pnl < self.peak_pnl * self._giveback_keep:
                     self._close_trade(price, ts, time_str, 'giveback_stop', feat)
                     return
 
@@ -554,11 +564,11 @@ class BlendedEngine:
                  self._tier_p_center_bars, self._p_center_bars) = saved
 
                 # Hard stop
-                if cc_pnl <= HARD_STOP:
+                if cc_pnl <= self._hard_stop:
                     exit_reason = 'hard_stop'
 
                 # Giveback
-                if cc['peak_pnl'] >= GIVEBACK_MIN_PEAK and cc_pnl < cc['peak_pnl'] * GIVEBACK_KEEP:
+                if cc['peak_pnl'] >= self._giveback_min_peak and cc_pnl < cc['peak_pnl'] * self._giveback_keep:
                     exit_reason = 'giveback_stop'
 
                 if exit_reason:
@@ -1378,11 +1388,11 @@ class BlendedEngine:
             pnl = (pos.entry_price - price) / TICK * TV
 
         # Hard stop — every bar, overrides everything
-        if pnl <= HARD_STOP:
+        if pnl <= self._hard_stop:
             return new_counters, 'hard_stop'
 
         # Giveback stop — every bar, once peak is meaningful
-        if pos.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < pos.peak_pnl * GIVEBACK_KEEP:
+        if pos.peak_pnl >= self._giveback_min_peak and pnl < pos.peak_pnl * self._giveback_keep:
             return new_counters, 'giveback_stop'
 
         # Physics exits — 1m boundaries only
