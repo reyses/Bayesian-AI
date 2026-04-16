@@ -51,6 +51,7 @@ class TradingDashboard:
 
         # Data
         self.prices = deque(maxlen=500)
+        self.z_history = deque(maxlen=500)
         self.pnl_curve = deque(maxlen=500)
         self.trades = []  # last N trades
         self.daily_pnl = 0.0
@@ -141,6 +142,10 @@ class TradingDashboard:
         # Price chart canvas
         self.price_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0)
         self.price_canvas.pack(fill=tk.BOTH, expand=True, padx=(0, 2), pady=(0, 2))
+
+        # Z-score chart canvas
+        self.z_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0, height=100)
+        self.z_canvas.pack(fill=tk.X, padx=(0, 2), pady=(0, 2))
 
         # Equity curve canvas
         self.equity_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0, height=120)
@@ -299,8 +304,10 @@ class TradingDashboard:
             self.unrealized = msg.get('unrealized', 0)
 
             self.prices.append(price)
+            self.z_history.append(self.last_z)
             self._update_status()
             self._draw_price_chart()
+            self._draw_z_chart()
 
         elif msg_type == 'NT8_TRADE':
             # Ground truth from NT8 — always display these
@@ -461,6 +468,83 @@ class TradingDashboard:
         y_curr = margin + (1 - (prices[-1] - p_min) / p_range) * chart_h
         c.create_line(margin, y_curr, w - margin, y_curr,
                       fill=GREY, dash=(2, 4))
+
+    def _draw_z_chart(self):
+        """Z-score line chart with NMP entry bands at +/-2."""
+        c = self.z_canvas
+        c.delete('all')
+        w = c.winfo_width()
+        h = c.winfo_height()
+        if w < 10 or h < 10 or len(self.z_history) < 2:
+            return
+
+        zvals = list(self.z_history)
+        n = len(zvals)
+
+        # Fixed y-axis: -4 to +4 (captures NMP zone with headroom)
+        z_min, z_max = -4.0, 4.0
+        z_range = z_max - z_min
+
+        margin_l = 40
+        margin_r = 10
+        margin_t = 8
+        margin_b = 8
+        chart_w = w - margin_l - margin_r
+        chart_h = h - margin_t - margin_b
+
+        def z_to_y(z):
+            return margin_t + (1 - (z - z_min) / z_range) * chart_h
+
+        def i_to_x(i):
+            return margin_l + (i / max(n - 1, 1)) * chart_w
+
+        # NMP entry bands: |z| > 2 (shaded regions)
+        y_p2 = z_to_y(2.0)
+        y_n2 = z_to_y(-2.0)
+        # Upper band (z > +2): entry zone for shorts
+        c.create_rectangle(margin_l, margin_t, w - margin_r, y_p2,
+                           fill='#1a2332', outline='')
+        # Lower band (z < -2): entry zone for longs
+        c.create_rectangle(margin_l, y_n2, w - margin_r, margin_t + chart_h,
+                           fill='#1a2332', outline='')
+
+        # Threshold lines at +/-2
+        c.create_line(margin_l, y_p2, w - margin_r, y_p2,
+                      fill=RED, dash=(3, 3), width=1)
+        c.create_line(margin_l, y_n2, w - margin_r, y_n2,
+                      fill=GREEN, dash=(3, 3), width=1)
+
+        # Zero line
+        y_zero = z_to_y(0)
+        c.create_line(margin_l, y_zero, w - margin_r, y_zero,
+                      fill=GREY, dash=(2, 4), width=1)
+
+        # Z line
+        for i in range(n - 1):
+            x1, x2 = i_to_x(i), i_to_x(i + 1)
+            y1 = z_to_y(max(min(zvals[i], z_max), z_min))
+            y2 = z_to_y(max(min(zvals[i + 1], z_max), z_min))
+            color = RED if zvals[i + 1] > 0 else GREEN
+            c.create_line(x1, y1, x2, y2, fill=color, width=1)
+
+        # Labels
+        c.create_text(margin_l - 5, y_p2, text='+2', anchor=tk.E,
+                      fill=RED, font=('Consolas', 7))
+        c.create_text(margin_l - 5, y_n2, text='-2', anchor=tk.E,
+                      fill=GREEN, font=('Consolas', 7))
+        c.create_text(margin_l - 5, y_zero, text='0', anchor=tk.E,
+                      fill=GREY, font=('Consolas', 7))
+
+        # Current z value
+        curr_z = zvals[-1]
+        y_curr = z_to_y(max(min(curr_z, z_max), z_min))
+        z_color = RED if curr_z > 2 else GREEN if curr_z < -2 else AMBER
+        c.create_text(w - margin_r + 5, y_curr, text=f'{curr_z:+.1f}',
+                      anchor=tk.W, fill=z_color, font=('Consolas', 8, 'bold'))
+
+        # Title
+        c.create_text(margin_l + 5, margin_t + 2, text='z_se (1m)',
+                      anchor=tk.NW, fill=GREY, font=('Consolas', 7))
 
     def _draw_equity(self):
         """Equity curve."""
