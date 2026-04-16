@@ -210,7 +210,7 @@ def write_atlas(df, validate_only=False, start_date=None):
 
 
 HIGHER_TFS = {
-    '15s': 15, '30s': 30, '1m': 60, '5m': 300, '15m': 900, '1h': 3600,
+    '15s': 15, '30s': 30, '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1D': 86400,
 }
 
 
