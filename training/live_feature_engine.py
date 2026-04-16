@@ -222,9 +222,15 @@ class LiveFeatureEngine:
             sfe_start = max(0, today_start - warmup)
             sfe_input = df.iloc[sfe_start:valid_idx].reset_index(drop=True)
 
-            # Check cache: rerun SFE only if valid_idx changed for this TF
+            # Check cache: rerun SFE only if the data changed for this TF.
+            # Cache key = (valid_idx, latest_bar_ts). Using valid_idx alone
+            # breaks after trimming: the store trims to 5000 bars, so
+            # valid_idx is always 5000 after that point. Adding the timestamp
+            # ensures we detect new bars even when the index doesn't change.
+            latest_bar_ts = float(sfe_input['timestamp'].iloc[-1])
+            cache_key = (valid_idx, latest_bar_ts)
             cached = self._sfe_cache.get(tf)
-            if cached and cached[0] == valid_idx:
+            if cached and cached[0] == cache_key:
                 states = cached[1]
                 sfe_offset = cached[2]
             else:
@@ -232,7 +238,7 @@ class LiveFeatureEngine:
                 if not states:
                     continue
                 sfe_offset = sfe_start
-                self._sfe_cache[tf] = (valid_idx, states, sfe_offset)
+                self._sfe_cache[tf] = (cache_key, states, sfe_offset)
 
             # Find state for latest bar <= ts
             state_idx = valid_idx - 1 - sfe_offset
