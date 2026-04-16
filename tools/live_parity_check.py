@@ -54,14 +54,21 @@ def step1_build_atlas():
         print('  No live chunks found — nothing to build')
         return
 
-    # Determine which days have live data
-    live_days = set()
+    # Load live chunks and find the earliest live timestamp
+    live_dfs = {}
     for cf in chunk_files:
         day_name = os.path.basename(cf).split('_0000')[0]
-        live_days.add(day_name)
-    print(f'  Live days: {sorted(live_days)}')
+        df = pd.read_parquet(cf)
+        df = df.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
+        live_dfs[day_name] = df
 
-    # Copy ATLAS_NT8 for warmup context (days WITHOUT live data)
+    all_live_bars = pd.concat(live_dfs.values(), ignore_index=True)
+    live_start_ts = float(all_live_bars['timestamp'].min())
+    live_days = set(live_dfs.keys())
+    print(f'  Live days: {sorted(live_days)}')
+    print(f'  Live start: ts={live_start_ts:.0f}')
+
+    # Copy ATLAS_NT8 for warmup context (prior days stay as-is)
     src_5s = os.path.join(ATLAS_NT8, '5s')
     dst_5s = os.path.join(ATLAS_PARITY, '5s')
     os.makedirs(dst_5s, exist_ok=True)
@@ -74,16 +81,25 @@ def step1_build_atlas():
             copied += 1
     print(f'  Copied {copied} NT8 warmup parquets (prior days)')
 
-    # Write live bar chunks as the ONLY source for live days
-    for cf in chunk_files:
-        live_df = pd.read_parquet(cf)
-        day_name = os.path.basename(cf).split('_0000')[0]
-        dst_path = os.path.join(dst_5s, f'{day_name}.parquet')
-        live_df = live_df.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
-        live_df.to_parquet(dst_path, index=False)
-        print(f'  {day_name}: {len(live_df)} live bars (no NT8 merge)')
+    # For live days: NT8 bars BEFORE live start + live bars FROM live start
+    # This matches what the live LFE had: ATLAS_NT8 warmup + live bars
+    for day_name, live_df in live_dfs.items():
+        nt8_path = os.path.join(src_5s, f'{day_name}.parquet')
+        if os.path.exists(nt8_path):
+            nt8_df = pd.read_parquet(nt8_path)
+            # NT8 bars strictly before live start (warmup context)
+            nt8_before = nt8_df[nt8_df['timestamp'] < live_start_ts]
+            combined = pd.concat([nt8_before, live_df], ignore_index=True)
+            combined = combined.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
+            print(f'  {day_name}: {len(nt8_before)} NT8 warmup + {len(live_df)} live = {len(combined)} total')
+        else:
+            combined = live_df
+            print(f'  {day_name}: {len(live_df)} live bars (no NT8 warmup for this day)')
 
-    print(f'  ATLAS_PARITY built — live days use ONLY live bars')
+        dst_path = os.path.join(dst_5s, f'{day_name}.parquet')
+        combined.to_parquet(dst_path, index=False)
+
+    print(f'  ATLAS_PARITY built — NT8 before live start + live bars after')
 
 
 def step2_aggregate():
