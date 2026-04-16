@@ -1126,6 +1126,7 @@ class LiveEngineV2:
                 'in_position': in_pos,
                 'direction': direction,
                 'tier': tier,
+                'entry_price': prim.entry_price if prim else 0.0,
                 'z_se': z, 'vr': vr,
                 'is_1m': False,
             })

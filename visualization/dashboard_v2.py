@@ -63,6 +63,7 @@ class TradingDashboard:
         self.in_position = False
         self.direction = ''
         self.tier = ''
+        self.entry_price = 0.0
         self.unrealized = 0.0
         self.account_size = 0.0
         self.account_realized = 0.0
@@ -300,6 +301,7 @@ class TradingDashboard:
             self.in_position = msg.get('in_position', False)
             self.direction = msg.get('direction', '')
             self.tier = msg.get('tier', '')
+            self.entry_price = msg.get('entry_price', 0.0)
             self.daily_pnl = msg.get('daily_pnl', 0)
             self.unrealized = msg.get('unrealized', 0)
 
@@ -464,10 +466,20 @@ class TradingDashboard:
         c.create_text(margin - 5, h - margin, text=f'{p_min:.0f}',
                       anchor=tk.E, fill=GREY, font=('Consolas', 8))
 
-        # Current price line
-        y_curr = margin + (1 - (prices[-1] - p_min) / p_range) * chart_h
-        c.create_line(margin, y_curr, w - margin, y_curr,
-                      fill=GREY, dash=(2, 4))
+        # Entry price line (when in position) or current price line (when flat)
+        if self.in_position and self.entry_price > 0:
+            ep = self.entry_price
+            if p_min <= ep <= p_max:
+                y_ep = margin + (1 - (ep - p_min) / p_range) * chart_h
+                ep_color = GREEN if self.direction == 'long' else RED
+                c.create_line(margin, y_ep, w - margin, y_ep,
+                              fill=ep_color, dash=(4, 3), width=1)
+                c.create_text(w - margin + 5, y_ep, text=f'{ep:.2f}',
+                              anchor=tk.W, fill=ep_color, font=('Consolas', 8))
+        else:
+            y_curr = margin + (1 - (prices[-1] - p_min) / p_range) * chart_h
+            c.create_line(margin, y_curr, w - margin, y_curr,
+                          fill=GREY, dash=(2, 4))
 
     def _draw_z_chart(self):
         """Z-score line chart with NMP entry bands at +/-2."""
