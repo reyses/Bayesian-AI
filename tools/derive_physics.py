@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, TF_ORDER
+from core.features import FEATURE_NAMES, TF_ORDER
 
 CORRECTED_LOG = 'training/output/trades/corrected_is.pkl'
 
@@ -54,7 +54,7 @@ def load_corrected_trades():
     rows = []
     for t in trades:
         entry_79d = np.array(t.get('entry_79d', []))
-        if len(entry_79d) != len(FEATURE_NAMES_79D):
+        if len(entry_79d) != len(FEATURE_NAMES):
             continue
 
         row = {
@@ -66,7 +66,7 @@ def load_corrected_trades():
             'original_pnl': t.get('original_pnl', 0),
             'early_bars': t.get('early_bars', 0),
         }
-        for j, name in enumerate(FEATURE_NAMES_79D):
+        for j, name in enumerate(FEATURE_NAMES):
             row[name] = float(entry_79d[j])
         rows.append(row)
 
@@ -159,7 +159,7 @@ def main():
     profitable['group'] = profitable.apply(
         lambda r: classify_group(r['dir'], r['held']), axis=1)
 
-    feature_cols = [c for c in FEATURE_NAMES_79D if c in df.columns]
+    feature_cols = [c for c in FEATURE_NAMES if c in df.columns]
 
     lines = []
     date_str = datetime.now().strftime('%Y-%m-%d')

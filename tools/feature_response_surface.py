@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from training.sfe_ticker import FeatureTicker
 from training.nightmare_blended import BlendedEngine
-from core.features_79d import FEATURE_NAMES_79D
+from core.features import FEATURE_NAMES
 
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
@@ -71,7 +71,7 @@ def collect_trades(tier_filter=None, max_days=None):
             if len(entry_79d) < 91:
                 continue
 
-            row = {f: float(entry_79d[i]) for i, f in enumerate(FEATURE_NAMES_79D[:91])}
+            row = {f: float(entry_79d[i]) for i, f in enumerate(FEATURE_NAMES[:91])}
             row['_tier'] = tier
             row['_pnl'] = t['pnl']
             row['_held'] = t.get('held', 0)
@@ -92,7 +92,7 @@ def univariate_analysis(df):
     losers = df[df['_win'] == 0]
 
     results = []
-    for col in FEATURE_NAMES_79D[:91]:
+    for col in FEATURE_NAMES[:91]:
         if col not in df.columns:
             continue
         w_vals = winners[col].dropna().values
@@ -133,7 +133,7 @@ def importance_analysis(df):
         print('sklearn not available — skipping importance analysis')
         return None
 
-    X = df[[c for c in FEATURE_NAMES_79D[:91] if c in df.columns]].fillna(0)
+    X = df[[c for c in FEATURE_NAMES[:91] if c in df.columns]].fillna(0)
     y = df['_win'].values
 
     if len(X) < 100:

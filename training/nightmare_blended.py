@@ -414,7 +414,7 @@ class BlendedEngine:
 
     def on_state(self, state: Dict):
         self._bar_count += 1
-        feat = state['features_79d']
+        feat = state['features']
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
@@ -430,7 +430,7 @@ class BlendedEngine:
         if not self.in_pos:
             self._approach_buffer.append({
                 'timestamp': ts, 'price': price,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
             if len(self._approach_buffer) > APPROACH_BUFFER_SIZE:
                 self._approach_buffer = self._approach_buffer[-APPROACH_BUFFER_SIZE:]
@@ -466,7 +466,7 @@ class BlendedEngine:
             self._trade_path.append({
                 'bar': self.bars_held, 'timestamp': ts, 'price': price,
                 'pnl': pnl, 'peak_pnl': self.peak_pnl,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
 
             # Hard stop — fires every bar, overrides everything
@@ -1180,14 +1180,14 @@ class BlendedEngine:
         # Flatten all chain contracts first
         if self._chain_contracts:
             ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
-            feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
+            feat = self._trade_path[-1]['features'] if self._trade_path else self.entry_79d
             if feat is None:
                 feat = np.zeros(91)
             self._flatten_all_chains(self._last_price, ts, feat, reason)
 
         if self.in_pos:
             ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
-            feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
+            feat = self._trade_path[-1]['features'] if self._trade_path else self.entry_79d
             if feat is None:
                 feat = np.zeros(91)
             time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'
@@ -1271,3 +1271,362 @@ class BlendedEngine:
 
     def get_full_trades(self) -> List[Dict]:
         return self.trades
+
+    # ══════════════════════════════════════════════════════════════════════
+    # PHASE 2: stateless signal path (evaluate + helpers)
+    # ══════════════════════════════════════════════════════════════════════
+    #
+    # The methods below replace on_state() with a pure function:
+    #
+    #     evaluate(state) -> DecisionBatch
+    #
+    # They read positions via state['positions'] (a PositionsView from the
+    # ledger) and return a DecisionBatch describing what the engine would
+    # recommend. They do NOT mutate self.*. Both sim and live executors
+    # apply the batch by updating the ledger.
+    #
+    # on_state() remains the default path until Phase 4 flips the switch.
+    # Both paths coexist so Phase 3 can run them side-by-side in testing.
+    #
+    # Spec: docs/JULES_ENGINE_DECOUPLE_ORDERS.md
+    # ══════════════════════════════════════════════════════════════════════
+
+    def evaluate(self, state: Dict) -> 'DecisionBatch':
+        """Stateless signal pass over the current ledger snapshot.
+
+        Reads:
+            state['features_79d']  — 91-D feature vector
+            state['price']         — current bar close
+            state['timestamp']     — current bar timestamp (seconds)
+            state['positions']     — PositionsView from the ledger
+
+        Returns:
+            DecisionBatch — per-position counter updates + exit reasons,
+            plus optional entry / chain_entry / negative_exit signals.
+
+        Does not mutate self. The old on_state path is unaffected.
+        """
+        # Local imports keep the engine module independent of core/ at module
+        # load time — training/nightmare_blended.py is imported by a lot of
+        # analysis scripts, some of which may not have core/ on sys.path.
+        from core.engine_signals import (
+            DecisionBatch, EntrySignal, ExitSignal, PositionDecision,
+            PositionsView,
+        )
+
+        feat = state['features_79d']
+        price = state['price']
+        ts = state['timestamp']
+        positions: PositionsView = state.get('positions') or PositionsView()
+
+        is_1m = (int(ts) % 60) < 5
+        z = feat[_1M_OFFSET + _Z]
+        vr = feat[_1M_OFFSET + _VR]
+
+        batch = DecisionBatch()
+
+        # ── Per-position exit evaluation ───────────────────────────────
+        # Every open position (primary + chains) gets a PositionDecision.
+        # Counter updates happen every bar; physics exits gate on is_1m.
+        for pos in positions.all_positions:
+            new_counters, exit_reason = self._evaluate_position_exit(
+                pos, feat, z, vr, price, is_1m
+            )
+            batch.position_decisions.append(PositionDecision(
+                contract_id=pos.contract_id,
+                ride_vel_bars=new_counters['ride_vel_bars'],
+                ride_vr_bars=new_counters['ride_vr_bars'],
+                ride_rev_wick_bars=new_counters['ride_rev_wick_bars'],
+                tier_p_center_bars=new_counters['tier_p_center_bars'],
+                p_center_bars=new_counters['p_center_bars'],
+                z_near_zero_bars=new_counters['z_near_zero_bars'],
+                slow_flip_active=new_counters['slow_flip_active'],
+                exit_reason=exit_reason,
+            ))
+
+        # ── Chain entry / negative exit (on primary, 1m boundaries) ─────
+        if positions.primary is not None and is_1m and price > 100:
+            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
+
+            # Negative exit: opposing tier with higher conviction
+            if tier_new is not None and direction_new != positions.primary.direction:
+                opposing_strength = TIER_STRENGTH.get(tier_new, 0)
+                current_strength = TIER_STRENGTH.get(positions.primary.entry_tier, 0)
+                if opposing_strength > current_strength:
+                    batch.negative_exit = ExitSignal(
+                        contract_id=positions.primary.contract_id,
+                        reason=f'negative_exit_{tier_new}',
+                    )
+
+            # Chain entry: same direction, different tier, under cap
+            MAX_CHAIN = 3   # matches MAX_CHAIN_CONTRACTS in on_state()
+            if (tier_new is not None
+                    and direction_new == positions.primary.direction
+                    and tier_new != positions.primary.entry_tier
+                    and len(positions.chains) < MAX_CHAIN):
+                batch.chain_entry = EntrySignal(
+                    tier=tier_new,
+                    direction=direction_new,
+                    cnn_flipped=flipped_new,
+                )
+
+        # ── Fresh entry (flat ledger, 1m boundaries) ────────────────────
+        if positions.is_flat and is_1m and price > 100:
+            # Skip thin-market sessions (Sundays) — matches on_state() gate
+            if getattr(self, 'skip_thin_market', False):
+                dt = datetime.utcfromtimestamp(ts)
+                if dt.weekday() == 6:   # Sunday
+                    return batch
+
+            direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            if tier is not None:
+                batch.entry = EntrySignal(
+                    tier=tier,
+                    direction=direction,
+                    cnn_flipped=cnn_flipped,
+                )
+
+        return batch
+
+    def _evaluate_position_exit(self, pos, feat, z, vr, price, is_1m):
+        """Evaluate exit conditions for ONE position in isolation.
+
+        This is the stateless parallel to _check_exit(). Instead of reading
+        and mutating self.*, it reads from `pos` (a PositionView) and
+        returns the new counter values alongside an optional exit reason.
+
+        Returns:
+            (new_counters: dict, exit_reason: Optional[str])
+
+        `new_counters` contains the updated values for every counter field
+        on PositionDecision. If the tier doesn't update a particular
+        counter, the value is passed through unchanged from `pos`.
+
+        Note: does NOT handle the CNN exit path (use_cnn=False at present).
+        CNN exits will re-enter in a later phase once CNN is re-enabled.
+        """
+        # Base: all counters pass through unchanged unless we explicitly update them.
+        new_counters = {
+            'ride_vel_bars': pos.ride_vel_bars,
+            'ride_vr_bars': pos.ride_vr_bars,
+            'ride_rev_wick_bars': pos.ride_rev_wick_bars,
+            'tier_p_center_bars': pos.tier_p_center_bars,
+            'p_center_bars': pos.p_center_bars,
+            'z_near_zero_bars': pos.z_near_zero_bars,
+            'slow_flip_active': pos.slow_flip_active,
+        }
+
+        # Compute pnl for this specific position
+        if pos.direction == 'long':
+            pnl = (price - pos.entry_price) / TICK * TV
+        else:
+            pnl = (pos.entry_price - price) / TICK * TV
+
+        # Hard stop — every bar, overrides everything
+        if pnl <= HARD_STOP:
+            return new_counters, 'hard_stop'
+
+        # Giveback stop — every bar, once peak is meaningful
+        if pos.peak_pnl >= GIVEBACK_MIN_PEAK and pnl < pos.peak_pnl * GIVEBACK_KEEP:
+            return new_counters, 'giveback_stop'
+
+        # Physics exits — 1m boundaries only
+        if not is_1m:
+            return new_counters, None
+
+        tier = pos.entry_tier
+
+        # ── CASCADE / KILL_SHOT: p_center exit ──────────────────────
+        if tier in ('CASCADE', 'KILL_SHOT'):
+            p_center = feat[_1M_P_CENTER_IDX]
+            if p_center > P_CENTER_EXIT:
+                new_counters['tier_p_center_bars'] = pos.tier_p_center_bars + 1
+            else:
+                new_counters['tier_p_center_bars'] = 0
+            required = (P_CENTER_EXIT_BARS_CASCADE if tier == 'CASCADE'
+                        else P_CENTER_EXIT_BARS_KILLSHOT)
+            if new_counters['tier_p_center_bars'] >= required:
+                return new_counters, f'{tier.lower()}_center'
+
+            # Z conviction fallback at bar 24-27
+            abs_z = abs(z)
+            if 24 <= pos.bars_held < 27:
+                z_shrink = (pos.entry_abs_z - abs_z) / max(pos.entry_abs_z, 0.01)
+                if z_shrink < 0.20:
+                    return new_counters, f'{tier.lower()}_no_conviction'
+            return new_counters, None
+
+        # ── FREIGHT_TRAIN: velocity decay ───────────────────────────
+        if tier == 'FREIGHT_TRAIN':
+            velocity = feat[_1M_VELOCITY_IDX]
+            acceleration = feat[_1M_OFFSET + 4]
+            abs_vel = abs(velocity)
+            vel_ratio = abs_vel / max(pos.entry_velocity, 1.0)
+            if vel_ratio < FREIGHT_TRAIN_VEL_DECAY and velocity * acceleration < 0:
+                return new_counters, 'freight_train_decel'
+            if abs_vel < VELOCITY_THRESHOLD:
+                return new_counters, 'freight_train_vel_dead'
+            return new_counters, None
+
+        # ── REGIME_FLIP ─────────────────────────────────────────────
+        if tier == 'REGIME_FLIP':
+            abs_z = abs(z)
+            if (REGIME_FLIP_CONVICTION_BARS <= pos.bars_held
+                    < REGIME_FLIP_CONVICTION_BARS + 3):
+                if abs_z > pos.entry_abs_z:
+                    return new_counters, 'regime_no_conviction'
+            if vr > REGIME_FLIP_VR_BAIL:
+                return new_counters, 'regime_vr_rising'
+            if abs_z < 0.3:
+                return new_counters, 'regime_mean_reached'
+            return new_counters, None
+
+        # ── MTF_EXHAUSTION ──────────────────────────────────────────
+        if tier == 'MTF_EXHAUSTION':
+            v5_accel = feat[_5M_ACCEL_IDX]
+            v1 = abs(feat[_1M_VELOCITY_IDX])
+            if v5_accel > 0 and abs(feat[_5M_VELOCITY_IDX]) > 30:
+                return new_counters, 'mtf_5m_reaccelerated'
+            if v1 < 0.3:
+                return new_counters, 'mtf_1m_exhausted'
+            if abs(z) < 0.3:
+                return new_counters, 'mtf_mean_reached'
+            return new_counters, None
+
+        # ── MTF_BREAKOUT ────────────────────────────────────────────
+        if tier == 'MTF_BREAKOUT':
+            z_5m = abs(feat[2 * _N_CORE + _Z])
+            z_15m = abs(feat[3 * _N_CORE + _Z])
+            if z_5m < 0.8 or z_15m < 0.8:
+                return new_counters, 'breakout_alignment_lost'
+            if pos.direction == 'long' and z < -0.3:
+                return new_counters, 'breakout_overshot'
+            if pos.direction == 'short' and z > 0.3:
+                return new_counters, 'breakout_overshot'
+            if abs(feat[_1M_VELOCITY_IDX]) < RIDE_VELOCITY_EXHAUSTED and pos.bars_held >= 5:
+                return new_counters, 'breakout_vel_exhausted'
+            return new_counters, None
+
+        # ── EXHAUSTION_BAR ──────────────────────────────────────────
+        if tier == 'EXHAUSTION_BAR':
+            abs_z = abs(z)
+            if (EXHAUST_CONVICTION_BARS <= pos.bars_held
+                    < EXHAUST_CONVICTION_BARS + 3):
+                z_shrink = (pos.entry_abs_z - abs_z) / max(pos.entry_abs_z, 0.01)
+                if z_shrink < EXHAUST_Z_SHRINK_MIN:
+                    return new_counters, 'exhaust_no_conviction'
+            if abs_z < 0.3:
+                return new_counters, 'exhaust_mean_reached'
+            return new_counters, None
+
+        # ── ABSORPTION ──────────────────────────────────────────────
+        if tier == 'ABSORPTION':
+            abs_z = abs(z)
+            vol_rel = feat[_1M_VOL_REL_IDX]
+            if (ABSORB_CONVICTION_BARS <= pos.bars_held
+                    < ABSORB_CONVICTION_BARS + 3):
+                z_shrink = (pos.entry_abs_z - abs_z) / max(pos.entry_abs_z, 0.01)
+                if z_shrink < ABSORB_Z_SHRINK_MIN:
+                    return new_counters, 'absorb_no_conviction'
+            if pos.bars_held >= 24 and vol_rel > ABSORB_VOL_PERSIST_MAX:
+                return new_counters, 'absorb_vol_persistent'
+            if vr > ABSORB_VR_BAIL:
+                return new_counters, 'absorb_vr_rising'
+            if abs_z < 0.3:
+                return new_counters, 'absorb_mean_reached'
+            return new_counters, None
+
+        # ── RIDE_AGAINST ────────────────────────────────────────────
+        if tier == 'RIDE_AGAINST':
+            velocity = feat[_1M_VELOCITY_IDX]
+            h1_vel = feat[_1H_VELOCITY_IDX]
+            entry_h1_sign = 1.0 if pos.direction == 'long' else -1.0
+            h1_against = (h1_vel * entry_h1_sign) < 0
+            if h1_against and pos.bars_held >= 3:
+                return new_counters, 'ride_h1_reversed'
+
+            if abs(velocity) < RIDE_VELOCITY_EXHAUSTED and pos.bars_held >= 3:
+                new_counters['ride_vel_bars'] = pos.ride_vel_bars + 1
+                if new_counters['ride_vel_bars'] >= RIDE_EXIT_BARS:
+                    return new_counters, 'ride_velocity_exhausted'
+            else:
+                new_counters['ride_vel_bars'] = 0
+
+            if abs(z) < FADE_Z_EXIT and pos.bars_held >= 3:
+                return new_counters, 'fade_mean_reached'
+            return new_counters, None
+
+        # ── Default: FADE_CALM / FADE_AGAINST / RIDE_CALM / RIDE_MOMENTUM / FADE_MOMENTUM ──
+        # Two exit modes based on cnn_flipped: FADE (entered against z) vs RIDE (with z).
+        p_center = feat[_1M_P_CENTER_IDX]
+        velocity = feat[_1M_VELOCITY_IDX]
+        wick = feat[_1M_WICK_IDX]
+        reversion = feat[_1M_REVERSION_IDX]
+
+        if not pos.cnn_flipped:
+            # ── FADE MODE ──
+            if p_center > FADE_P_CENTER_CI:
+                new_counters['p_center_bars'] = pos.p_center_bars + 1
+            else:
+                new_counters['p_center_bars'] = 0
+
+            if abs(z) < FADE_Z_EXIT:
+                new_counters['z_near_zero_bars'] = pos.z_near_zero_bars + 1
+            else:
+                new_counters['z_near_zero_bars'] = 0
+
+            # Phase 0: approaching mean (never crossed zero)
+            if pos.zero_crossings == 0:
+                if new_counters['z_near_zero_bars'] >= FADE_Z_EXIT_BARS:
+                    return new_counters, 'fade_mean_reached'
+                if new_counters['p_center_bars'] >= FADE_P_CENTER_BARS:
+                    return new_counters, 'fade_p_center'
+                if pos.bars_held >= 12:
+                    if abs(z) > pos.entry_abs_z * 1.2:
+                        return new_counters, 'fade_z_expanding'
+                return new_counters, None
+
+            # Phase 1: oscillation mode (crossed zero at least once)
+            if (pos.peak_amplitude > 0
+                    and pos.current_amplitude < pos.peak_amplitude * FADE_OSCILLATION_DECAY):
+                # Entry z_se is at feature index _1M_OFFSET + _Z (= 12 + 0 = 12)
+                entry_z = float(pos.entry_features[_1M_OFFSET + _Z])
+                entry_z_sign = 1.0 if entry_z > 0 else -1.0
+                z_favorable = (z > 0) != (entry_z_sign > 0)
+                if z_favorable or pos.zero_crossings >= 3:
+                    return new_counters, 'fade_oscillation_decay'
+
+            if pos.zero_crossings >= 2 and new_counters['p_center_bars'] >= FADE_P_CENTER_BARS:
+                return new_counters, 'fade_oscillation_center'
+
+            if pos.zero_crossings >= 5:
+                return new_counters, 'fade_oscillation_exhausted'
+
+            return new_counters, None
+
+        # ── RIDE MODE (cnn_flipped == True) ──
+        if abs(velocity) < RIDE_VELOCITY_EXHAUSTED:
+            new_counters['ride_vel_bars'] = pos.ride_vel_bars + 1
+        else:
+            new_counters['ride_vel_bars'] = 0
+
+        if vr > RIDE_VR_TRENDING:
+            new_counters['ride_vr_bars'] = pos.ride_vr_bars + 1
+        else:
+            new_counters['ride_vr_bars'] = 0
+
+        if reversion > RIDE_REVERSION_HIGH and wick > RIDE_WICK_HIGH:
+            new_counters['ride_rev_wick_bars'] = pos.ride_rev_wick_bars + 1
+        else:
+            new_counters['ride_rev_wick_bars'] = 0
+
+        required = pos.ride_exit_bars if pos.ride_exit_bars > 0 else RIDE_EXIT_BARS
+
+        if new_counters['ride_vel_bars'] >= required:
+            return new_counters, 'ride_velocity_exhausted'
+        if new_counters['ride_vr_bars'] >= required:
+            return new_counters, 'ride_regime_shift'
+        if new_counters['ride_rev_wick_bars'] >= required:
+            return new_counters, 'ride_reversion_wick'
+
+        return new_counters, None

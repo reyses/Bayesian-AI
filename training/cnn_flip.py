@@ -27,7 +27,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_CORE, N_HELPER, N_TFS
+from core.features import FEATURE_NAMES, TF_ORDER, N_CORE, N_HELPER, N_TFS
 
 BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'training/output/trades/blended_is.pkl')
 REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'training/output/nn/regret_analysis.csv')
@@ -92,7 +92,7 @@ def build_dataset(use_path=True):
 
     for i, t in enumerate(trades):
         e = np.array(t.get('entry_79d', []))
-        if len(e) != len(FEATURE_NAMES_79D) or i >= len(regret):
+        if len(e) != len(FEATURE_NAMES) or i >= len(regret):
             continue
 
         r = regret.iloc[i]
@@ -119,8 +119,8 @@ def build_dataset(use_path=True):
                 path_vol = np.zeros((N_TIME_POINTS, GRID_H, GRID_W), dtype=np.float32)
                 path_vol[0] = entry_grid  # entry is point 0
                 for pi, pidx in enumerate(indices[1:], 1):
-                    pfeat = path[pidx].get('features_79d', None)
-                    if pfeat is not None and len(pfeat) == len(FEATURE_NAMES_79D):
+                    pfeat = path[pidx].get('features', None)
+                    if pfeat is not None and len(pfeat) == len(FEATURE_NAMES):
                         path_vol[pi] = feat_to_grid(np.array(pfeat))
                     else:
                         path_vol[pi] = entry_grid  # fallback

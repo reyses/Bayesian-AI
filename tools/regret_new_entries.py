@@ -1,11 +1,11 @@
 """Run regret on new entry strategies to find optimal PnL and direction."""
 import pickle, numpy as np, pandas as pd, sys, os, glob
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D
+from core.features import FEATURE_NAMES
 from training.regret import compute_all_regrets
 from tqdm import tqdm
 
-FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
+FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES)}
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 TICK = 0.25

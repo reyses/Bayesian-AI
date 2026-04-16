@@ -29,7 +29,7 @@ N_DURATIONS = len(DURATIONS)
 # Output layout: [long_pnl x 8, short_pnl x 8, dd_long, dd_short]
 N_OUTPUTS = N_DURATIONS * 2 + 2  # 18
 
-# Input dimension (from features_79d)
+# Input dimension (from features)
 N_INPUT = 79
 
 

@@ -11,13 +11,13 @@ import numpy as np
 from typing import Dict, Tuple, Optional
 
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import extract_79d, TF_ORDER, FEATURE_NAMES_79D
+from core.features import extract_features, TF_ORDER, FEATURE_NAMES
 
 SFE_MIN_BARS = 21
 SFE_WINDOW = 300  # max bars to feed SFE
 
 
-def compute_79d_from_aggregator(
+def compute_features_from_aggregator(
     agg,
     sfe: StatisticalFieldEngine,
     prev_velocities: dict,
@@ -54,7 +54,7 @@ def compute_79d_from_aggregator(
     if '1m' not in states_by_tf:
         return None, prev_velocities, states_by_tf, ohlcv_by_tf
 
-    feat, prev_velocities = extract_79d(
+    feat, prev_velocities = extract_features(
         states_by_tf, ohlcv_by_tf, prev_velocities, ts)
 
     return feat, prev_velocities, states_by_tf, ohlcv_by_tf

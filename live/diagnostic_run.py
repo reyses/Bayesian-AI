@@ -36,8 +36,8 @@ from live.nt8_client import NT8Client
 from live.protocol import MsgType
 from training.aggregator import Aggregator
 from core.statistical_field_engine import StatisticalFieldEngine
-from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
-from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
+from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
+from core.features import FEATURE_NAMES, N_FEATURES
 
 
 async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
@@ -239,7 +239,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     prev_vel = {}
 
     # Compute 79D on current aggregator state
-    feat, prev_vel, states_by_tf, _ = compute_79d_from_aggregator(
+    feat, prev_vel, states_by_tf, _ = compute_features_from_aggregator(
         agg, sfe, prev_vel, ts_last)
 
     if feat is not None:
@@ -299,7 +299,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     ledger = open(ledger_path, 'w')
     cols = ['timestamp', 'ts_str', 'price', 'recv_delay_ms', 'feat_ms',
             'gap_s', 'gap_type',
-            'z', 'vr', 'vel', 'n_tfs'] + list(FEATURE_NAMES_79D)
+            'z', 'vr', 'vel', 'n_tfs'] + list(FEATURE_NAMES)
     ledger.write(','.join(cols) + '\n')
 
     logger.info(f'  Listening for live bars... (max {max_live_bars})')
@@ -361,7 +361,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
 
         # ── Compute features ──
         feat_t0 = time.perf_counter()
-        feat, prev_vel, states_by_tf, _ = compute_79d_from_aggregator(
+        feat, prev_vel, states_by_tf, _ = compute_features_from_aggregator(
             agg, sfe, prev_vel, bar['timestamp'])
         feat_ms = (time.perf_counter() - feat_t0) * 1000
 

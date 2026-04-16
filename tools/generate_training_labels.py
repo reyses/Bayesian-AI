@@ -33,8 +33,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features_79d import (
-    extract_79d, build_all_tf_ohlcv, FEATURE_NAMES_79D, N_FEATURES,
+from core.features import (
+    extract_features, build_all_tf_ohlcv, FEATURE_NAMES, N_FEATURES,
     TF_ORDER, TF_SECONDS
 )
 from core.statistical_field_engine import StatisticalFieldEngine
@@ -356,7 +356,7 @@ def process_day(day_file: str, history_1m: pd.DataFrame) -> pd.DataFrame:
                         states_this_bar[tf] = tf_states[tf_bar_idx]
 
         # Extract 79D
-        feat, prev_velocities = extract_79d(
+        feat, prev_velocities = extract_features(
             states_this_bar, all_ohlcv_full, prev_velocities, ts
         )
 
@@ -365,7 +365,7 @@ def process_day(day_file: str, history_1m: pd.DataFrame) -> pd.DataFrame:
 
         # Build row
         row = {'timestamp': ts}
-        for fi, fname in enumerate(FEATURE_NAMES_79D):
+        for fi, fname in enumerate(FEATURE_NAMES):
             row[fname] = feat[fi]
         row.update(labels)
         rows.append(row)

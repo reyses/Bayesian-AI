@@ -12,7 +12,7 @@ import pandas as pd
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, TF_ORDER
+from core.features import FEATURE_NAMES, TF_ORDER
 
 # Load data
 print('Loading data...')
@@ -36,7 +36,7 @@ n = min(len(trades), len(regret))
 print(f'Trades: {n}, Patterns: {len(patterns)}')
 
 # Key 79D feature indices
-FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
+FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES)}
 
 # Features we care about for exit analysis
 EXIT_FEATURES = [
@@ -72,9 +72,9 @@ for i in range(n):
         best_bar = int(r['counter_best_bar'])
 
     # Find 79D at optimal exit bar
-    if best_bar < len(path) and 'features_79d' in path[best_bar]:
-        exit_79d = np.array(path[best_bar]['features_79d'])
-        if len(exit_79d) == len(FEATURE_NAMES_79D):
+    if best_bar < len(path) and 'features' in path[best_bar]:
+        exit_79d = np.array(path[best_bar]['features'])
+        if len(exit_79d) == len(FEATURE_NAMES):
             exit_feats = {name: float(exit_79d[FEAT_IDX[name]]) for name in EXIT_FEATURES}
             exit_feats['bars_held'] = best_bar
             exit_feats['pnl'] = float(r['best_pnl'])
@@ -83,7 +83,7 @@ for i in range(n):
 
     # Also get entry 79D for comparison
     entry_79d = np.array(t.get('entry_79d', []))
-    if len(entry_79d) == len(FEATURE_NAMES_79D):
+    if len(entry_79d) == len(FEATURE_NAMES):
         entry_feats = {name: float(entry_79d[FEAT_IDX[name]]) for name in EXIT_FEATURES}
         pattern_entries[label].append(entry_feats)
 

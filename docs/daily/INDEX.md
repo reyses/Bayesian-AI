@@ -2,6 +2,7 @@
 
 | Date | Summary |
 |------|---------|
+| 2026-04-15 | **MORNING:** NT8 bridge parity blocker fixed — Bridge v7.0.0 with `position_effect` (OPEN/REDUCE), `OrderAction.Sell`/`BuyToCover` for scale-outs. OrderManager rewritten as handshake state machine. **AFTERNOON:** 79D→feature-name cleanup (~60 files). Phases 1-3 of JULES_ENGINE_DECOUPLE_ORDERS: `core/engine_signals.py` (types), `core/ledger.py` (shared ledger), `BlendedEngine.evaluate()` (stateless signal path), `core/sim_executor.py` (thin bar-loop driver). 78 tests passing (30 ledger + 24 evaluate + 24 sim executor). Phase 4 next: plug into training loop, measure baseline drift. |
 | 2026-04-14 | LIVE PARITY ACHIEVED. LiveFeatureEngine 7.5%→100% parity (130,943/130,949 cells exact). Engine v2 hardening: NT8 panic protection (3 layers), state sync, GPU/RAM cleanup, ACCOUNT_UPDATE dashboard. RIDE_AGAINST + FADE_CALM exit fixes. Negative exits via TIER_STRENGTH. Feature response surface: chop is #1 loser signal (15m_wick d=-0.27). MTF_BREAKOUT broken (43% WR). Gravity well concept implemented. ATLAS_NT8 clean rebuild (Mar 20+ NT8 + Mar 2-19 Databento context). |
 | 2026-04-13 | First live SIM deployment. Dashboard wiring fixed (q100plus key, X button). Chains scale-in/out. Slippage tracking. Discovered feature path divergence between training and live (92% mismatch). Sunday session -$1,339 (thin market, expected). |
 | 2026-04-12 | Sunday gate analysis: 11/13 IS losing days are Sundays. Skip-Sundays = 100% IS win rate. Built per-day baseline runner with DOW breakdown. Started live SIM deployment. |

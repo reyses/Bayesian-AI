@@ -147,7 +147,7 @@ def generate_exit_labels(trades: List[Dict], regret_df: pd.DataFrame) -> pd.Data
         entry_z = t.get('entry_79d', [0] * 91)[10] if len(t.get('entry_79d', [])) > 10 else 0
 
         for bar_idx, bar in enumerate(path):
-            feat = bar.get('features_79d', None)
+            feat = bar.get('features', None)
             if feat is None:
                 continue
 
@@ -159,7 +159,7 @@ def generate_exit_labels(trades: List[Dict], regret_df: pd.DataFrame) -> pd.Data
                 'trade_idx': i,
                 'bar_idx': bar_idx,
                 'label': 1 if bar_idx < optimal_bar else 0,  # HOLD=1, EXIT=0
-                'features_79d': feat if isinstance(feat, list) else feat.tolist(),
+                'features': feat if isinstance(feat, list) else feat.tolist(),
                 'bars_held': bar_idx,
                 'pnl': pnl,
                 'peak_pnl': peak,
@@ -191,7 +191,7 @@ def generate_loser_labels(trades: List[Dict]) -> pd.DataFrame:
             if pnl >= 0:
                 continue  # only label bars where trade is underwater
 
-            feat = bar.get('features_79d', None)
+            feat = bar.get('features', None)
             if feat is None:
                 continue
 
@@ -202,7 +202,7 @@ def generate_loser_labels(trades: List[Dict]) -> pd.DataFrame:
                 'trade_idx': i,
                 'bar_idx': bar_idx,
                 'label': label,
-                'features_79d': feat if isinstance(feat, list) else feat.tolist(),
+                'features': feat if isinstance(feat, list) else feat.tolist(),
                 'bars_held': bar_idx,
                 'pnl': pnl,
                 'peak_pnl': peak,

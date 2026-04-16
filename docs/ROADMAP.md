@@ -1,5 +1,44 @@
 # Roadmap & Future Work
 
+## POST-PARITY TODO (2026-04-14)
+
+Work deferred until sim→live feature parity + live→NT8 execution parity both
+pass. Any change listed here is forbidden before parity is proven because it
+introduces variables that would confound the parity diff.
+
+### Engine representation
+- **Ticks-only internal accounting** — `nightmare_blended.py` + `engine_v2.py`
+  currently mix dollars (via hardcoded `TICK=0.25`, `TV=0.50`) with prices (raw
+  float). Refactor so all internal pnl/peak/thresholds are integer tick counts,
+  dollars computed only at the boundary (dashboard, ledger, trade log). Fixes
+  silent multi-contract landmine (SYMBOL_MAP has NQ at 10× MNQ — hardcoded
+  constants would report 10× wrong on NQ). Use `self._tick_value` from
+  `AssetProfile` instead of module constants. Not blocked by CNN since
+  `use_cnn=False`.
+- **Derive TICK/TV from `self._asset`** instead of module-level constants in
+  `live/engine_v2.py` and `training/nightmare_blended.py`. Part of the above
+  refactor but can land independently as a smaller first step.
+- **Rename `daily_pnl` column** in `v2_trades_*.csv` → `account_pnl` (reflects
+  that it's NT8's lifetime `RealizedProfitLoss`, not today's delta — user
+  confirmed 2026-04-14 this is the correct semantics for live-real measurement,
+  just misleading label).
+
+### Exit physics (require parity before testing)
+- **Peak giveback with higher-TF gate** — user saw 5s whipsaw in 1m downtrend
+  where peak-giveback exit would have been wrong. Gate peak-giveback on the
+  higher-TF bias direction.
+- **In-trade gravity well tracker** — 15m/1h z_high/z_low as attractor wells
+  (not lines). User insight: gravity wells attract price; support/resistance
+  is oscillation within them.
+- **SPC guard band exits per tier** — tier-specific statistical process control
+  bands as soft-exit signals.
+- **NO_MTF_BREAKOUT filter** — hypothesis-tested positive, wire in once parity
+  holds.
+- **Gravity well entry filter + chop threshold tune** — research-confirmed.
+- **Long RIDE_AGAINST fires SHORT loop bug** — tier direction inversion
+  observed 2026-04-14; engine re-enters in wrong direction, then flattens.
+  Reproduce + fix after parity.
+
 ## COMPLETED (V8.0.0, 2026-03-18)
 
 - **Sensor-enriched exits** -- belief_flip requires 2+ sensors, tidal_wave requires 1+. Exits validate with 1s velocity + 1m volume/DMI/momentum before firing. belief_flip dropped 97% noise (631 -> 19 fires).

@@ -52,7 +52,7 @@ from live.nt8_client import NT8Client
 from live.protocol import MsgType, subscribe, place_order, close_position
 from training.live_feature_engine import LiveFeatureEngine
 from training.nightmare_blended import BlendedEngine
-from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
+from core.features import FEATURE_NAMES, N_FEATURES
 from config.symbols import SYMBOL_MAP
 from live.order_manager import OrderManager
 from live.gui_bridge import GUIBridge
@@ -72,8 +72,14 @@ NT8_CHECKPOINT = os.path.join(ATLAS_NT8, 'checkpoint.json')
 LIVE_CHECKPOINT = 'live/state/checkpoint.json'
 
 # Sync thresholds
-MAX_SYNC_LAG_S = 10.0    # max seconds behind NT8 before trading allowed
+MAX_SYNC_LAG_S = 10.0    # hard ceiling — lag > this blocks trading
+BAR_PERIOD_S = 5         # 5s primary bar; NT8 sends OPEN time, so true bar_age = wall - (ts + BAR_PERIOD_S)
+HONING_TARGET_LAG_S = 3.0    # target bar_age (post-close) during step 6 honing loop
+HONING_TIMEOUT_S = 30.0      # max time to spend honing before proceeding with warning
 WARMUP_DAYS = 5           # days of history to load for aggregator context
+
+# Shutdown
+CUDA_CLOSE_TIMEOUT_S = 5.0   # max time to wait for cuda.close() during shutdown
 
 
 class LiveEngineV2:
@@ -166,9 +172,15 @@ class LiveEngineV2:
                 return
 
             await self._step4_sync()
+            if self._shutting_down:
+                return
             await self._step5_catchup()
+            if self._shutting_down:
+                return
             self._step5b_recover_trade()
-            self._step6_verify()
+            await self._step6_verify()
+            if self._shutting_down:
+                return
 
             if self._synced:
                 await self._step7_trade()
@@ -326,11 +338,19 @@ class LiveEngineV2:
         t0 = time.perf_counter()
 
         while not history_done:
+            if self._shared_state.get('shutdown'):
+                logger.info('  Step 4 aborted by shutdown request')
+                self._shutting_down = True
+                return
             try:
-                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=120.0)
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=2.0)
             except asyncio.TimeoutError:
-                logger.warning('  History timeout (120s)')
-                break
+                # Bounded wait so we can re-check shutdown flag — overall hard
+                # cap is 120s of history idle (60 iterations of 2s).
+                if (time.perf_counter() - t0) > 120.0:
+                    logger.warning('  History timeout (120s)')
+                    break
+                continue
 
             if msg.get('type') == MsgType.BAR:
                 bar = self._extract_bar(msg)
@@ -363,6 +383,10 @@ class LiveEngineV2:
         wall_time = time.time()
 
         while True:
+            if self._shared_state.get('shutdown'):
+                logger.info('  Step 5 aborted by shutdown request')
+                self._shutting_down = True
+                return
             try:
                 msg = await asyncio.wait_for(self._client.inbound.get(), timeout=2.0)
             except asyncio.TimeoutError:
@@ -431,31 +455,77 @@ class LiveEngineV2:
                              f'checkpoint={saved_dir} — NOT restoring')
 
     # ═══════════════════════════════════════════════════════════════════
-    # STEP 6: VERIFY — latency check
+    # STEP 6: VERIFY — honing loop, drain inbound until bar_age converges
     # ═══════════════════════════════════════════════════════════════════
 
-    def _step6_verify(self):
+    async def _step6_verify(self):
+        """Hone in on real-time by pulling live bars until bar_age converges.
+
+        Bar timestamps are OPEN times (NT8 OnBarClose sends Times[idx][1]), so
+        true staleness is `wall - (last_ts + BAR_PERIOD_S)`. We loop pulling
+        fresh bars off the inbound queue until that drops under the target, or
+        until HONING_TIMEOUT_S elapses.
+        """
         logger.info('')
-        logger.info('STEP 6: VERIFY SYNC')
+        logger.info('STEP 6: VERIFY SYNC (honing)')
 
-        wall_time = time.time()
-        lag = wall_time - self._last_ts if self._last_ts > 0 else 999
+        def _bar_age(wall, ts):
+            return wall - (ts + BAR_PERIOD_S) if ts > 0 else 999.0
 
-        logger.info(f'  Wall time:   {self._ts_str(wall_time)}')
-        logger.info(f'  Last bar:    {self._ts_str(self._last_ts)}')
-        logger.info(f'  Lag:         {lag:.1f}s')
+        t0 = time.perf_counter()
+        bars_honed = 0
+        last_log = 0.0
+        bar_age = _bar_age(time.time(), self._last_ts)
 
-        if lag < MAX_SYNC_LAG_S:
-            self._synced = True
-            logger.info(f'  SYNC VERIFIED — lag {lag:.1f}s < {MAX_SYNC_LAG_S}s')
-        else:
-            # Any lag > 10s: proceed but start in "waiting for live bars" mode.
-            # Market closures, session gaps, weekend = any lag possible.
-            # Real-time guard rails (broker_connected, catch_up detection,
-            # stale bar detection) protect us during the trading loop itself.
-            self._synced = True
-            logger.warning(f'  LAG: {lag:.0f}s — proceeding, will enter live '
-                           f'when first fresh bar arrives')
+        logger.info(f'  start: wall={self._ts_str(time.time())} '
+                    f'last_bar={self._ts_str(self._last_ts)} '
+                    f'bar_age={bar_age:.1f}s')
+
+        while True:
+            if self._shared_state.get('shutdown'):
+                logger.info('  Honing aborted by shutdown request')
+                self._shutting_down = True
+                return
+            elapsed = time.perf_counter() - t0
+            bar_age = _bar_age(time.time(), self._last_ts)
+
+            if bar_age <= HONING_TARGET_LAG_S:
+                wall_time = time.time()
+                logger.info(f'  Wall time:   {self._ts_str(wall_time)}')
+                logger.info(f'  Last bar:    {self._ts_str(self._last_ts)} '
+                            f'(closed {self._ts_str(self._last_ts + BAR_PERIOD_S)})')
+                logger.info(f'  Bar age:     {bar_age:.1f}s (post-close)')
+                logger.info(f'  Bars honed:  {bars_honed}')
+                logger.info(f'  SYNC HONED — caught up to real-time')
+                self._synced = True
+                return
+
+            if elapsed >= HONING_TIMEOUT_S:
+                self._synced = True
+                logger.warning(f'  HONING TIMEOUT: bar_age={bar_age:.1f}s after '
+                               f'{elapsed:.0f}s — proceeding, will enter live '
+                               f'when next fresh bar arrives')
+                return
+
+            # Pull next message; short timeout so we re-check bar_age frequently
+            try:
+                msg = await asyncio.wait_for(self._client.inbound.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                # No new bar in last 1s — log progress every 2s and loop
+                if (time.perf_counter() - last_log) >= 2.0:
+                    logger.info(f'  honing: bar_age={bar_age:.1f}s elapsed={elapsed:.0f}s')
+                    last_log = time.perf_counter()
+                continue
+
+            if msg.get('type') != MsgType.BAR:
+                continue
+
+            bar = self._extract_bar(msg)
+            self._lfe.on_bar(bar)
+            if bar['timestamp'] > self._last_ts:
+                self._last_ts = bar['timestamp']
+                self._last_price = bar['close']
+                bars_honed += 1
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 7: TRADE — main loop
@@ -504,6 +574,35 @@ class LiveEngineV2:
                 self._shutting_down = True
                 break
 
+            # ── Watchdog: check pending order timeouts ──────────────────
+            timed_out = self._orders.check_pending_timeouts()
+            if timed_out:
+                for rec in timed_out:
+                    msg_str = (f'ORDER TIMEOUT {rec.order_id} ({rec.intent}) '
+                               f'state={rec.state} reason={rec.reject_reason}')
+                    logger.error(f'  {msg_str}')
+                    self._gui.push({
+                        'type': 'ALERT',
+                        'severity': 'error',
+                        'message': msg_str,
+                    })
+                # Force a position resync so we know what NT8 actually has
+                from live.protocol import request_position
+                try:
+                    await self._client.send(request_position())
+                except Exception:
+                    pass
+
+            # ── Surface any reconciliation mismatch from on_fill ────────
+            if self._orders.last_reconcile_error:
+                err = self._orders.last_reconcile_error
+                self._orders.last_reconcile_error = ''
+                self._gui.push({
+                    'type': 'ALERT',
+                    'severity': 'error',
+                    'message': err,
+                })
+
             # Dashboard requested a manual save
             if self._shared_state.get('save_now'):
                 logger.info('  MANUAL SAVE requested from dashboard')
@@ -519,6 +618,7 @@ class LiveEngineV2:
                         order_msg = self._orders.build_exit_order(reason='manual')
                         if order_msg:
                             await self._client.send(order_msg)
+                            self._orders.mark_sent('BAY_CLOSE')
                     if self._engine and self._engine.in_pos:
                         self._engine.force_close(reason='manual_flatten')
 
@@ -692,9 +792,15 @@ class LiveEngineV2:
             prev_in_pos = self._engine.in_pos
             prev_trades = len(self._engine.trades)
             prev_chains = len(self._engine._chain_contracts)
+            # Snap pre-state so we can detect silent tier/direction churn
+            # (engine reclassified mid-trade without going through close+open
+            # boundary — would be invisible to entered/exited otherwise).
+            prev_direction = self._engine.direction
+            prev_tier = self._engine.entry_tier
+            prev_entry_price = self._engine.entry_price
 
             state = {
-                'features_79d': feat,
+                'features': feat,
                 'price': bar['close'],
                 'timestamp': bar['timestamp'],
             }
@@ -706,7 +812,35 @@ class LiveEngineV2:
             curr_chains = len(self._engine._chain_contracts)
             chain_opened = curr_chains > prev_chains
 
+            # ── Silent flip detection ──────────────────────────────────
+            # If we stayed in a position but direction/tier/entry_price
+            # changed, the engine did a close+open inside on_state without
+            # going through the entered/exited boundary. Log it loudly so
+            # we can see the issue and the wrapper alerts the user.
+            silent_flip = (prev_in_pos and self._engine.in_pos
+                           and not entered and not exited
+                           and (prev_direction != self._engine.direction
+                                or prev_tier != self._engine.entry_tier
+                                or prev_entry_price != self._engine.entry_price))
+
             events = []
+
+            if silent_flip:
+                msg_str = (f'SILENT_FLIP {prev_direction}/{prev_tier}@{prev_entry_price:.2f} '
+                           f'-> {self._engine.direction}/{self._engine.entry_tier}'
+                           f'@{self._engine.entry_price:.2f}')
+                logger.error(f'  {msg_str}')
+                events.append('SILENT_FLIP')
+                self._log_trade_event(bar['timestamp'], 'SILENT_FLIP',
+                    self._engine.entry_tier or '?',
+                    self._engine.direction or '?',
+                    bar['close'], 0, 0, 0, msg_str, False)
+                # Surface to dashboard so user sees the alert
+                self._gui.push({
+                    'type': 'ALERT',
+                    'severity': 'error',
+                    'message': msg_str,
+                })
 
             # ── PRIMARY ENTRY ──────────────────────────────────────────
             if entered and self._orders.can_enter and self._broker_connected:
@@ -720,6 +854,7 @@ class LiveEngineV2:
                         'is_chain': False, 'type': 'ENTRY',
                     }
                     await self._client.send(order_msg)
+                    self._orders.mark_sent(order_msg['order_id'])
                 events.append(f'ENTRY_{self._engine.entry_tier}')
                 self._log_trade_event(bar['timestamp'], 'ENTRY',
                     self._engine.entry_tier, self._engine.direction,
@@ -749,6 +884,7 @@ class LiveEngineV2:
                         'is_chain': True, 'type': 'CHAIN_ENTRY',
                     }
                     await self._client.send(order_msg)
+                    self._orders.mark_sent(order_msg['order_id'])
                     events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
                     self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
                         cc['entry_tier'], cc['direction'],
@@ -780,6 +916,7 @@ class LiveEngineV2:
                                 'is_chain': True, 'type': 'CHAIN_EXIT',
                             }
                             await self._client.send(order_msg)
+                            self._orders.mark_sent(order_msg['order_id'])
                             events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
                             self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
                                 ct.get('entry_tier', '?'), ct.get('direction', '?'),
@@ -798,6 +935,9 @@ class LiveEngineV2:
                         reason=t.get('exit_reason', 'signal'))
                     if order_msg:
                         await self._client.send(order_msg)
+                        # CLOSE_POSITION fills come back with order_id='BAY_CLOSE'
+                        # which was pre-registered by build_exit_order.
+                        self._orders.mark_sent('BAY_CLOSE')
                 events.append(f'EXIT_{t.get("exit_reason", "?")}')
                 self._log_trade_event(bar['timestamp'], 'EXIT',
                     t.get('entry_tier', '?'), t.get('direction', '?'),
@@ -1052,7 +1192,7 @@ class LiveEngineV2:
         """Save accumulated 91D features to parquet — same format as build_dataset."""
         if not self._live_79d:
             return
-        from core.features_79d import FEATURE_NAMES_79D
+        from core.features import FEATURE_NAMES
         os.makedirs(FEATURES_LIVE, exist_ok=True)
 
         # Group by UTC date
@@ -1066,7 +1206,7 @@ class LiveEngineV2:
             timestamps = [r['timestamp'] for r in rows]
             features = np.array([r['features'] for r in rows])
             data = {'timestamp': timestamps}
-            for i, name in enumerate(FEATURE_NAMES_79D):
+            for i, name in enumerate(FEATURE_NAMES):
                 data[name] = features[:, i] if i < features.shape[1] else 0.0
             df = pd.DataFrame(data)
             df['timestamp'] = df['timestamp'].astype(np.int64)
@@ -1141,12 +1281,25 @@ class LiveEngineV2:
             await self._client.disconnect()
 
         # 6. Release GPU + RAM (AFTER everything else uses engine/lfe)
-        try:
-            from numba import cuda
-            if cuda.is_available():
-                cuda.close()
-        except Exception:
-            pass
+        # cuda.close() is notorious for hanging when contexts have dangling
+        # references. Run it in a background thread with a hard timeout so
+        # shutdown is never blocked by the GPU release.
+        def _close_cuda():
+            try:
+                from numba import cuda
+                if cuda.is_available():
+                    cuda.close()
+            except Exception as e:
+                logger.warning(f'  cuda.close() failed: {e}')
+
+        import threading
+        t = threading.Thread(target=_close_cuda, daemon=True)
+        t.start()
+        t.join(timeout=CUDA_CLOSE_TIMEOUT_S)
+        if t.is_alive():
+            logger.warning(f'  cuda.close() timed out after {CUDA_CLOSE_TIMEOUT_S}s '
+                           f'— continuing shutdown (CUDA context will leak until process exit)')
+
         self._lfe = None
         self._engine = None
         self._live_bars.clear()
@@ -1155,6 +1308,12 @@ class LiveEngineV2:
         gc.collect()
         logger.info('  Memory released')
         logger.info('  Done')
+
+        # Final hammer: force-exit the process if anything (including the
+        # tk dashboard thread or a non-daemon NT8 client thread) is still
+        # holding the interpreter alive after a clean shutdown. We've
+        # already saved state, closed positions, and flushed logs.
+        os._exit(0)
 
     # ═══════════════════════════════════════════════════════════════════
     # HELPERS
@@ -1175,7 +1334,9 @@ class LiveEngineV2:
     def _ts_str(ts):
         if ts < 1e9:
             return '?'
-        return datetime.fromtimestamp(ts, tz=timezone.utc).strftime('%H:%M:%S')
+        # Local time so startup logs match the Python logging prefix (which
+        # is also local). Matches wall-clock the user sees on their machine.
+        return datetime.fromtimestamp(ts).strftime('%H:%M:%S')
 
 
 def main():

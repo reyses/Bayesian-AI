@@ -64,7 +64,7 @@ class IsoEngine:
 
     def on_state(self, state: Dict):
         self._bar_count += 1
-        feat = state['features_79d']
+        feat = state['features']
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
@@ -79,7 +79,7 @@ class IsoEngine:
         if not self.in_pos:
             self._approach_buffer.append({
                 'timestamp': ts, 'price': price,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
             if len(self._approach_buffer) > 10:
                 self._approach_buffer = self._approach_buffer[-10:]
@@ -96,7 +96,7 @@ class IsoEngine:
             self._trade_path.append({
                 'bar': self.bars_held, 'timestamp': ts, 'price': price,
                 'pnl': pnl, 'peak_pnl': self.peak_pnl,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
 
             if is_1m:
@@ -182,7 +182,7 @@ class IsoEngine:
         self._trade_path.append({
             'bar': 0, 'timestamp': ts, 'price': price,
             'pnl': 0.0, 'peak_pnl': 0.0,
-            'features_79d': feat.copy(),
+            'features': feat.copy(),
         })
 
     def _close_trade(self, price, ts, time_str, exit_reason, feat):
@@ -217,7 +217,7 @@ class IsoEngine:
     def force_close(self, reason='end_of_day'):
         if self.in_pos:
             ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
-            feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
+            feat = self._trade_path[-1]['features'] if self._trade_path else self.entry_79d
             if feat is None:
                 feat = np.zeros(79)
             time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'

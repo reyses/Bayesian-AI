@@ -29,7 +29,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
+from core.features import FEATURE_NAMES, N_FEATURES
 
 # Data paths
 BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'training/output/trades/blended_is.pkl')
@@ -56,7 +56,7 @@ EXIT_LABELS = {
 N_CLASSES = len(EXIT_LABELS)
 
 # Feature indices
-FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
+FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES)}
 TIER_MAP = {
     'CASCADE': 7, 'KILL_SHOT': 6, 'FADE_CALM': 5, 'FADE_MOMENTUM': 4,
     'FADE_AGAINST': 3, 'RIDE_CALM': 2, 'RIDE_MOMENTUM': 1, 'RIDE_AGAINST': 0,
@@ -150,7 +150,7 @@ def build_dataset(sample_bars=5):
 
         for bar_idx in sorted(sampled_bars):
             p = path[bar_idx]
-            feat = np.array(p.get('features_79d', []))
+            feat = np.array(p.get('features', []))
             if len(feat) != N_FEATURES:
                 continue
 

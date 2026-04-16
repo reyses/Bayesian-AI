@@ -30,7 +30,7 @@ from collections import defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D
+from core.features import FEATURE_NAMES
 
 TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
 REGRET_FILE = 'DATA/NMP_TREE/regret_analysis.csv'
@@ -111,7 +111,7 @@ def build_leaf_signatures(trades, min_trades):
         for t in leaf_trades:
             approach = t.get('approach', [])
             if approach:
-                app_feats = [a['features_79d'] for a in approach if 'features_79d' in a]
+                app_feats = [a['features'] for a in approach if 'features' in a]
                 if app_feats:
                     approach_vecs.append(np.concatenate(app_feats))
         approach_mean = np.nan_to_num(np.mean(approach_vecs, axis=0)) if approach_vecs else None

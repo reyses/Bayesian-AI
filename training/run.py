@@ -20,13 +20,17 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
-FEATURES_DIR = 'DATA/FEATURES_79D'
-FEATURES_DIR_5S = 'DATA/FEATURES_79D_5s'
-FEATURES_DIR_1M = 'DATA/FEATURES_79D_1m'
+FEATURES_DIR = 'DATA/FEATURES'
+FEATURES_DIR_5S = 'DATA/FEATURES_5s'
+FEATURES_DIR_1M = 'DATA/FEATURES_1m'
 
 # NT8 dataset (OOS-2: live parity validation)
 NT8_FEATURES_5S = 'DATA/FEATURES_NT8_5s'
 NT8_ATLAS_1M = 'DATA/ATLAS_NT8/1m'
+
+# Phase 4 flag: use core.sim_executor instead of engine.on_state().
+# Set by --use-sim-executor on the command line.
+USE_SIM_EXECUTOR = False
 
 
 def cmd_build(args):
@@ -151,7 +155,7 @@ def _run_nmp_live(target: str, equity: float = None):
     from training.aggregator import Aggregator
     from training.nightmare import NightmareEngine
     from core.statistical_field_engine import StatisticalFieldEngine
-    from core.features_79d import extract_79d, FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
+    from core.features import extract_features, FEATURE_NAMES, TF_ORDER, N_FEATURES
     from tqdm import tqdm
 
     SFE_MIN_BARS = 21
@@ -203,12 +207,12 @@ def _run_nmp_live(target: str, equity: float = None):
             if '1m' not in states_by_tf:
                 return
 
-            feat, prev_velocities = extract_79d(
+            feat, prev_velocities = extract_features(
                 states_by_tf, ohlcv_by_tf, prev_velocities, bar['timestamp']
             )
 
             state = {
-                'features_79d': feat,
+                'features': feat,
                 'price': bar['close'],
                 'timestamp': bar['timestamp'],
             }
@@ -339,9 +343,9 @@ def _run_gated(target: str):
                 branch = decision['branch']
                 if branch and 'counter' in branch.get('strategy', ''):
                     flipped = state.copy()
-                    feat = state['features_79d'].copy()
+                    feat = state['features'].copy()
                     feat[10] = -feat[10]
-                    flipped['features_79d'] = feat
+                    flipped['features'] = feat
                     nmp.on_state(flipped)
                 else:
                     nmp.on_state(state)
@@ -845,6 +849,32 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     print(f'Saved: {csv_path}')
 
 
+def _run_one_day(engine, ft, ledger=None):
+    """Run one day through either the old (on_state) or new (sim_executor) path.
+
+    Returns list of trade dicts for the day, compatible with the downstream
+    pipeline (entry_79d, exit_79d, v5_aligned fields present).
+
+    When USE_SIM_EXECUTOR is True, drives the engine through
+    core.sim_executor. Otherwise uses the legacy engine.on_state path.
+    The caller must provide a Ledger when using the new path.
+    """
+    if USE_SIM_EXECUTOR:
+        from core import sim_executor
+        from core.ledger import Ledger as _Ledger
+        if ledger is None:
+            ledger = _Ledger()
+        ledger.clear()
+        day_trades = sim_executor.run(ledger, engine, ft, eod_close=True)
+        return sim_executor.adapt_trades(day_trades)
+    else:
+        engine.reset()
+        for state in ft:
+            engine.on_state(state)
+        engine.force_close()
+        return list(engine.get_full_trades())
+
+
 def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
     from training.sfe_ticker import FeatureTicker
@@ -860,8 +890,13 @@ def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
         return
 
     cnn_label = '+ CNN' if use_cnn else '(no CNN)'
-    print(f'BLENDED NMP {cnn_label} — {len(feat_files)} day(s)')
+    executor_label = ' [sim_executor]' if USE_SIM_EXECUTOR else ''
+    print(f'BLENDED NMP {cnn_label}{executor_label} — {len(feat_files)} day(s)')
     engine = BlendedEngine(use_cnn=use_cnn)
+    ledger = None
+    if USE_SIM_EXECUTOR:
+        from core.ledger import Ledger
+        ledger = Ledger()
     all_results = []
     all_trades = []
 
@@ -871,27 +906,26 @@ def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
         if not os.path.exists(price_file):
             price_file = None
 
-        engine.reset()
         ft = FeatureTicker(fpath, price_file=price_file)
-        for state in ft:
-            engine.on_state(state)
-        engine.force_close()
+        day_trade_list = _run_one_day(engine, ft, ledger)
 
-        for t in engine.trades:
+        for t in day_trade_list:
             t['day'] = day_name
-        all_trades.extend(engine.get_full_trades())
+        all_trades.extend(day_trade_list)
 
-        day_pnl = engine.daily_pnl
-        day_trades = len(engine.trades)
+        day_pnl = sum(t['pnl'] for t in day_trade_list)
+        day_trades = len(day_trade_list)
         all_results.append({
             'day': day_name,
             'trades': day_trades,
             'pnl': day_pnl,
-            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+            'wr': sum(1 for t in day_trade_list if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
         if verbose:
-            tqdm.write(f'  {day_name}: {engine.summary()}')
+            wins = sum(1 for t in day_trade_list if t['pnl'] > 0)
+            wr = wins / max(day_trades, 1) * 100
+            tqdm.write(f'  {day_name}: {day_trades} trades | WR={wr:.0f}% | ${day_pnl:.0f}')
 
     _print_summary(all_results, show_daily=verbose)
 
@@ -1492,8 +1526,13 @@ def _run_blended_forward_physics_only(target: str):
         print(f'No feature files for "{target}"')
         return
 
-    print(f'PHYSICS ONLY — {len(feat_files)} day(s) (no CNN)')
+    executor_label = ' [sim_executor]' if USE_SIM_EXECUTOR else ''
+    print(f'PHYSICS ONLY{executor_label} — {len(feat_files)} day(s) (no CNN)')
     engine = BlendedEngine(use_cnn=False)
+    ledger = None
+    if USE_SIM_EXECUTOR:
+        from core.ledger import Ledger
+        ledger = Ledger()
     all_results = []
 
     for fpath in tqdm(feat_files, desc='Days', unit='day'):
@@ -1502,17 +1541,14 @@ def _run_blended_forward_physics_only(target: str):
         if not os.path.exists(price_file):
             price_file = None
 
-        engine.reset()
         ft = FeatureTicker(fpath, price_file=price_file)
-        for state in ft:
-            engine.on_state(state)
-        engine.force_close()
+        day_trade_list = _run_one_day(engine, ft, ledger)
 
         all_results.append({
             'day': day_name,
-            'trades': len(engine.trades),
-            'pnl': engine.daily_pnl,
-            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(len(engine.trades), 1) * 100,
+            'trades': len(day_trade_list),
+            'pnl': sum(t['pnl'] for t in day_trade_list),
+            'wr': sum(1 for t in day_trade_list if t['pnl'] > 0) / max(len(day_trade_list), 1) * 100,
         })
 
     _print_summary(all_results, show_daily=False)
@@ -1644,8 +1680,13 @@ def _run_blended_forward_on_files(feat_files: list, label: str,
 
     _price_dir = price_dir or ATLAS_1M
     cnn_label = '+ CNN' if use_cnn else '(no CNN)'
-    print(f'BLENDED FORWARD {cnn_label} — {len(feat_files)} day(s) [{label}]')
+    executor_label = ' [sim_executor]' if USE_SIM_EXECUTOR else ''
+    print(f'BLENDED FORWARD {cnn_label}{executor_label} — {len(feat_files)} day(s) [{label}]')
     engine = BlendedEngine(use_cnn=use_cnn)
+    ledger = None
+    if USE_SIM_EXECUTOR:
+        from core.ledger import Ledger
+        ledger = Ledger()
     all_results = []
     all_trades = []
 
@@ -1655,23 +1696,20 @@ def _run_blended_forward_on_files(feat_files: list, label: str,
         if not os.path.exists(price_file):
             price_file = None
 
-        engine.reset()
         ft = FeatureTicker(fpath, price_file=price_file)
-        for state in ft:
-            engine.on_state(state)
-        engine.force_close()
+        day_trade_list = _run_one_day(engine, ft, ledger)
 
-        for t in engine.trades:
+        for t in day_trade_list:
             t['day'] = day_name
-        all_trades.extend(engine.get_full_trades())
+        all_trades.extend(day_trade_list)
 
-        day_pnl = engine.daily_pnl
-        day_trades = len(engine.trades)
+        day_pnl = sum(t['pnl'] for t in day_trade_list)
+        day_trades = len(day_trade_list)
         all_results.append({
             'day': day_name,
             'trades': day_trades,
             'pnl': day_pnl,
-            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+            'wr': sum(1 for t in day_trade_list if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
     _print_summary(all_results)
@@ -1712,8 +1750,13 @@ def _run_blended_forward(target: str):
         print(f'No feature files for "{target}"')
         return
 
-    print(f'BLENDED FORWARD — {len(feat_files)} day(s) (3 CNNs loaded)')
+    executor_label = ' [sim_executor]' if USE_SIM_EXECUTOR else ''
+    print(f'BLENDED FORWARD{executor_label} — {len(feat_files)} day(s) (3 CNNs loaded)')
     engine = BlendedEngine(use_cnn=True)
+    ledger = None
+    if USE_SIM_EXECUTOR:
+        from core.ledger import Ledger
+        ledger = Ledger()
     all_results = []
     all_trades = []
 
@@ -1723,23 +1766,20 @@ def _run_blended_forward(target: str):
         if not os.path.exists(price_file):
             price_file = None
 
-        engine.reset()
         ft = FeatureTicker(fpath, price_file=price_file)
-        for state in ft:
-            engine.on_state(state)
-        engine.force_close()
+        day_trade_list = _run_one_day(engine, ft, ledger)
 
-        for t in engine.trades:
+        for t in day_trade_list:
             t['day'] = day_name
-        all_trades.extend(engine.get_full_trades())
+        all_trades.extend(day_trade_list)
 
-        day_pnl = engine.daily_pnl
-        day_trades = len(engine.trades)
+        day_pnl = sum(t['pnl'] for t in day_trade_list)
+        day_trades = len(day_trade_list)
         all_results.append({
             'day': day_name,
             'trades': day_trades,
             'pnl': day_pnl,
-            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+            'wr': sum(1 for t in day_trade_list if t['pnl'] > 0) / max(day_trades, 1) * 100,
         })
 
     _print_summary(all_results)
@@ -1774,6 +1814,14 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return
+
+    # --use-sim-executor: Phase 4 flag, drives engine through core.sim_executor
+    # instead of engine.on_state(). Produces same trade format, different path.
+    global USE_SIM_EXECUTOR
+    if '--use-sim-executor' in sys.argv:
+        sys.argv.remove('--use-sim-executor')
+        USE_SIM_EXECUTOR = True
+        print('[MODE: sim_executor — ledger + evaluate() path]')
 
     # --atlas flag: switch data source (e.g. --atlas DATA/ATLAS_NT8)
     if '--atlas' in sys.argv:

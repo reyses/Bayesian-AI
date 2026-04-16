@@ -4,7 +4,7 @@ Build 79D Feature Dataset — sequential, per-TF, zero lookahead.
 Computes each TF's features independently from ATLAS parquets.
 No partial bars. Each TF updates only when its bar closes.
 Higher TFs carry history across days naturally (loaded from ATLAS).
-SFE window = 300 bars (matches live via compute_79d.SFE_WINDOW).
+SFE window = 300 bars (matches live via compute_features.SFE_WINDOW).
 
 For each day:
   1. Load anchor TF bars for this day
@@ -32,8 +32,8 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import (
-    extract_79d, FEATURE_NAMES_79D, N_FEATURES, TF_ORDER, TF_SECONDS,
+from core.features import (
+    extract_features, FEATURE_NAMES, N_FEATURES, TF_ORDER, TF_SECONDS,
 )
 
 ATLAS_ROOT_DEFAULT = 'DATA/ATLAS'
@@ -43,7 +43,7 @@ OUTPUT_DIR_DEFAULT = 'DATA/FEATURES_79D'
 ATLAS_ROOT = ATLAS_ROOT_DEFAULT
 OUTPUT_DIR = OUTPUT_DIR_DEFAULT
 SFE_MIN_BARS = 21
-SFE_WINDOW = 300  # max bars to feed SFE — matches compute_79d.SFE_WINDOW (live parity)
+SFE_WINDOW = 300  # max bars to feed SFE — matches compute_features.SFE_WINDOW (live parity)
 
 
 def parse_args():
@@ -256,13 +256,13 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
         if min_required_tf not in states_by_tf:
             continue
 
-        feat, prev_velocities = extract_79d(
+        feat, prev_velocities = extract_features(
             states_by_tf, ohlcv_by_tf, prev_velocities, ts
         )
 
         rows.append({
             'timestamp': ts,
-            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
+            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES)}
         })
 
     return pd.DataFrame(rows) if rows else pd.DataFrame(), prev_velocities, sfe_cache

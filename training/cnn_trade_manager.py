@@ -25,7 +25,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features_79d import N_FEATURES
+from core.features import N_FEATURES
 
 OUTPUT_DIR = 'training/output/nn'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -120,7 +120,7 @@ def train_one_tier(tier: str, exit_df: pd.DataFrame, loser_df: pd.DataFrame,
         print(f'  {tier}: {len(exit_df)} exit bars — too few, skipping')
         return None
 
-    features = np.array(exit_df['features_79d'].tolist(), dtype=np.float32)
+    features = np.array(exit_df['features'].tolist(), dtype=np.float32)
     context = np.column_stack([
         exit_df['bars_held'].values.astype(np.float32) / 60.0,  # normalize to hours
         exit_df['pnl'].values.astype(np.float32) / 100.0,        # normalize to $100 units

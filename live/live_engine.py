@@ -14,7 +14,7 @@ Production trading loop with full infrastructure:
   - Reconnection handling
 
 Architecture:
-  NT8 -> 1s bars -> training.Aggregator -> SFE -> extract_79d -> BlendedEngine
+  NT8 -> 1s bars -> training.Aggregator -> SFE -> extract_features -> BlendedEngine
   BlendedEngine -> entry/exit decisions -> OrderManager -> NT8
 
 Usage (via launcher):
@@ -38,12 +38,12 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features_79d import FEATURE_NAMES_79D, TF_ORDER, N_FEATURES
+from core.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
 from core.statistical_field_engine import StatisticalFieldEngine
 
 from training.nightmare_blended import BlendedEngine
 from training.aggregator import Aggregator
-from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
+from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
 
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
@@ -169,7 +169,7 @@ class LiveEngine:
         os.makedirs(os.path.dirname(self._ledger_path), exist_ok=True)
         self._ledger_file = open(self._ledger_path, 'w')
         # Header: timestamp, price, all 91 features, engine state
-        ledger_cols = ['timestamp', 'price'] + list(FEATURE_NAMES_79D) + [
+        ledger_cols = ['timestamp', 'price'] + list(FEATURE_NAMES) + [
             'in_pos', 'direction', 'tier', 'bars_held', 'pnl', 'peak_pnl',
             'entry_price', 'event']
         self._ledger_file.write(','.join(ledger_cols) + '\n')
@@ -375,7 +375,7 @@ class LiveEngine:
 
         # Build 79D via training (single source of truth)
         feat, self._prev_velocities, states_by_tf, ohlcv_by_tf = \
-            compute_79d_from_aggregator(
+            compute_features_from_aggregator(
                 self._agg, self._sfe, self._prev_velocities, ts)
 
         if feat is None:
@@ -388,7 +388,7 @@ class LiveEngine:
         # Capture 79D for FEATURES_LIVE
         self._live_79d.append({
             'timestamp': ts,
-            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES_79D)}
+            **{name: feat[i] for i, name in enumerate(FEATURE_NAMES)}
         })
 
         # Regression center for dashboard (update on every 5s tick)
@@ -432,7 +432,7 @@ class LiveEngine:
 
         # Feed BlendedEngine at 5s cadence (matches training)
         state = {
-            'features_79d': feat,
+            'features': feat,
             'price': bar['close'],
             'timestamp': ts,
         }
@@ -464,7 +464,7 @@ class LiveEngine:
                     pnl = (self._engine.entry_price - bar['close']) / 0.25 * 0.50
 
             row = [f'{ts:.0f}', f'{bar["close"]:.2f}']
-            row += [f'{feat[i]:.6f}' for i in range(len(FEATURE_NAMES_79D))]
+            row += [f'{feat[i]:.6f}' for i in range(len(FEATURE_NAMES))]
             row += [
                 '1' if self._engine.in_pos else '0',
                 self._engine.direction or '',
@@ -553,7 +553,7 @@ class LiveEngine:
             feat = np.zeros(79)
             if self._live_79d:
                 last = self._live_79d[-1]
-                feat = np.array([last.get(n, 0) for n in FEATURE_NAMES_79D])
+                feat = np.array([last.get(n, 0) for n in FEATURE_NAMES])
             # Register with BlendedEngine (gets CNN exit management)
             self._engine.inject_manual_trade(
                 direction, self._last_price, self._last_ts, feat)

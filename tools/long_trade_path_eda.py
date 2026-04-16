@@ -10,14 +10,14 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D
+from core.features import FEATURE_NAMES
 
 # Load data
 with open('training/output/trades/blended_is.pkl', 'rb') as f:
     trades = pickle.load(f)
 regret = pd.read_csv('training/output/nn/regret_analysis.csv')
 
-FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES_79D)}
+FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES)}
 n = min(len(trades), len(regret))
 
 # Key features to track through the path
@@ -76,8 +76,8 @@ for rank, (idx, t, r, best_bar) in enumerate(long_trades[:10]):
 
     for bar_idx in sample_bars:
         p = path[bar_idx]
-        feat = np.array(p.get('features_79d', []))
-        if len(feat) != len(FEATURE_NAMES_79D):
+        feat = np.array(p.get('features', []))
+        if len(feat) != len(FEATURE_NAMES):
             continue
 
         price = p.get('price', 0)
@@ -121,14 +121,14 @@ for idx, t, r, best_bar in long_trades:
     for stage_name, stage_pct in [('25%', 0.25), ('50%', 0.50), ('75%', 0.75)]:
         bar = int(best_bar * stage_pct)
         if bar < len(path):
-            feat = np.array(path[bar].get('features_79d', []))
-            if len(feat) == len(FEATURE_NAMES_79D):
+            feat = np.array(path[bar].get('features', []))
+            if len(feat) == len(FEATURE_NAMES):
                 stages[stage_name].append({
                     name: float(feat[FEAT_IDX[name]]) for name in TRACK
                 })
     if best_bar < len(path):
-        feat = np.array(path[best_bar].get('features_79d', []))
-        if len(feat) == len(FEATURE_NAMES_79D):
+        feat = np.array(path[best_bar].get('features', []))
+        if len(feat) == len(FEATURE_NAMES):
             stages['exit'].append({
                 name: float(feat[FEAT_IDX[name]]) for name in TRACK
             })
@@ -152,15 +152,15 @@ n_multi_cross = 0
 for idx, t, r, best_bar in long_trades:
     path = t.get('path', [])
     entry_z = np.array(t.get('entry_79d', []))
-    if len(entry_z) != len(FEATURE_NAMES_79D):
+    if len(entry_z) != len(FEATURE_NAMES):
         continue
     entry_z_sign = 1 if entry_z[FEAT_IDX['1m_z_se']] > 0 else -1
 
     crossings = 0
     prev_sign = entry_z_sign
     for bar in range(min(best_bar, len(path))):
-        feat = np.array(path[bar].get('features_79d', []))
-        if len(feat) != len(FEATURE_NAMES_79D):
+        feat = np.array(path[bar].get('features', []))
+        if len(feat) != len(FEATURE_NAMES):
             continue
         z = feat[FEAT_IDX['1m_z_se']]
         curr_sign = 1 if z > 0 else -1

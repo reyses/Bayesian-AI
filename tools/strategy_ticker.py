@@ -32,9 +32,9 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features_79d import (
-    extract_79d, build_all_tf_ohlcv, describe_79d,
-    FEATURE_NAMES_79D, N_FEATURES, TF_ORDER
+from core.features import (
+    extract_features, build_all_tf_ohlcv, describe_features,
+    FEATURE_NAMES, N_FEATURES, TF_ORDER
 )
 from core.incremental_ticker import IncrementalTicker
 from core.regret_tracker import RegretTracker
@@ -174,7 +174,7 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
         _t0 = _time.perf_counter()
         state = ticker.feed_bar(bar)
         _t_ticker_total += _time.perf_counter() - _t0
-        feat = state['features_79d']
+        feat = state['features']
 
         # Live progress
         pos_str = f'{direction[0].upper()}' if in_pos else '-'
@@ -220,7 +220,7 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
                 equity += pnl - COST_PER_TRADE
                 daily_pnl += pnl - COST_PER_TRADE
 
-                from core.features_79d import N_CORE
+                from core.features import N_CORE
                 tf_1m = 1 * N_CORE
                 # Entry features (saved at entry time)
                 e_z = entry_feat[tf_1m + 0] if entry_feat is not None else 0
@@ -282,7 +282,7 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
 
             # Brain calibration
             if brain is not None:
-                calibrated = brain.calibrate(nn_output, feat, FEATURE_NAMES_79D)
+                calibrated = brain.calibrate(nn_output, feat, FEATURE_NAMES)
             else:
                 calibrated = nn_output
 

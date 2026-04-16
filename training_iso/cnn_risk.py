@@ -27,7 +27,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, N_CORE, N_HELPER
+from core.features import FEATURE_NAMES, N_CORE, N_HELPER
 
 BLENDED_TRADES = 'training/output/trades/blended_is.pkl'
 OUTPUT_DIR = 'training/output/nn'
@@ -86,8 +86,8 @@ def build_dataset(sample_bars=10):
         # Find negative bars only
         neg_indices = [j for j, p in enumerate(path)
                        if p.get('pnl', 0) < 0 and
-                       p.get('features_79d') is not None and
-                       len(p.get('features_79d', [])) == len(FEATURE_NAMES_79D)]
+                       p.get('features') is not None and
+                       len(p.get('features', [])) == len(FEATURE_NAMES)]
 
         if not neg_indices:
             continue
@@ -99,7 +99,7 @@ def build_dataset(sample_bars=10):
 
         for bar_idx in neg_indices:
             p = path[bar_idx]
-            feat = np.array(p['features_79d'])
+            feat = np.array(p['features'])
 
             grid = feat_to_grid(feat)
             grids.append(grid)

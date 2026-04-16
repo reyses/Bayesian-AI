@@ -1,5 +1,16 @@
 // =============================================================================
-// BayesianBridge 6.9.0 -- 2026-03-25 14:06
+// BayesianBridge 7.0.0 -- 2026-04-15 06:45
+// =============================================================================
+//
+// CHANGELOG 7.0.0:
+//   - PLACE_ORDER now reads "position_effect" field (OPEN | REDUCE)
+//     OPEN   -> OrderAction.Buy / OrderAction.SellShort  (open or add)
+//     REDUCE -> OrderAction.Sell / OrderAction.BuyToCover (close existing)
+//   - REDUCE orders are REJECTED if no matching opposing position exists
+//   - Backward compat: missing position_effect defaults to OPEN (old behaviour)
+//   - Fixes critical bug where chain exits opened new opposing positions
+//     instead of scaling out (every CHEXIT_* was using SellShort/Buy)
+//
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
@@ -59,7 +70,7 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int DomLevels { get; set; }
 
         // ── Version ──────────────────────────────────────────────────
-        private const string BRIDGE_VERSION = "6.9.0";
+        private const string BRIDGE_VERSION = "7.0.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -876,10 +887,11 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private void HandlePlaceOrder(Dictionary<string, string> cmd)
         {
-            string orderId = GetVal(cmd, "order_id", "BAY_UNK");
-            string side    = GetVal(cmd, "side", "BUY");
-            int    qty     = GetIntVal(cmd, "qty", 1);
-            string reqInst = GetVal(cmd, "instrument", "");
+            string orderId   = GetVal(cmd, "order_id", "BAY_UNK");
+            string side      = GetVal(cmd, "side", "BUY");
+            int    qty       = GetIntVal(cmd, "qty", 1);
+            string reqInst   = GetVal(cmd, "instrument", "");
+            string posEffect = GetVal(cmd, "position_effect", "OPEN");  // OPEN | REDUCE
 
             // Instrument safety check — reject if Python wants a different symbol
             if (reqInst.Length > 0
@@ -887,10 +899,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 Print("BayesianBridge: REJECTED PLACE_ORDER — instrument mismatch: "
                     + "requested=" + reqInst + " chart=" + Instrument.FullName);
+                SendOrderRejected(orderId, "instrument_mismatch");
                 return;
             }
 
-            Print("BayesianBridge: PLACE_ORDER " + side + " " + qty + " id=" + orderId);
+            Print("BayesianBridge: PLACE_ORDER " + side + " " + qty
+                + " effect=" + posEffect + " id=" + orderId);
 
             // ACK — confirm receipt before submitting
             SendOrderAck(orderId);
@@ -902,11 +916,59 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             }
 
+            // ── Pick OrderAction based on side + position_effect ──────────
+            // OPEN:  Buy / SellShort       (open or add to position)
+            // REDUCE: Sell / BuyToCover    (close existing opposing position)
+            //
+            // REDUCE is REJECTED if there is no matching opposing position —
+            // we never want to silently turn a "close my long" into "open a
+            // new short" (the bug that motivated 7.0.0).
+            OrderAction action;
+            if (posEffect == "REDUCE")
+            {
+                Position pos = FindPosition();
+                bool isLong  = pos != null && pos.MarketPosition == MarketPosition.Long
+                               && pos.Quantity > 0;
+                bool isShort = pos != null && pos.MarketPosition == MarketPosition.Short
+                               && pos.Quantity > 0;
+
+                if (side == "SELL" && isLong)
+                {
+                    action = OrderAction.Sell;
+                }
+                else if (side == "BUY" && isShort)
+                {
+                    action = OrderAction.BuyToCover;
+                }
+                else
+                {
+                    string posStr = pos == null || pos.MarketPosition == MarketPosition.Flat
+                        ? "FLAT"
+                        : (pos.MarketPosition + " x" + pos.Quantity);
+                    Print("BayesianBridge: REJECTED REDUCE — side=" + side
+                        + " position=" + posStr + " (no matching opposing position)");
+                    SendOrderRejected(orderId, "reduce_no_matching_position");
+                    return;
+                }
+
+                // Cap qty at current position size — never accidentally over-close
+                if (qty > pos.Quantity)
+                {
+                    Print("BayesianBridge: REDUCE qty=" + qty + " > position=" + pos.Quantity
+                        + " — capping to position size");
+                    qty = pos.Quantity;
+                }
+            }
+            else  // OPEN (default)
+            {
+                action = side == "BUY" ? OrderAction.Buy : OrderAction.SellShort;
+            }
+
             try
             {
                 Order order = _account.CreateOrder(
                     Instrument,
-                    side == "BUY" ? OrderAction.Buy : OrderAction.SellShort,
+                    action,
                     OrderType.Market,
                     OrderEntry.Manual,
                     TimeInForce.Gtc,

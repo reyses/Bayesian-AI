@@ -33,7 +33,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, N_CORE, N_HELPER
+from core.features import FEATURE_NAMES, N_CORE, N_HELPER
 
 BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'training/output/trades/blended_is.pkl')
 REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'training/output/nn/regret_cnn_flipped.csv')
@@ -117,8 +117,8 @@ def build_dataset(sample_bars=10):
 
         for bar_idx in sample_indices:
             p = path[bar_idx]
-            feat = p.get('features_79d', None)
-            if feat is None or len(feat) != len(FEATURE_NAMES_79D):
+            feat = p.get('features', None)
+            if feat is None or len(feat) != len(FEATURE_NAMES):
                 continue
 
             grid = feat_to_grid(np.array(feat))

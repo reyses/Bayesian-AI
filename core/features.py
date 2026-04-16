@@ -1,7 +1,7 @@
 """
-91D Unified Feature Vector — Single Source of Truth
-====================================================
-12 core features x 6 TFs + 3 helpers x 6 TFs + 1 global = 91D
+Unified Feature Vector — Single Source of Truth
+================================================
+12 core features x 6 TFs + 3 helpers x 6 TFs + 1 global = 91 features
 
 Same 12 measurements at every timeframe. The fractal state in one array.
 Each TF is just a different aggregation window on the same 5s atomic data.
@@ -31,7 +31,7 @@ Global:
 TF order: 15s, 1m, 5m, 15m, 1h, 1D
 Layout: [15s_core(12), 1m_core(12), ..., 1D_core(12), 15s_help(3), ..., 1D_help(3), time_of_day]
 
-Spec: docs/Active/FEATURE_VECTOR_79D_SPEC.md
+Spec: docs/Active/FEATURE_VECTOR_SPEC.md
 """
 
 import numpy as np
@@ -59,14 +59,14 @@ N_GLOBAL = len(GLOBAL_FEATURE_NAMES)   # 1
 N_FEATURES = N_CORE * N_TFS + N_HELPER * N_TFS + N_GLOBAL  # 91 (was 79)
 
 # Full feature name list (for column headers, logging, etc.)
-FEATURE_NAMES_79D = []
+FEATURE_NAMES = []
 for tf in TF_ORDER:
     for feat in CORE_FEATURE_NAMES:
-        FEATURE_NAMES_79D.append(f'{tf}_{feat}')
+        FEATURE_NAMES.append(f'{tf}_{feat}')
 for tf in TF_ORDER:
     for feat in HELPER_FEATURE_NAMES:
-        FEATURE_NAMES_79D.append(f'{tf}_{feat}')
-FEATURE_NAMES_79D.extend(GLOBAL_FEATURE_NAMES)
+        FEATURE_NAMES.append(f'{tf}_{feat}')
+FEATURE_NAMES.extend(GLOBAL_FEATURE_NAMES)
 
 # Index boundaries for slicing
 CORE_START = 0
@@ -340,13 +340,13 @@ def extract_tf_features(state, ohlcv_df, prev_velocity: float = 0.0) -> tuple:
     return core, helper, vel
 
 
-def extract_79d(
+def extract_features(
     states_by_tf: Dict[str, object],
     ohlcv_by_tf: Dict[str, 'pd.DataFrame'],
     prev_velocities: Dict[str, float],
     timestamp: float = 0.0,
 ) -> tuple:
-    """Compute the full 79D feature vector from multi-TF SFE states + OHLCV.
+    """Compute the full feature vector from multi-TF SFE states + OHLCV.
 
     Args:
         states_by_tf: {tf_label: MarketState} — SFE state for each TF.
@@ -360,7 +360,7 @@ def extract_79d(
         timestamp:    Current bar timestamp (for time_of_day).
 
     Returns:
-        (features: np.ndarray(79,), updated_velocities: dict)
+        (features: np.ndarray(N_FEATURES,), updated_velocities: dict)
         updated_velocities has current velocity per TF for next call.
     """
     features = np.zeros(N_FEATURES, dtype=np.float32)
@@ -413,13 +413,13 @@ def extract_79d(
     return features, new_velocities
 
 
-def extract_79d_batch(
+def extract_features_batch(
     states_list_by_tf: Dict[str, list],
     ohlcv_by_tf: Dict[str, 'pd.DataFrame'],
 ) -> np.ndarray:
-    """Batch extract 79D features for all bars in a day.
+    """Batch extract features for all bars in a day.
 
-    More efficient than calling extract_79d() per bar — processes each TF once.
+    More efficient than calling extract_features() per bar — processes each TF once.
 
     Args:
         states_list_by_tf: {tf_label: [state_dict, ...]} — list of SFE results per TF.
@@ -427,7 +427,7 @@ def extract_79d_batch(
         ohlcv_by_tf:       {tf_label: DataFrame} — full day OHLCV per TF.
 
     Returns:
-        np.ndarray of shape (n_bars, 79) where n_bars = length of anchor TF.
+        np.ndarray of shape (n_bars, N_FEATURES) where n_bars = length of anchor TF.
     """
     # Determine number of bars from the anchor TF (1m)
     anchor_tf = '1m'
@@ -513,21 +513,21 @@ def extract_79d_batch(
 # --- Utility functions ---
 
 def get_tf_core_slice(tf: str) -> slice:
-    """Get the slice for a TF's 10 core features in the 79D vector."""
+    """Get the slice for a TF's core features in the feature vector."""
     idx = TF_ORDER.index(tf)
     start = idx * N_CORE
     return slice(start, start + N_CORE)
 
 
 def get_tf_helper_slice(tf: str) -> slice:
-    """Get the slice for a TF's 3 helper features in the 79D vector."""
+    """Get the slice for a TF's helper features in the feature vector."""
     idx = TF_ORDER.index(tf)
     start = HELPER_START + idx * N_HELPER
     return slice(start, start + N_HELPER)
 
 
 def get_feature_index(tf: str, feature_name: str) -> int:
-    """Get the index of a specific feature in the 79D vector.
+    """Get the index of a specific feature in the feature vector.
 
     Example: get_feature_index('1h', 'z_se') → 40
     """
@@ -544,8 +544,8 @@ def get_feature_index(tf: str, feature_name: str) -> int:
         raise ValueError(f'Unknown feature: {feature_name}')
 
 
-def describe_79d(features: np.ndarray) -> str:
-    """Human-readable summary of a 79D vector. For debugging/logging."""
+def describe_features(features: np.ndarray) -> str:
+    """Human-readable summary of a feature vector. For debugging/logging."""
     lines = []
     for tf_idx, tf in enumerate(TF_ORDER):
         start = tf_idx * N_CORE

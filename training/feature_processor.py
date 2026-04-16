@@ -1,7 +1,7 @@
 """
 Feature Processor — shared incremental path for training + live.
 
-One function: feed 5s bars through aggregator → compute_79d → save features.
+One function: feed 5s bars through aggregator → compute_features → save features.
 Both build_dataset.py and engine_v2.py use this same path.
 Checkpoint carries aggregator state between sessions.
 
@@ -22,8 +22,8 @@ from datetime import datetime, timezone
 
 from training.aggregator import Aggregator
 from core.statistical_field_engine import StatisticalFieldEngine
-from training.compute_79d import compute_79d_from_aggregator, SFE_MIN_BARS
-from core.features_79d import FEATURE_NAMES_79D, TF_ORDER
+from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
+from core.features import FEATURE_NAMES, TF_ORDER
 
 HISTORY_LIMIT = 2000  # max bars per TF in aggregator
 
@@ -88,7 +88,7 @@ class FeatureProcessor:
         if self._agg.get_bar_count('1m') < SFE_MIN_BARS:
             return None
 
-        feat, self._prev_vel, _, _ = compute_79d_from_aggregator(
+        feat, self._prev_vel, _, _ = compute_features_from_aggregator(
             self._agg, self._sfe, self._prev_vel, bar['timestamp'])
 
         if feat is not None:
@@ -245,7 +245,7 @@ class FeatureProcessor:
             'timestamp': [r['timestamp'] for r in rows],
         }
         features = np.array([r['features'] for r in rows])
-        for i, name in enumerate(FEATURE_NAMES_79D):
+        for i, name in enumerate(FEATURE_NAMES):
             data[name] = features[:, i] if i < features.shape[1] else 0.0
         df = pd.DataFrame(data)
         df['timestamp'] = df['timestamp'].astype(np.int64)

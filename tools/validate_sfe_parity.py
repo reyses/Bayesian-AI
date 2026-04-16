@@ -5,7 +5,7 @@ For each TF bar close, compares:
   - BATCH: batch_compute_states(closed_bars_df)[-1]  (ground truth)
   - INCREMENTAL: feed_bar(bar)  (candidate)
 
-Tests MarketState fields directly — no extract_79d involved.
+Tests MarketState fields directly — no extract_features involved.
 Deposits raw 1s ticks in test dir, runs both paths, saves results.
 
 Usage:
@@ -25,9 +25,9 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import TF_ORDER
+from core.features import TF_ORDER
 from training.aggregator import Aggregator
-from training.compute_79d import SFE_MIN_BARS, SFE_WINDOW
+from training.compute_features import SFE_MIN_BARS, SFE_WINDOW
 
 TEST_DIR = 'DATA/ATLAS_TEST'
 ATLAS_1S_TEST = f'{TEST_DIR}/1s'

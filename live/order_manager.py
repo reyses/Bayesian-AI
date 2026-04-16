@@ -1,8 +1,23 @@
 """
 OrderManager  -- tracks order lifecycle, position state, and logs trades to CSV.
 
-NT8 is the source of truth for position state.  The OrderManager keeps a
-local shadow that updates on FILL / POSITION messages from the bridge.
+NT8 is the source of truth for position state. The OrderManager keeps a local
+shadow that updates on FILL / POSITION messages from the bridge.
+
+Per-order handshake (v2, 2026-04-15):
+    1. build_*_order()           -> OrderRecord(state=PENDING,  intent=OPEN/REDUCE)
+    2. await client.send(msg)    -> state=SENT,    sent_time set
+    3. ORDER_ACK from bridge     -> state=ACKED,   ack_time set
+    4. ORDER_STATUS Working      -> state=WORKING
+    5. FILL                      -> state=FILLED,  fill_time/fill_price set
+       (validate position transition matches expected_position_after)
+    6. ORDER_STATUS Cancelled    -> state=CANCELLED
+       ORDER_STATUS Rejected     -> state=REJECTED
+    *  watchdog (check_pending_timeouts) -> state=TIMED_OUT after deadlines
+
+Every entry, chain entry, scale-out, and manual close registers an OrderRecord
+so on_fill can reconcile against the rec.intent rather than guessing from the
+ambient _awaiting_*_fill flag (which was the source of the chain-exit bug).
 """
 
 import csv
@@ -10,9 +25,9 @@ import logging
 import os
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional, Dict
+from typing import Optional, Dict, List, Tuple
 
 from live.config import LiveConfig
 from live.protocol import place_order, close_position
@@ -20,23 +35,47 @@ from live.protocol import place_order, close_position
 logger = logging.getLogger(__name__)
 
 
+# Handshake timeouts — orders stuck longer than this trigger watchdog alerts.
+ACK_TIMEOUT_S        = 5.0    # bridge ACK after PLACE_ORDER
+WORKING_TIMEOUT_S    = 10.0   # NT8 OrderState.Working after ACK
+FILL_TIMEOUT_S       = 30.0   # actual fill after Working
+
+
 class OrderState(str, Enum):
-    PENDING   = 'PENDING'
-    WORKING   = 'WORKING'
-    FILLED    = 'FILLED'
+    PENDING   = 'PENDING'      # built locally, not yet sent
+    SENT      = 'SENT'         # written to socket, awaiting ACK
+    ACKED     = 'ACKED'        # bridge confirmed receipt
+    WORKING   = 'WORKING'      # NT8 accepted/working (OrderState.Working)
+    FILLED    = 'FILLED'       # execution received
     CANCELLED = 'CANCELLED'
     REJECTED  = 'REJECTED'
+    TIMED_OUT = 'TIMED_OUT'    # watchdog gave up
+
+
+# Order intent (independent of NT8 state — what we MEANT the order to do).
+class OrderIntent(str, Enum):
+    OPEN   = 'OPEN'    # open new position OR scale-in (same direction)
+    REDUCE = 'REDUCE'  # scale-out OR full close (opposite direction)
+    FLIP   = 'FLIP'    # close + reopen opposite (single 2x order)
 
 
 @dataclass
 class OrderRecord:
     order_id: str
-    side: str          # 'BUY' or 'SELL'
+    side: str                                    # 'BUY' or 'SELL'
     qty: int
+    intent: OrderIntent = OrderIntent.OPEN
+    is_chain: bool = False
+    expected_position_after: Tuple[str, int] = ('', 0)  # (side, qty)
     state: OrderState = OrderState.PENDING
-    submit_time: float = 0.0
+    submit_time: float = 0.0   # time the rec was built
+    sent_time: float = 0.0     # time we wrote the wire message
+    ack_time: float = 0.0      # bridge confirmed receipt
+    working_time: float = 0.0  # NT8 OrderState.Working
+    fill_time: float = 0.0     # execution
     fill_price: float = 0.0
-    fill_time: float = 0.0
+    fill_qty: int = 0
+    reject_reason: str = ''
 
 
 @dataclass
@@ -52,18 +91,29 @@ class PositionState:
 class OrderManager:
     """Manage orders, position tracking, and trade logging."""
 
+    # States that count as "in flight" for handshake bookkeeping
+    _IN_FLIGHT_STATES = (
+        OrderState.PENDING, OrderState.SENT,
+        OrderState.ACKED,   OrderState.WORKING,
+    )
+
     def __init__(self, config: LiveConfig):
         self._cfg = config
         self._orders: Dict[str, OrderRecord] = {}
         self.position = PositionState()
         self._daily_pnl: float = 0.0
-        self._awaiting_entry_fill: bool = False   # True from entry sent until FILL/REJECT
-        self._awaiting_exit_fill: bool = False    # True from exit sent until FILL/REJECT
+        # NOTE: _awaiting_*_fill are now derived from order rec states (see
+        # is_awaiting_open / is_awaiting_reduce). Kept as cached booleans so
+        # external callers can read a stable snapshot without iterating.
+        self._awaiting_entry_fill: bool = False
+        self._awaiting_exit_fill: bool = False
         self._max_position_size: int = config.max_position_size
         self._trade_count: int = 0
         self._daily_loss_limit_hit = False
         self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
         self.exit_rejected = False     # set True when a close order is rejected
+        # Most-recent reconciliation mismatch (for dashboard surfacing)
+        self.last_reconcile_error: str = ''
 
         # CSV trade log
         self._log_dir = os.path.join(config.checkpoint_dir, 'live_logs')
@@ -82,12 +132,10 @@ class OrderManager:
 
     @property
     def is_flat(self) -> bool:
-        """True only when NO position AND NO pending orders of any kind."""
+        """True only when NO position AND NO orders in flight."""
         if self.position.qty != 0:
             return False
-        if self._awaiting_entry_fill:
-            return False
-        if self._awaiting_exit_fill:
+        if self.is_awaiting_open() or self.is_awaiting_reduce():
             return False
         return True
 
@@ -98,8 +146,36 @@ class OrderManager:
 
     @property
     def can_exit(self) -> bool:
-        """True when in a position AND not already waiting for exit fill."""
-        return self.position.qty != 0 and not self._awaiting_exit_fill
+        """True when in a position AND not already waiting for a REDUCE fill."""
+        return self.position.qty != 0 and not self.is_awaiting_reduce()
+
+    # ── Handshake state queries ───────────────────────────────────────
+
+    def is_awaiting_open(self) -> bool:
+        """True if any OPEN-intent (or FLIP) order is in flight."""
+        for rec in self._orders.values():
+            if rec.state in self._IN_FLIGHT_STATES and rec.intent in (
+                    OrderIntent.OPEN, OrderIntent.FLIP):
+                return True
+        return False
+
+    def is_awaiting_reduce(self) -> bool:
+        """True if any REDUCE-intent (or FLIP) order is in flight."""
+        for rec in self._orders.values():
+            if rec.state in self._IN_FLIGHT_STATES and rec.intent in (
+                    OrderIntent.REDUCE, OrderIntent.FLIP):
+                return True
+        return False
+
+    def in_flight_orders(self) -> List[OrderRecord]:
+        """All orders not yet in a terminal state."""
+        return [r for r in self._orders.values()
+                if r.state in self._IN_FLIGHT_STATES]
+
+    def _refresh_pending_flags(self):
+        """Recompute the cached _awaiting_* booleans from rec states."""
+        self._awaiting_entry_fill = self.is_awaiting_open()
+        self._awaiting_exit_fill  = self.is_awaiting_reduce()
 
     @property
     def daily_pnl(self) -> float:
@@ -119,19 +195,18 @@ class OrderManager:
         Build a PLACE_ORDER message for a new entry.
         Returns None if ANY order is pending or risk limits hit.
         """
-        # Hard safety: never exceed max position size
-        MAX_OPEN_ORDERS = 3  # absolute max pending orders before lockout
-        _pending = sum(1 for r in self._orders.values()
-                       if r.state in (OrderState.PENDING, OrderState.WORKING))
-        if _pending >= MAX_OPEN_ORDERS:
-            logger.error(f"SAFETY LOCKOUT: {_pending} pending orders (max={MAX_OPEN_ORDERS})")
+        # Hard safety: never exceed max in-flight orders
+        MAX_OPEN_ORDERS = 3
+        in_flight = len(self.in_flight_orders())
+        if in_flight >= MAX_OPEN_ORDERS:
+            logger.error(f"SAFETY LOCKOUT: {in_flight} in-flight orders (max={MAX_OPEN_ORDERS})")
             return None
 
         if not self.can_enter:
-            if self._awaiting_entry_fill:
-                logger.warning("Entry blocked: awaiting entry fill")
-            elif self._awaiting_exit_fill:
-                logger.warning("Entry blocked: awaiting exit fill")
+            if self.is_awaiting_open():
+                logger.warning("Entry blocked: awaiting OPEN fill")
+            elif self.is_awaiting_reduce():
+                logger.warning("Entry blocked: awaiting REDUCE fill")
             elif self.position.qty != 0:
                 logger.warning(f"Entry blocked: in position ({self.position.side})")
             elif self._daily_loss_limit_hit:
@@ -142,16 +217,22 @@ class OrderManager:
             return None
 
         oid = self._make_order_id(side, tag='ENTRY')
-        rec = OrderRecord(order_id=oid, side=side,
-                          qty=self._cfg.max_position_size,
-                          submit_time=time.time())
+        qty = self._cfg.max_position_size
+        expected_side = 'LONG' if side == 'BUY' else 'SHORT'
+        rec = OrderRecord(
+            order_id=oid, side=side, qty=qty,
+            intent=OrderIntent.OPEN, is_chain=False,
+            expected_position_after=(expected_side, qty),
+            state=OrderState.PENDING,
+            submit_time=time.time(),
+        )
         self._orders[oid] = rec
 
         msg = place_order(oid, self._cfg.instrument,
-                          self._cfg.account, side,
-                          self._cfg.max_position_size)
-        self._awaiting_entry_fill = True
-        logger.info(f"ORDER -> {side} {self._cfg.max_position_size} {self._cfg.instrument}  id={oid}")
+                          self._cfg.account, side, qty,
+                          position_effect='OPEN')
+        self._refresh_pending_flags()
+        logger.info(f"ORDER -> {side} {qty} {self._cfg.instrument}  id={oid}  effect=OPEN")
         return msg
 
     @property
@@ -161,7 +242,7 @@ class OrderManager:
             return False
         if self.position.qty >= self._cfg.max_contracts:
             return False
-        if self._awaiting_entry_fill or self._awaiting_exit_fill:
+        if self.is_awaiting_open() or self.is_awaiting_reduce():
             return False
         if self._daily_loss_limit_hit:
             return False
@@ -175,8 +256,8 @@ class OrderManager:
         if not self.can_scale_in:
             logger.warning(f"Scale-in blocked: qty={self.position.qty} "
                            f"max={self._cfg.max_contracts} "
-                           f"pending_entry={self._awaiting_entry_fill} "
-                           f"pending_exit={self._awaiting_exit_fill}")
+                           f"pending_open={self.is_awaiting_open()} "
+                           f"pending_reduce={self.is_awaiting_reduce()}")
             return None
 
         # Safety: side must match current position
@@ -186,15 +267,21 @@ class OrderManager:
             return None
 
         oid = self._make_order_id(side, tag='CHAIN')
-        rec = OrderRecord(order_id=oid, side=side, qty=1,
-                          submit_time=time.time())
+        rec = OrderRecord(
+            order_id=oid, side=side, qty=1,
+            intent=OrderIntent.OPEN, is_chain=True,
+            expected_position_after=(self.position.side, self.position.qty + 1),
+            state=OrderState.PENDING,
+            submit_time=time.time(),
+        )
         self._orders[oid] = rec
 
         msg = place_order(oid, self._cfg.instrument,
-                          self._cfg.account, side, 1)
-        self._awaiting_entry_fill = True
+                          self._cfg.account, side, 1,
+                          position_effect='OPEN')
+        self._refresh_pending_flags()
         logger.info(f"SCALE-IN -> {side} +1 {self._cfg.instrument} "
-                     f"(total will be {self.position.qty + 1})  id={oid}")
+                     f"(total will be {self.position.qty + 1})  id={oid}  effect=OPEN")
         return msg
 
     def build_scale_out_order(self, reason: str = 'chain_exit') -> Optional[dict]:
@@ -202,37 +289,64 @@ class OrderManager:
 
         If this is the last contract, use build_exit_order instead.
         Returns None if blocked or position qty <= 1.
+
+        Sends position_effect=REDUCE so the bridge uses Sell/BuyToCover (closing
+        action) rather than SellShort/Buy (which would open a new opposing position).
         """
         if self.position.qty <= 1:
             logger.warning(f"Scale-out blocked: qty={self.position.qty} (use build_exit_order)")
             return None
-        if self._awaiting_entry_fill or self._awaiting_exit_fill:
-            logger.warning(f"Scale-out blocked: pending order")
+        if self.is_awaiting_open() or self.is_awaiting_reduce():
+            logger.warning(f"Scale-out blocked: pending order in flight")
             return None
 
         # Opposite side to close 1 contract
         close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
 
         oid = self._make_order_id(close_side, tag='CHEXIT')
-        rec = OrderRecord(order_id=oid, side=close_side, qty=1,
-                          submit_time=time.time())
+        rec = OrderRecord(
+            order_id=oid, side=close_side, qty=1,
+            intent=OrderIntent.REDUCE, is_chain=True,
+            expected_position_after=(self.position.side, self.position.qty - 1),
+            state=OrderState.PENDING,
+            submit_time=time.time(),
+        )
         self._orders[oid] = rec
 
         msg = place_order(oid, self._cfg.instrument,
-                          self._cfg.account, close_side, 1)
-        self._awaiting_exit_fill = True
+                          self._cfg.account, close_side, 1,
+                          position_effect='REDUCE')
+        self._refresh_pending_flags()
         logger.info(f"SCALE-OUT -> {close_side} -1 {self._cfg.instrument} "
-                     f"(total will be {self.position.qty - 1})  id={oid}  ({reason})")
+                     f"(total will be {self.position.qty - 1})  id={oid}  effect=REDUCE  ({reason})")
         return msg
 
     def build_exit_order(self, reason: str = 'signal') -> Optional[dict]:
-        """Build a CLOSE_POSITION message. Closes ALL contracts. Blocks if already exiting or flat."""
+        """Build a CLOSE_POSITION message. Closes ALL contracts.
+
+        Blocks if already exiting or flat. Pre-registers a BAY_CLOSE OrderRecord
+        so on_fill can reconcile the resulting fill against an intent=REDUCE entry.
+        """
         if not self.can_exit:
-            if self._awaiting_exit_fill:
-                logger.warning(f"Exit blocked: already awaiting exit fill ({reason})")
+            if self.is_awaiting_reduce():
+                logger.warning(f"Exit blocked: already awaiting REDUCE fill ({reason})")
             return None
+
+        # Pre-register the BAY_CLOSE order so on_fill knows the intent.
+        # The bridge generates fills with order_id="BAY_CLOSE" for CLOSE_POSITION.
+        close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
+        rec = OrderRecord(
+            order_id='BAY_CLOSE',
+            side=close_side, qty=self.position.qty,
+            intent=OrderIntent.REDUCE, is_chain=False,
+            expected_position_after=('', 0),  # FLAT
+            state=OrderState.PENDING,
+            submit_time=time.time(),
+        )
+        self._orders['BAY_CLOSE'] = rec
+
         self.exit_rejected = False
-        self._awaiting_exit_fill = True
+        self._refresh_pending_flags()
         logger.info(f"EXIT -> close ALL {self.position.side} x{self.position.qty} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
@@ -241,131 +355,209 @@ class OrderManager:
 
         SHORT 1 -> BUY 2 = cover short + open long (instant flip).
         Returns None if already flat.
+
+        NOTE: This uses position_effect=OPEN because NT8 OrderAction.Buy/SellShort
+        with qty > position handles the close-then-open atomically. REDUCE wouldn't
+        work for the "open" half. The bridge will accept this because it never
+        rejects OPEN.
         """
         if self.is_flat:
             return None
         flip_side = 'BUY' if self.position.side == 'SHORT' else 'SELL'
         qty = self.position.qty * 2  # 1 to close + 1 to open
         oid = f"BAY_{uuid.uuid4().hex[:8]}"
-        rec = OrderRecord(order_id=oid, side=flip_side, qty=qty,
-                          submit_time=time.time())
+        new_side = 'LONG' if flip_side == 'BUY' else 'SHORT'
+        rec = OrderRecord(
+            order_id=oid, side=flip_side, qty=qty,
+            intent=OrderIntent.FLIP, is_chain=False,
+            expected_position_after=(new_side, self.position.qty),
+            state=OrderState.PENDING,
+            submit_time=time.time(),
+        )
         self._orders[oid] = rec
+        self._refresh_pending_flags()
         logger.info(f"FLIP -> {flip_side} {qty} {self._cfg.instrument}  id={oid}  ({reason})")
         return place_order(oid, self._cfg.instrument, self._cfg.account,
-                           flip_side, qty)
+                           flip_side, qty, position_effect='OPEN')
+
+    # ── Wire send tracking ────────────────────────────────────────────
+
+    def mark_sent(self, order_id: str):
+        """Called by the engine immediately after writing the order to the wire.
+
+        Advances the rec from PENDING -> SENT so the watchdog knows the bridge
+        has had the order since this moment (for ACK timeout).
+        """
+        rec = self._orders.get(order_id)
+        if rec and rec.state == OrderState.PENDING:
+            rec.state = OrderState.SENT
+            rec.sent_time = time.time()
 
     def on_fill(self, msg: dict) -> Optional[float]:
         """Handle a FILL message from NT8.
 
-        Returns PnL (float) on exit/scale-out fills, None on entry/scale-in fills.
-        """
-        was_awaiting_exit = self._awaiting_exit_fill
-        self._awaiting_entry_fill = False
-        self._awaiting_exit_fill = False
+        Returns PnL (float) on REDUCE fills, None on OPEN fills.
 
+        Classification rules (in priority order):
+          1. If we have an OrderRecord for this order_id, use rec.intent —
+             the order was built locally and we know what it was for.
+          2. Otherwise (untracked: manual NT8 order, recovery, etc.) infer
+             from the side vs current position direction.
+
+        After applying the fill, validate the resulting position against
+        rec.expected_position_after and surface any mismatch via
+        last_reconcile_error so the engine can alert the user.
+        """
         oid = msg.get('order_id', '')
         rec = self._orders.get(oid)
-        if rec:
-            rec.state = OrderState.FILLED
-            rec.fill_price = float(msg['fill_price'])
-            rec.fill_time = float(msg.get('fill_time', time.time()))
 
         side = msg.get('side', '')
         fill_px = float(msg['fill_price'])
         qty = int(msg.get('qty', 1))
+        fill_time = float(msg.get('fill_time', time.time()))
 
-        # Classify fill: entry/scale-in (adds to position) vs exit/scale-out (reduces)
-        if self.position.qty == 0:
-            # Was flat → this is a fresh entry
-            self.position = PositionState(
-                side='LONG' if side == 'BUY' else 'SHORT',
-                qty=qty,
-                avg_price=fill_px,
-                entry_time=time.time(),
-            )
-            logger.info(f"FILL entry: {self.position.side} x{qty} @ {fill_px}")
-            return None
-
-        # Already in position — is this adding or reducing?
-        same_direction = ((self.position.side == 'LONG' and side == 'BUY') or
-                          (self.position.side == 'SHORT' and side == 'SELL'))
-
-        if same_direction:
-            # Scale-in (chain entry): add contracts, update avg price
-            old_qty = self.position.qty
-            new_qty = old_qty + qty
-            # Weighted average entry price
-            new_avg = (self.position.avg_price * old_qty + fill_px * qty) / new_qty
-            self.position.qty = min(new_qty, self._cfg.max_contracts)
-            self.position.avg_price = new_avg
-            logger.info(f"FILL scale-in: {self.position.side} +{qty} @ {fill_px} "
-                        f"(total={self.position.qty}, avg={new_avg:.2f})")
-            return None
-
+        # Determine intent
+        if rec is not None:
+            intent = rec.intent
+            rec.state = OrderState.FILLED
+            rec.fill_price = fill_px
+            rec.fill_time = fill_time
+            rec.fill_qty = qty
+            tracked = True
         else:
-            # Opposite direction = reducing/closing
-            if qty >= self.position.qty or was_awaiting_exit:
-                # Full close (or close_position which closes all)
-                exit_qty = self.position.qty
-                entry_px = self.position.avg_price
-                if self.position.side == 'LONG':
-                    pnl = (fill_px - entry_px) * exit_qty * self._cfg.point_value
-                else:
-                    pnl = (entry_px - fill_px) * exit_qty * self._cfg.point_value
+            tracked = False
+            if self.position.qty == 0:
+                intent = OrderIntent.OPEN
+            else:
+                same_direction = ((self.position.side == 'LONG' and side == 'BUY') or
+                                  (self.position.side == 'SHORT' and side == 'SELL'))
+                intent = OrderIntent.OPEN if same_direction else OrderIntent.REDUCE
+            logger.warning(f"FILL untracked order_id={oid} — inferred intent={intent}")
 
+        pnl: Optional[float] = None
+
+        # ── Apply position transition ─────────────────────────────────
+        if intent == OrderIntent.OPEN:
+            if self.position.qty == 0:
+                # Fresh entry
+                self.position = PositionState(
+                    side='LONG' if side == 'BUY' else 'SHORT',
+                    qty=qty,
+                    avg_price=fill_px,
+                    entry_time=time.time(),
+                )
+                logger.info(f"FILL entry: {self.position.side} x{qty} @ {fill_px}  id={oid}")
+            else:
+                # Scale-in
+                old_qty = self.position.qty
+                new_qty = old_qty + qty
+                new_avg = (self.position.avg_price * old_qty + fill_px * qty) / new_qty
+                self.position.qty = min(new_qty, self._cfg.max_contracts)
+                self.position.avg_price = new_avg
+                logger.info(f"FILL scale-in: {self.position.side} +{qty} @ {fill_px} "
+                            f"(total={self.position.qty}, avg={new_avg:.2f})  id={oid}")
+
+        elif intent == OrderIntent.REDUCE:
+            if self.position.qty == 0:
+                logger.error(f"FILL REDUCE on FLAT position! id={oid} side={side} qty={qty} @ {fill_px}")
+                self.last_reconcile_error = f"REDUCE fill {oid} on flat position"
+                self._refresh_pending_flags()
+                return None
+
+            # qty must not exceed position size — bridge should cap, but double-check
+            close_qty = min(qty, self.position.qty)
+            entry_px = self.position.avg_price
+
+            if self.position.side == 'LONG':
+                pnl = (fill_px - entry_px) * close_qty * self._cfg.point_value
+            else:
+                pnl = (entry_px - fill_px) * close_qty * self._cfg.point_value
+
+            self._daily_pnl += pnl
+            self._trade_count += 1
+
+            if close_qty >= self.position.qty:
+                # Full close
                 self.last_exit_info = {
                     'entry_px': entry_px, 'exit_px': fill_px,
-                    'side': self.position.side, 'qty': exit_qty,
+                    'side': self.position.side, 'qty': close_qty,
                 }
-                self._daily_pnl += pnl
-                self._trade_count += 1
-                self._log_trade(fill_px, pnl, reason='fill')
-
-                # Flip: qty > position = close + open opposite
-                remaining = qty - self.position.qty
-                if remaining > 0:
-                    new_side = 'LONG' if side == 'BUY' else 'SHORT'
-                    logger.info(f"FILL flip: {self.position.side}->{new_side} @ {fill_px} "
-                                f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
-                    self.position = PositionState(
-                        side=new_side, qty=remaining,
-                        avg_price=fill_px, entry_time=time.time(),
-                    )
-                else:
-                    logger.info(f"FILL close-all: {self.position.side} x{exit_qty} @ {fill_px} "
-                                f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}")
-                    self.position = PositionState()  # flat
-
+                self._log_trade(fill_px, pnl, reason='close')
+                logger.info(f"FILL close-all: {self.position.side} x{close_qty} @ {fill_px} "
+                            f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}  id={oid}")
+                self.position = PositionState()  # flat
             else:
-                # Scale-out (chain exit): reduce by qty, PnL on those contracts
-                entry_px = self.position.avg_price
-                if self.position.side == 'LONG':
-                    pnl = (fill_px - entry_px) * qty * self._cfg.point_value
-                else:
-                    pnl = (entry_px - fill_px) * qty * self._cfg.point_value
-
-                self.position.qty -= qty
-                self._daily_pnl += pnl
-                self._trade_count += 1
+                # Scale-out
+                self.position.qty -= close_qty
                 self._log_trade(fill_px, pnl, reason='scale_out')
-
-                logger.info(f"FILL scale-out: -{qty} @ {fill_px} "
+                logger.info(f"FILL scale-out: -{close_qty} @ {fill_px} "
                             f"PnL=${pnl:+.2f} (remaining={self.position.qty})  "
-                            f"daily=${self._daily_pnl:+.2f}")
+                            f"daily=${self._daily_pnl:+.2f}  id={oid}")
 
-            # Check daily loss limit
+            # Daily loss limit check
             if self._cfg.max_daily_loss_usd > 0 and self._daily_pnl <= -self._cfg.max_daily_loss_usd:
                 self._daily_loss_limit_hit = True
                 logger.warning(f"DAILY LOSS LIMIT HIT: ${self._daily_pnl:.2f}")
 
-            return pnl
+        elif intent == OrderIntent.FLIP:
+            # Atomic close + open opposite
+            if self.position.qty == 0:
+                logger.error(f"FILL FLIP on FLAT position! id={oid}")
+                self.last_reconcile_error = f"FLIP fill {oid} on flat position"
+                self._refresh_pending_flags()
+                return None
+            close_qty = self.position.qty
+            entry_px = self.position.avg_price
+            if self.position.side == 'LONG':
+                pnl = (fill_px - entry_px) * close_qty * self._cfg.point_value
+            else:
+                pnl = (entry_px - fill_px) * close_qty * self._cfg.point_value
+            self.last_exit_info = {
+                'entry_px': entry_px, 'exit_px': fill_px,
+                'side': self.position.side, 'qty': close_qty,
+            }
+            self._daily_pnl += pnl
+            self._trade_count += 1
+            self._log_trade(fill_px, pnl, reason='flip')
+            remaining = qty - close_qty
+            new_side = 'LONG' if side == 'BUY' else 'SHORT'
+            self.position = PositionState(
+                side=new_side, qty=max(remaining, 0),
+                avg_price=fill_px, entry_time=time.time(),
+            )
+            logger.info(f"FILL flip: -> {new_side} x{remaining} @ {fill_px} "
+                        f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}  id={oid}")
+
+        # ── Reconcile against expected position ───────────────────────
+        if tracked and rec.expected_position_after != ('', 0) or (
+                tracked and intent == OrderIntent.REDUCE
+                and rec.expected_position_after == ('', 0)):
+            exp_side, exp_qty = rec.expected_position_after
+            actual_side = self.position.side or ''
+            actual_qty = self.position.qty
+            if (exp_side or '') != actual_side or exp_qty != actual_qty:
+                msg_str = (f"RECONCILE MISMATCH {oid}: expected={exp_side} x{exp_qty} "
+                           f"actual={actual_side or 'FLAT'} x{actual_qty}")
+                logger.error(msg_str)
+                self.last_reconcile_error = msg_str
+
+        self._refresh_pending_flags()
+        return pnl
 
     def on_order_ack(self, msg: dict):
-        """Handle ORDER_ACK — bridge confirms receipt of our order."""
+        """Handle ORDER_ACK — bridge confirms receipt of our order.
+
+        Advances the rec from SENT -> ACKED. This is the first step of the
+        handshake; if we never see this within ACK_TIMEOUT_S the watchdog
+        marks the order TIMED_OUT and refuses dependent orders.
+        """
         oid = msg.get('order_id', '')
         rec = self._orders.get(oid)
         if rec:
-            logger.info(f"ACK received: {oid} (bridge has it)")
+            if rec.state in (OrderState.PENDING, OrderState.SENT):
+                rec.state = OrderState.ACKED
+                rec.ack_time = time.time()
+            logger.info(f"ACK received: {oid} (bridge has it)  state={rec.state}")
         else:
             logger.warning(f"ACK for unknown order: {oid}")
 
@@ -385,9 +577,9 @@ class OrderManager:
         if nt8_qty == 0 and our_qty != 0:
             logger.warning(f"HEARTBEAT DRIFT: NT8=FLAT but we think {our_side} x{our_qty} — syncing to FLAT")
             self.position = PositionState()
-            self._awaiting_entry_fill = False
-            self._awaiting_exit_fill = False
-        elif nt8_qty != 0 and our_qty == 0 and not self._awaiting_entry_fill:
+            # Mark any in-flight order as TIMED_OUT — NT8 didn't act on it
+            self._cancel_in_flight('heartbeat_flat_drift')
+        elif nt8_qty != 0 and our_qty == 0 and not self.is_awaiting_open():
             logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} but we think FLAT — syncing")
             self.position = PositionState(
                 side=nt8_side, qty=nt8_qty,
@@ -405,13 +597,18 @@ class OrderManager:
         if rec:
             if status in ('Cancelled', 'Rejected'):
                 rec.state = OrderState(status.upper())
-                self._awaiting_entry_fill = False
-                self._awaiting_exit_fill = False
-                logger.warning(f"Order {oid} {status}")
-            elif status in ('Accepted', 'Working'):
-                rec.state = OrderState.WORKING
+                rec.reject_reason = msg.get('reason', '') or status
+                logger.warning(f"Order {oid} {status} reason={rec.reject_reason}")
+            elif status in ('Accepted', 'Working', 'Submitted'):
+                if rec.state in (OrderState.PENDING, OrderState.SENT, OrderState.ACKED):
+                    rec.state = OrderState.WORKING
+                    rec.working_time = time.time()
+            elif status == 'Filled':
+                # Belt-and-suspenders: status=Filled may arrive before/with FILL.
+                # The actual position transition still happens in on_fill.
+                pass
         else:
-            # Untracked order (e.g. CLOSE_POSITION uses NT8-generated IDs)
+            # Untracked order (e.g. NT8-side manual cancels)
             if status in ('Cancelled', 'Rejected'):
                 logger.warning(f"Untracked order {oid} {status}")
 
@@ -419,6 +616,8 @@ class OrderManager:
         if status in ('Cancelled', 'Rejected') and not self.is_flat:
             self.exit_rejected = True
             logger.error(f"ORDER REJECTED while in position: {oid}  -- will retry close")
+
+        self._refresh_pending_flags()
 
     def on_position(self, msg: dict):
         """Handle a POSITION snapshot from NT8 (source of truth).
@@ -428,13 +627,13 @@ class OrderManager:
         """
         nt8_qty = int(msg.get('qty', 0))
         if nt8_qty == 0:
-            if self.position.qty != 0 or self._awaiting_entry_fill or self._awaiting_exit_fill:
+            if (self.position.qty != 0 or self.is_awaiting_open()
+                    or self.is_awaiting_reduce()):
                 logger.warning(f"NT8 says flat -- syncing (was: pos={self.position.side}, "
-                              f"entry_pending={self._awaiting_entry_fill}, "
-                              f"exit_pending={self._awaiting_exit_fill})")
+                              f"open_pending={self.is_awaiting_open()}, "
+                              f"reduce_pending={self.is_awaiting_reduce()})")
             self.position = PositionState()
-            self._awaiting_entry_fill = False
-            self._awaiting_exit_fill = False
+            self._cancel_in_flight('position_flat_sync')
         else:
             side = 'LONG' if nt8_qty > 0 else 'SHORT'
             self.position = PositionState(
@@ -445,20 +644,53 @@ class OrderManager:
             self.position.unrealized_pnl = float(msg.get('unrealized_pnl', 0))
             logger.info(f"POSITION sync: {side} {abs(nt8_qty)} @ {self.position.avg_price}")
 
-    def cleanup_stale_orders(self, max_age_s: float = 60.0):
-        """Remove orders stuck in PENDING/WORKING for too long."""
+    def check_pending_timeouts(self) -> List[OrderRecord]:
+        """Watchdog — return list of orders that have exceeded their deadlines.
+
+        Mark them TIMED_OUT (terminal) so dependent orders can proceed. This is
+        the safety net for the case where the bridge crashes or NT8 silently
+        drops an order: the engine wouldn't know without this poll.
+
+        Called from the engine's main loop every iteration.
+        """
         now = time.time()
-        stale = [oid for oid, rec in self._orders.items()
-                 if rec.state in (OrderState.PENDING, OrderState.WORKING)
-                 and now - rec.submit_time > max_age_s]
-        for oid in stale:
-            self._orders[oid].state = OrderState.CANCELLED
-            logger.warning(f"Stale order pruned: {oid} "
-                           f"(age={now - self._orders[oid].submit_time:.0f}s)")
-        if stale:
-            self._awaiting_entry_fill = False
-            self._awaiting_exit_fill = False
-            logger.info(f"Pruned {len(stale)} stale orders")
+        timed_out: List[OrderRecord] = []
+        for rec in self._orders.values():
+            if rec.state == OrderState.SENT and (now - rec.sent_time) > ACK_TIMEOUT_S:
+                logger.error(f"ACK TIMEOUT {rec.order_id}: {now - rec.sent_time:.1f}s "
+                             f"since send (limit={ACK_TIMEOUT_S}s)")
+                rec.state = OrderState.TIMED_OUT
+                rec.reject_reason = 'ack_timeout'
+                timed_out.append(rec)
+            elif rec.state == OrderState.ACKED and (now - rec.ack_time) > WORKING_TIMEOUT_S:
+                logger.error(f"WORKING TIMEOUT {rec.order_id}: {now - rec.ack_time:.1f}s "
+                             f"since ACK (limit={WORKING_TIMEOUT_S}s)")
+                rec.state = OrderState.TIMED_OUT
+                rec.reject_reason = 'working_timeout'
+                timed_out.append(rec)
+            elif rec.state == OrderState.WORKING and (now - rec.working_time) > FILL_TIMEOUT_S:
+                logger.error(f"FILL TIMEOUT {rec.order_id}: {now - rec.working_time:.1f}s "
+                             f"since Working (limit={FILL_TIMEOUT_S}s)")
+                rec.state = OrderState.TIMED_OUT
+                rec.reject_reason = 'fill_timeout'
+                timed_out.append(rec)
+        if timed_out:
+            self._refresh_pending_flags()
+            self.exit_rejected = any(r.intent == OrderIntent.REDUCE for r in timed_out)
+        return timed_out
+
+    def _cancel_in_flight(self, reason: str):
+        """Mark any non-terminal orders as CANCELLED — used when NT8 forces sync."""
+        for rec in self._orders.values():
+            if rec.state in self._IN_FLIGHT_STATES:
+                rec.state = OrderState.CANCELLED
+                rec.reject_reason = reason
+        self._refresh_pending_flags()
+
+    # Legacy alias — kept for any callers still using the old name.
+    def cleanup_stale_orders(self, max_age_s: float = 60.0):
+        """Deprecated: use check_pending_timeouts() instead."""
+        return self.check_pending_timeouts()
 
     def reset_daily(self):
         """Reset daily counters at session boundary."""

@@ -20,7 +20,7 @@ Usage:
                        price_file='DATA/ATLAS/1m/2026_01_06.parquet')
 
     for state in ft:
-        # state = {'timestamp', 'price', 'features_79d', 'bar_idx'}
+        # state = {'timestamp', 'price', 'features', 'bar_idx'}
         nmp.on_state(state)
 """
 import numpy as np
@@ -29,7 +29,7 @@ from typing import Iterator, Dict, Optional
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features_79d import FEATURE_NAMES_79D, N_FEATURES
+from core.features import FEATURE_NAMES, N_FEATURES
 
 
 class FeatureTicker:
@@ -60,7 +60,7 @@ class FeatureTicker:
             self._prices = None
 
     def __iter__(self) -> Iterator[Dict]:
-        feat_cols = [c for c in self._feat_df.columns if c in FEATURE_NAMES_79D]
+        feat_cols = [c for c in self._feat_df.columns if c in FEATURE_NAMES]
         feat_matrix = self._feat_df[feat_cols].values.astype(np.float32)
         timestamps = self._feat_df['timestamp'].values
 
@@ -87,7 +87,7 @@ class FeatureTicker:
             yield {
                 'timestamp': float(ts),
                 'price': price,
-                'features_79d': features,
+                'features': features,
                 'bar_idx': i,
                 'bar_data': bar_data,  # 1m OHLCV for context (exits, etc.)
             }

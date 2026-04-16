@@ -49,7 +49,7 @@ def run_baseline_day(day_name):
     for state in ft:
         ts = state['timestamp']
         price = state['price']
-        feat = state['features_79d']
+        feat = state['features']
 
         engine.on_state(state)
 

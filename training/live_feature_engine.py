@@ -24,7 +24,7 @@ import pandas as pd
 from typing import Optional, Dict, List
 
 from core.statistical_field_engine import StatisticalFieldEngine
-from core.features_79d import extract_79d, FEATURE_NAMES_79D, TF_ORDER
+from core.features import extract_features, FEATURE_NAMES, TF_ORDER
 
 SFE_WINDOW = 300
 SFE_MIN_BARS = 21
@@ -241,7 +241,7 @@ class LiveFeatureEngine:
 
             states_by_tf[tf] = states[state_idx]
 
-            # OHLCV for extract_79d (velocity, helpers)
+            # OHLCV for extract_features (velocity, helpers)
             ohlcv = df.iloc[:valid_idx]
             if len(ohlcv) > SFE_WINDOW:
                 ohlcv = ohlcv.tail(SFE_WINDOW).reset_index(drop=True)
@@ -250,7 +250,7 @@ class LiveFeatureEngine:
         if '1m' not in states_by_tf and '5s' not in states_by_tf:
             return None
 
-        feat, self._prev_vel = extract_79d(
+        feat, self._prev_vel = extract_features(
             states_by_tf, ohlcv_by_tf, self._prev_vel, ts)
 
         return feat

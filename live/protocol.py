@@ -157,7 +157,20 @@ def subscribe(instrument: str, bar_period_s: int, account: str) -> dict:
 
 
 def place_order(order_id: str, instrument: str, account: str,
-                side: str, qty: int = 1) -> dict:
+                side: str, qty: int = 1,
+                position_effect: str = 'OPEN') -> dict:
+    """Build a PLACE_ORDER message.
+
+    position_effect:
+        'OPEN'   — open a new position OR add to an existing same-direction one.
+                   Bridge maps to OrderAction.Buy / OrderAction.SellShort.
+        'REDUCE' — reduce an existing opposing position by qty contracts.
+                   Bridge maps to OrderAction.Sell / OrderAction.BuyToCover and
+                   REJECTS the order if no matching position exists.
+
+    The bridge defaults to OPEN when position_effect is missing (backward compat
+    with older bridges that don't read this field).
+    """
     return {
         'type': MsgType.PLACE_ORDER,
         'order_id': order_id,
@@ -166,6 +179,7 @@ def place_order(order_id: str, instrument: str, account: str,
         'side': side,
         'qty': qty,
         'order_type': 'MARKET',
+        'position_effect': position_effect,
     }
 
 

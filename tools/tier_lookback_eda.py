@@ -74,7 +74,7 @@ def run_lookback(tier_name, trades, max_trades=SAMPLE_PER_TIER):
             # Lookback
             lb = []
             for j in range(max(0, idx - LOOKBACK_BARS), idx + 1):
-                f = bars[j]['features_79d']
+                f = bars[j]['features']
                 lb.append({
                     'bar': j - idx,
                     'z': f[_1M + _Z], 'vr': f[_1M + _VR],
@@ -90,7 +90,7 @@ def run_lookback(tier_name, trades, max_trades=SAMPLE_PER_TIER):
             fwd = []
             for j in range(idx, min(idx + 180, len(bars))):
                 b = bars[j]
-                f = b['features_79d']
+                f = b['features']
                 p = b['price']
                 if p < 100:
                     continue

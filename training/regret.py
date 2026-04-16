@@ -376,8 +376,8 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 # Approach buffer is newest-last: approach[-1] = bar before entry
                 # approach[-early_bars] = the earlier entry point
                 earlier_state = approach[-early_bars]
-                if 'features_79d' in earlier_state:
-                    corrected_entry_79d = earlier_state['features_79d']
+                if 'features' in earlier_state:
+                    corrected_entry_79d = earlier_state['features']
                     if hasattr(corrected_entry_79d, 'tolist'):
                         corrected_entry_79d = corrected_entry_79d.tolist()
                 corrected_entry_price = earlier_state.get('price', entry_price)

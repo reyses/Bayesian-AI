@@ -27,7 +27,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features_79d import FEATURE_NAMES_79D
+from core.features import FEATURE_NAMES
 
 REPORTS = 'reports/findings'
 LIVE_DIR = 'reports/live'
@@ -68,12 +68,12 @@ def feature_parity(day: str) -> dict:
     l = live.set_index(live.columns[0]).loc[overlap].sort_index()
     b = base.set_index(base.columns[0]).loc[overlap].sort_index()
 
-    n_features = min(91, len(FEATURE_NAMES_79D))
+    n_features = min(91, len(FEATURE_NAMES))
     total_cells = n_features * len(overlap)
     total_exact = 0
     bad_features = []
 
-    for col in FEATURE_NAMES_79D[:n_features]:
+    for col in FEATURE_NAMES[:n_features]:
         if col not in l.columns or col not in b.columns:
             continue
         lv = l[col].values.astype(float)

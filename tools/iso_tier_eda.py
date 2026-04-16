@@ -23,7 +23,7 @@ from collections import Counter
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from training.sfe_ticker import FeatureTicker
-from core.features_79d import N_CORE, N_HELPER, N_TFS
+from core.features import N_CORE, N_HELPER, N_TFS
 
 FEATURES_DIR_5S = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
@@ -240,7 +240,7 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
         bars = list(ft)
 
         for i, state in enumerate(bars):
-            feat = state['features_79d']
+            feat = state['features']
             price = state['price']
             ts = state['timestamp']
             if price < 100:
@@ -292,7 +292,7 @@ def run_max_fill(tier_filter=None, target='is', max_days=None):
                 for j in range(i + 1, min(i + 720, len(bars))):  # max 60 min at 5s
                     bar_j = bars[j]
                     p = bar_j['price']
-                    fj = bar_j['features_79d']
+                    fj = bar_j['features']
                     if p < 100:
                         continue
 

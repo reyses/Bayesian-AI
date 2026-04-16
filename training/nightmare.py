@@ -27,7 +27,7 @@ Usage (live mode — from aggregator):
 
     def on_1m(tf, bar):
         if tf == '1m':
-            state = sfe.compute_79d(agg)  # SFE computes from aggregator
+            state = sfe.compute_features(agg)  # SFE computes from aggregator
             nmp.on_state(state)
 
     agg.on_bar_close = on_1m
@@ -119,13 +119,13 @@ class NightmareEngine:
 
         Args:
             state: dict with at minimum:
-                'features_79d': np.ndarray(79,)
+                'features': np.ndarray(79,)
                 'price': float (current close price)
                 'timestamp': float
                 Optionally: 'bar_data', 'bar_idx', 'day'
         """
         self._bar_count += 1
-        feat = state['features_79d']
+        feat = state['features']
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
@@ -147,7 +147,7 @@ class NightmareEngine:
                 'price': price,
                 'z_1m': z,
                 'vr_1m': vr,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
             # Keep only last N bars
             if len(self._approach_buffer) > APPROACH_BUFFER_SIZE:
@@ -173,7 +173,7 @@ class NightmareEngine:
                 'peak_pnl': self.peak_pnl,
                 'z_1m': z,
                 'vr_1m': vr,
-                'features_79d': feat.copy(),
+                'features': feat.copy(),
             })
 
             # Inverse NMP exit — only on 1m boundaries
@@ -217,7 +217,7 @@ class NightmareEngine:
             'peak_pnl': 0.0,
             'z_1m': s1m['z_se'],
             'vr_1m': s1m['vr'],
-            'features_79d': feat.copy(),
+            'features': feat.copy(),
         })
 
     def _close_trade(self, price: float, ts: float, time_str: str,
@@ -285,7 +285,7 @@ class NightmareEngine:
         ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'
         # Use last known features
-        feat = self._trade_path[-1]['features_79d'] if self._trade_path else self.entry_79d
+        feat = self._trade_path[-1]['features'] if self._trade_path else self.entry_79d
         if feat is None:
             feat = np.zeros(79)
         s1m = _read_tf(feat, _1M_OFFSET)
