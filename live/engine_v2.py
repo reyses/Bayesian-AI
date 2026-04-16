@@ -312,6 +312,9 @@ class LiveEngineV2:
             with open(best_path, encoding='utf-8') as f:
                 cp = json.load(f)
             self._lfe.load_velocities(cp.get('velocities', {}))
+            if cp.get('accumulators'):
+                self._lfe.load_accumulators(cp['accumulators'])
+                logger.info(f'  Accumulators restored ({len(cp["accumulators"])} TFs)')
             # Support both v3 (trade_state) and v4 (ledger_state) checkpoints
             if 'ledger_state' in cp:
                 self._saved_ledger_state = cp['ledger_state']
@@ -1345,6 +1348,7 @@ class LiveEngineV2:
                 'version': 4,
                 'last_ts': self._last_ts,
                 'velocities': self._lfe.prev_velocities,
+                'accumulators': self._lfe._accumulators,
                 'ledger_state': ledger_state,
                 'bar_counts': self._lfe.bar_counts,
             }

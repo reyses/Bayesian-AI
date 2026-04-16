@@ -96,6 +96,16 @@ class LiveFeatureEngine:
         """Restore prev_velocities from checkpoint."""
         self._prev_vel = dict(velocities)
 
+    def load_accumulators(self, accumulators: dict):
+        """Restore partial-bar accumulators from checkpoint.
+
+        Without this, the first bars after startup produce truncated
+        higher-TF bars (e.g. a 5m bar with only 2 minutes of data).
+        """
+        for tf, saved in accumulators.items():
+            if tf in self._accumulators and saved.get('count', 0) > 0:
+                self._accumulators[tf] = dict(saved)
+
     # ══════════════════════════════════════════════════════════════════
     # ON_BAR — feed one 5s bar, get features back
     # ══════════════════════════════════════════════════════════════════
