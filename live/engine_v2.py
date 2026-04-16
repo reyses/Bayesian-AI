@@ -389,6 +389,9 @@ class LiveEngineV2:
 
         self._engine = BlendedEngine(use_cnn=False, live_mode=True)
 
+        # Save pre-loaded end timestamp for gap check in Step 4
+        self._preloaded_end_ts = self._last_ts
+
         # Verify: compute one feature from last loaded bar
         if '1m' in self._lfe._bars and len(self._lfe._bars['1m']) > 0:
             last_1m_ts = float(self._lfe._bars['1m']['timestamp'].iloc[-1])
@@ -444,22 +447,36 @@ class LiveEngineV2:
         logger.info(f'  History: {bar_count:,} bars in {elapsed:.1f}s')
         logger.info(f'  Bars: {self._lfe.bar_counts}')
 
-        # ── Gap check: does the NT8 dump cover from ATLAS_NT8 to now? ──
-        # If there's a gap > 5 minutes between the pre-loaded data and the
-        # first bar from NT8, features will be stale. Refuse to trade.
-        MAX_GAP_S = 300  # 5 minutes — any more means missing bars
+        # ── Gap check: is there a hole between ATLAS_NT8 and the dump? ──
+        # The pre-loaded ATLAS_NT8 data has a latest timestamp. The oldest
+        # bar from the NT8 dump should be within 5 minutes of that. If not,
+        # there's a gap of missing bars that produces stale features.
+        MAX_GAP_S = 300  # 5 minutes
         if '5s' in self._lfe._bars and len(self._lfe._bars['5s']) > 0:
-            last_5s_ts = float(self._lfe._bars['5s']['timestamp'].iloc[-1])
-            gap_s = time.time() - last_5s_ts
-            if gap_s > MAX_GAP_S:
-                gap_min = gap_s / 60
-                logger.error(f'  GAP DETECTED: last bar is {gap_min:.0f} min old')
-                logger.error(f'  NT8 dump did not cover the gap between ATLAS_NT8 and now.')
-                logger.error(f'  Run: python tools/convert_nt8_atlas.py --contract MNQ_06-26')
-                logger.error(f'  Then: python training/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start <date>')
-                logger.error(f'  REFUSING TO TRADE — features would be stale.')
-                self._shutting_down = True
-                return
+            # _last_ts before Step 4 = end of pre-loaded ATLAS_NT8 data
+            # _last_ts after Step 4 = end of NT8 dump (latest bar received)
+            # The pre-loaded end was saved before we overwrote _last_ts
+            preloaded_end = getattr(self, '_preloaded_end_ts', 0)
+            if preloaded_end > 0 and bar_count > 0:
+                # Oldest bar from this dump = first bar NT8 sent us
+                # We need the gap between preloaded end and first dump bar
+                # But we don't track first dump bar directly. Instead check:
+                # if preloaded data ended long before the dump bars start,
+                # there's a hole. Use the dump bar count + current _last_ts
+                # to estimate: if dump covered N bars of 5s data, the oldest
+                # dump bar was approximately _last_ts - (bar_count * 5)
+                oldest_dump_ts = self._last_ts - (bar_count * 5)
+                gap_s = oldest_dump_ts - preloaded_end
+                if gap_s > MAX_GAP_S:
+                    gap_min = gap_s / 60
+                    logger.error(f'  GAP DETECTED: {gap_min:.0f} min hole between ATLAS_NT8 and NT8 dump')
+                    logger.error(f'  ATLAS_NT8 ends at {self._ts_str(preloaded_end)}, '
+                                 f'dump starts ~{self._ts_str(oldest_dump_ts)}')
+                    logger.error(f'  Run: python tools/convert_nt8_atlas.py --contract MNQ_06-26')
+                    logger.error(f'  Then: python training/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start <date>')
+                    logger.error(f'  REFUSING TO TRADE — features would be stale.')
+                    self._shutting_down = True
+                    return
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 5: CATCH-UP — process bars until current
