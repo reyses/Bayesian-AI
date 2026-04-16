@@ -78,18 +78,14 @@ class OrderRecord:
     reject_reason: str = ''
 
 
-@dataclass
-class PositionState:
-    """Local shadow of NT8 position."""
-    side: str = ''         # 'LONG', 'SHORT', or '' (flat)
-    qty: int = 0
-    avg_price: float = 0.0
-    entry_time: float = 0.0
-    unrealized_pnl: float = 0.0
-
-
 class OrderManager:
-    """Manage orders, position tracking, and trade logging."""
+    """Manage orders, position tracking, and trade logging.
+
+    Position state lives in the shared Ledger (core/ledger.py), not here.
+    The OrderManager owns the NT8 wire handshake and translates fills into
+    ledger mutations. It also tracks a lightweight NT8 shadow (nt8_qty,
+    nt8_side) for reconciliation with heartbeats/position messages.
+    """
 
     # States that count as "in flight" for handshake bookkeeping
     _IN_FLIGHT_STATES = (
@@ -97,10 +93,15 @@ class OrderManager:
         OrderState.ACKED,   OrderState.WORKING,
     )
 
-    def __init__(self, config: LiveConfig):
+    def __init__(self, config: LiveConfig, ledger=None):
         self._cfg = config
+        self._ledger = ledger  # core.ledger.Ledger — single source of truth
         self._orders: Dict[str, OrderRecord] = {}
-        self.position = PositionState()
+        # Lightweight NT8 shadow for heartbeat/position reconciliation.
+        # NOT the position source of truth — the ledger is.
+        self._nt8_qty: int = 0
+        self._nt8_side: str = ''     # 'LONG', 'SHORT', ''
+        self._nt8_avg_price: float = 0.0
         self._daily_pnl: float = 0.0
         # NOTE: _awaiting_*_fill are now derived from order rec states (see
         # is_awaiting_open / is_awaiting_reduce). Kept as cached booleans so
@@ -128,12 +129,22 @@ class OrderManager:
         ]
         self._init_csv()
 
+    # ── NT8 shadow accessors ─────────────────────────────────────────
+
+    @property
+    def nt8_qty(self) -> int:
+        return self._nt8_qty
+
+    @property
+    def nt8_side(self) -> str:
+        return self._nt8_side
+
     # ── Public API ────────────────────────────────────────────────────
 
     @property
     def is_flat(self) -> bool:
-        """True only when NO position AND NO orders in flight."""
-        if self.position.qty != 0:
+        """True only when ledger is flat AND NO orders in flight."""
+        if self._ledger and not self._ledger.is_flat:
             return False
         if self.is_awaiting_open() or self.is_awaiting_reduce():
             return False
@@ -146,8 +157,17 @@ class OrderManager:
 
     @property
     def can_exit(self) -> bool:
-        """True when in a position AND not already waiting for a REDUCE fill."""
-        return self.position.qty != 0 and not self.is_awaiting_reduce()
+        """True when ledger has positions AND not already waiting for a REDUCE fill."""
+        if self._ledger:
+            return not self._ledger.is_flat and not self.is_awaiting_reduce()
+        return self._nt8_qty != 0 and not self.is_awaiting_reduce()
+
+    @property
+    def can_scale_out(self) -> bool:
+        """True when multiple contracts open and no in-flight orders."""
+        if self._ledger:
+            return self._ledger.n_contracts > 1 and not self.is_awaiting_reduce()
+        return self._nt8_qty > 1 and not self.is_awaiting_reduce()
 
     # ── Handshake state queries ───────────────────────────────────────
 
@@ -207,8 +227,9 @@ class OrderManager:
                 logger.warning("Entry blocked: awaiting OPEN fill")
             elif self.is_awaiting_reduce():
                 logger.warning("Entry blocked: awaiting REDUCE fill")
-            elif self.position.qty != 0:
-                logger.warning(f"Entry blocked: in position ({self.position.side})")
+            elif self._ledger and not self._ledger.is_flat:
+                prim = self._ledger.primary
+                logger.warning(f"Entry blocked: in position ({prim.direction if prim else '?'})")
             elif self._daily_loss_limit_hit:
                 logger.warning("Entry blocked: daily loss limit")
             return None
@@ -238,9 +259,10 @@ class OrderManager:
     @property
     def can_scale_in(self) -> bool:
         """True when in position, same direction scale-in is safe, and under max contracts."""
-        if self.position.qty == 0:
+        n = self._ledger.n_contracts if self._ledger else self._nt8_qty
+        if n == 0:
             return False
-        if self.position.qty >= self._cfg.max_contracts:
+        if n >= self._cfg.max_contracts:
             return False
         if self.is_awaiting_open() or self.is_awaiting_reduce():
             return False
@@ -254,23 +276,29 @@ class OrderManager:
         Same direction as current position. Returns None if blocked.
         """
         if not self.can_scale_in:
-            logger.warning(f"Scale-in blocked: qty={self.position.qty} "
+            n = self._ledger.n_contracts if self._ledger else self._nt8_qty
+            logger.warning(f"Scale-in blocked: contracts={n} "
                            f"max={self._cfg.max_contracts} "
                            f"pending_open={self.is_awaiting_open()} "
                            f"pending_reduce={self.is_awaiting_reduce()}")
             return None
 
-        # Safety: side must match current position
-        expected_side = 'BUY' if self.position.side == 'LONG' else 'SELL'
+        # Safety: side must match current position direction
+        prim = self._ledger.primary if self._ledger else None
+        if prim:
+            expected_side = 'BUY' if prim.direction == 'long' else 'SELL'
+        else:
+            expected_side = 'BUY' if self._nt8_side == 'LONG' else 'SELL'
         if side != expected_side:
-            logger.error(f"Scale-in side mismatch: {side} vs position {self.position.side}")
+            logger.error(f"Scale-in side mismatch: {side} vs ledger {prim.direction if prim else self._nt8_side}")
             return None
 
+        n = self._ledger.n_contracts if self._ledger else self._nt8_qty
         oid = self._make_order_id(side, tag='CHAIN')
         rec = OrderRecord(
             order_id=oid, side=side, qty=1,
             intent=OrderIntent.OPEN, is_chain=True,
-            expected_position_after=(self.position.side, self.position.qty + 1),
+            expected_position_after=(self._nt8_side or ('LONG' if side == 'BUY' else 'SHORT'), n + 1),
             state=OrderState.PENDING,
             submit_time=time.time(),
         )
@@ -281,7 +309,7 @@ class OrderManager:
                           position_effect='OPEN')
         self._refresh_pending_flags()
         logger.info(f"SCALE-IN -> {side} +1 {self._cfg.instrument} "
-                     f"(total will be {self.position.qty + 1})  id={oid}  effect=OPEN")
+                     f"(total will be {n + 1})  id={oid}  effect=OPEN")
         return msg
 
     def build_scale_out_order(self, reason: str = 'chain_exit') -> Optional[dict]:
@@ -293,21 +321,27 @@ class OrderManager:
         Sends position_effect=REDUCE so the bridge uses Sell/BuyToCover (closing
         action) rather than SellShort/Buy (which would open a new opposing position).
         """
-        if self.position.qty <= 1:
-            logger.warning(f"Scale-out blocked: qty={self.position.qty} (use build_exit_order)")
+        n = self._ledger.n_contracts if self._ledger else self._nt8_qty
+        if n <= 1:
+            logger.warning(f"Scale-out blocked: contracts={n} (use build_exit_order)")
             return None
         if self.is_awaiting_open() or self.is_awaiting_reduce():
             logger.warning(f"Scale-out blocked: pending order in flight")
             return None
 
         # Opposite side to close 1 contract
-        close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
+        prim = self._ledger.primary if self._ledger else None
+        if prim:
+            close_side = 'SELL' if prim.direction == 'long' else 'BUY'
+        else:
+            close_side = 'SELL' if self._nt8_side == 'LONG' else 'BUY'
 
         oid = self._make_order_id(close_side, tag='CHEXIT')
+        nt8_side = self._nt8_side or ('LONG' if close_side == 'SELL' else 'SHORT')
         rec = OrderRecord(
             order_id=oid, side=close_side, qty=1,
             intent=OrderIntent.REDUCE, is_chain=True,
-            expected_position_after=(self.position.side, self.position.qty - 1),
+            expected_position_after=(nt8_side, max(n - 1, 0)),
             state=OrderState.PENDING,
             submit_time=time.time(),
         )
@@ -318,7 +352,7 @@ class OrderManager:
                           position_effect='REDUCE')
         self._refresh_pending_flags()
         logger.info(f"SCALE-OUT -> {close_side} -1 {self._cfg.instrument} "
-                     f"(total will be {self.position.qty - 1})  id={oid}  effect=REDUCE  ({reason})")
+                     f"(total will be {max(n - 1, 0)})  id={oid}  effect=REDUCE  ({reason})")
         return msg
 
     def build_exit_order(self, reason: str = 'signal') -> Optional[dict]:
@@ -334,10 +368,15 @@ class OrderManager:
 
         # Pre-register the BAY_CLOSE order so on_fill knows the intent.
         # The bridge generates fills with order_id="BAY_CLOSE" for CLOSE_POSITION.
-        close_side = 'SELL' if self.position.side == 'LONG' else 'BUY'
+        prim = self._ledger.primary if self._ledger else None
+        if prim:
+            close_side = 'SELL' if prim.direction == 'long' else 'BUY'
+        else:
+            close_side = 'SELL' if self._nt8_side == 'LONG' else 'BUY'
+        n = self._ledger.n_contracts if self._ledger else self._nt8_qty
         rec = OrderRecord(
             order_id='BAY_CLOSE',
-            side=close_side, qty=self.position.qty,
+            side=close_side, qty=n,
             intent=OrderIntent.REDUCE, is_chain=False,
             expected_position_after=('', 0),  # FLAT
             state=OrderState.PENDING,
@@ -347,7 +386,8 @@ class OrderManager:
 
         self.exit_rejected = False
         self._refresh_pending_flags()
-        logger.info(f"EXIT -> close ALL {self.position.side} x{self.position.qty} ({reason})")
+        side_str = prim.direction if prim else self._nt8_side
+        logger.info(f"EXIT -> close ALL {side_str} x{n} ({reason})")
         return close_position(self._cfg.instrument, self._cfg.account)
 
     def build_flip_order(self, reason: str = 'pp_flip') -> Optional[dict]:
@@ -363,14 +403,14 @@ class OrderManager:
         """
         if self.is_flat:
             return None
-        flip_side = 'BUY' if self.position.side == 'SHORT' else 'SELL'
-        qty = self.position.qty * 2  # 1 to close + 1 to open
+        flip_side = 'BUY' if self._nt8_side == 'SHORT' else 'SELL'
+        qty = self._nt8_qty * 2  # 1 to close + 1 to open
         oid = f"BAY_{uuid.uuid4().hex[:8]}"
         new_side = 'LONG' if flip_side == 'BUY' else 'SHORT'
         rec = OrderRecord(
             order_id=oid, side=flip_side, qty=qty,
             intent=OrderIntent.FLIP, is_chain=False,
-            expected_position_after=(new_side, self.position.qty),
+            expected_position_after=(new_side, self._nt8_qty),
             state=OrderState.PENDING,
             submit_time=time.time(),
         )
@@ -426,49 +466,53 @@ class OrderManager:
             tracked = True
         else:
             tracked = False
-            if self.position.qty == 0:
+            if self._nt8_qty == 0:
                 intent = OrderIntent.OPEN
             else:
-                same_direction = ((self.position.side == 'LONG' and side == 'BUY') or
-                                  (self.position.side == 'SHORT' and side == 'SELL'))
+                same_direction = ((self._nt8_side == 'LONG' and side == 'BUY') or
+                                  (self._nt8_side == 'SHORT' and side == 'SELL'))
                 intent = OrderIntent.OPEN if same_direction else OrderIntent.REDUCE
             logger.warning(f"FILL untracked order_id={oid} — inferred intent={intent}")
 
         pnl: Optional[float] = None
 
-        # ── Apply position transition ─────────────────────────────────
+        # ── Apply position transition via ledger ─────────────────────
         if intent == OrderIntent.OPEN:
-            if self.position.qty == 0:
-                # Fresh entry
-                self.position = PositionState(
-                    side='LONG' if side == 'BUY' else 'SHORT',
-                    qty=qty,
-                    avg_price=fill_px,
-                    entry_time=time.time(),
-                )
-                logger.info(f"FILL entry: {self.position.side} x{qty} @ {fill_px}  id={oid}")
+            if self._ledger:
+                # Find the pending request context from engine_v2's _pending_requests
+                # The caller (engine_v2) stores entry context on _pending_requests[oid].
+                # on_fill receives the raw msg; entry context is passed through rec fields.
+                is_chain = rec.is_chain if rec else False
+                # Ledger mutation happens in engine_v2.py's fill handler via
+                # _pending_requests context. Here we just update the NT8 shadow.
+                pass
+
+            # Update NT8 shadow
+            if self._nt8_qty == 0:
+                self._nt8_side = 'LONG' if side == 'BUY' else 'SHORT'
+                self._nt8_qty = qty
+                self._nt8_avg_price = fill_px
+                logger.info(f"FILL entry: {self._nt8_side} x{qty} @ {fill_px}  id={oid}")
             else:
-                # Scale-in
-                old_qty = self.position.qty
+                old_qty = self._nt8_qty
                 new_qty = old_qty + qty
-                new_avg = (self.position.avg_price * old_qty + fill_px * qty) / new_qty
-                self.position.qty = min(new_qty, self._cfg.max_contracts)
-                self.position.avg_price = new_avg
-                logger.info(f"FILL scale-in: {self.position.side} +{qty} @ {fill_px} "
-                            f"(total={self.position.qty}, avg={new_avg:.2f})  id={oid}")
+                new_avg = (self._nt8_avg_price * old_qty + fill_px * qty) / new_qty
+                self._nt8_qty = min(new_qty, self._cfg.max_contracts)
+                self._nt8_avg_price = new_avg
+                logger.info(f"FILL scale-in: {self._nt8_side} +{qty} @ {fill_px} "
+                            f"(total={self._nt8_qty}, avg={new_avg:.2f})  id={oid}")
 
         elif intent == OrderIntent.REDUCE:
-            if self.position.qty == 0:
+            if self._nt8_qty == 0:
                 logger.error(f"FILL REDUCE on FLAT position! id={oid} side={side} qty={qty} @ {fill_px}")
                 self.last_reconcile_error = f"REDUCE fill {oid} on flat position"
                 self._refresh_pending_flags()
                 return None
 
-            # qty must not exceed position size — bridge should cap, but double-check
-            close_qty = min(qty, self.position.qty)
-            entry_px = self.position.avg_price
+            close_qty = min(qty, self._nt8_qty)
+            entry_px = self._nt8_avg_price
 
-            if self.position.side == 'LONG':
+            if self._nt8_side == 'LONG':
                 pnl = (fill_px - entry_px) * close_qty * self._cfg.point_value
             else:
                 pnl = (entry_px - fill_px) * close_qty * self._cfg.point_value
@@ -476,55 +520,52 @@ class OrderManager:
             self._daily_pnl += pnl
             self._trade_count += 1
 
-            if close_qty >= self.position.qty:
-                # Full close
+            if close_qty >= self._nt8_qty:
                 self.last_exit_info = {
                     'entry_px': entry_px, 'exit_px': fill_px,
-                    'side': self.position.side, 'qty': close_qty,
+                    'side': self._nt8_side, 'qty': close_qty,
                 }
                 self._log_trade(fill_px, pnl, reason='close')
-                logger.info(f"FILL close-all: {self.position.side} x{close_qty} @ {fill_px} "
+                logger.info(f"FILL close-all: {self._nt8_side} x{close_qty} @ {fill_px} "
                             f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}  id={oid}")
-                self.position = PositionState()  # flat
+                self._nt8_qty = 0
+                self._nt8_side = ''
+                self._nt8_avg_price = 0.0
             else:
-                # Scale-out
-                self.position.qty -= close_qty
+                self._nt8_qty -= close_qty
                 self._log_trade(fill_px, pnl, reason='scale_out')
                 logger.info(f"FILL scale-out: -{close_qty} @ {fill_px} "
-                            f"PnL=${pnl:+.2f} (remaining={self.position.qty})  "
+                            f"PnL=${pnl:+.2f} (remaining={self._nt8_qty})  "
                             f"daily=${self._daily_pnl:+.2f}  id={oid}")
 
-            # Daily loss limit check
             if self._cfg.max_daily_loss_usd > 0 and self._daily_pnl <= -self._cfg.max_daily_loss_usd:
                 self._daily_loss_limit_hit = True
                 logger.warning(f"DAILY LOSS LIMIT HIT: ${self._daily_pnl:.2f}")
 
         elif intent == OrderIntent.FLIP:
-            # Atomic close + open opposite
-            if self.position.qty == 0:
+            if self._nt8_qty == 0:
                 logger.error(f"FILL FLIP on FLAT position! id={oid}")
                 self.last_reconcile_error = f"FLIP fill {oid} on flat position"
                 self._refresh_pending_flags()
                 return None
-            close_qty = self.position.qty
-            entry_px = self.position.avg_price
-            if self.position.side == 'LONG':
+            close_qty = self._nt8_qty
+            entry_px = self._nt8_avg_price
+            if self._nt8_side == 'LONG':
                 pnl = (fill_px - entry_px) * close_qty * self._cfg.point_value
             else:
                 pnl = (entry_px - fill_px) * close_qty * self._cfg.point_value
             self.last_exit_info = {
                 'entry_px': entry_px, 'exit_px': fill_px,
-                'side': self.position.side, 'qty': close_qty,
+                'side': self._nt8_side, 'qty': close_qty,
             }
             self._daily_pnl += pnl
             self._trade_count += 1
             self._log_trade(fill_px, pnl, reason='flip')
             remaining = qty - close_qty
             new_side = 'LONG' if side == 'BUY' else 'SHORT'
-            self.position = PositionState(
-                side=new_side, qty=max(remaining, 0),
-                avg_price=fill_px, entry_time=time.time(),
-            )
+            self._nt8_side = new_side
+            self._nt8_qty = max(remaining, 0)
+            self._nt8_avg_price = fill_px
             logger.info(f"FILL flip: -> {new_side} x{remaining} @ {fill_px} "
                         f"PnL=${pnl:+.2f}  daily=${self._daily_pnl:+.2f}  id={oid}")
 
@@ -533,8 +574,8 @@ class OrderManager:
                 tracked and intent == OrderIntent.REDUCE
                 and rec.expected_position_after == ('', 0)):
             exp_side, exp_qty = rec.expected_position_after
-            actual_side = self.position.side or ''
-            actual_qty = self.position.qty
+            actual_side = self._nt8_side or ''
+            actual_qty = self._nt8_qty
             if (exp_side or '') != actual_side or exp_qty != actual_qty:
                 msg_str = (f"RECONCILE MISMATCH {oid}: expected={exp_side} x{exp_qty} "
                            f"actual={actual_side or 'FLAT'} x{actual_qty}")
@@ -562,32 +603,28 @@ class OrderManager:
             logger.warning(f"ACK for unknown order: {oid}")
 
     def on_heartbeat(self, msg: dict):
-        """Handle enhanced heartbeat — reconcile position state.
+        """Handle enhanced heartbeat — reconcile NT8 shadow.
 
-        If bridge says FLAT but we think we're in position (or vice versa),
-        bridge wins. This catches drift from missed FILL/POSITION messages.
+        If bridge says FLAT but our shadow disagrees, bridge wins.
+        The ledger is reconciled separately by engine_v2 (via POSITION messages).
         """
         nt8_qty = int(msg.get('position_qty', 0))
         nt8_side = msg.get('position_side', 'FLAT')
 
-        our_qty = self.position.qty
-        our_side = self.position.side or 'FLAT'
-
-        # Check for drift
-        if nt8_qty == 0 and our_qty != 0:
-            logger.warning(f"HEARTBEAT DRIFT: NT8=FLAT but we think {our_side} x{our_qty} — syncing to FLAT")
-            self.position = PositionState()
-            # Mark any in-flight order as TIMED_OUT — NT8 didn't act on it
+        if nt8_qty == 0 and self._nt8_qty != 0:
+            logger.warning(f"HEARTBEAT DRIFT: NT8=FLAT but shadow={self._nt8_side} x{self._nt8_qty} — syncing")
+            self._nt8_qty = 0
+            self._nt8_side = ''
+            self._nt8_avg_price = 0.0
             self._cancel_in_flight('heartbeat_flat_drift')
-        elif nt8_qty != 0 and our_qty == 0 and not self.is_awaiting_open():
-            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} but we think FLAT — syncing")
-            self.position = PositionState(
-                side=nt8_side, qty=nt8_qty,
-                avg_price=float(msg.get('position_avg_price', 0)),
-            )
-        elif nt8_qty != our_qty and nt8_qty != 0:
-            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} vs local={our_side} x{our_qty}")
-            self.position.qty = nt8_qty
+        elif nt8_qty != 0 and self._nt8_qty == 0 and not self.is_awaiting_open():
+            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} but shadow=FLAT — syncing")
+            self._nt8_side = nt8_side
+            self._nt8_qty = nt8_qty
+            self._nt8_avg_price = float(msg.get('position_avg_price', 0))
+        elif nt8_qty != self._nt8_qty and nt8_qty != 0:
+            logger.warning(f"HEARTBEAT DRIFT: NT8={nt8_side} x{nt8_qty} vs shadow={self._nt8_side} x{self._nt8_qty}")
+            self._nt8_qty = nt8_qty
 
     def on_order_status(self, msg: dict):
         """Handle an ORDER_STATUS message from NT8."""
@@ -620,29 +657,26 @@ class OrderManager:
         self._refresh_pending_flags()
 
     def on_position(self, msg: dict):
-        """Handle a POSITION snapshot from NT8 (source of truth).
+        """Handle a POSITION snapshot from NT8 — update the NT8 shadow.
 
-        NT8 POSITION is authoritative. If NT8 says flat, we're flat —
-        clear all pending flags regardless of local state.
+        NT8 POSITION is authoritative for the shadow. Ledger reconciliation
+        is handled by engine_v2.py (which may force-close the ledger if NT8
+        reports flat but the ledger has positions).
         """
         nt8_qty = int(msg.get('qty', 0))
         if nt8_qty == 0:
-            if (self.position.qty != 0 or self.is_awaiting_open()
-                    or self.is_awaiting_reduce()):
-                logger.warning(f"NT8 says flat -- syncing (was: pos={self.position.side}, "
-                              f"open_pending={self.is_awaiting_open()}, "
-                              f"reduce_pending={self.is_awaiting_reduce()})")
-            self.position = PositionState()
+            if self._nt8_qty != 0 or self.is_awaiting_open() or self.is_awaiting_reduce():
+                logger.warning(f"NT8 says flat -- syncing shadow (was: {self._nt8_side} x{self._nt8_qty})")
+            self._nt8_qty = 0
+            self._nt8_side = ''
+            self._nt8_avg_price = 0.0
             self._cancel_in_flight('position_flat_sync')
         else:
             side = 'LONG' if nt8_qty > 0 else 'SHORT'
-            self.position = PositionState(
-                side=side,
-                qty=abs(nt8_qty),
-                avg_price=float(msg.get('avg_price', 0)),
-            )
-            self.position.unrealized_pnl = float(msg.get('unrealized_pnl', 0))
-            logger.info(f"POSITION sync: {side} {abs(nt8_qty)} @ {self.position.avg_price}")
+            self._nt8_side = side
+            self._nt8_qty = abs(nt8_qty)
+            self._nt8_avg_price = float(msg.get('avg_price', 0))
+            logger.info(f"POSITION sync: {side} {abs(nt8_qty)} @ {self._nt8_avg_price}")
 
     def check_pending_timeouts(self) -> List[OrderRecord]:
         """Watchdog — return list of orders that have exceeded their deadlines.
@@ -724,10 +758,10 @@ class OrderManager:
         row = [
             time.strftime('%Y-%m-%d %H:%M:%S'),
             '',  # order_id (latest)
-            self.position.side,
-            self.position.qty,
+            self._nt8_side,
+            self._nt8_qty,
             exit_price,
-            self.position.avg_price,
+            self._nt8_avg_price,
             f'{pnl:.2f}',
             f'{self._daily_pnl:.2f}',
             reason,

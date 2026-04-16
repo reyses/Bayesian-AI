@@ -28,9 +28,10 @@ FEATURES_DIR_1M = 'DATA/FEATURES_1m'
 NT8_FEATURES_5S = 'DATA/FEATURES_NT8_5s'
 NT8_ATLAS_1M = 'DATA/ATLAS_NT8/1m'
 
-# Phase 4 flag: use core.sim_executor instead of engine.on_state().
-# Set by --use-sim-executor on the command line.
-USE_SIM_EXECUTOR = False
+# Phase 4+5: sim_executor is the default path for blended training.
+# The old engine.on_state() path is preserved for non-blended pipelines
+# and live_engine.py v1 (legacy).
+USE_SIM_EXECUTOR = True
 
 
 def cmd_build(args):
@@ -1814,14 +1815,6 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return
-
-    # --use-sim-executor: Phase 4 flag, drives engine through core.sim_executor
-    # instead of engine.on_state(). Produces same trade format, different path.
-    global USE_SIM_EXECUTOR
-    if '--use-sim-executor' in sys.argv:
-        sys.argv.remove('--use-sim-executor')
-        USE_SIM_EXECUTOR = True
-        print('[MODE: sim_executor — ledger + evaluate() path]')
 
     # --atlas flag: switch data source (e.g. --atlas DATA/ATLAS_NT8)
     if '--atlas' in sys.argv:

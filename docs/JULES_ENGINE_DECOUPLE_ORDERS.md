@@ -1,6 +1,6 @@
 # JULES: Decouple Order Management from the Engine
 
-**Status:** Phase 3 complete (78 tests passing). Phase 4 ready to execute.
+**Status:** Phase 5 complete (78 tests passing). Phase 6 (live session parity test) ready.
 
 **Phase 3 pickup instructions (for fresh session):**
 1. Read this spec for context (especially the Phase 3 section)

@@ -56,6 +56,8 @@ from core.features import FEATURE_NAMES, N_FEATURES
 from config.symbols import SYMBOL_MAP
 from live.order_manager import OrderManager
 from live.gui_bridge import GUIBridge
+from core.ledger import Ledger
+from core.sim_executor import _compute_entry_context, force_close as ledger_force_close
 
 TICK = 0.25
 TV = 0.50
@@ -102,8 +104,12 @@ class LiveEngineV2:
         self._lfe = None      # LiveFeatureEngine (100% parity with training)
         self._engine = None
 
-        # Order management (NT8 is source of truth)
-        self._orders = OrderManager(config)
+        # Position ledger — single source of truth for engine's position view.
+        # Mutated only on confirmed fills (via on_fill → ledger.add/remove_position).
+        self._pos_ledger = Ledger()
+
+        # Order management (NT8 handshake + in-flight tracking)
+        self._orders = OrderManager(config, self._pos_ledger)
 
         # Dashboard
         self._gui = GUIBridge(gui_queue)
@@ -296,12 +302,35 @@ class LiveEngineV2:
                 except (json.JSONDecodeError, KeyError):
                     logger.warning(f'  Corrupt checkpoint: {path}')
 
-        self._saved_trade_state = {}
+        self._saved_ledger_state = {}
         if best_path:
             with open(best_path, encoding='utf-8') as f:
                 cp = json.load(f)
             self._lfe.load_velocities(cp.get('velocities', {}))
-            self._saved_trade_state = cp.get('trade_state', {})
+            # Support both v3 (trade_state) and v4 (ledger_state) checkpoints
+            if 'ledger_state' in cp:
+                self._saved_ledger_state = cp['ledger_state']
+            elif 'trade_state' in cp:
+                # Convert v3 trade_state to v4 ledger_state for backward compat
+                ts = cp['trade_state']
+                positions = []
+                if ts.get('in_pos', False):
+                    positions.append({
+                        'direction': ts.get('direction', ''),
+                        'entry_price': ts.get('entry_price', 0),
+                        'entry_ts': ts.get('entry_ts', 0),
+                        'entry_tier': ts.get('entry_tier', 'UNKNOWN'),
+                        'is_chain': False,
+                    })
+                    for cc in ts.get('chains', []):
+                        positions.append({
+                            'direction': cc.get('direction', ''),
+                            'entry_price': cc.get('entry_price', 0),
+                            'entry_ts': cc.get('entry_ts', 0),
+                            'entry_tier': cc.get('entry_tier', 'UNKNOWN'),
+                            'is_chain': True,
+                        })
+                self._saved_ledger_state = {'positions': positions}
             self._last_ts = cp.get('last_ts', 0)
             cp_age_min = (time.time() - cp.get('last_ts', 0)) / 60
             logger.info(f'  Checkpoint: {os.path.basename(best_path)} '
@@ -420,39 +449,59 @@ class LiveEngineV2:
     # ═══════════════════════════════════════════════════════════════════
 
     def _step5b_recover_trade(self):
-        """If NT8 has an open position and checkpoint has matching trade state,
-        restore engine to continue managing the trade.
+        """If NT8 has an open position and checkpoint has matching ledger state,
+        restore ledger positions to continue managing the trade.
         """
-        nt8_pos = self._orders.position
-        saved = self._saved_trade_state
+        nt8_qty = self._orders.nt8_qty
+        saved_ledger = self._saved_ledger_state
+        saved_positions = saved_ledger.get('positions', [])
+        has_saved = len(saved_positions) > 0
 
-        if nt8_pos.qty == 0 and not saved.get('in_pos', False):
+        if nt8_qty == 0 and not has_saved:
             logger.info('  RECOVERY: both flat — clean start')
             return
 
-        if nt8_pos.qty == 0 and saved.get('in_pos', False):
+        if nt8_qty == 0 and has_saved:
             logger.warning('  RECOVERY: checkpoint had trade but NT8 is flat — trade closed while offline')
             return
 
-        if nt8_pos.qty != 0 and not saved.get('in_pos', False):
-            logger.warning(f'  RECOVERY: NT8 has {nt8_pos.side} x{nt8_pos.qty} '
+        if nt8_qty != 0 and not has_saved:
+            nt8_side = self._orders.nt8_side
+            logger.warning(f'  RECOVERY: NT8 has {nt8_side} x{nt8_qty} '
                            f'but no trade in checkpoint — unknown trade, monitoring only')
             return
 
-        # Both have a position — verify they match
-        if nt8_pos.qty != 0 and saved.get('in_pos', False):
-            saved_dir = saved.get('direction', '')
-            nt8_dir = 'long' if nt8_pos.side == 'LONG' else 'short'
+        # Both have a position — verify direction match
+        saved_dir = saved_positions[0].get('direction', '')
+        nt8_dir = 'long' if self._orders.nt8_side == 'LONG' else 'short'
 
-            if saved_dir == nt8_dir:
-                self._engine.restore_trade_state(saved)
-                n_chains = len(saved.get('chains', []))
-                logger.info(f'  RECOVERY: restored {saved_dir} {saved.get("entry_tier")} '
-                            f'@ {saved.get("entry_price", 0):.2f} '
-                            f'(chains={n_chains}, peak=${saved.get("peak_pnl", 0):.0f})')
-            else:
-                logger.error(f'  RECOVERY: direction mismatch — NT8={nt8_dir} '
-                             f'checkpoint={saved_dir} — NOT restoring')
+        if saved_dir != nt8_dir:
+            logger.error(f'  RECOVERY: direction mismatch — NT8={nt8_dir} '
+                         f'checkpoint={saved_dir} — NOT restoring')
+            return
+
+        # Restore positions into the ledger
+        for sp in saved_positions:
+            entry_feat = np.zeros(N_FEATURES, dtype=np.float32)
+            self._pos_ledger.add_position(
+                direction=sp['direction'],
+                entry_price=sp['entry_price'],
+                entry_ts=sp.get('entry_ts', 0),
+                entry_tier=sp.get('entry_tier', 'UNKNOWN'),
+                entry_features=entry_feat,
+                is_chain=sp.get('is_chain', False),
+                cnn_flipped=sp.get('cnn_flipped', False),
+                entry_abs_z=sp.get('entry_abs_z', 0),
+                entry_velocity=sp.get('entry_velocity', 0),
+                entry_h1_z=sp.get('entry_h1_z', 0),
+                entry_vol_rel=sp.get('entry_vol_rel', 0),
+                ride_exit_bars=sp.get('ride_exit_bars', 2),
+            )
+        n_chains = sum(1 for sp in saved_positions if sp.get('is_chain'))
+        prim = saved_positions[0]
+        logger.info(f'  RECOVERY: restored {saved_dir} {prim.get("entry_tier")} '
+                    f'@ {prim.get("entry_price", 0):.2f} '
+                    f'(chains={n_chains}, peak=${prim.get("peak_pnl", 0):.0f})')
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 6: VERIFY — honing loop, drain inbound until bar_age converges
@@ -619,8 +668,10 @@ class LiveEngineV2:
                         if order_msg:
                             await self._client.send(order_msg)
                             self._orders.mark_sent('BAY_CLOSE')
-                    if self._engine and self._engine.in_pos:
-                        self._engine.force_close(reason='manual_flatten')
+                    if not self._pos_ledger.is_flat:
+                        ledger_force_close(self._pos_ledger, self._last_price,
+                                           self._last_ts, np.zeros(N_FEATURES),
+                                           reason='manual_flatten')
 
             # Stale bar detection: time since last bar ARRIVAL at our process
             # (monotonic clock, not wall time — independent of timezone/clock drift)
@@ -672,15 +723,6 @@ class LiveEngineV2:
                 logger.info(f'  FILL {oid} @ {fill_px:.2f} '
                             f'(requested {req_px:.2f}, slip={slip:+.2f})')
 
-                if fill_px and self._engine.in_pos:
-                    # Correct engine entry price from NT8 actual fill
-                    side = msg.get('side', '')
-                    same_dir = ((self._engine.direction == 'long' and side == 'BUY') or
-                                (self._engine.direction == 'short' and side == 'SELL'))
-                    if same_dir and not self._engine._chain_contracts:
-                        self._engine.entry_price = fill_px
-                    elif same_dir and self._engine._chain_contracts:
-                        self._engine._chain_contracts[-1]['entry_price'] = fill_px
                 # Sync realized PnL from NT8
                 self._daily_pnl = self._orders.daily_pnl
                 continue
@@ -696,14 +738,18 @@ class LiveEngineV2:
                 continue
             elif msg_type == 'POSITION':
                 self._orders.on_position(msg)
-                # If NT8 says flat but engine thinks it's in a trade, force-close
+                # If NT8 says flat but ledger has positions, force-close
                 # to keep state in sync. NT8 is ground truth.
-                if (self._orders.position.qty == 0 and self._engine
-                        and self._engine.in_pos):
-                    logger.warning(f'  POSITION sync: NT8 flat but engine in '
-                                   f'{self._engine.direction} {self._engine.entry_tier} '
-                                   f'— forcing engine flat')
-                    self._engine.force_close(reason='nt8_position_sync')
+                nt8_qty = int(msg.get('qty', 0))
+                if nt8_qty == 0 and not self._pos_ledger.is_flat:
+                    prim = self._pos_ledger.primary
+                    logger.warning(f'  POSITION sync: NT8 flat but ledger in '
+                                   f'{prim.direction if prim else "?"} '
+                                   f'{prim.entry_tier if prim else "?"} '
+                                   f'— forcing ledger flat')
+                    ledger_force_close(self._pos_ledger, self._last_price,
+                                       self._last_ts, np.zeros(N_FEATURES),
+                                       reason='nt8_position_sync')
                 continue
             elif msg_type == MsgType.HEARTBEAT:
                 # Enhanced heartbeat — reconcile position
@@ -788,188 +834,206 @@ class LiveEngineV2:
                                 f'(flooding {self._bar_count} bars)')
                 continue  # skip engine + orders while backfilling
 
-            # ── Feed engine, detect all events ─────────────────────────
-            prev_in_pos = self._engine.in_pos
-            prev_trades = len(self._engine.trades)
-            prev_chains = len(self._engine._chain_contracts)
-            # Snap pre-state so we can detect silent tier/direction churn
-            # (engine reclassified mid-trade without going through close+open
-            # boundary — would be invisible to entered/exited otherwise).
-            prev_direction = self._engine.direction
-            prev_tier = self._engine.entry_tier
-            prev_entry_price = self._engine.entry_price
+            # ── Evaluate via ledger + stateless engine ─────────────────
+            # 1. Advance per-bar state on all open positions
+            self._pos_ledger.update_bar(feat, bar['close'], bar['timestamp'],
+                                         current_volume=bar.get('volume', 0))
 
-            state = {
-                'features': feat,
+            # 2. Engine evaluates: pure function of (features, positions)
+            was_flat = self._pos_ledger.is_flat
+            eval_state = {
+                'features_79d': feat,
                 'price': bar['close'],
                 'timestamp': bar['timestamp'],
+                'positions': self._pos_ledger.snapshot(),
             }
-            self._engine.on_state(state)
+            batch = self._engine.evaluate(eval_state)
 
-            entered = self._engine.in_pos and not prev_in_pos
-            exited = not self._engine.in_pos and prev_in_pos
-            new_trades = len(self._engine.trades) - prev_trades
-            curr_chains = len(self._engine._chain_contracts)
-            chain_opened = curr_chains > prev_chains
-
-            # ── Silent flip detection ──────────────────────────────────
-            # If we stayed in a position but direction/tier/entry_price
-            # changed, the engine did a close+open inside on_state without
-            # going through the entered/exited boundary. Log it loudly so
-            # we can see the issue and the wrapper alerts the user.
-            silent_flip = (prev_in_pos and self._engine.in_pos
-                           and not entered and not exited
-                           and (prev_direction != self._engine.direction
-                                or prev_tier != self._engine.entry_tier
-                                or prev_entry_price != self._engine.entry_price))
+            # 3. Apply counter updates (does NOT close/open positions)
+            for pd in batch.position_decisions:
+                self._pos_ledger.apply_position_decision(pd)
 
             events = []
 
-            if silent_flip:
-                msg_str = (f'SILENT_FLIP {prev_direction}/{prev_tier}@{prev_entry_price:.2f} '
-                           f'-> {self._engine.direction}/{self._engine.entry_tier}'
-                           f'@{self._engine.entry_price:.2f}')
-                logger.error(f'  {msg_str}')
-                events.append('SILENT_FLIP')
-                self._log_trade_event(bar['timestamp'], 'SILENT_FLIP',
-                    self._engine.entry_tier or '?',
-                    self._engine.direction or '?',
-                    bar['close'], 0, 0, 0, msg_str, False)
-                # Surface to dashboard so user sees the alert
-                self._gui.push({
-                    'type': 'ALERT',
-                    'severity': 'error',
-                    'message': msg_str,
-                })
-
-            # ── PRIMARY ENTRY ──────────────────────────────────────────
-            if entered and self._orders.can_enter and self._broker_connected:
-                side = 'BUY' if self._engine.direction == 'long' else 'SELL'
-                order_msg = self._orders.build_entry_order(side)
-                if order_msg:
-                    self._pending_requests[order_msg['order_id']] = {
-                        'requested_price': bar['close'],
-                        'tier': self._engine.entry_tier,
-                        'direction': self._engine.direction,
-                        'is_chain': False, 'type': 'ENTRY',
-                    }
-                    await self._client.send(order_msg)
-                    self._orders.mark_sent(order_msg['order_id'])
-                events.append(f'ENTRY_{self._engine.entry_tier}')
-                self._log_trade_event(bar['timestamp'], 'ENTRY',
-                    self._engine.entry_tier, self._engine.direction,
-                    bar['close'], 0, 0, 0, '', False)
-                logger.info(f'  ENTRY {self._engine.direction} '
-                            f'{self._engine.entry_tier} @ {bar["close"]:.2f}')
-
-            # ── CHAIN ENTRY (scale-in) ─────────────────────────────────
-            # The engine added a chain to its _chain_contracts. We must
-            # ROLL BACK that chain if we can't actually open it in NT8,
-            # otherwise the engine state diverges (phantom chains).
-            if chain_opened and self._engine.in_pos:
-                cc = self._engine._chain_contracts[-1]
-                side = 'BUY' if cc['direction'] == 'long' else 'SELL'
-
-                can_open = (self._orders.can_scale_in and self._broker_connected)
-                order_msg = None
-                if can_open:
-                    order_msg = self._orders.build_scale_in_order(side)
-
-                if order_msg:
-                    # Sent to NT8 — track for fill reconciliation
-                    self._pending_requests[order_msg['order_id']] = {
-                        'requested_price': bar['close'],
-                        'tier': cc['entry_tier'],
-                        'direction': cc['direction'],
-                        'is_chain': True, 'type': 'CHAIN_ENTRY',
-                    }
-                    await self._client.send(order_msg)
-                    self._orders.mark_sent(order_msg['order_id'])
-                    events.append(f'CHAIN_ENTRY_{cc["entry_tier"]}')
-                    self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
-                        cc['entry_tier'], cc['direction'],
-                        bar['close'], 0, 0, 0, '', True)
-                    logger.info(f'  CHAIN ENTRY {cc["entry_tier"]} '
-                                f'@ {bar["close"]:.2f} (contracts={curr_chains + 1})')
-                else:
-                    # Couldn't open — roll back the phantom chain
-                    self._engine._chain_contracts.pop()
-                    curr_chains -= 1
-                    logger.warning(f'  CHAIN ROLLBACK {cc["entry_tier"]}: '
-                                   f'can_scale_in={self._orders.can_scale_in} '
-                                   f'broker={self._broker_connected}')
-
-            # ── CHAIN EXITS (scale-out, before primary exit) ───────────
-            chain_exit_count = new_trades - (1 if exited else 0)
-            if chain_exit_count > 0:
-                for ci in range(chain_exit_count):
-                    ct = self._engine.trades[-(new_trades - ci - (1 if exited else 0))]
-                    # Only log + send if NT8 actually has chains to close
-                    if self._orders.position.qty > 1 and self._broker_connected:
+            # 4. Process per-position exits → send NT8 orders
+            #    (ledger is NOT mutated here — only on FILL confirmation)
+            for exit_sig in batch.exits:
+                pos = self._pos_ledger.get(exit_sig.contract_id)
+                if pos is None:
+                    continue
+                if pos.is_chain:
+                    # Chain exit → scale-out
+                    if self._orders.can_scale_out and self._broker_connected:
                         order_msg = self._orders.build_scale_out_order(
-                            reason=ct.get('exit_reason', 'chain_exit'))
+                            reason=exit_sig.reason)
                         if order_msg:
                             self._pending_requests[order_msg['order_id']] = {
                                 'requested_price': bar['close'],
-                                'tier': ct.get('entry_tier', '?'),
-                                'direction': ct.get('direction', '?'),
+                                'tier': pos.entry_tier,
+                                'direction': pos.direction,
                                 'is_chain': True, 'type': 'CHAIN_EXIT',
+                                'contract_id': exit_sig.contract_id,
+                                'exit_reason': exit_sig.reason,
                             }
                             await self._client.send(order_msg)
                             self._orders.mark_sent(order_msg['order_id'])
-                            events.append(f'CHAIN_EXIT_{ct.get("exit_reason", "?")}')
+                            events.append(f'CHAIN_EXIT_{exit_sig.reason}')
                             self._log_trade_event(bar['timestamp'], 'CHAIN_EXIT',
-                                ct.get('entry_tier', '?'), ct.get('direction', '?'),
-                                bar['close'], 0, ct['pnl'], ct.get('held', 0),
-                                ct.get('exit_reason', ''), True)
-                            logger.info(f'  CHAIN EXIT {ct.get("exit_reason")} '
-                                        f'pnl=${ct["pnl"]:.1f}')
-                    # else: phantom chain — silently ignore (engine internal noise)
+                                pos.entry_tier, pos.direction,
+                                bar['close'], 0, 0, pos.bars_held,
+                                exit_sig.reason, True)
+                            logger.info(f'  CHAIN EXIT {exit_sig.reason}')
+                else:
+                    # Primary exit → close all remaining
+                    if self._orders.can_exit and self._broker_connected:
+                        order_msg = self._orders.build_exit_order(
+                            reason=exit_sig.reason)
+                        if order_msg:
+                            self._pending_requests['BAY_CLOSE'] = {
+                                'requested_price': bar['close'],
+                                'tier': pos.entry_tier,
+                                'direction': pos.direction,
+                                'is_chain': False, 'type': 'EXIT',
+                                'contract_id': exit_sig.contract_id,
+                                'exit_reason': exit_sig.reason,
+                            }
+                            await self._client.send(order_msg)
+                            self._orders.mark_sent('BAY_CLOSE')
+                    events.append(f'EXIT_{exit_sig.reason}')
+                    self._log_trade_event(bar['timestamp'], 'EXIT',
+                        pos.entry_tier, pos.direction,
+                        bar['close'], 0, 0, pos.bars_held,
+                        exit_sig.reason, False)
+                    logger.info(f'  EXIT {exit_sig.reason}')
 
-            # ── PRIMARY EXIT (close remaining) ─────────────────────────
-            if exited and new_trades > 0:
-                t = self._engine.trades[-1] if chain_exit_count == 0 else \
-                    self._engine.trades[-(new_trades)]
-                if self._orders.can_exit and self._broker_connected:
-                    order_msg = self._orders.build_exit_order(
-                        reason=t.get('exit_reason', 'signal'))
+            # 5. Negative exit → close primary + all chains
+            if batch.negative_exit is not None:
+                reason = batch.negative_exit.reason
+                prim = self._pos_ledger.primary
+                if prim and self._orders.can_exit and self._broker_connected:
+                    order_msg = self._orders.build_exit_order(reason=reason)
                     if order_msg:
+                        self._pending_requests['BAY_CLOSE'] = {
+                            'requested_price': bar['close'],
+                            'tier': prim.entry_tier,
+                            'direction': prim.direction,
+                            'is_chain': False, 'type': 'NEGATIVE_EXIT',
+                            'contract_id': prim.contract_id,
+                            'exit_reason': reason,
+                        }
                         await self._client.send(order_msg)
-                        # CLOSE_POSITION fills come back with order_id='BAY_CLOSE'
-                        # which was pre-registered by build_exit_order.
                         self._orders.mark_sent('BAY_CLOSE')
-                events.append(f'EXIT_{t.get("exit_reason", "?")}')
-                self._log_trade_event(bar['timestamp'], 'EXIT',
-                    t.get('entry_tier', '?'), t.get('direction', '?'),
-                    bar['close'], 0, t['pnl'], t.get('held', 0),
-                    t.get('exit_reason', ''), False)
-                logger.info(f'  EXIT {t.get("exit_reason")} pnl=${t["pnl"]:.1f}')
+                events.append(f'NEG_EXIT_{reason}')
+                self._log_trade_event(bar['timestamp'], 'NEGATIVE_EXIT',
+                    prim.entry_tier if prim else '?',
+                    prim.direction if prim else '?',
+                    bar['close'], 0, 0, prim.bars_held if prim else 0,
+                    reason, False)
+                logger.info(f'  NEGATIVE EXIT {reason}')
+
+            # 6. Chain entry → scale-in order
+            if (batch.chain_entry is not None
+                    and not self._pos_ledger.is_flat
+                    and self._orders.can_scale_in
+                    and self._broker_connected):
+                sig = batch.chain_entry
+                side = 'BUY' if sig.direction == 'long' else 'SELL'
+                order_msg = self._orders.build_scale_in_order(side)
+                if order_msg:
+                    ctx = _compute_entry_context(feat, sig.direction)
+                    self._pending_requests[order_msg['order_id']] = {
+                        'requested_price': bar['close'],
+                        'tier': sig.tier,
+                        'direction': sig.direction,
+                        'is_chain': True, 'type': 'CHAIN_ENTRY',
+                        'cnn_flipped': sig.cnn_flipped,
+                        'entry_features': feat.copy(),
+                        'entry_context': ctx,
+                    }
+                    await self._client.send(order_msg)
+                    self._orders.mark_sent(order_msg['order_id'])
+                    events.append(f'CHAIN_ENTRY_{sig.tier}')
+                    self._log_trade_event(bar['timestamp'], 'CHAIN_ENTRY',
+                        sig.tier, sig.direction,
+                        bar['close'], 0, 0, 0, '', True)
+                    logger.info(f'  CHAIN ENTRY {sig.tier} @ {bar["close"]:.2f}')
+
+            # 7. Fresh entry (only if ledger flat AND no in-flight opens)
+            entry_sig = batch.entry
+            if (entry_sig is not None
+                    and self._pos_ledger.is_flat
+                    and self._orders.can_enter
+                    and self._broker_connected):
+                side = 'BUY' if entry_sig.direction == 'long' else 'SELL'
+                order_msg = self._orders.build_entry_order(side)
+                if order_msg:
+                    ctx = _compute_entry_context(feat, entry_sig.direction)
+                    self._pending_requests[order_msg['order_id']] = {
+                        'requested_price': bar['close'],
+                        'tier': entry_sig.tier,
+                        'direction': entry_sig.direction,
+                        'is_chain': False, 'type': 'ENTRY',
+                        'cnn_flipped': entry_sig.cnn_flipped,
+                        'entry_features': feat.copy(),
+                        'entry_context': ctx,
+                    }
+                    await self._client.send(order_msg)
+                    self._orders.mark_sent(order_msg['order_id'])
+                events.append(f'ENTRY_{entry_sig.tier}')
+                self._log_trade_event(bar['timestamp'], 'ENTRY',
+                    entry_sig.tier, entry_sig.direction,
+                    bar['close'], 0, 0, 0, '', False)
+                logger.info(f'  ENTRY {entry_sig.direction} '
+                            f'{entry_sig.tier} @ {bar["close"]:.2f}')
+
+            # 8. Fast re-evaluation: if exits made us flat, re-evaluate
+            #    for entry on the same bar (mirrors sim_executor behavior).
+            if not was_flat and self._pos_ledger.is_flat:
+                eval_state['positions'] = self._pos_ledger.snapshot()
+                batch2 = self._engine.evaluate(eval_state)
+                if (batch2.entry is not None
+                        and self._pos_ledger.is_flat
+                        and self._orders.can_enter
+                        and self._broker_connected):
+                    sig2 = batch2.entry
+                    side2 = 'BUY' if sig2.direction == 'long' else 'SELL'
+                    order_msg = self._orders.build_entry_order(side2)
+                    if order_msg:
+                        ctx2 = _compute_entry_context(feat, sig2.direction)
+                        self._pending_requests[order_msg['order_id']] = {
+                            'requested_price': bar['close'],
+                            'tier': sig2.tier,
+                            'direction': sig2.direction,
+                            'is_chain': False, 'type': 'REENTRY',
+                            'cnn_flipped': sig2.cnn_flipped,
+                            'entry_features': feat.copy(),
+                            'entry_context': ctx2,
+                        }
+                        await self._client.send(order_msg)
+                        self._orders.mark_sent(order_msg['order_id'])
+                    events.append(f'REENTRY_{sig2.tier}')
+                    logger.info(f'  REENTRY {sig2.direction} '
+                                f'{sig2.tier} @ {bar["close"]:.2f}')
 
             # ── PnL tracking ───────────────────────────────────────────
-            # Realized: NT8 ACCOUNT_UPDATE is the absolute source of truth
-            # (matches what NT8 shows on screen). Falls back to OrderManager
-            # before first ACCOUNT_UPDATE arrives.
             self._daily_pnl = getattr(self, '_nt8_realized_pnl', None)
             if self._daily_pnl is None:
                 self._daily_pnl = self._orders.daily_pnl
-            self._trade_count = len(self._engine.trades)
+            self._trade_count = len(self._pos_ledger.closed_trades)
 
-            # Unrealized: NT8 ACCOUNT_UPDATE is truth, fallback to engine calc
+            # Unrealized: NT8 ACCOUNT_UPDATE is truth, fallback to ledger
             unrealized = self._nt8_unrealized_pnl
-            if unrealized == 0 and self._engine.in_pos:
-                # Fallback before first ACCOUNT_UPDATE
+            if unrealized == 0 and not self._pos_ledger.is_flat:
                 px = bar['close']
-                if self._engine.direction == 'long':
-                    unrealized = (px - self._engine.entry_price) / TICK * TV
-                else:
-                    unrealized = (self._engine.entry_price - px) / TICK * TV
-                for cc in self._engine._chain_contracts:
-                    if cc['direction'] == 'long':
-                        unrealized += (px - cc['entry_price']) / TICK * TV
+                for pos in ([self._pos_ledger.primary] + self._pos_ledger.chains):
+                    if pos is None:
+                        continue
+                    if pos.direction == 'long':
+                        unrealized += (px - pos.entry_price) / TICK * TV
                     else:
-                        unrealized += (cc['entry_price'] - px) / TICK * TV
+                        unrealized += (pos.entry_price - px) / TICK * TV
 
-            n_contracts = 1 + curr_chains if self._engine.in_pos else 0
+            n_contracts = self._pos_ledger.n_contracts
             event_str = ' '.join(events)
 
             # ── Write ledger row ───────────────────────────────────────
@@ -977,30 +1041,36 @@ class LiveEngineV2:
                                unrealized, event_str, n_contracts)
 
             # ── Dashboard ──────────────────────────────────────────────
+            prim = self._pos_ledger.primary
+            in_pos = prim is not None
+            direction = prim.direction if prim else ''
+            tier = prim.entry_tier if prim else ''
             self._gui.push({
                 'type': 'TICK_UPDATE',
                 'price': bar['close'],
                 'bars': self._bar_count,
                 'unrealized': unrealized,
                 'daily_pnl': self._daily_pnl,
-                'in_position': self._engine.in_pos,
-                'direction': self._engine.direction or '',
-                'tier': self._engine.entry_tier or '',
+                'in_position': in_pos,
+                'direction': direction,
+                'tier': tier,
                 'z_se': z, 'vr': vr,
                 'is_1m': False,
             })
 
             if 'ENTRY' in event_str and 'CHAIN' not in event_str.split()[0]:
                 self._gui.push_trade_marker('ENTRY',
-                    'BUY' if self._engine.direction == 'long' else 'SELL',
+                    'BUY' if direction == 'long' else 'SELL',
                     bar['close'])
             if 'EXIT' in event_str and 'CHAIN' not in event_str.split()[-1]:
-                last_pnl = self._engine.trades[-1]['pnl'] if self._engine.trades else 0
+                closed = self._pos_ledger.closed_trades
+                last_pnl = closed[-1]['pnl'] if closed else 0
                 self._gui.push_trade_marker('EXIT', '', bar['close'], pnl=last_pnl)
 
-            wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
-            gross_win = sum(t['pnl'] for t in self._engine.trades if t['pnl'] > 0)
-            gross_loss = sum(t['pnl'] for t in self._engine.trades if t['pnl'] <= 0)
+            closed = self._pos_ledger.closed_trades
+            wins = sum(1 for t in closed if t['pnl'] > 0)
+            gross_win = sum(t['pnl'] for t in closed if t['pnl'] > 0)
+            gross_loss = sum(t['pnl'] for t in closed if t['pnl'] <= 0)
             z_pct = min(abs(z) / 2.0 * 100, 100)
             eb = {'reversed': 0, 'q1': 0, 'q2': 0, 'q3': 0, 'q4': 0,
                   'q100plus': 0, 'forced': 0}
@@ -1009,13 +1079,13 @@ class LiveEngineV2:
                 session_trades=self._trade_count,
                 gross_win=gross_win, gross_loss=gross_loss,
                 exit_buckets=eb, belief_pct=z_pct,
-                in_position=self._engine.in_pos, daily_pnl=self._daily_pnl)
+                in_position=in_pos, daily_pnl=self._daily_pnl)
 
             # ── Status line ────────────────────────────────────────────
             if self._feat_count % 12 == 0:
-                pos = self._engine.direction or 'FLAT'
-                tier = self._engine.entry_tier or '-'
-                chain_str = f'+{curr_chains}ch' if curr_chains else ''
+                n_chains = len(self._pos_ledger.chains)
+                pos = direction or 'FLAT'
+                chain_str = f'+{n_chains}ch' if n_chains else ''
                 print(f'\r  {self._ts_str(bar["timestamp"])} | {bar["close"]:>10.2f} | '
                       f'{pos:>5} {tier:>15} {chain_str:>4} | z={z:>+5.1f} vr={vr:.2f} | '
                       f'tr={self._trade_count} day=${self._daily_pnl:>+.0f}    ',
@@ -1107,10 +1177,11 @@ class LiveEngineV2:
 
         # Activity description
         activity = ''
-        if self._engine and self._engine.in_pos:
-            n_chains = len(self._engine._chain_contracts)
+        prim = self._pos_ledger.primary if self._pos_ledger else None
+        if prim is not None:
+            n_chains = len(self._pos_ledger.chains)
             chain_str = f' +{n_chains}ch' if n_chains else ''
-            activity = f'{self._engine.direction} {self._engine.entry_tier}{chain_str}'
+            activity = f'{prim.direction} {prim.entry_tier}{chain_str}'
 
         self._gui.push({
             'type': 'ENGINE_STATE',
@@ -1139,7 +1210,7 @@ class LiveEngineV2:
                f'{requested_price:.2f}', f'{fill_price:.2f}', f'{slip:.2f}',
                f'{pnl:.1f}', str(bars_held), exit_reason,
                '1' if is_chain else '0',
-               str(self._orders.position.qty),
+               str(self._pos_ledger.n_contracts),
                f'{self._daily_pnl:.1f}']
         self._trade_log.write(','.join(row) + '\n')
         self._trade_log.flush()
@@ -1151,13 +1222,14 @@ class LiveEngineV2:
     def _write_ledger(self, ts, price, z, vr, vel, pnl, event, n_contracts=0):
         if self._ledger is None:
             return
+        prim = self._pos_ledger.primary
         row = [f'{ts:.0f}', f'{price:.2f}', f'{z:.4f}', f'{vr:.4f}', f'{vel:.2f}',
-               '1' if self._engine.in_pos else '0',
-               self._engine.direction or '',
-               self._engine.entry_tier or '',
-               str(self._engine.bars_held),
+               '1' if prim is not None else '0',
+               prim.direction if prim else '',
+               prim.entry_tier if prim else '',
+               str(prim.bars_held if prim else 0),
                f'{pnl:.1f}',
-               f'{self._engine.peak_pnl:.1f}',
+               f'{prim.peak_pnl if prim else 0:.1f}',
                str(n_contracts),
                event]
         self._ledger.write(','.join(row) + '\n')
@@ -1165,17 +1237,37 @@ class LiveEngineV2:
     def _periodic_save(self):
         if self._ledger and not self._ledger.closed:
             self._ledger.flush()
-        # Save checkpoint (velocities + trade state for recovery)
+        # Save checkpoint (velocities + ledger state for recovery)
         if self._lfe:
-            trade_state = self._engine.get_trade_state() if self._engine else {}
-            # Save velocities + trade state as JSON checkpoint
+            # Serialize ledger positions for crash recovery
+            ledger_state = {'positions': []}
+            if self._pos_ledger and not self._pos_ledger.is_flat:
+                for pos in [self._pos_ledger.primary] + self._pos_ledger.chains:
+                    if pos is None:
+                        continue
+                    ledger_state['positions'].append({
+                        'contract_id': pos.contract_id,
+                        'direction': pos.direction,
+                        'entry_price': pos.entry_price,
+                        'entry_ts': pos.entry_ts,
+                        'entry_tier': pos.entry_tier,
+                        'is_chain': pos.is_chain,
+                        'cnn_flipped': pos.cnn_flipped,
+                        'bars_held': pos.bars_held,
+                        'peak_pnl': pos.peak_pnl,
+                        'entry_abs_z': pos.entry_abs_z,
+                        'entry_velocity': pos.entry_velocity,
+                        'entry_h1_z': pos.entry_h1_z,
+                        'entry_vol_rel': pos.entry_vol_rel,
+                        'ride_exit_bars': pos.ride_exit_bars,
+                    })
             os.makedirs(os.path.dirname(LIVE_CHECKPOINT) or '.', exist_ok=True)
             import json as _json
             cp = {
-                'version': 3,
+                'version': 4,
                 'last_ts': self._last_ts,
                 'velocities': self._lfe.prev_velocities,
-                'trade_state': trade_state,
+                'ledger_state': ledger_state,
                 'bar_counts': self._lfe.bar_counts,
             }
             with open(LIVE_CHECKPOINT, 'w', encoding='utf-8') as f:
@@ -1223,14 +1315,16 @@ class LiveEngineV2:
         logger.info('')
         logger.info('SHUTDOWN')
 
-        # 1. Close positions (need _orders and _engine still alive)
+        # 1. Close positions (need _orders and _pos_ledger still alive)
         if self._orders and not self._orders.is_flat:
             order_msg = self._orders.build_exit_order(reason='shutdown')
             if order_msg and self._client:
                 await self._client.send(order_msg)
             await asyncio.sleep(2.0)
-        if self._engine:
-            self._engine.force_close()
+        if self._pos_ledger and not self._pos_ledger.is_flat:
+            ledger_force_close(self._pos_ledger, self._last_price,
+                               self._last_ts, np.zeros(N_FEATURES),
+                               reason='shutdown')
 
         # 2. Final save (need _lfe and _engine still alive)
         try:
@@ -1262,12 +1356,13 @@ class LiveEngineV2:
             except Exception:
                 pass
 
-        # 4. Summary (still needs _engine)
+        # 4. Summary (uses ledger)
         wins = 0
         chains = 0
-        if self._engine:
-            wins = sum(1 for t in self._engine.trades if t['pnl'] > 0)
-            chains = sum(1 for t in self._engine.trades
+        if self._pos_ledger:
+            closed = self._pos_ledger.closed_trades
+            wins = sum(1 for t in closed if t['pnl'] > 0)
+            chains = sum(1 for t in closed
                          if str(t.get('exit_reason', '')).startswith('chain_'))
         logger.info(f'  Bars:     {self._bar_count:,}')
         logger.info(f'  Feats:    {self._feat_count:,}')
