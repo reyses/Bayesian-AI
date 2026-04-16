@@ -1273,6 +1273,13 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
             entry['pnl'] = sum(t['pnl'] for t in trades)
             wins = sum(1 for t in trades if t['pnl'] > 0)
             entry['wr'] = wins / max(len(trades), 1) * 100
+            # Compute win days from trade-level day grouping
+            day_pnls = {}
+            for t in trades:
+                d = t.get('day', '')
+                day_pnls[d] = day_pnls.get(d, 0) + t['pnl']
+            entry['days'] = len(day_pnls)
+            entry['win_days'] = sum(1 for p in day_pnls.values() if p > 0)
         _progress.append(entry)
         _print_progress_table()
 
@@ -1417,32 +1424,33 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
         else:
             print(f'\n  OOS-NT8: No features in {NT8_FEATURES_5S}/ — skipping')
 
-    # Hourly OOS report (live comparison reference)
-    if os.path.exists('training/output/blended/oos_trades.pkl'):
+    # Hourly OOS report — only when Phase 7 ran (otherwise stale)
+    if _should_run('7') and os.path.exists('training/output/blended/oos_trades.pkl'):
         try:
             from tools.hourly_oos_report import hourly_report
             hourly_report('training/output/blended/oos_trades.pkl')
         except Exception as e:
             print(f'  Hourly report failed: {e}')
 
-    # Physics vs CNN comparison (Databento OOS)
+    # Physics vs CNN comparison — only when BOTH ran in this pipeline
     physics_oos = 'training/output/blended/physics_oos_daily.csv'
     cnn_oos = 'training/output/blended/oos_daily.csv'
-    if os.path.exists(physics_oos) and os.path.exists(cnn_oos):
-        p_df = pd.read_csv(physics_oos)
-        c_df = pd.read_csv(cnn_oos)
-        p_day = p_df['pnl'].sum() / len(p_df)
-        c_day = c_df['pnl'].sum() / len(c_df)
-        delta = c_day - p_day
-        flag = 'CNN WINS' if delta > 0 else 'PHYSICS WINS'
-        print(f'\n{"="*60}')
-        print(f'PHYSICS vs CNN (OOS Databento):')
-        print(f'  Physics: ${p_day:,.0f}/day | CNN: ${c_day:,.0f}/day | Delta: ${delta:+,.0f} | {flag}')
-        print(f'{"="*60}')
+    if _should_run('1') and _should_run('7'):
+        if os.path.exists(physics_oos) and os.path.exists(cnn_oos):
+            p_df = pd.read_csv(physics_oos)
+            c_df = pd.read_csv(cnn_oos)
+            p_day = p_df['pnl'].sum() / len(p_df)
+            c_day = c_df['pnl'].sum() / len(c_df)
+            delta = c_day - p_day
+            flag = 'CNN WINS' if delta > 0 else 'PHYSICS WINS'
+            print(f'\n{"="*60}')
+            print(f'PHYSICS vs CNN (OOS Databento):')
+            print(f'  Physics: ${p_day:,.0f}/day | CNN: ${c_day:,.0f}/day | Delta: ${delta:+,.0f} | {flag}')
+            print(f'{"="*60}')
 
-    # OOS-NT8 summary (the one that matters for live)
+    # OOS-NT8 summary — only when Phase 7 ran
     oos_nt8_path = 'training/output/blended/oos_nt8_daily.csv'
-    if os.path.exists(oos_nt8_path):
+    if _should_run('7') and os.path.exists(oos_nt8_path):
         nt8_df = pd.read_csv(oos_nt8_path)
         nt8_day = nt8_df['pnl'].sum() / len(nt8_df)
         nt8_wins = (nt8_df['pnl'] > 0).sum()
@@ -1455,9 +1463,9 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
             print(f'  vs Databento OOS: ${gap:+,.0f}/day gap')
         print(f'{"="*60}')
 
-    # Check for new baseline and generate report
+    # Check for new baseline — only when Phase 7 ran
     oos_path = 'training/output/blended/oos_daily.csv'
-    if os.path.exists(oos_path):
+    if _should_run('7') and os.path.exists(oos_path):
         _check_new_baseline(oos_path)
 
     # ── Final Summary (pasteable) ──────────────────────────────────────
@@ -1466,44 +1474,95 @@ def _run_blended_pipeline(from_phase=None, to_phase=None):
     print(f'PIPELINE REPORT')
     print(f'{"="*60}')
 
-    # Collect all available results
-    report_files = {
-        'Physics OOS':     'training/output/blended/physics_oos_daily.csv',
-        'Physics NT8':     'training/output/blended/physics_oos_nt8_daily.csv',
-        'IS':              'training/output/blended/is_daily.csv',
-        'OOS':             'training/output/blended/oos_daily.csv',
-        'OOS-NT8':         'training/output/blended/oos_nt8_daily.csv',
-    }
+    # Collect results — only show rows that were computed in this run.
+    # Physics rows come from Phase 1; CNN rows from Phase 7. If we only
+    # ran Phase 1, the CNN rows are stale — mark them accordingly.
+    ran_physics = _should_run('1')
+    ran_cnn = _should_run('7')
 
-    print(f'{"Dataset":<16} {"$/day":>8} {"Trades":>8} {"WinDays":>10} {"Days":>6}')
-    print(f'{"-"*50}')
-    for label, path in report_files.items():
-        if os.path.exists(path):
+    report_rows = []  # (label, path, fresh)
+    if ran_physics:
+        report_rows.append(('Physics IS',  'training/output/trades/blended_is.pkl', True))
+        report_rows.append(('Physics OOS', 'training/output/blended/physics_oos_daily.csv', True))
+        report_rows.append(('Physics NT8', 'training/output/blended/physics_oos_nt8_daily.csv', True))
+    if ran_cnn:
+        report_rows.append(('IS',          'training/output/blended/is_daily.csv', True))
+        report_rows.append(('OOS',         'training/output/blended/oos_daily.csv', True))
+        report_rows.append(('OOS-NT8',     'training/output/blended/oos_nt8_daily.csv', True))
+    # If only physics ran, show CNN rows as cached for reference
+    if ran_physics and not ran_cnn:
+        for lbl, p in [('IS (cached)',     'training/output/blended/is_daily.csv'),
+                       ('OOS (cached)',    'training/output/blended/oos_daily.csv'),
+                       ('OOS-NT8 (cached)','training/output/blended/oos_nt8_daily.csv')]:
+            if os.path.exists(p):
+                report_rows.append((lbl, p, False))
+
+    print(f'{"Dataset":<20} {"$/day":>8} {"Trades":>8} {"WinDays":>10} {"Days":>6}')
+    print(f'{"-"*55}')
+
+    # Track the "main IS" trades source for tier breakdown
+    tier_trades = None
+    tier_label = ''
+
+    for label, path, fresh in report_rows:
+        if path.endswith('.pkl'):
+            # Read trades from pkl to compute daily summary
+            import pickle as _rpkl2
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    trades = _rpkl2.load(f)
+                if trades:
+                    days_set = set(t.get('day', '') for t in trades)
+                    n_days = len(days_set)
+                    total_pnl = sum(t['pnl'] for t in trades)
+                    per_day = total_pnl / max(n_days, 1)
+                    total_trades = len(trades)
+                    # Win days: group by day, sum pnl, count positive
+                    day_pnls = {}
+                    for t in trades:
+                        d = t.get('day', '')
+                        day_pnls[d] = day_pnls.get(d, 0) + t['pnl']
+                    win_days = sum(1 for p in day_pnls.values() if p > 0)
+                    primary_count = sum(1 for t in trades if not t.get('is_chain', False))
+                    chain_count = total_trades - primary_count
+                    print(f'{label:<20} {per_day:>+8,.0f} {primary_count:>5}+{chain_count:<3} '
+                          f'{win_days:>4}/{n_days:<4} {n_days:>6}')
+                    if fresh and 'IS' in label:
+                        tier_trades = trades
+                        tier_label = label
+        elif os.path.exists(path):
             rdf = pd.read_csv(path)
             n_days = len(rdf)
             per_day = rdf['pnl'].sum() / max(n_days, 1)
             total_trades = int(rdf['trades'].sum())
             win_days = int((rdf['pnl'] > 0).sum())
-            print(f'{label:<16} {per_day:>+8,.0f} {total_trades:>8,} {win_days:>4}/{n_days:<4} {n_days:>6}')
+            print(f'{label:<20} {per_day:>+8,.0f} {total_trades:>8,} '
+                  f'{win_days:>4}/{n_days:<4} {n_days:>6}')
+            if fresh and 'IS' in label:
+                # Try to load trades for tier breakdown
+                pkl_path = path.replace('_daily.csv', '_trades.pkl')
+                if os.path.exists(pkl_path):
+                    import pickle as _rpkl3
+                    with open(pkl_path, 'rb') as f:
+                        tier_trades = _rpkl3.load(f)
+                    tier_label = label
 
-    # Tier breakdown from latest IS trades
-    is_trades_path = 'training/output/trades/blended_is.pkl'
-    if os.path.exists(is_trades_path):
-        import pickle as _rpkl
-        with open(is_trades_path, 'rb') as f:
-            _rtr = _rpkl.load(f)
-        if _rtr:
-            from collections import Counter as _RC
-            print(f'\n{"Tier":<20} {"Trades":>7} {"WR":>5} {"$/tr":>8} {"$/day":>8}')
-            print(f'{"-"*50}')
-            tiers = _RC(t.get('entry_tier', '?') for t in _rtr)
-            n_is_days = len(set(t.get('day', '') for t in _rtr))
-            for tier, count in tiers.most_common():
-                sub = [t for t in _rtr if t.get('entry_tier') == tier]
-                wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
-                avg = sum(t['pnl'] for t in sub) / len(sub)
-                per_day = sum(t['pnl'] for t in sub) / max(n_is_days, 1)
-                print(f'{str(tier):<20} {count:>7} {wr:>4.0f}% {avg:>8.1f} {per_day:>+8.0f}')
+    # Tier breakdown from the most relevant IS trades
+    if tier_trades:
+        from collections import Counter as _RC
+        n_is_days = len(set(t.get('day', '') for t in tier_trades))
+        primary_trades = [t for t in tier_trades if not t.get('is_chain', False)]
+        print(f'\n  Tier breakdown ({tier_label}, {len(primary_trades)} primary '
+              f'+ {len(tier_trades) - len(primary_trades)} chain)')
+        print(f'  {"Tier":<20} {"Trades":>7} {"WR":>5} {"$/tr":>8} {"$/day":>8}')
+        print(f'  {"-"*50}')
+        tiers = _RC(t.get('entry_tier', '?') for t in tier_trades)
+        for tier, count in tiers.most_common():
+            sub = [t for t in tier_trades if t.get('entry_tier') == tier]
+            wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+            avg = sum(t['pnl'] for t in sub) / len(sub)
+            per_day = sum(t['pnl'] for t in sub) / max(n_is_days, 1)
+            print(f'  {str(tier):<20} {count:>7} {wr:>4.0f}% {avg:>8.1f} {per_day:>+8.0f}')
 
     print(f'\n  Elapsed: {elapsed:.0f}s ({elapsed/60:.1f} min)')
     print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
