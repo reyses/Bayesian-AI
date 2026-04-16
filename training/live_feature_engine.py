@@ -101,10 +101,13 @@ class LiveFeatureEngine:
 
         Without this, the first bars after startup produce truncated
         higher-TF bars (e.g. a 5m bar with only 2 minutes of data).
+        Preserves tf_seconds from __init__ (checkpoint may not have it).
         """
         for tf, saved in accumulators.items():
             if tf in self._accumulators and saved.get('count', 0) > 0:
+                tf_seconds = self._accumulators[tf]['tf_seconds']
                 self._accumulators[tf] = dict(saved)
+                self._accumulators[tf]['tf_seconds'] = tf_seconds
 
     # ══════════════════════════════════════════════════════════════════
     # ON_BAR — feed one 5s bar, get features back
