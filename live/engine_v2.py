@@ -695,9 +695,11 @@ class LiveEngineV2:
             if msg_type == MsgType.FILL:
                 pnl_from_fill = self._orders.on_fill(msg)
                 fill_px = float(msg.get('fill_price', 0))
+                fill_time = float(msg.get('fill_time', time.time()))
                 oid = msg.get('order_id', '')
+                side = msg.get('side', '')
 
-                # Log FILL row with slippage
+                # Look up the pending request context
                 req = self._pending_requests.pop(oid, {})
 
                 # Classify unknown fills (manual flatten, shutdown close, etc.)
@@ -709,10 +711,80 @@ class LiveEngineV2:
                         req = {'type': 'UNKNOWN', 'tier': '?',
                                'direction': '?', 'requested_price': fill_px}
 
+                # ── Mutate ledger based on fill type ──────────────────
+                req_type = req.get('type', '?')
+                if req_type in ('ENTRY', 'REENTRY'):
+                    # OPEN fill → add position to ledger
+                    ctx = req.get('entry_context', {})
+                    feat = req.get('entry_features', np.zeros(N_FEATURES))
+                    self._pos_ledger.add_position(
+                        direction=req.get('direction', 'long' if side == 'BUY' else 'short'),
+                        entry_price=fill_px,
+                        entry_ts=fill_time,
+                        entry_tier=req.get('tier', 'UNKNOWN'),
+                        entry_features=feat,
+                        is_chain=False,
+                        cnn_flipped=req.get('cnn_flipped', False),
+                        **ctx,
+                    )
+                    logger.info(f'  LEDGER: added primary {req.get("direction")} '
+                                f'{req.get("tier")} @ {fill_px:.2f}')
+
+                elif req_type == 'CHAIN_ENTRY':
+                    # OPEN fill for chain → add chain to ledger
+                    ctx = req.get('entry_context', {})
+                    feat = req.get('entry_features', np.zeros(N_FEATURES))
+                    self._pos_ledger.add_position(
+                        direction=req.get('direction', 'long' if side == 'BUY' else 'short'),
+                        entry_price=fill_px,
+                        entry_ts=fill_time,
+                        entry_tier=req.get('tier', 'UNKNOWN'),
+                        entry_features=feat,
+                        is_chain=True,
+                        cnn_flipped=req.get('cnn_flipped', False),
+                        **ctx,
+                    )
+                    logger.info(f'  LEDGER: added chain {req.get("tier")} @ {fill_px:.2f}')
+
+                elif req_type == 'CHAIN_EXIT':
+                    # REDUCE fill for chain → remove specific chain from ledger
+                    cid = req.get('contract_id', '')
+                    if cid and self._pos_ledger.get(cid):
+                        self._pos_ledger.remove_position(
+                            cid, fill_px, fill_time,
+                            req.get('exit_reason', 'chain_exit'),
+                            np.zeros(N_FEATURES))
+                        logger.info(f'  LEDGER: removed chain {cid}')
+                    else:
+                        logger.warning(f'  LEDGER: chain {cid} not found for CHAIN_EXIT fill')
+
+                elif req_type in ('EXIT', 'NEGATIVE_EXIT'):
+                    # REDUCE fill → close primary + all chains in ledger
+                    cid = req.get('contract_id', '')
+                    reason = req.get('exit_reason', 'close')
+                    # Close chains first, then primary
+                    for chain in self._pos_ledger.chains:
+                        self._pos_ledger.remove_position(
+                            chain.contract_id, fill_px, fill_time,
+                            f'chain_{reason}', np.zeros(N_FEATURES))
+                    if self._pos_ledger.primary is not None:
+                        self._pos_ledger.remove_position(
+                            self._pos_ledger.primary.contract_id,
+                            fill_px, fill_time, reason,
+                            np.zeros(N_FEATURES))
+                    logger.info(f'  LEDGER: closed all positions ({reason})')
+
+                elif req_type == 'FLATTEN':
+                    # Manual flatten or shutdown → close everything in ledger
+                    ledger_force_close(self._pos_ledger, fill_px, fill_time,
+                                       np.zeros(N_FEATURES), reason='flatten_fill')
+                    logger.info(f'  LEDGER: flattened all (manual/shutdown)')
+
+                # ── Log FILL row with slippage ────────────────────────
                 req_px = req.get('requested_price', fill_px)
                 self._log_trade_event(
-                    float(msg.get('fill_time', time.time())),
-                    f'FILL_{req.get("type", "?")}',
+                    fill_time,
+                    f'FILL_{req_type}',
                     req.get('tier', '?'), req.get('direction', '?'),
                     req_px, fill_px,
                     pnl_from_fill or 0, 0, oid,
