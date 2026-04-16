@@ -1184,14 +1184,19 @@ class LiveEngineV2:
                 'is_1m': False,
             })
 
-            if 'ENTRY' in event_str and 'CHAIN' not in event_str.split()[0]:
-                self._gui.push_trade_marker('ENTRY',
-                    'BUY' if direction == 'long' else 'SELL',
-                    bar['close'])
-            if 'EXIT' in event_str and 'CHAIN' not in event_str.split()[-1]:
-                closed = self._pos_ledger.closed_trades
-                last_pnl = closed[-1]['pnl'] if closed else 0
-                self._gui.push_trade_marker('EXIT', '', bar['close'], pnl=last_pnl)
+            for ev in events:
+                if 'ENTRY' in ev:
+                    is_chain = 'CHAIN' in ev
+                    label = 'CHAIN_ENTRY' if is_chain else 'ENTRY'
+                    self._gui.push_trade_marker(label,
+                        'BUY' if direction == 'long' else 'SELL',
+                        bar['close'])
+                elif 'EXIT' in ev:
+                    closed = self._pos_ledger.closed_trades
+                    last_pnl = closed[-1]['pnl'] if closed else 0
+                    is_chain = 'CHAIN' in ev
+                    label = 'CHAIN_EXIT' if is_chain else 'EXIT'
+                    self._gui.push_trade_marker(label, '', bar['close'], pnl=last_pnl)
 
             closed = self._pos_ledger.closed_trades
             wins = sum(1 for t in closed if t['pnl'] > 0)
