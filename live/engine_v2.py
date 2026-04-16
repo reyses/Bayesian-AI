@@ -202,9 +202,8 @@ class LiveEngineV2:
                 await self._shutdown()
             except Exception as e:
                 logger.error(f'Shutdown failed: {e}')
-            # Absolute last resort — if _shutdown() didn't os._exit(),
-            # force-kill here. Dashboard close must ALWAYS terminate.
-            os._exit(0)
+                # Even if shutdown fails, force-exit so the process doesn't hang
+                os._exit(1)
 
     # ═══════════════════════════════════════════════════════════════════
     # STEP 1: CHECK — is ATLAS_NT8 current?
@@ -1450,9 +1449,12 @@ class LiveEngineV2:
                     f'({wins/max(self._trade_count,1)*100:.0f}%)')
         logger.info(f'  PnL:      ${self._daily_pnl:.0f}')
 
-        # 5. Disconnect
+        # 5. Disconnect (with timeout — socket may be dead)
         if self._client:
-            await self._client.disconnect()
+            try:
+                await asyncio.wait_for(self._client.disconnect(), timeout=5.0)
+            except (asyncio.TimeoutError, Exception) as e:
+                logger.warning(f'  Disconnect failed/timed out: {e}')
 
         # 6. Release GPU + RAM (AFTER everything else uses engine/lfe)
         # cuda.close() is notorious for hanging when contexts have dangling
