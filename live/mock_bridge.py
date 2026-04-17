@@ -167,7 +167,12 @@ class MockBridge:
             })
 
     async def _replay_bars(self):
-        """Feed bars to inbound queue as BAR messages."""
+        """Feed bars to inbound queue as BAR messages.
+
+        Split: first 10 bars as HISTORY (for Steps 4/5 to consume),
+        then HISTORY_DONE, then remaining bars as LIVE (Step 7 processes
+        them through the engine with full evaluate + orders).
+        """
         if len(self._bars) == 0:
             await self.inbound.put({'type': 'HISTORY_DONE'})
             return
@@ -175,37 +180,58 @@ class MockBridge:
         bars = self._bars
         cutoff = self._warmup_cutoff_ts or self._resume_ts
 
-        # Phase 1: History dump (bars before cutoff, instant)
-        history_count = 0
+        # Filter to non-skipped bars
+        replay_bars = []
         for _, row in bars.iterrows():
-            if self._stop:
-                return
             if cutoff > 0 and row['timestamp'] <= cutoff:
-                # Skip bars the LFE already has from warmup
                 continue
             if row['timestamp'] <= self._resume_ts:
                 continue
-            # First non-skipped bar starts the history
-            bar_msg = {
-                'type': 'BAR',
-                'timestamp': float(row['timestamp']),
-                'open': float(row['open']),
-                'high': float(row['high']),
-                'low': float(row['low']),
-                'close': float(row['close']),
-                'volume': float(row.get('volume', 0)),
-            }
+            replay_bars.append(row)
+
+        if not replay_bars:
+            await self.inbound.put({'type': 'HISTORY_DONE'})
+            logger.info('MockBridge: no bars after cutoff')
+            return
+
+        # Phase 1: Send first 10 bars as history (enough for Steps 4-6 to sync)
+        HISTORY_COUNT = 10
+        history_bars = replay_bars[:HISTORY_COUNT]
+        live_bars = replay_bars[HISTORY_COUNT:]
+
+        for row in history_bars:
+            if self._stop:
+                return
             self._last_price = float(row['close'])
-            await self.inbound.put(bar_msg)
-            history_count += 1
+            await self.inbound.put(self._row_to_msg(row))
 
-        # History done
         await self.inbound.put({'type': 'HISTORY_DONE'})
-        logger.info(f'MockBridge: history done ({history_count} bars)')
+        logger.info(f'MockBridge: history done ({len(history_bars)} bars), '
+                    f'{len(live_bars)} bars queued for live replay')
 
-        # Phase 2: Live bars (with delay if speed > 0)
-        # In this simple version, all bars go as history since we're replaying.
-        # For real-time simulation, split at a midpoint and add delays.
+        # Small pause to let Steps 5/6 process the history
+        await asyncio.sleep(0.1)
 
-        # Signal end
-        logger.info(f'MockBridge: replay complete')
+        # Phase 2: Feed remaining bars as "live" — engine processes each
+        # through evaluate() + orders. No delay (compressed time).
+        for row in live_bars:
+            if self._stop:
+                return
+            self._last_price = float(row['close'])
+            await self.inbound.put(self._row_to_msg(row))
+            # Tiny yield so the engine's main loop can process each bar
+            await asyncio.sleep(0)
+
+        logger.info(f'MockBridge: replay complete ({len(replay_bars)} total bars)')
+
+    @staticmethod
+    def _row_to_msg(row):
+        return {
+            'type': 'BAR',
+            'timestamp': float(row['timestamp']),
+            'open': float(row['open']),
+            'high': float(row['high']),
+            'low': float(row['low']),
+            'close': float(row['close']),
+            'volume': float(row.get('volume', 0)),
+        }
