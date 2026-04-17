@@ -38,7 +38,7 @@ from core.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
 # Data paths
 BLENDED_TRADES = 'training/output/trades/blended_is.pkl'
 REGRET_FILE = 'training/output/nn/regret_analysis.csv'
-FEATURES_DIR = 'DATA/FEATURES_79D_5s'
+FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s'
 OUTPUT_DIR = 'training/output/entry'
 
 # Grid layout (same as cnn_flip)

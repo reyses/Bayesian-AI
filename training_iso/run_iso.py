@@ -21,7 +21,8 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-FEATURES_DIR_SEQ = 'DATA/FEATURES_79D_5s'
+# Features live inside the atlas folder after the refactor
+FEATURES_DIR_SEQ = 'DATA/ATLAS/FEATURES_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 OUTPUT_DIR = 'training_iso/output'
 
