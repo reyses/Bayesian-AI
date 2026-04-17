@@ -233,8 +233,13 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
             states = data['states']
             offset = data['tail_offset']
 
-            # Find latest bar <= current timestamp
-            idx = int(np.searchsorted(tf_ts, ts, side='right')) - 1
+            # Find the LAST CLOSED bar at current timestamp (no lookahead).
+            # A bar labeled B covers [B, B+period) — it closes at B+period.
+            # Use only bars where B+period <= ts → B <= ts - period.
+            # This matches the live feature engine which only has closed bars
+            # in its store (aggregator emits on boundary crossing).
+            period = TF_SECONDS.get(tf, 0)
+            idx = int(np.searchsorted(tf_ts, ts - period, side='right')) - 1
             if idx < 0:
                 continue
 
