@@ -174,6 +174,8 @@ class LiveEngineV2:
             # Steps 4-7: online (need NT8 connection or mock)
             if self._mock_client:
                 self._client = self._mock_client
+                # Mock mode: replay full day, ignore checkpoint's last_ts
+                self._last_ts = 0
                 logger.info('  Using MockBridge (replay mode)')
             else:
                 self._client = NT8Client(self._cfg)
