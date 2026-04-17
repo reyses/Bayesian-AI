@@ -724,7 +724,9 @@ class LiveEngineV2:
                 break
 
             # ── Watchdog: check pending order timeouts ──────────────────
-            timed_out = self._orders.check_pending_timeouts()
+            # Skip in mock mode — time is compressed, wall-clock timeouts
+            # don't apply. Mock fills arrive on the queue behind bars.
+            timed_out = [] if self._mock_client else self._orders.check_pending_timeouts()
             if timed_out:
                 for rec in timed_out:
                     msg_str = (f'ORDER TIMEOUT {rec.order_id} ({rec.intent}) '
@@ -1613,8 +1615,9 @@ class LiveEngineV2:
         self._live_bars.append(bar)
         self._live_79d.append({'timestamp': ts, 'features': feat.copy()})
 
-        # Periodic save every 3 bars (15s) — during ALL steps, not just Step 7
-        if self._bar_count % 3 == 0:
+        # Periodic save every 3 bars (15s) in live, every 500 bars in mock
+        save_interval = 500 if self._mock_client else 3
+        if self._bar_count % save_interval == 0:
             self._periodic_save()
 
         return feat

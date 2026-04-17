@@ -46,12 +46,16 @@ class MockBridge:
         self._stop = False
         # _day_to_replay set in _load_bars (resolves 'latest' to actual day name)
 
-        # Same interface as NT8Client
-        self.inbound: asyncio.Queue = asyncio.Queue(maxsize=50000)
+        # Same interface as NT8Client, but SMALL queue for backpressure.
+        # Small queue forces the engine to consume each bar before the mock
+        # puts the next. Without this, the mock floods 50K bars ahead and
+        # order ACK/FILL responses arrive far behind their orders.
+        self.inbound: asyncio.Queue = asyncio.Queue(maxsize=2)
         self._resume_ts: float = 0.0
 
-        # Pending orders (engine sends, we auto-fill)
-        self._pending_orders = asyncio.Queue()
+        # Priority buffer for order responses (ACK, FILL) — drained
+        # before each bar so the engine processes them immediately.
+        self._priority_msgs = []
 
         # Handshake: Step 7 signals ready before we send live bars
         self._live_ready = asyncio.Event()
@@ -102,22 +106,24 @@ class MockBridge:
         self._live_ready.set()
 
     async def send(self, msg: dict):
-        """Handle outbound messages from the engine (orders)."""
+        """Handle outbound messages from the engine (orders).
+
+        Fills are queued in a PRIORITY buffer that gets drained before
+        the next bar is pumped. This prevents the watchdog from timing
+        out orders while bars are flooding the main queue.
+        """
         msg_type = msg.get('type', '')
 
         if msg_type == 'PLACE_ORDER':
-            # Auto-fill at last known price
             order_id = msg.get('order_id', '')
             side = msg.get('side', '')
             qty = int(msg.get('qty', 1))
 
-            # ACK first
-            await self.inbound.put({
+            self._priority_msgs.append({
                 'type': 'ORDER_ACK',
                 'order_id': order_id,
             })
 
-            # Then FILL
             fill_price = self._last_price
             position_effect = msg.get('position_effect', 'OPEN')
 
@@ -132,7 +138,7 @@ class MockBridge:
                 if self._position_qty == 0:
                     self._position_side = ''
 
-            await self.inbound.put({
+            self._priority_msgs.append({
                 'type': 'FILL',
                 'order_id': order_id,
                 'side': side,
@@ -142,26 +148,26 @@ class MockBridge:
             })
 
         elif msg_type == 'CLOSE_POSITION':
-            # Close all -- fill at last price
             if self._position_qty > 0:
                 close_side = 'SELL' if self._position_side == 'LONG' else 'BUY'
-                await self.inbound.put({
+                close_qty = self._position_qty
+                self._priority_msgs.append({
                     'type': 'ORDER_ACK',
                     'order_id': 'BAY_CLOSE',
                 })
-                await self.inbound.put({
+                self._priority_msgs.append({
                     'type': 'FILL',
                     'order_id': 'BAY_CLOSE',
                     'side': close_side,
                     'fill_price': self._last_price,
                     'fill_time': time.time(),
-                    'qty': self._position_qty,
+                    'qty': close_qty,
                 })
                 self._position_qty = 0
                 self._position_side = ''
 
         elif msg_type == 'REQUEST_POSITION':
-            await self.inbound.put({
+            self._priority_msgs.append({
                 'type': 'POSITION',
                 'qty': self._position_qty,
                 'side': self._position_side,
@@ -169,7 +175,7 @@ class MockBridge:
             })
 
         elif msg_type == 'HEARTBEAT':
-            await self.inbound.put({
+            self._priority_msgs.append({
                 'type': 'HEARTBEAT',
                 'position_qty': self._position_qty,
                 'position_side': self._position_side or 'FLAT',
@@ -231,11 +237,21 @@ class MockBridge:
         for row in pbar:
             if self._stop:
                 break
+            # Drain priority buffer first — ACK/FILL must reach engine
+            # before the next bar so watchdog doesn't time out orders
+            while self._priority_msgs:
+                await self.inbound.put(self._priority_msgs.pop(0))
+                await asyncio.sleep(0)
+
             self._last_price = float(row['close'])
             await self.inbound.put(self._row_to_msg(row))
-            # Tiny yield so the engine's main loop can process each bar
+            # Yield so the engine can process this bar (and any order it sends)
             await asyncio.sleep(0)
         pbar.close()
+
+        # Final drain
+        while self._priority_msgs:
+            await self.inbound.put(self._priority_msgs.pop(0))
 
         logger.info(f'MockBridge: replay complete ({len(replay_bars)} total bars)')
 
