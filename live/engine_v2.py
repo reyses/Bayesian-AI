@@ -1226,11 +1226,28 @@ class LiveEngineV2:
                         'BUY' if direction == 'long' else 'SELL',
                         bar['close'])
                 elif 'EXIT' in ev:
-                    closed = self._pos_ledger.closed_trades
-                    last_pnl = closed[-1]['pnl'] if closed else 0
                     is_chain = 'CHAIN' in ev
+                    closed = self._pos_ledger.closed_trades
+                    # Find the just-closed trade (last one matching is_chain)
+                    matching = [t for t in closed if t.get('is_chain', False) == is_chain]
+                    last_t = matching[-1] if matching else None
+                    last_pnl = last_t['pnl'] if last_t else 0
+                    entry_px = last_t.get('entry_price', 0) if last_t else 0
                     label = 'CHAIN_EXIT' if is_chain else 'EXIT'
                     self._gui.push_trade_marker(label, '', bar['close'], pnl=last_pnl)
+                    # Push as engine trade so dashboard log shows it
+                    # (NT8_TRADE only fires for live NT8 sessions; mock/sim
+                    # need this for the trade log to populate.)
+                    self._gui.push({
+                        'type': 'NT8_TRADE',
+                        'side': (last_t.get('dir', '') if last_t else '').upper() or '',
+                        'entry_price': entry_px,
+                        'exit_price': bar['close'],
+                        'pnl': last_pnl,
+                        'fill_time': bar['timestamp'],
+                        'is_chain': is_chain,
+                        'order_id': f'ENG_{ev}',
+                    })
 
             closed = self._pos_ledger.closed_trades
             wins = sum(1 for t in closed if t['pnl'] > 0)
