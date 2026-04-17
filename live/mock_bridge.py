@@ -214,13 +214,16 @@ class MockBridge:
 
         # Phase 2: Feed remaining bars as "live" — engine processes each
         # through evaluate() + orders. No delay (compressed time).
-        for row in live_bars:
+        from tqdm import tqdm
+        pbar = tqdm(live_bars, desc='Mock replay', unit='bar')
+        for row in pbar:
             if self._stop:
-                return
+                break
             self._last_price = float(row['close'])
             await self.inbound.put(self._row_to_msg(row))
             # Tiny yield so the engine's main loop can process each bar
             await asyncio.sleep(0)
+        pbar.close()
 
         logger.info(f'MockBridge: replay complete ({len(replay_bars)} total bars)')
 
