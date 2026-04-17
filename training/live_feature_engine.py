@@ -74,9 +74,12 @@ class LiveFeatureEngine:
         per TF so on_bar only appends NEW bars.
 
         Args:
-            exclude_day: if set, skip this day's parquet file (e.g. the
-                         day being replayed in mock mode). Prior days
-                         still load for warmup context.
+            exclude_day: if set, skip this day's parquet AND all later
+                         days (e.g. the day being replayed in mock mode).
+                         Prior days still load for warmup context.
+                         Excluding later days is critical — otherwise
+                         on_bar's is_new check rejects the replay bars
+                         because the later-day bars have higher timestamps.
         """
         self._last_loaded_ts: Dict[str, float] = {}
         # day_ends[tf] = {day_name: cumulative_end_index} — same as AtlasCache
@@ -96,8 +99,11 @@ class LiveFeatureEngine:
             cumul_len = 0
             for f in files:
                 day_name = os.path.basename(f).replace('.parquet', '')
-                if exclude_day and day_name == exclude_day:
-                    continue  # skip — will be replayed via on_bar
+                # Skip the replay day AND any later days — otherwise
+                # the LFE's store ends AFTER the replay bars and
+                # on_bar's is_new check dedupes everything.
+                if exclude_day and day_name >= exclude_day:
+                    continue
                 df = pd.read_parquet(f)
                 dfs.append(df)
                 cumul_len += len(df)
