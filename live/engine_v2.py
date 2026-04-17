@@ -193,9 +193,13 @@ class LiveEngineV2:
             if self._shutting_down:
                 return
             self._step5b_recover_trade()
-            await self._step6_verify()
-            if self._shutting_down:
-                return
+            if self._mock_client:
+                # Mock mode: skip honing, go straight to trading
+                self._synced = True
+            else:
+                await self._step6_verify()
+                if self._shutting_down:
+                    return
 
             if self._synced:
                 await self._step7_trade()
