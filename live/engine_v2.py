@@ -454,9 +454,12 @@ class LiveEngineV2:
         logger.info(f'  Bars: {self._lfe.bar_counts}')
 
         # ── Gap check: is there a hole between ATLAS_NT8 and the dump? ──
+        # Skip in mock mode — mock replays ATLAS bars, no gap possible.
         # The pre-loaded ATLAS_NT8 data has a latest timestamp. The oldest
         # bar from the NT8 dump should be within 5 minutes of that. If not,
         # there's a gap of missing bars that produces stale features.
+        if self._mock_client:
+            return
         MAX_GAP_S = 300  # 5 minutes
         if '5s' in self._lfe._bars and len(self._lfe._bars['5s']) > 0:
             # _last_ts before Step 4 = end of pre-loaded ATLAS_NT8 data
@@ -754,10 +757,10 @@ class LiveEngineV2:
                                            self._last_ts, np.zeros(N_FEATURES),
                                            reason='manual_flatten')
 
-            # Stale bar detection: time since last bar ARRIVAL at our process
+            # Stale bar detection (skip in mock mode — bars arrive instantly)
             # (monotonic clock, not wall time — independent of timezone/clock drift)
             last_arrival = getattr(self, '_last_arrival', 0)
-            if last_arrival > 0:
+            if last_arrival > 0 and not self._mock_client:
                 silence_s = time.monotonic() - last_arrival
                 if silence_s > 60 and self._broker_connected:
                     logger.error(f'  STALE: {silence_s:.0f}s since last bar arrived — '
@@ -948,7 +951,10 @@ class LiveEngineV2:
             if len(self._arrival_window) > 10:
                 self._arrival_window.pop(0)
             avg_arrival = sum(self._arrival_window) / len(self._arrival_window)
-            is_catchup = (len(self._arrival_window) >= 10 and avg_arrival < 1.0)
+            # Mock mode: never skip bars — process every one through the engine
+            is_catchup = (not self._mock_client
+                          and len(self._arrival_window) >= 10
+                          and avg_arrival < 1.0)
 
             # Ingest: compute features + save (shared with Steps 4/5/6)
             feat = self._ingest_bar(bar)
