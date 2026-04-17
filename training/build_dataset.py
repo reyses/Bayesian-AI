@@ -395,15 +395,33 @@ def main():
     print(f'Output: {out_dir}/')
 
     # Verify: are 1h/1D alive?
+    # For 1D: within a single day's features there's only one 1D value
+    # (the bar is constant for the whole day). Check cross-day variance
+    # by loading the first timestamp of each file.
     if to_build:
         last_path = os.path.join(out_dir, f'{to_build[-1]}.parquet')
         if os.path.exists(last_path):
             df = pd.read_parquet(last_path)
-            for tf in ['1h', '1D']:
-                col = f'{tf}_z_se'
-                if col in df.columns:
-                    v = df[col].var()
-                    print(f'  {col}: var={v:.6f} {"ALIVE" if v > 1e-6 else "DEAD"}')
+            # 1h: within-day variance is meaningful
+            if '1h_z_se' in df.columns:
+                v = df['1h_z_se'].var()
+                print(f'  1h_z_se: within-day var={v:.6f} {"ALIVE" if v > 1e-6 else "DEAD"}')
+            # 1D: check cross-day variance from all built files
+            if '1D_z_se' in df.columns:
+                day_values = []
+                for d in to_build[-30:]:  # last 30 days
+                    p = os.path.join(out_dir, f'{d}.parquet')
+                    if os.path.exists(p):
+                        try:
+                            dval = pd.read_parquet(p, columns=['1D_z_se'])['1D_z_se'].iloc[0]
+                            day_values.append(float(dval))
+                        except Exception:
+                            pass
+                if len(day_values) > 1:
+                    import numpy as _np
+                    cv = _np.var(day_values)
+                    print(f'  1D_z_se: cross-day var={cv:.6f} (N={len(day_values)}) '
+                          f'{"ALIVE" if cv > 1e-6 else "DEAD"}')
 
     # Save aggregator checkpoint for live engine startup
     # Build aggregator from last WARMUP_DAYS of 5s bars
