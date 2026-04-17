@@ -940,6 +940,10 @@ class LiveEngineV2:
                 from live.protocol import request_position
                 await self._client.send(request_position())
                 continue
+            elif msg_type == 'MOCK_DONE':
+                logger.info('  MockBridge: replay complete — shutting down')
+                self._shutting_down = True
+                break
             elif msg_type != MsgType.BAR:
                 continue
 

@@ -224,6 +224,11 @@ class MockBridge:
 
         logger.info(f'MockBridge: replay complete ({len(replay_bars)} total bars)')
 
+        # Signal end of session — engine should shut down
+        # Small delay to let the last bars process through the engine
+        await asyncio.sleep(0.5)
+        await self.inbound.put({'type': 'MOCK_DONE'})
+
     @staticmethod
     def _row_to_msg(row):
         return {
