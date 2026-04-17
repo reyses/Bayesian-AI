@@ -89,10 +89,12 @@ class LiveEngineV2:
 
     def __init__(self, config: LiveConfig,
                  skip_check: bool = False, skip_build: bool = False,
-                 gui_queue=None, shared_state=None):
+                 gui_queue=None, shared_state=None,
+                 mock_client=None):
         self._cfg = config
         self._skip_check = skip_check
         self._skip_build = skip_build
+        self._mock_client = mock_client  # MockBridge instance, or None for real NT8
         self._shared_state = shared_state or {}
 
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
@@ -169,9 +171,13 @@ class LiveEngineV2:
             # Step 3: warmup from disk
             self._step3_warmup()
 
-            # Steps 4-7: online (need NT8 connection)
-            self._client = NT8Client(self._cfg)
-            # Tell NT8 to only send bars after our warmup — skip redundant history
+            # Steps 4-7: online (need NT8 connection or mock)
+            if self._mock_client:
+                self._client = self._mock_client
+                logger.info('  Using MockBridge (replay mode)')
+            else:
+                self._client = NT8Client(self._cfg)
+            # Tell NT8/mock to only send bars after our warmup
             if self._last_ts > 0:
                 self._client.set_resume_timestamp(self._last_ts)
                 logger.info(f'  Delta sync from {self._ts_str(self._last_ts)}')
@@ -1616,6 +1622,8 @@ def main():
     parser.add_argument('--skip-check', action='store_true')
     parser.add_argument('--skip-build', action='store_true')
     parser.add_argument('--headless', action='store_true', help='No dashboard GUI')
+    parser.add_argument('--mock', action='store_true', help='Use MockBridge (replay ATLAS bars)')
+    parser.add_argument('--mock-day', type=str, default=None, help='Day to replay (e.g. 2026_04_16)')
     args = parser.parse_args()
 
     config = LiveConfig()
@@ -1647,11 +1655,18 @@ def main():
         t.start()
         logger.info('Dashboard launched')
 
+    mock_client = None
+    if args.mock:
+        from live.mock_bridge import MockBridge
+        mock_client = MockBridge(config, day=args.mock_day)
+        logger.info(f'Mock mode: replaying {args.mock_day or "latest"} from ATLAS_NT8')
+
     engine = LiveEngineV2(config,
                           skip_check=args.skip_check,
                           skip_build=args.skip_build,
                           gui_queue=gui_queue,
-                          shared_state=shared_state)
+                          shared_state=shared_state,
+                          mock_client=mock_client)
     asyncio.run(engine.run())
 
 
