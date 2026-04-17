@@ -37,7 +37,11 @@ from core.features import (
 )
 
 ATLAS_ROOT_DEFAULT = 'DATA/ATLAS'
-OUTPUT_DIR_DEFAULT = 'DATA/FEATURES_79D'
+# Features now live INSIDE the ATLAS folder. Each atlas owns its features:
+#   DATA/ATLAS/FEATURES_5s/YYYY_MM_DD.parquet
+#   DATA/ATLAS_NT8/FEATURES_5s/YYYY_MM_DD.parquet
+# Cleaner than the old DATA/FEATURES_{atlas_name}_{tf}/ layout.
+OUTPUT_DIR_DEFAULT = os.path.join(ATLAS_ROOT_DEFAULT, 'FEATURES')
 
 # Set by main() from args — modules use these
 ATLAS_ROOT = ATLAS_ROOT_DEFAULT
@@ -315,12 +319,10 @@ def main():
     args = parse_args()
     anchor_tf = args.resolution
 
-    # Switch data source if --atlas specified
+    # Switch data source if --atlas specified. Output goes INSIDE the atlas.
     if args.atlas:
         ATLAS_ROOT = args.atlas
-        atlas_name = os.path.basename(ATLAS_ROOT.rstrip('/'))
-        feat_name = atlas_name.replace('ATLAS', 'FEATURES')
-        OUTPUT_DIR = os.path.join('DATA', feat_name)
+    OUTPUT_DIR = os.path.join(ATLAS_ROOT, 'FEATURES')
 
     # Incremental mode: use FeatureProcessor (same path as live)
     if args.incremental:

@@ -20,12 +20,15 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
-FEATURES_DIR = 'DATA/FEATURES'
-FEATURES_DIR_5S = 'DATA/FEATURES_5s'
-FEATURES_DIR_1M = 'DATA/FEATURES_1m'
+# Features now live INSIDE each atlas folder:
+#   DATA/ATLAS/FEATURES_5s/YYYY_MM_DD.parquet      (Databento IS/OOS)
+#   DATA/ATLAS_NT8/FEATURES_5s/YYYY_MM_DD.parquet  (NT8 live parity)
+FEATURES_DIR = os.path.join(ATLAS_1M, '..', 'FEATURES')  # placeholder (not used)
+FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s'
+FEATURES_DIR_1M = 'DATA/ATLAS/FEATURES_1m'
 
 # NT8 dataset (OOS-2: live parity validation)
-NT8_FEATURES_5S = 'DATA/FEATURES_NT8_5s'
+NT8_FEATURES_5S = 'DATA/ATLAS_NT8/FEATURES_5s'
 NT8_ATLAS_1M = 'DATA/ATLAS_NT8/1m'
 
 # Phase 4+5: sim_executor is the default path for blended training.

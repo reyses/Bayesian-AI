@@ -65,8 +65,9 @@ TV = 0.50
 # Paths
 ATLAS_NT8 = 'DATA/ATLAS_NT8'
 ATLAS_LIVE = 'DATA/ATLAS_LIVE'
-FEATURES_LIVE = 'DATA/FEATURES_LIVE_5s'
-FEATURES_NT8 = 'DATA/FEATURES_NT8_5s'
+# Features live INSIDE each atlas folder now
+FEATURES_LIVE = 'DATA/ATLAS_LIVE/FEATURES_5s'
+FEATURES_NT8 = 'DATA/ATLAS_NT8/FEATURES_5s'
 NT8_CONFIG = 'config/nt8_dataset.json'
 
 # Checkpoints — dual system (NT8 seed + live rolling)
