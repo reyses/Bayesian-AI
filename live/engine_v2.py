@@ -1395,12 +1395,16 @@ class LiveEngineV2:
             os.makedirs(os.path.dirname(LIVE_CHECKPOINT) or '.', exist_ok=True)
             import json as _json
             cp = {
-                'version': 4,
+                'version': 5,
                 'last_ts': self._last_ts,
                 'velocities': self._lfe.prev_velocities,
                 'accumulators': self._lfe._accumulators,
                 'ledger_state': ledger_state,
                 'bar_counts': self._lfe.bar_counts,
+                # Parity metadata: what ATLAS_NT8 data the LFE loaded at warmup.
+                # The parity tool uses this to truncate warmup to the same point.
+                'preloaded_end_ts': self._lfe._last_loaded_ts,
+                'day_ends': self._lfe._day_ends,
             }
             with open(LIVE_CHECKPOINT, 'w', encoding='utf-8') as f:
                 _json.dump(cp, f)

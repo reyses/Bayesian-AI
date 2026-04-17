@@ -2,9 +2,9 @@
 Live Parity Check — build features from live bars and compare against
 live-computed features, then run the blended pipeline for trade parity.
 
-Step 1: Merge ATLAS_NT8 + live bar chunks → ATLAS_PARITY (temporary)
-Step 2: Aggregate 5s → all higher TFs
-Step 3: Build features → FEATURES_PARITY_5s
+Step 1: Merge ATLAS_NT8 + live bar chunks -> ATLAS_PARITY (temporary)
+Step 2: Aggregate 5s -> all higher TFs
+Step 3: Build features -> FEATURES_PARITY_5s
 Step 4: Feature parity — compare FEATURES_PARITY_5s vs FEATURES_LIVE_5s
 Step 5: Trade parity — run blended engine on FEATURES_PARITY_5s, compare
         against live trade log
@@ -54,7 +54,20 @@ def step1_build_atlas():
         print('  No live chunks found — nothing to build')
         return
 
-    # Load live chunks and find the earliest live timestamp
+    # Load checkpoint to get preloaded_end_ts (what ATLAS_NT8 the LFE had)
+    import json as _json
+    cp_path = 'live/state/checkpoint.json'
+    preloaded_end_ts = {}
+    if os.path.exists(cp_path):
+        with open(cp_path) as f:
+            cp = _json.load(f)
+        preloaded_end_ts = cp.get('preloaded_end_ts', {})
+        if preloaded_end_ts:
+            print(f'  Checkpoint v{cp.get("version", "?")} -- preloaded cutoffs:')
+            for tf, ts in sorted(preloaded_end_ts.items()):
+                print(f'    {tf}: ts={ts:.0f}')
+
+    # Load live chunks
     live_dfs = {}
     for cf in chunk_files:
         day_name = os.path.basename(cf).split('_0000')[0]
@@ -68,7 +81,11 @@ def step1_build_atlas():
     print(f'  Live days: {sorted(live_days)}')
     print(f'  Live start: ts={live_start_ts:.0f}')
 
-    # Copy ATLAS_NT8 for warmup context (prior days stay as-is)
+    # Warmup cutoff: use checkpoint preloaded_end_ts if available
+    warmup_cutoff = preloaded_end_ts.get('5s', live_start_ts)
+    print(f'  Warmup cutoff (5s): {warmup_cutoff:.0f}')
+
+    # Copy ATLAS_NT8 warmup, truncated to what the LFE actually had
     src_5s = os.path.join(ATLAS_NT8, '5s')
     dst_5s = os.path.join(ATLAS_PARITY, '5s')
     os.makedirs(dst_5s, exist_ok=True)
@@ -77,34 +94,36 @@ def step1_build_atlas():
     for f in sorted(glob.glob(os.path.join(src_5s, '*.parquet'))):
         day = os.path.basename(f).replace('.parquet', '')
         if day not in live_days:
-            shutil.copy2(f, dst_5s)
-            copied += 1
-    print(f'  Copied {copied} NT8 warmup parquets (prior days)')
+            df = pd.read_parquet(f)
+            df = df[df['timestamp'] <= warmup_cutoff]
+            if len(df) > 0:
+                df.to_parquet(os.path.join(dst_5s, f'{day}.parquet'), index=False)
+                copied += 1
+    print(f'  Copied {copied} warmup parquets (truncated to LFE cutoff)')
 
-    # For live days: NT8 bars BEFORE live start + live bars FROM live start
-    # This matches what the live LFE had: ATLAS_NT8 warmup + live bars
+    # Live days: NT8 bars up to cutoff + live bars after
     for day_name, live_df in live_dfs.items():
         nt8_path = os.path.join(src_5s, f'{day_name}.parquet')
         if os.path.exists(nt8_path):
             nt8_df = pd.read_parquet(nt8_path)
-            # NT8 bars strictly before live start (warmup context)
-            nt8_before = nt8_df[nt8_df['timestamp'] < live_start_ts]
+            nt8_before = nt8_df[nt8_df['timestamp'] <= warmup_cutoff]
+            nt8_before = nt8_before[~nt8_before['timestamp'].isin(live_df['timestamp'])]
             combined = pd.concat([nt8_before, live_df], ignore_index=True)
             combined = combined.drop_duplicates(subset='timestamp').sort_values('timestamp').reset_index(drop=True)
             print(f'  {day_name}: {len(nt8_before)} NT8 warmup + {len(live_df)} live = {len(combined)} total')
         else:
             combined = live_df
-            print(f'  {day_name}: {len(live_df)} live bars (no NT8 warmup for this day)')
+            print(f'  {day_name}: {len(live_df)} live bars (no NT8 warmup)')
 
         dst_path = os.path.join(dst_5s, f'{day_name}.parquet')
         combined.to_parquet(dst_path, index=False)
 
-    print(f'  ATLAS_PARITY built — NT8 before live start + live bars after')
+    print(f'  ATLAS_PARITY built -- truncated to LFE warmup + live bars')
 
 
 def step2_aggregate():
     """Aggregate 5s bars to all higher TFs in ATLAS_PARITY."""
-    print('\nSTEP 2: Aggregate 5s → higher TFs')
+    print('\nSTEP 2: Aggregate 5s -> higher TFs')
 
     src_5s = os.path.join(ATLAS_PARITY, '5s')
     all_5s = sorted(glob.glob(os.path.join(src_5s, '*.parquet')))
@@ -141,7 +160,7 @@ def step2_aggregate():
 
 
 def step3_build_features():
-    """Build features from ATLAS_PARITY → FEATURES_PARITY_5s."""
+    """Build features from ATLAS_PARITY -> FEATURES_PARITY_5s."""
     print('\nSTEP 3: Build features')
 
     os.makedirs(FEATURES_PARITY, exist_ok=True)
@@ -312,10 +331,18 @@ def main():
         return
 
     # Clean previous parity data
-    if os.path.exists(ATLAS_PARITY):
-        shutil.rmtree(ATLAS_PARITY)
-    if os.path.exists(FEATURES_PARITY):
-        shutil.rmtree(FEATURES_PARITY)
+    for d in [ATLAS_PARITY, FEATURES_PARITY]:
+        if os.path.exists(d):
+            try:
+                shutil.rmtree(d)
+            except PermissionError:
+                # Windows/OneDrive file locks — delete contents instead
+                for root, dirs, files in os.walk(d, topdown=False):
+                    for f in files:
+                        try:
+                            os.remove(os.path.join(root, f))
+                        except PermissionError:
+                            pass
 
     step1_build_atlas()
     step2_aggregate()
