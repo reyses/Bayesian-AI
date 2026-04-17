@@ -69,9 +69,13 @@ class LiveFeatureEngine:
     def load_history(self):
         """Load all pre-built TF bars from ATLAS_NT8 into memory.
 
-        Sets _last_loaded_ts per TF so on_bar only appends NEW bars.
+        Tracks per-file (per-day) boundaries so _find_today_start can
+        match the batch path's get_day_start exactly. Sets _last_loaded_ts
+        per TF so on_bar only appends NEW bars.
         """
         self._last_loaded_ts: Dict[str, float] = {}
+        # day_ends[tf] = {day_name: cumulative_end_index} — same as AtlasCache
+        self._day_ends: Dict[str, Dict[str, int]] = {}
 
         # Load all TFs including 5s
         all_tfs = ['5s'] + list(TF_ORDER)
@@ -82,10 +86,20 @@ class LiveFeatureEngine:
             files = sorted(glob.glob(os.path.join(tf_dir, '*.parquet')))
             if not files:
                 continue
-            dfs = [pd.read_parquet(f) for f in files]
+            dfs = []
+            day_ends = {}
+            cumul_len = 0
+            for f in files:
+                day_name = os.path.basename(f).replace('.parquet', '')
+                df = pd.read_parquet(f)
+                dfs.append(df)
+                cumul_len += len(df)
+                day_ends[day_name] = cumul_len
+
             full = pd.concat(dfs, ignore_index=True).sort_values(
                 'timestamp').reset_index(drop=True)
             self._bars[tf] = full
+            self._day_ends[tf] = day_ends
             self._sfe_bar_count[tf] = 0
             self._last_loaded_ts[tf] = float(full['timestamp'].iloc[-1])
 
@@ -162,10 +176,10 @@ class LiveFeatureEngine:
         else:
             self._bars[tf] = pd.concat(
                 [self._bars[tf], row], ignore_index=True)
-            # Trim to keep memory bounded (keep last 5000 bars per TF)
-            if len(self._bars[tf]) > 5000:
-                self._bars[tf] = self._bars[tf].iloc[-5000:].reset_index(
-                    drop=True)
+            # No trim — the batch path (build_dataset) uses full cumulative
+            # history. Trimming shifts indices and breaks _find_today_start
+            # and the SFE cache. Memory is bounded by session length:
+            # one day of 5s bars = ~17K rows = ~2MB. Acceptable.
 
     def _aggregate_bar(self, tf: str, bar_5s: dict) -> Optional[dict]:
         """Accumulate a 5s bar into a higher TF. Returns completed bar or None."""
@@ -277,16 +291,43 @@ class LiveFeatureEngine:
     def _find_today_start(self, tf: str, ts: float) -> int:
         """Find the index where today's bars start for this TF.
 
-        'Today' = the UTC day of timestamp ts.
-        Returns the index of the first bar on this day.
+        Uses ATLAS file boundaries (same as batch build_dataset's
+        get_day_start) so the SFE warmup window is identical. The
+        "day" is the ATLAS parquet file boundary, which for CME futures
+        aligns to session open (~17:00 CT), NOT UTC midnight.
+
+        For bars appended after the last loaded file (live bars), we
+        treat everything after the last file boundary as "today".
         """
+        day_ends = self._day_ends.get(tf, {})
+        if not day_ends:
+            # Fallback: no file boundaries tracked (cold start)
+            return 0
+
+        # Find the latest day whose file boundary is <= current timestamp
+        # by checking which day_end covers ts
+        days_sorted = sorted(day_ends.keys())
         df = self._bars[tf]
         ts_arr = df['timestamp'].values
 
-        # Day boundary in seconds (UTC midnight)
-        day_start_ts = (int(ts) // 86400) * 86400
-        idx = int(np.searchsorted(ts_arr, day_start_ts, side='left'))
-        return idx
+        # Find which day file ts belongs to
+        # The last day file covers all bars from its start onward
+        # (including any live-appended bars after the pre-loaded data)
+        target_day = days_sorted[-1]  # default: last file
+        for day_name in days_sorted:
+            end_idx = day_ends[day_name]
+            if end_idx > 0 and end_idx <= len(ts_arr):
+                last_ts_in_day = float(ts_arr[end_idx - 1])
+                if ts <= last_ts_in_day:
+                    target_day = day_name
+                    break
+
+        # Day start = previous day's end (same as AtlasCache.get_day_start)
+        day_idx = days_sorted.index(target_day)
+        if day_idx <= 0:
+            return 0
+        prev_day = days_sorted[day_idx - 1]
+        return day_ends[prev_day]
 
     # ══════════════════════════════════════════════════════════════════
     # ACCESSORS
