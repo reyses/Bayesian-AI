@@ -140,13 +140,9 @@ class TradingDashboard:
         left = tk.Frame(body, bg=BG)
         left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Price chart canvas
+        # Price chart canvas (z overlay drawn on same canvas, right axis)
         self.price_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0)
         self.price_canvas.pack(fill=tk.BOTH, expand=True, padx=(0, 2), pady=(0, 2))
-
-        # Z-score chart canvas
-        self.z_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0, height=100)
-        self.z_canvas.pack(fill=tk.X, padx=(0, 2), pady=(0, 2))
 
         # Equity curve canvas
         self.equity_canvas = tk.Canvas(left, bg=BG_CARD, highlightthickness=0, height=120)
@@ -309,7 +305,6 @@ class TradingDashboard:
             self.z_history.append(self.last_z)
             self._update_status()
             self._draw_price_chart()
-            self._draw_z_chart()
 
         elif msg_type == 'NT8_TRADE':
             # Ground truth from NT8 — always display these
@@ -430,7 +425,7 @@ class TradingDashboard:
         self.lbl_wr.config(text=f'{wr:.0f}% WR')
 
     def _draw_price_chart(self):
-        """Simple price line chart."""
+        """Price chart with z_se overlay (right axis)."""
         c = self.price_canvas
         c.delete('all')
         w = c.winfo_width()
@@ -439,124 +434,101 @@ class TradingDashboard:
             return
 
         prices = list(self.prices)
+        zvals = list(self.z_history) if len(self.z_history) >= 2 else None
         n = len(prices)
         p_min = min(prices)
         p_max = max(prices)
         p_range = max(p_max - p_min, 0.01)
 
-        margin = 40
-        chart_w = w - margin * 2
-        chart_h = h - margin * 2
-
-        # Price line
-        points = []
-        for i, p in enumerate(prices):
-            x = margin + (i / (n - 1)) * chart_w
-            y = margin + (1 - (p - p_min) / p_range) * chart_h
-            points.append((x, y))
-
-        for i in range(len(points) - 1):
-            c.create_line(points[i][0], points[i][1],
-                          points[i + 1][0], points[i + 1][1],
-                          fill=BLUE, width=1)
-
-        # Price labels
-        c.create_text(margin - 5, margin, text=f'{p_max:.0f}',
-                      anchor=tk.E, fill=GREY, font=('Consolas', 8))
-        c.create_text(margin - 5, h - margin, text=f'{p_min:.0f}',
-                      anchor=tk.E, fill=GREY, font=('Consolas', 8))
-
-        # Entry price line (when in position) or current price line (when flat)
-        if self.in_position and self.entry_price > 0:
-            ep = self.entry_price
-            if p_min <= ep <= p_max:
-                y_ep = margin + (1 - (ep - p_min) / p_range) * chart_h
-                ep_color = GREEN if self.direction == 'long' else RED
-                c.create_line(margin, y_ep, w - margin, y_ep,
-                              fill=ep_color, dash=(4, 3), width=1)
-                c.create_text(w - margin + 5, y_ep, text=f'{ep:.2f}',
-                              anchor=tk.W, fill=ep_color, font=('Consolas', 8))
-        else:
-            y_curr = margin + (1 - (prices[-1] - p_min) / p_range) * chart_h
-            c.create_line(margin, y_curr, w - margin, y_curr,
-                          fill=GREY, dash=(2, 4))
-
-    def _draw_z_chart(self):
-        """Z-score line chart with NMP entry bands at +/-2."""
-        c = self.z_canvas
-        c.delete('all')
-        w = c.winfo_width()
-        h = c.winfo_height()
-        if w < 10 or h < 10 or len(self.z_history) < 2:
-            return
-
-        zvals = list(self.z_history)
-        n = len(zvals)
-
-        # Fixed y-axis: -4 to +4 (captures NMP zone with headroom)
+        # Z-axis: fixed -4 to +4
         z_min, z_max = -4.0, 4.0
         z_range = z_max - z_min
 
-        margin_l = 40
-        margin_r = 10
-        margin_t = 8
-        margin_b = 8
+        margin_l = 50   # room for price labels
+        margin_r = 40   # room for z labels
+        margin_t = 15
+        margin_b = 15
         chart_w = w - margin_l - margin_r
         chart_h = h - margin_t - margin_b
 
-        def z_to_y(z):
-            return margin_t + (1 - (z - z_min) / z_range) * chart_h
-
-        def i_to_x(i):
+        def x_at(i):
             return margin_l + (i / max(n - 1, 1)) * chart_w
 
-        # NMP entry bands: |z| > 2 (shaded regions)
-        y_p2 = z_to_y(2.0)
-        y_n2 = z_to_y(-2.0)
-        # Upper band (z > +2): entry zone for shorts
+        def y_price(p):
+            return margin_t + (1 - (p - p_min) / p_range) * chart_h
+
+        def y_z(z):
+            return margin_t + (1 - (z - z_min) / z_range) * chart_h
+
+        # ── Shaded NMP bands (|z| > 2) ──
+        y_p2 = y_z(2.0)
+        y_n2 = y_z(-2.0)
         c.create_rectangle(margin_l, margin_t, w - margin_r, y_p2,
                            fill='#1a2332', outline='')
-        # Lower band (z < -2): entry zone for longs
         c.create_rectangle(margin_l, y_n2, w - margin_r, margin_t + chart_h,
                            fill='#1a2332', outline='')
-
         # Threshold lines at +/-2
         c.create_line(margin_l, y_p2, w - margin_r, y_p2,
                       fill=RED, dash=(3, 3), width=1)
         c.create_line(margin_l, y_n2, w - margin_r, y_n2,
                       fill=GREEN, dash=(3, 3), width=1)
-
-        # Zero line
-        y_zero = z_to_y(0)
+        # Zero z line
+        y_zero = y_z(0)
         c.create_line(margin_l, y_zero, w - margin_r, y_zero,
-                      fill=GREY, dash=(2, 4), width=1)
+                      fill='#2a2f38', dash=(2, 4), width=1)
 
-        # Z line
+        # ── Z line (behind price) ──
+        if zvals:
+            for i in range(len(zvals) - 1):
+                x1 = x_at(i)
+                x2 = x_at(i + 1)
+                y1 = y_z(max(min(zvals[i], z_max), z_min))
+                y2 = y_z(max(min(zvals[i + 1], z_max), z_min))
+                color = '#d97706' if zvals[i + 1] > 0 else '#65a30d'
+                c.create_line(x1, y1, x2, y2, fill=color, width=1)
+
+        # ── Price line (on top, bright) ──
         for i in range(n - 1):
-            x1, x2 = i_to_x(i), i_to_x(i + 1)
-            y1 = z_to_y(max(min(zvals[i], z_max), z_min))
-            y2 = z_to_y(max(min(zvals[i + 1], z_max), z_min))
-            color = RED if zvals[i + 1] > 0 else GREEN
-            c.create_line(x1, y1, x2, y2, fill=color, width=1)
+            c.create_line(x_at(i), y_price(prices[i]),
+                          x_at(i + 1), y_price(prices[i + 1]),
+                          fill=BLUE, width=2)
 
-        # Labels
-        c.create_text(margin_l - 5, y_p2, text='+2', anchor=tk.E,
-                      fill=RED, font=('Consolas', 7))
-        c.create_text(margin_l - 5, y_n2, text='-2', anchor=tk.E,
-                      fill=GREEN, font=('Consolas', 7))
-        c.create_text(margin_l - 5, y_zero, text='0', anchor=tk.E,
-                      fill=GREY, font=('Consolas', 7))
+        # ── Price axis labels (left) ──
+        c.create_text(margin_l - 5, margin_t, text=f'{p_max:.2f}',
+                      anchor=tk.E, fill=BLUE, font=('Consolas', 8))
+        c.create_text(margin_l - 5, margin_t + chart_h, text=f'{p_min:.2f}',
+                      anchor=tk.E, fill=BLUE, font=('Consolas', 8))
 
-        # Current z value
-        curr_z = zvals[-1]
-        y_curr = z_to_y(max(min(curr_z, z_max), z_min))
-        z_color = RED if curr_z > 2 else GREEN if curr_z < -2 else AMBER
-        c.create_text(w - margin_r + 5, y_curr, text=f'{curr_z:+.1f}',
-                      anchor=tk.W, fill=z_color, font=('Consolas', 8, 'bold'))
+        # ── Z axis labels (right) ──
+        c.create_text(w - margin_r + 5, y_p2, text='+2',
+                      anchor=tk.W, fill=RED, font=('Consolas', 7))
+        c.create_text(w - margin_r + 5, y_n2, text='-2',
+                      anchor=tk.W, fill=GREEN, font=('Consolas', 7))
+        c.create_text(w - margin_r + 5, y_zero, text='0',
+                      anchor=tk.W, fill=GREY, font=('Consolas', 7))
 
-        # Title
-        c.create_text(margin_l + 5, margin_t + 2, text='z_se (1m)',
-                      anchor=tk.NW, fill=GREY, font=('Consolas', 7))
+        # ── Current z value (top-right) ──
+        if zvals:
+            curr_z = zvals[-1]
+            z_color = RED if curr_z > 2 else GREEN if curr_z < -2 else AMBER
+            c.create_text(w - margin_r + 5, margin_t + 8,
+                          text=f'z {curr_z:+.2f}',
+                          anchor=tk.W, fill=z_color, font=('Consolas', 8, 'bold'))
+
+        # ── Entry price line or current price dotted ──
+        if self.in_position and self.entry_price > 0:
+            ep = self.entry_price
+            if p_min <= ep <= p_max:
+                y_ep = y_price(ep)
+                ep_color = GREEN if self.direction == 'long' else RED
+                c.create_line(margin_l, y_ep, w - margin_r, y_ep,
+                              fill=ep_color, dash=(4, 3), width=1)
+                c.create_text(margin_l - 5, y_ep, text=f'{ep:.2f}',
+                              anchor=tk.E, fill=ep_color, font=('Consolas', 8, 'bold'))
+        else:
+            y_curr = y_price(prices[-1])
+            c.create_line(margin_l, y_curr, w - margin_r, y_curr,
+                          fill=GREY, dash=(2, 4))
 
     def _draw_equity(self):
         """Equity curve."""
