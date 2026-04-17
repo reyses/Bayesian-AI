@@ -312,24 +312,31 @@ class LiveFeatureEngine:
         "day" is the ATLAS parquet file boundary, which for CME futures
         aligns to session open (~17:00 CT), NOT UTC midnight.
 
-        For bars appended after the last loaded file (live bars), we
-        treat everything after the last file boundary as "today".
+        For bars after the last loaded day (e.g. mock replay or live
+        bars beyond pre-loaded data), "today" starts at the end of the
+        last loaded day. This matches batch's day_ends[prev_day] for a
+        day not yet present in day_ends.
         """
         day_ends = self._day_ends.get(tf, {})
         if not day_ends:
-            # Fallback: no file boundaries tracked (cold start)
             return 0
 
-        # Find the latest day whose file boundary is <= current timestamp
-        # by checking which day_end covers ts
         days_sorted = sorted(day_ends.keys())
         df = self._bars[tf]
         ts_arr = df['timestamp'].values
 
-        # Find which day file ts belongs to
-        # The last day file covers all bars from its start onward
-        # (including any live-appended bars after the pre-loaded data)
-        target_day = days_sorted[-1]  # default: last file
+        # Last loaded day's end timestamp
+        last_day = days_sorted[-1]
+        last_day_end_idx = day_ends[last_day]
+        last_loaded_ts = float(ts_arr[last_day_end_idx - 1]) if last_day_end_idx > 0 else 0
+
+        # Case 1: ts is AFTER last loaded day (mock replay or future live bar)
+        # "Today" = the day after last_day. today_start = end of last_day.
+        if ts > last_loaded_ts:
+            return day_ends[last_day]
+
+        # Case 2: ts is within a loaded day. Find which one.
+        target_day = last_day
         for day_name in days_sorted:
             end_idx = day_ends[day_name]
             if end_idx > 0 and end_idx <= len(ts_arr):
