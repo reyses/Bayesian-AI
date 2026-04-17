@@ -1043,7 +1043,9 @@ class LiveEngineV2:
                                 exit_sig.reason, True)
                             logger.info(f'  CHAIN EXIT {exit_sig.reason}')
                 else:
-                    # Primary exit → close all remaining
+                    # Primary exit → close all remaining (only if we can
+                    # actually send the order — otherwise it's a duplicate
+                    # signal for an already-pending exit)
                     if self._orders.can_exit and self._broker_connected:
                         order_msg = self._orders.build_exit_order(
                             reason=exit_sig.reason)
@@ -1058,12 +1060,12 @@ class LiveEngineV2:
                             }
                             await self._client.send(order_msg)
                             self._orders.mark_sent('BAY_CLOSE')
-                    events.append(f'EXIT_{exit_sig.reason}')
-                    self._log_trade_event(bar['timestamp'], 'EXIT',
-                        pos.entry_tier, pos.direction,
-                        bar['close'], 0, 0, pos.bars_held,
-                        exit_sig.reason, False)
-                    logger.info(f'  EXIT {exit_sig.reason}')
+                            events.append(f'EXIT_{exit_sig.reason}')
+                            self._log_trade_event(bar['timestamp'], 'EXIT',
+                                pos.entry_tier, pos.direction,
+                                bar['close'], 0, 0, pos.bars_held,
+                                exit_sig.reason, False)
+                            logger.info(f'  EXIT {exit_sig.reason}')
 
             # 5. Negative exit → close primary + all chains
             if batch.negative_exit is not None:
@@ -1082,13 +1084,12 @@ class LiveEngineV2:
                         }
                         await self._client.send(order_msg)
                         self._orders.mark_sent('BAY_CLOSE')
-                events.append(f'NEG_EXIT_{reason}')
-                self._log_trade_event(bar['timestamp'], 'NEGATIVE_EXIT',
-                    prim.entry_tier if prim else '?',
-                    prim.direction if prim else '?',
-                    bar['close'], 0, 0, prim.bars_held if prim else 0,
-                    reason, False)
-                logger.info(f'  NEGATIVE EXIT {reason}')
+                        events.append(f'NEG_EXIT_{reason}')
+                        self._log_trade_event(bar['timestamp'], 'NEGATIVE_EXIT',
+                            prim.entry_tier, prim.direction,
+                            bar['close'], 0, 0, prim.bars_held,
+                            reason, False)
+                        logger.info(f'  NEGATIVE EXIT {reason}')
 
             # 6. Chain entry → scale-in order
             if (batch.chain_entry is not None
