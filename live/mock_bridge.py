@@ -52,6 +52,9 @@ class MockBridge:
         # Pending orders (engine sends, we auto-fill)
         self._pending_orders = asyncio.Queue()
 
+        # Handshake: Step 7 signals ready before we send live bars
+        self._live_ready = asyncio.Event()
+
         # Position tracking for fill responses
         self._position_qty = 0
         self._position_side = ''
@@ -90,6 +93,10 @@ class MockBridge:
 
     async def disconnect(self):
         self._stop = True
+
+    def signal_live_ready(self):
+        """Called by engine when Step 7 starts listening."""
+        self._live_ready.set()
 
     async def send(self, msg: dict):
         """Handle outbound messages from the engine (orders)."""
@@ -209,8 +216,10 @@ class MockBridge:
         logger.info(f'MockBridge: history done ({len(history_bars)} bars), '
                     f'{len(live_bars)} bars queued for live replay')
 
-        # Small pause to let Steps 5/6 process the history
-        await asyncio.sleep(0.1)
+        # Wait for Step 7 to signal ready before sending live bars
+        logger.info('MockBridge: waiting for LIVE_READY signal...')
+        await self._live_ready.wait()
+        logger.info('MockBridge: LIVE_READY received, sending bars')
 
         # Phase 2: Feed remaining bars as "live" — engine processes each
         # through evaluate() + orders. No delay (compressed time).

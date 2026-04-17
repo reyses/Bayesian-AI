@@ -706,6 +706,11 @@ class LiveEngineV2:
 
         logger.info(f'  Ledger: {self._ledger_path}')
         logger.info(f'  Trades: {self._trade_log_path}')
+
+        # Signal mock bridge that Step 7 is ready for live bars
+        if self._mock_client and hasattr(self._mock_client, 'signal_live_ready'):
+            self._mock_client.signal_live_ready()
+
         logger.info(f'  Listening for bars...')
 
         while not self._shutting_down:
