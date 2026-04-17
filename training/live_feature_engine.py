@@ -66,12 +66,17 @@ class LiveFeatureEngine:
     # LOAD — pre-built bars from ATLAS_NT8
     # ══════════════════════════════════════════════════════════════════
 
-    def load_history(self):
+    def load_history(self, exclude_day: Optional[str] = None):
         """Load all pre-built TF bars from ATLAS_NT8 into memory.
 
         Tracks per-file (per-day) boundaries so _find_today_start can
         match the batch path's get_day_start exactly. Sets _last_loaded_ts
         per TF so on_bar only appends NEW bars.
+
+        Args:
+            exclude_day: if set, skip this day's parquet file (e.g. the
+                         day being replayed in mock mode). Prior days
+                         still load for warmup context.
         """
         self._last_loaded_ts: Dict[str, float] = {}
         # day_ends[tf] = {day_name: cumulative_end_index} — same as AtlasCache
@@ -91,10 +96,15 @@ class LiveFeatureEngine:
             cumul_len = 0
             for f in files:
                 day_name = os.path.basename(f).replace('.parquet', '')
+                if exclude_day and day_name == exclude_day:
+                    continue  # skip — will be replayed via on_bar
                 df = pd.read_parquet(f)
                 dfs.append(df)
                 cumul_len += len(df)
                 day_ends[day_name] = cumul_len
+
+            if not dfs:
+                continue
 
             full = pd.concat(dfs, ignore_index=True).sort_values(
                 'timestamp').reset_index(drop=True)

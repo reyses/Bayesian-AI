@@ -44,6 +44,7 @@ class MockBridge:
         self._speed = speed
         self._warmup_cutoff_ts = warmup_cutoff_ts
         self._stop = False
+        # _day_to_replay set in _load_bars (resolves 'latest' to actual day name)
 
         # Same interface as NT8Client
         self.inbound: asyncio.Queue = asyncio.Queue(maxsize=50000)
@@ -61,21 +62,23 @@ class MockBridge:
         self._last_price = 0.0
 
         # Load bars
-        self._bars = self._load_bars(day)
-        logger.info(f'MockBridge: {len(self._bars)} bars loaded')
+        self._bars, self._day_to_replay = self._load_bars(day)
+        logger.info(f'MockBridge: {len(self._bars)} bars loaded for {self._day_to_replay}')
 
     def _load_bars(self, day):
-        """Load 5s bars for replay."""
+        """Load 5s bars for replay. Returns (df, day_name)."""
         src = os.path.join(self._atlas_root, '5s')
         if day:
             path = os.path.join(src, f'{day}.parquet')
             if os.path.exists(path):
-                return pd.read_parquet(path).sort_values('timestamp').reset_index(drop=True)
+                return pd.read_parquet(path).sort_values('timestamp').reset_index(drop=True), day
         # Default: latest day
         files = sorted(glob.glob(os.path.join(src, '*.parquet')))
         if files:
-            return pd.read_parquet(files[-1]).sort_values('timestamp').reset_index(drop=True)
-        return pd.DataFrame()
+            last_f = files[-1]
+            day_name = os.path.basename(last_f).replace('.parquet', '')
+            return pd.read_parquet(last_f).sort_values('timestamp').reset_index(drop=True), day_name
+        return pd.DataFrame(), None
 
     def set_resume_timestamp(self, ts: float):
         self._resume_ts = ts

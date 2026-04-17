@@ -336,7 +336,12 @@ class LiveEngineV2:
 
         # LiveFeatureEngine: same batch SFE path as build_dataset (100% parity)
         self._lfe = LiveFeatureEngine(ATLAS_NT8)
-        bar_counts = self._lfe.load_history()
+        # Mock mode: skip the day being replayed so its bars arrive via on_bar
+        exclude_day = None
+        if self._mock_client and hasattr(self._mock_client, '_day_to_replay'):
+            exclude_day = self._mock_client._day_to_replay
+            logger.info(f'  Mock mode: excluding {exclude_day} from warmup (will replay)')
+        bar_counts = self._lfe.load_history(exclude_day=exclude_day)
         # Pretty-print bar counts per TF on one line for diagnostics
         bc_str = '  '.join(f'{tf}={n:,}' for tf, n in sorted(bar_counts.items()))
         logger.info(f'  Loaded: {bc_str}')
