@@ -369,10 +369,16 @@ class LiveEngineV2:
         if best_path:
             with open(best_path, encoding='utf-8') as f:
                 cp = json.load(f)
-            self._lfe.load_velocities(cp.get('velocities', {}))
-            if cp.get('accumulators'):
-                self._lfe.load_accumulators(cp['accumulators'])
-                logger.info(f'  Accumulators restored ({len(cp["accumulators"])} TFs)')
+            # Mock mode: skip velocities AND accumulators — checkpoint has
+            # state from a future session. Mock replays the past with fresh
+            # aggregation (same as build_dataset does).
+            if self._mock_client:
+                logger.info('  Mock mode: velocities + accumulators reset (fresh)')
+            else:
+                self._lfe.load_velocities(cp.get('velocities', {}))
+                if cp.get('accumulators'):
+                    self._lfe.load_accumulators(cp['accumulators'])
+                    logger.info(f'  Accumulators restored ({len(cp["accumulators"])} TFs)')
             # Support both v3 (trade_state) and v4 (ledger_state) checkpoints
             if 'ledger_state' in cp:
                 self._saved_ledger_state = cp['ledger_state']
