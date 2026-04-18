@@ -85,7 +85,13 @@ RA_ENTRY_MIN_5M_BAR_RANGE = 55.0
 # the dict enter immediately as before.
 #   Key = tier name; Value = (confirm_ticks, max_wait_minutes)
 PHANTOM_ENTRY = {
-    'RIDE_AGAINST': (4, 2),   # 4-tick ($2) confirm within 2 min (optimal per sweep)
+    'RIDE_AGAINST':  (4, 2),   # 4-tick ($2) confirm within 2 min (sweep optimum)
+    'MTF_BREAKOUT':  (4, 2),   # flip+phantom: -$1,116 -> -$96 (+$1,020)
+    'KILL_SHOT':     (4, 2),   # phantom: -$708 -> -$345 (+$363)
+    # TREND_FOLLOWER: phantom HURT (+$495 -> -$1,814). When phantom-confirmed
+    # trades fail, the 60m timeout accumulates -$166/tr of loss. Phantom
+    # doesn't universally help — tiers with long natural timescales need
+    # either (a) no phantom or (b) phantom with shorter timeout.
 }
 
 # RIDE_AGAINST peak-arrival exit (same physics as TREND_FOLLOWER — price
@@ -581,15 +587,26 @@ class IsoEngine:
 
     @staticmethod
     def _mtf_breakout_fires(feat, z):
+        """MTF_BREAKOUT (FLIPPED direction — fade the multi-TF z).
+
+        Setup: 5m AND 15m z-extreme + 1m DMI not strongly against the z.
+        Historical WR was 40% when we rode the breakout; the data said
+        direction was inverted. Now FADE multi-TF extremes. Phantom
+        confirmation filters fizzles. Testing RIDE_AGAINST-proven pattern.
+        """
         z_5m = feat[_5M_Z_IDX]
         z_15m = feat[_15M_Z_IDX]
         if not (abs(z_5m) > MTFB_Z_MIN and abs(z_15m) > MTFB_Z_MIN):
             return None
-        mtfb_dir = 'long' if z > 0 else 'short'
+        # Original direction (breakout = ride z)
+        orig_dir = 'long' if z > 0 else 'short'
         dmi = feat[_1M_DMI_IDX]
-        dmi_aligned = ((mtfb_dir == 'long' and dmi > -MTFB_DMI_AGAINST_MAX)
-                       or (mtfb_dir == 'short' and dmi < MTFB_DMI_AGAINST_MAX))
-        return mtfb_dir if dmi_aligned else None
+        dmi_aligned = ((orig_dir == 'long' and dmi > -MTFB_DMI_AGAINST_MAX)
+                       or (orig_dir == 'short' and dmi < MTFB_DMI_AGAINST_MAX))
+        if not dmi_aligned:
+            return None
+        # FLIPPED: return fade direction (opposite of original)
+        return 'short' if z > 0 else 'long'
 
     @staticmethod
     def _nmp_fade_fires(feat, z, vr):
@@ -707,12 +724,12 @@ class IsoEngine:
                         and m1_vr < KS_EXIT_VR_MAX):
                     return 'kill_shot_peak'
 
-        # MTF_BREAKOUT — NO tier-specific exit rule (same conclusion as NMP_FADE).
-        # Peak rule captured +$19.9K on 845 winners at 90% WR, but the 254
-        # never-worked trades ran to inverse at mean peak $2.7, mean give $85,
-        # costing -$21K. Net: -$2,204 WORSE than inverse-only baseline.
-        # Trend tier with noisy entries: winners need time, losers need to
-        # fall through to inverse without a rule interfering.
+        # MTF_BREAKOUT — inverse-only (no peak rule).
+        # Tested with flipped direction + phantom + peak rule:
+        #   flip+phantom alone:            661 tr, 60% WR, -$96
+        #   flip+phantom + peak rule:      716 tr, 76% WR, -$2,934 (WORSE)
+        # Peak rule steals inverse-bucket winners that had better $/trade
+        # as inverse exits. This tier wants inverse-only like NMP_FADE.
 
         # NMP_FADE — NO tier-specific exit rule. Peak rule HURT this tier:
         # it captured winners at mean peak $23 (early), but winners' natural

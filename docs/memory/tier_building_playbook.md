@@ -361,6 +361,24 @@ Applied blindly it hurts catch-all tiers (NMP_FADE, MTF_BREAKOUT).
 Rule: if winner mean peak < ~$80, peak rule probably costs more than
 it saves. Stick to inverse-signal.
 
+### 9e-bis. Phantom entry isn't universal either (2026-04-18 discovery)
+
+Phantom + short timeout (≤15m) = safe. RIDE_AGAINST had 15m timeout,
+phantom was a huge win. MTF_BREAKOUT had no timeout, phantom + inverse
+exit helped (+$1,020).
+
+Phantom + long timeout (60m+) = dangerous. TREND_FOLLOWER has 60m
+timeout. Adding phantom went +$495 → **-$1,814** (-$2,309 swing).
+When phantom-confirmed trades fail, the 60m timeout lets losses bleed
+for the full window: 80 trades at **-$166/tr** = -$13K disaster.
+
+**Pattern:** phantom entry trades off worse entry price for fizzle
+protection. Works when timeout is short enough to cap the downside
+quickly. Fails when slow exit lets the worse-entry-price compound.
+
+**Rule:** if tier's natural timescale is > 15-20 minutes, DON'T add
+phantom unless you also shorten the timeout.
+
 ### 9f. Timeout isn't universal
 
 KILL_SHOT had bimodal holds pre-peak-rule (0-10m wins, 300+min wins,
