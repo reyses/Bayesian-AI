@@ -3456,3 +3456,127 @@ NEXT:
   1. Run hypothesis_test.py to validate filters
   2. If filters help, wire into nightmare_blended.py
   3. Live SIM session with all hardening
+
+
+================================================================
+2026-04-17 — LOOKAHEAD BIAS FOUND, HONEST BASELINE, ALL TIERS COIN FLIP
+================================================================
+
+LOOKAHEAD BIAS IN training/build_dataset.py (root cause of inflated baselines):
+  Inner loop used:
+    idx = np.searchsorted(tf_ts, target_ts, side='right') - 1
+  Picks TF bar whose START is at or before target_ts, but its OHLCV
+  aggregates 5s bars forward up to bar end. Every label at time T had
+  future data baked in for TFs >= 1m.
+  
+  FIX: subtract period before lookup — use only completed bars:
+    idx = np.searchsorted(tf_ts, target_ts - period, 'right') - 1
+  
+  Also moved feature output inside DATA/ATLAS/{FEATURES_5s/} for cleaner
+  layout (was top-level DATA/FEATURES_79D_1m).
+  
+  IMPACT: baseline dropped from $740/day (lookahead-contaminated) to
+  -$164/day honest. Chains accounted for $157/day of loss alone — they
+  were amplifying bad signals on inflated features.
+
+PER-TIER ISOLATED BASELINE (2025, primary trades only, 348 days):
+  Built tools/run_tier_isolated.py — runs each tier alone, no chains,
+  no negative exits, no catch-all. Cleanest per-tier read possible.
+  
+    RIDE_AGAINST   39,721  -$11/day
+    FADE_CALM      24,039  -$16/day
+    MTF_BREAKOUT    5,961  +$ 4/day
+    FADE_AGAINST    4,532  +$ 5/day
+    KILL_SHOT       4,411  -$ 2/day
+    CASCADE         1,270  +$ 6/day
+    MTF_EXHAUSTION    233  +$ 9/day
+    FREIGHT_TRAIN      34  +$61/day  (sample too small)
+  
+  Every tier at noise floor. Previous "edge" was entirely lookahead.
+
+KILL_SHOT PEAK PHYSICS — DISPROVED:
+  Built tools/killshot_peak_physics.py. For each trade with peak > $3,
+  reconstructs 5s price path, finds peak bar, measures features AT peak
+  vs +/- 3 bars (+/- 15s window).
+  
+  Signal fire rates at peak (n=2043 analyzable):
+    1m velocity flips sign against trade:   3.3%
+    1m acceleration flips against trade:    0.2%
+    1m wick_ratio > 0.3 at peak (+30%):     6.8%
+    Volume fades >20% across peak:         11.8%
+    1m p_at_center > 0.6 at peak:          46.3%  (but 46% at ENTRY too — no lift)
+  
+  Largest Cohen d across peak: 0.19 (1m_wick_ratio). Everything else <0.1.
+  THE PEAK IS A STATISTICAL MAXIMUM OVER NOISE, NOT A DETECTABLE EVENT.
+  
+  Exit rule back-test (peak>$3 cohort, n=2691):
+    BASELINE natural exit       +$11.61/trade
+    Fixed $10 target            +$11.22  (~= baseline)
+    Fixed $7 target             +$10.34
+    1m accel negative            +$ 9.88
+    p_center > 0.5 after 1pt     +$ 7.69
+    Velocity flip                +$ 6.83
+    50% trail from peak          +$ 3.40  (worst — bails on every wiggle)
+  
+  Every physics-based rule loses to natural exit. The existing
+  kill_shot_center exit is already ~= a fixed $10 target in aggregate.
+  
+  IMPLICATION: KILL_SHOT loss (-$604 on 4,411 trades) is not an exit
+  problem. The ~1,720 trades with peak <= $3 are structural losers —
+  entries that should never have been taken. ENTRY FILTER, NOT EXIT.
+
+REGRET ON ALL 8 ISOLATED TIERS (nn_v2-style playbook):
+  Built tools/regret_on_isolated.py. For each tier's isolated pkl, run
+  compute_all_regrets, measure per-tier capture / counter rate / oracle
+  upper bound.
+  
+  Tier          %counter  CounterWR  Flip@exit $/day
+    RIDE_AGAINST   49%     41%        +$850
+    FADE_CALM      49%     38%        +$939
+    MTF_BREAKOUT   50%     39%        +$115
+    KILL_SHOT      50%     45%        +$ 84
+    FADE_AGAINST   46%     38%        +$190
+    CASCADE        52%     39%        +$ 49
+    MTF_EXHAUSTION 48%     36%        +$ 23
+    FREIGHT_TRAIN  50%     35%        +$382
+    TOTAL POOLED  ~49%    ~40%        +$2,183
+  
+  EVERY TIER SITS AT ~50% COUNTER-FLIP — NO DIRECTIONAL EDGE.
+  Regret labels ARE meaningful (counter-WR 35-45% means counter-labeled
+  trades are actually losers), but the SAME/COUNTER boundary is
+  near-random. nn_v2 worked on NMP (30-35% counter) because there was
+  real direction to learn. At 50%, CNN has to learn a near-random
+  boundary in 91D space.
+  
+  Oracle upper bound (flip-at-exit, no peak-chasing): +$2,183/day.
+  At realistic 65% CNN accuracy: ~$900-$1,300/day capture — only if
+  features can separate.
+
+DATA CAVEAT — regret LOOKAHEAD:
+  training/regret.py has LOOKAHEAD = 360 bars, commented "30 min at 5s
+  resolution" — but it loads 1m price data. So oracle window is 6 hours.
+  99% of best_action labels are same_extended or counter_extended because
+  "optimal" for every trade becomes "hold 6 hours and catch the swing."
+  
+  flip_at_exit is still clean (just flips direction, same exit bar as
+  actual), so the +$2,183/day upper bound is trustworthy. But raw
+  counter-flip rate may be slightly inflated by the 6-hour window.
+  
+  TODO: cap LOOKAHEAD to 15-30 min (or switch to 5s prices) and re-run.
+
+NEW TOOLS:
+  tools/run_tier_isolated.py        - isolate each tier, no chains/catch-all
+  tools/killshot_peak_physics.py    - path reconstruction + peak physics
+  tools/regret_on_isolated.py       - regret per tier, verdict table
+
+NEW FINDING REPORTS:
+  reports/findings/2026-04-17_killshot_peak_physics.md
+  reports/findings/2026-04-17_iso_regret.md
+
+DECISION POINT:
+  1. Fix regret.py LOOKAHEAD (30 min) — remove 6-hour distortion
+  2. Test CNN separability on FADE_CALM (biggest, 24k trades) — if CNN
+     clears 58%+ OOS on SAME/COUNTER, full pipeline viable. If plateaus
+     at 52-54%, tiers are truly coin flips.
+  3. If (2) fails: rebuild tiers from data (corrected-trade clustering)
+     instead of hand-crafted physics gates.
