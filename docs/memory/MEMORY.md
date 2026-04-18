@@ -13,6 +13,7 @@
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
+- **TIER-BUILDING METHODOLOGY**: See `memory/feedback_tier_three_questions.md` — three simple questions replace CART/ML brute force when building or rebuilding a tier. Q1: are entries right? (peak-bucket). Q2: what persistent signal says we're wrong? (bar-N path). Q3: what do all peaks have in common? (entry→peak feature delta normalized by σ). Used successfully on TREND_FOLLOWER 2026-04-18.
 - **RCA PROCESS MANDATORY**: See `memory/feedback_rca_process.md` — follow the 9-step RCA for ALL system improvements. No shortcuts. No theoretical improvements without data.
 - **1s TICKER IS THE ONLY HONEST TEST**: Batch SFE showed +$777, honest ticker showed +$48. Use `nightmare_ticker.py` for all testing. Always zero lookahead.
 - **ANALYZE BY DAY, NOT MONTH**: See `memory/feedback_daily_hourly_review.md` — each day must stand on its own. Mode > mean.
@@ -30,19 +31,22 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
-## **CURRENT PRIORITIES (2026-04-08)**
-- **nn_v2 3-CNN SYSTEM**: $620/day IS, $613/day OOS, 91% win days
-  - Architecture: NMP → regret → blended (cascade/killshot/base) → 3 CNNs
-  - **CNN Flip** (70.6%): entry direction from 6×13 TF grid. See `nn_v2/cnn_flip.py`
-  - **CNN Hold** (94.8%): hold/exit decision during trade. See `nn_v2/cnn_hold.py`
-  - **CNN Risk**: cuts losing trades early. See `nn_v2/cnn_risk.py`
-  - Kill shot: |z|>2 + vr<1 + wick rejection (96% WR, $42/day standalone)
-  - Blended engine: `nn_v2/nightmare_blended.py` (cascade + killshot + base_nmp tiers)
-  - Next: Stage 2 — regret on CNN trades → discover new entry physics → expand roster
-- **79D Dataset**: 345 days at 1m resolution (DATA/FEATURES_79D_1m/)
+## **CURRENT PRIORITIES (2026-04-17)**
+- **HONEST BASELINE = -$164/day IS**. See [project_honest_baseline_2026_04_17.md](project_honest_baseline_2026_04_17.md)
+  - Lookahead bias in `build_dataset.py` fixed (searchsorted shifted by period). See [feedback_lookahead_audit.md](feedback_lookahead_audit.md)
+  - Previous $740/day baseline was pure lookahead inflation
+  - Feature dir moved: `DATA/FEATURES_79D_1m/` → `DATA/ATLAS/FEATURES_5s/`
+  - All 8 tiers at noise floor, all ~49% counter-flip (coin flip on direction)
+  - KILL_SHOT peak physics DISPROVED — no feature changes at peak. See [feedback_peak_physics_dead_end.md](feedback_peak_physics_dead_end.md)
+  - Oracle flip-at-exit upper bound: +$2,183/day pooled across 8 tiers
+- **Frozen SFE cache bug** (live): fixed 2026-04-16. See [project_frozen_sfe_cache.md](project_frozen_sfe_cache.md)
+  - All live sessions mid-Feb → 2026-04-16 traded on frozen features — PnL is noise
+- **Next decision point**:
+  1. Fix `training/regret.py` LOOKAHEAD (6-hour window distorts labels)
+  2. Test CNN separability on FADE_CALM (24k trades) — if <58% OOS, tiers dead
+  3. If (2) fails, rebuild tiers from corrected-trade clustering
 - **NQ goal**: 3 months to NQ ($400 noise budget). See `memory/project_nq_goal.md`
-- **Key insight**: Regret is the teacher, CNN is the student. Trees exhausted at 55% direction.
-- **Lookahead audit**: bars_norm mismatch (training vs inference) — needs fix
+- **Key insight from 2026-04-17**: nn_v2 playbook may not transfer. NMP was 30-35% counter (learnable); current tiers are 50% (near-random boundary).
 
 ## **DEPRIORITIZED (2026-04-03)**
 - Probabilistic system: `memory/project_probabilistic_system.md` — superseded by 79D NN
@@ -118,11 +122,13 @@
 ## Validation Ladder (5 gates)
 1. IS (ATLAS) → 2. OOS (ATLAS_OOS) → 3. Phase 7 Replay → 4. Live Sim → 5. Live Real
 
-## Current Baselines (2026-04-07)
-- **3-CNN Blended (nn_v2)**: $620/day IS, $613/day OOS, 91% win days, $22/trade
-- **2-CNN Blended**: $605/day IS, $563/day OOS, 85% win days
-- **Kill shot standalone**: $42/day OOS, 96% WR, 2.8 trades/day
-- **Base NMP**: $10/day IS, $65/day OOS (raw, no CNN)
+## Current Baselines
+- **2026-04-17 (HONEST, post-lookahead-fix)**: -$164/day IS on 348 days of 2025.
+  Chains alone cost $157/day. Every tier at noise floor (-$16 to +$9/day, ~50% WR).
+  See [project_honest_baseline_2026_04_17.md](project_honest_baseline_2026_04_17.md).
+- **PRE-2026-04-17 numbers are CONTAMINATED by lookahead** — do not use as
+  reference. $740/day, $620/day, $613/day all had higher-TF aggregation with
+  future data baked in. Feature folder renamed to break accidental reuse.
 
 ## Key Discoveries (from journals)
 - **Phantom spikes were fake edge**: clean Databento data turned $4,350 into -$2,427
@@ -136,9 +142,13 @@
 ## Data Pipeline
 - ATLAS: `DATA/ATLAS/{tf}/YYYY_MM.parquet` — 14 TFs, 12 months (Jan-Dec 2025)
 - ATLAS_OOS: `DATA/ATLAS_OOS/` — 2 months (Jan-Feb 2026)
-- FEATURES_79D_1m: `DATA/FEATURES_79D_1m/` — 345 days at 1m resolution
+- FEATURES (5s, honest): `DATA/ATLAS/FEATURES_5s/` (IS) + `DATA/ATLAS_OOS/FEATURES_5s/` (OOS)
+  - Regenerated 2026-04-17 with lookahead fix. DATA/FEATURES_79D_1m/ is DELETED/STALE.
 
 ## Analysis Tools
+- `tools/run_tier_isolated.py` — isolate each tier (no chains/catch-all), writes `training/output/isolated/{TIER}.pkl` (2026-04-17)
+- `tools/killshot_peak_physics.py` — 5s path + peak physics measurement (2026-04-17)
+- `tools/regret_on_isolated.py` — per-tier regret verdict table (2026-04-17)
 - `tools/nightmare_eda.py` — deep exit analysis on clean data
 - `tools/strategy_miner.py` — data-driven strategy discovery
 - `tools/killshot_test.py` — kill shot validation

@@ -1,13 +1,15 @@
 """
-Isolated pipeline for non-NMP entries.
+Isolated pipeline V2 — complete NMP, no tiers, no CNN.
 
-Runs REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION through their own
-CNN training without contaminating the main NMP pipeline.
+Pure physics baseline per the original Nightmare Protocol (§7):
+  * Two-mode NMP entry (NMP_FADE + NMP_RIDE) gated on |z|>ROCHE.
+  * Bounded regret analysis (10 min before entry / 30 min after exit).
+  * Peak-validity gate on EXTENDED options (post-horizon peak must
+    exceed in-trade peak to count as a "hold longer" signal).
+  * No CNN overlay. No chains. No negative exits.
 
 Usage:
-    python training_iso/run_iso.py                    # full pipeline
-    python training_iso/run_iso.py --from 3           # from phase 3
-    python training_iso/run_iso.py --phase1-only      # just collect trades
+    python training_iso/run_iso.py
 """
 import os
 import sys
@@ -24,6 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Features live inside the atlas folder after the refactor
 FEATURES_DIR_SEQ = 'DATA/ATLAS/FEATURES_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
+ATLAS_5S = 'DATA/ATLAS/5s'   # source for slope (β) computation — available to any tier
 OUTPUT_DIR = 'training_iso/output'
 
 
@@ -51,9 +54,16 @@ def _print_summary(results):
     print(f'{"="*60}')
 
 
-def run_iso_forward(target='is'):
-    """Run isolated engine on feature files."""
-    from training_iso.nightmare_iso import IsoEngine
+def run_iso_forward(target='is', only_tiers=None):
+    """Run isolated forward pass — each tier gets its OWN engine, no interference.
+
+    By default all 9 tiers run in parallel on the same bar stream. Pass
+    only_tiers=['TREND_FOLLOWER'] (etc) to restrict to a subset — useful
+    for fast single-tier iteration.
+
+    Output trades carry `entry_tier` so per-tier metrics roll up cleanly.
+    """
+    from training_iso.nightmare_iso import IsoEngine, TIER_PRIORITY
     from training.sfe_ticker import FeatureTicker
     from tqdm import tqdm
     from collections import Counter
@@ -63,8 +73,8 @@ def run_iso_forward(target='is'):
         print(f'No feature files for "{target}"')
         return [], []
 
-    print(f'ISO FORWARD — {len(feat_files)} day(s)')
-    engine = IsoEngine()
+    active_tiers = only_tiers if only_tiers else TIER_PRIORITY
+    print(f'ISO FORWARD — {len(feat_files)} day(s), tiers: {active_tiers}')
     all_results = []
     all_trades = []
 
@@ -73,44 +83,67 @@ def run_iso_forward(target='is'):
         price_file = os.path.join(ATLAS_1M, f'{day_name}.parquet')
         if not os.path.exists(price_file):
             price_file = None
+        # 5s closes for slope (β) computation — loaded once, shared across engines
+        sec_file = os.path.join(ATLAS_5S, f'{day_name}.parquet')
+        sec_df = pd.read_parquet(sec_file) if os.path.exists(sec_file) else None
 
-        engine.reset()
-        engine.trades = []
+        engines = {t: IsoEngine(only_tier=t) for t in active_tiers}
+        for eng in engines.values():
+            eng.set_sec_closes(sec_df)
         ft = FeatureTicker(fpath, price_file=price_file)
         for state in ft:
-            engine.on_state(state)
-        engine.force_close()
+            for eng in engines.values():
+                eng.on_state(state)
+        for eng in engines.values():
+            eng.force_close()
 
-        for t in engine.trades:
-            t['day'] = day_name
-        all_trades.extend(engine.get_full_trades())
+        day_trades = []
+        for tier, eng in engines.items():
+            for t in eng.trades:
+                t['day'] = day_name
+            day_trades.extend(eng.get_full_trades())
+        all_trades.extend(day_trades)
 
-        day_pnl = engine.daily_pnl
-        day_trades = len(engine.trades)
+        day_pnl = sum(eng.daily_pnl for eng in engines.values())
+        n_trades = len(day_trades)
         all_results.append({
             'day': day_name,
-            'trades': day_trades,
+            'trades': n_trades,
             'pnl': day_pnl,
-            'wr': sum(1 for t in engine.trades if t['pnl'] > 0) / max(day_trades, 1) * 100,
+            'wr': sum(1 for t in day_trades if t['pnl'] > 0) / max(n_trades, 1) * 100,
         })
 
     _print_summary(all_results)
 
-    # Tier breakdown
     if all_trades:
+        print()
+        print(f'{"Tier":<17} {"N":>6} {"WR":>5} {"Total":>10} {"$/trade":>9}')
+        print('-' * 55)
         tiers = Counter(t.get('entry_tier', '?') for t in all_trades)
-        for tier, count in tiers.most_common():
+        for tier in active_tiers:
+            count = tiers.get(tier, 0)
+            if count == 0:
+                print(f'{tier:<17} {0:>6}  (no trades)')
+                continue
             sub = [t for t in all_trades if t.get('entry_tier') == tier]
             wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
             total = sum(t['pnl'] for t in sub)
-            print(f'  {tier}: {count} trades, WR={wr:.0f}%, ${total:,.0f}')
+            per = total / len(sub)
+            print(f'{tier:<17} {count:>6,} {wr:>4.0f}% ${total:>+9,.0f} ${per:>+8.2f}')
 
     return all_results, all_trades
 
 
 def run_regret():
-    """Run regret on ISO trades."""
-    from training.regret import compute_all_regrets
+    """Run bounded regret + produce corrected trades.
+
+    Uses training_iso/regret.py which caps the counterfactual window to
+    LOOKBACK_MIN=10 / LOOKAHEAD_MIN=30, gates EXTENDED options on the
+    peak-validity check, and produces corrected trades that exit at the
+    SPECIFIC peak bar each gated best_action points at (not the overall
+    argmax).
+    """
+    from training_iso.regret import compute_all_regrets, correct_trades
 
     trade_path = os.path.join(OUTPUT_DIR, 'trades', 'iso_is.pkl')
     with open(trade_path, 'rb') as f:
@@ -132,27 +165,72 @@ def run_regret():
                   f'actual=${sub["actual_pnl"].sum():,.0f}, '
                   f'optimal=${sub["best_pnl"].sum():,.0f}')
 
-    # Best action
+    # Best action breakdown + extended-validity rates
     n_counter = regret_df['best_action'].str.contains('counter').sum()
     print(f'  Counter: {n_counter} ({n_counter / len(regret_df) * 100:.0f}%)')
+    if 'same_extended_valid' in regret_df.columns:
+        se_valid = regret_df['same_extended_valid'].sum()
+        ce_valid = regret_df['counter_extended_valid'].sum()
+        print(f'  Peak-valid extended: same={se_valid} '
+              f'({se_valid/len(regret_df)*100:.0f}%)  '
+              f'counter={ce_valid} ({ce_valid/len(regret_df)*100:.0f}%)')
 
     os.makedirs(os.path.join(OUTPUT_DIR, 'tree'), exist_ok=True)
     regret_df.to_csv(os.path.join(OUTPUT_DIR, 'tree', 'regret_analysis.csv'), index=False)
-    # Also save as nmp_is.pkl for CNN flip compatibility
-    with open(os.path.join(OUTPUT_DIR, 'trades', 'nmp_is.pkl'), 'wb') as f:
-        pickle.dump(trades, f)
-    with open(os.path.join(OUTPUT_DIR, 'trades', 'blended_is.pkl'), 'wb') as f:
-        pickle.dump(trades, f)
+
+    # ── Corrected trades (oracle ground truth: exit at the gated peak) ─
+    print()
+    print('Generating corrected trades (peak-aware oracle)...')
+    corrected = correct_trades(trades)
+    with open(os.path.join(OUTPUT_DIR, 'trades', 'corrected_is.pkl'), 'wb') as f:
+        pickle.dump(corrected, f)
+    flat = [{k: v for k, v in t.items() if not isinstance(v, (list, dict, np.ndarray))}
+            for t in corrected]
+    pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', 'corrected_is.csv'),
+                              index=False)
+
+    # Compare actual vs corrected PnL (sanity + delta)
+    actual_total = sum(t['original_pnl'] for t in corrected)
+    corrected_total = sum(t['pnl'] for t in corrected)
+    flips = sum(1 for t in corrected if t['dir'] != t['original_dir'])
+    avg_corrected_held = np.mean([t['held'] for t in corrected]) if corrected else 0
+    avg_original_held = np.mean([t['original_held'] for t in corrected]) if corrected else 0
+    print(f'  Corrected trades: {len(corrected):,}')
+    print(f'  Direction flips:  {flips:,} ({flips/max(len(corrected),1)*100:.0f}%)')
+    print(f'  Actual    $: ${actual_total:+,.0f}  avg held={avg_original_held:.1f} bars')
+    print(f'  Corrected $: ${corrected_total:+,.0f}  avg held={avg_corrected_held:.1f} bars')
+    print(f'  Delta:      ${corrected_total - actual_total:+,.0f}  '
+          f'({(corrected_total/max(actual_total,1)-1)*100:+.0f}%)')
 
 
 def main():
+    from training_iso.nightmare_iso import TIER_PRIORITY
     args = sys.argv[1:]
-    phase1_only = '--phase1-only' in args
+    no_regret = '--no-regret' in args
+
+    # --tier TIER_NAME (one or more) restricts run to those tiers only
+    only_tiers = None
+    if '--tier' in args:
+        idx = args.index('--tier')
+        # Consume all following positional args until next flag
+        tier_args = []
+        for a in args[idx + 1:]:
+            if a.startswith('--'):
+                break
+            tier_args.append(a)
+        if not tier_args:
+            raise SystemExit('--tier requires at least one tier name')
+        for t in tier_args:
+            if t not in TIER_PRIORITY:
+                raise SystemExit(f'unknown tier {t!r}; valid: {TIER_PRIORITY}')
+        only_tiers = tier_args
 
     print(f'{"="*60}')
-    print(f'ISOLATED PIPELINE (non-NMP entries)')
-    print(f'  REGIME_FLIP + EXHAUSTION_BAR + ABSORPTION')
-    print(f'  Separate CNN training, no NMP contamination')
+    print(f'ISOLATED PIPELINE V2 — complete NMP, no tiers, no CNN')
+    if only_tiers:
+        print(f'  Restricted to tiers: {only_tiers}')
+    print(f'  Regret window: 10 min before entry / 30 min after exit'
+          + ('  [SKIPPED]' if no_regret else ''))
     print(f'  Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
@@ -160,10 +238,10 @@ def main():
 
     # Phase 1: Collect trades
     print(f'\n{"="*40}')
-    print(f'PHASE 1: ISO forward pass (no CNN)')
+    print(f'PHASE 1: NMP two-mode forward pass')
     print(f'{"="*40}')
     t0 = _time.perf_counter()
-    results, trades = run_iso_forward('is')
+    results, trades = run_iso_forward('is', only_tiers=only_tiers)
     if trades:
         os.makedirs(os.path.join(OUTPUT_DIR, 'trades'), exist_ok=True)
         with open(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.pkl'), 'wb') as f:
@@ -173,39 +251,23 @@ def main():
         pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.csv'), index=False)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    if phase1_only:
-        print('Phase 1 only. Done.')
-        return
+    # Phase 2: Regret (optional)
+    if not no_regret:
+        print(f'\n{"="*40}')
+        print(f'PHASE 2: Bounded regret (10/30 min, peak-validity gated)')
+        print(f'{"="*40}')
+        t0 = _time.perf_counter()
+        run_regret()
+        print(f'  Done in {_time.perf_counter()-t0:.0f}s')
+    else:
+        print(f'\n(Phase 2 regret skipped — --no-regret flag)')
 
-    # Phase 2: Regret
+    # Summary
     print(f'\n{"="*40}')
-    print(f'PHASE 2: Regret on ISO trades')
-    print(f'{"="*40}')
-    t0 = _time.perf_counter()
-    run_regret()
-    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    # Phase 3: Train CNN flip (uses iso output paths)
-    print(f'\n{"="*40}')
-    print(f'PHASE 3: Train CNN flip (SAME/COUNTER) on ISO trades')
-    print(f'{"="*40}')
-    t0 = _time.perf_counter()
-    # Set env vars so CNN flip reads from iso paths
-    env = os.environ.copy()
-    env['CNN_TRADES_PATH'] = os.path.join(OUTPUT_DIR, 'trades', 'blended_is.pkl')
-    env['CNN_REGRET_PATH'] = os.path.join(OUTPUT_DIR, 'tree', 'regret_analysis.csv')
-    env['CNN_OUTPUT_DIR'] = os.path.join(OUTPUT_DIR, 'tree')
-    result = subprocess.run(
-        [sys.executable, 'training/cnn_flip.py', '--no-path'],
-        timeout=3600, capture_output=False, env=env)
-    print(f'  Done in {_time.perf_counter()-t0:.0f}s')
-
-    # Phase 4: Report
-    print(f'\n{"="*40}')
-    print(f'PHASE 4: Summary')
+    print(f'SUMMARY')
     print(f'{"="*40}')
     elapsed = _time.perf_counter() - pipeline_start
-    print(f'ISO PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
+    print(f'ISO V2 PIPELINE COMPLETE — {elapsed:.0f}s ({elapsed/60:.1f} min)')
     print(f'  Finished: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
 
 
