@@ -1,21 +1,43 @@
 """
-Regret Analysis — full counterfactual for every trade.
+Regret Analysis — bounded counterfactual with symmetric peak-validity gates.
 
-For each trade (winner or loser), computes:
-  SAME EARLY:       what if exited 1-3 bars before actual exit?
-  SAME EXTENDED:    what if held past exit?
-  COUNTER EARLY:    what if flipped direction at bar 1-3?
-  COUNTER AT EXIT:  what if flipped at exit point?
-  COUNTER EXTENDED: what if flipped at entry and held?
+For each trade, computes counterfactuals within a TIME-bounded window:
 
-The BEST ACTION tells the tree what it SHOULD have done.
-The REGRET tells the tree how much it left on the table.
+  LOOKBACK = 10 minutes before entry
+  LOOKAHEAD = 30 minutes after exit
+
+Branches:
+  SAME EARLY:       close at in-trade peak (= shorter trade). GATED.
+  SAME EXTENDED:    held past exit (= longer trade). GATED.
+  COUNTER EARLY:    flipped direction at bar 1-3 (entry-timing regret)
+  COUNTER IN-TRADE: flipped at entry, close at in-trade counter peak. GATED.
+  COUNTER EXTENDED: flipped at entry, held past exit. GATED.
+  SAME AT EXIT / COUNTER AT EXIT: baselines (always candidates)
+
+Peak-validity gates (symmetric, 2026-04-17):
+
+  EXTENDED is valid only if post-horizon peak > in-trade peak.
+    Otherwise holding longer was dominated by in-trade action — that's
+    an exit-timing problem disguised as a horizon problem.
+
+  EARLY / IN-TRADE is valid only if in-trade peak >= post-horizon peak.
+    Otherwise the optimal close point is OUTSIDE the trade window, not
+    inside — crediting "shorter trade at peak" when a bigger peak was
+    available post-exit would be giving up the bigger regret signal.
+
+  At most ONE of (early, extended) can be strictly valid. On ties the
+  in-trade / shorter option wins (stricter, less exposure).
+
+Cadence note: windows are specified in MINUTES and converted to bars
+using the price data's bar period (default 60s for 1m data). Before
+this fix, LOOKAHEAD was 360 bars labeled "30 min at 5s" but the code
+loaded 1m data → effective window was 6 hours.
 
 Usage:
-    from training.regret import compute_regret, compute_all_regrets
+    from training_iso.regret import compute_regret, compute_all_regrets
 
-    regret = compute_regret(trade, prices, entry_idx)
-    all_regrets = compute_all_regrets(trades, price_df)
+    regret = compute_regret(trade, prices, entry_idx, bar_period_sec=60)
+    all_regrets = compute_all_regrets(trades)   # defaults to 1m bars
 """
 import numpy as np
 import pandas as pd
@@ -23,20 +45,33 @@ from typing import Dict, List
 
 TICK = 0.25
 TV = 0.50
-LOOKAHEAD = 360  # 30 min at 5s resolution (360 bars) — full inverse peak window
-LOOKBACK = 120   # 10 min at 5s resolution (120 bars) — early entry window
+
+# Time-bounded counterfactual windows (in minutes)
+LOOKAHEAD_MIN = 30.0   # 30 min after trade exit
+LOOKBACK_MIN = 10.0    # 10 min before trade entry
+
+# Default bar period — ATLAS/1m uses 60s. Override per call for 5s data.
+DEFAULT_BAR_PERIOD_SEC = 60
 
 
-def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> Dict:
-    """Compute full counterfactual for one trade.
+def _mins_to_bars(minutes: float, bar_period_sec: int) -> int:
+    """Convert a time window to a bar count based on data cadence."""
+    return max(1, int((minutes * 60) / bar_period_sec))
+
+
+def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int,
+                   bar_period_sec: int = DEFAULT_BAR_PERIOD_SEC) -> Dict:
+    """Compute bounded counterfactual for one trade.
 
     Args:
         trade: dict with 'dir', 'pnl', 'held', 'entry_price', 'peak'
-        all_closes: full day's close prices (1m bars)
+        all_closes: full day's close prices (cadence = bar_period_sec)
         entry_bar_idx: index into all_closes where trade entered
+        bar_period_sec: seconds per bar (60 for 1m, 5 for 5s). Used to
+            convert LOOKAHEAD_MIN / LOOKBACK_MIN to bar counts.
 
     Returns:
-        dict with all counterfactual PnLs and best action
+        dict with counterfactual PnLs, peak-validity flags, best action.
     """
     direction = trade['dir']
     entry_price = trade['entry_price']
@@ -45,14 +80,18 @@ def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> D
     exit_bar = entry_bar_idx + held
     n = len(all_closes)
 
-    # Full PnL curve: from entry to entry + held + LOOKAHEAD
-    end_bar = min(entry_bar_idx + held + LOOKAHEAD, n)
+    # Convert time-bounded windows to bar counts for this cadence
+    lookback_bars = _mins_to_bars(LOOKBACK_MIN, bar_period_sec)
+    lookahead_bars = _mins_to_bars(LOOKAHEAD_MIN, bar_period_sec)
+
+    # Full PnL curve: from entry to exit + LOOKAHEAD
+    end_bar = min(entry_bar_idx + held + lookahead_bars, n)
     if entry_bar_idx >= n:
         return _empty_regret(actual_pnl)
 
-    # === ENTRY LOOKBACK: what if entered 1-10 bars earlier? ===
+    # === ENTRY LOOKBACK: what if entered up to LOOKBACK_MIN earlier? ===
     early_entries = []
-    lookback_start = max(0, entry_bar_idx - LOOKBACK)
+    lookback_start = max(0, entry_bar_idx - lookback_bars)
     for lb_idx in range(lookback_start, entry_bar_idx):
         lb_price = all_closes[lb_idx]
         # If entered at this earlier bar, what's the PnL at actual exit bar?
@@ -64,7 +103,7 @@ def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> D
             lb_counter_at_exit = (lb_price - all_closes[min(exit_bar, n - 1)]) / TICK * TV
 
         # Best PnL if entered here and held to peak
-        lb_end = min(lb_idx + held + LOOKAHEAD, n)
+        lb_end = min(lb_idx + held + lookahead_bars, n)
         lb_prices = all_closes[lb_idx:lb_end]
         if direction == 'short':
             lb_same_peak = float(np.max((lb_price - lb_prices) / TICK * TV))
@@ -118,10 +157,27 @@ def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> D
     # At exit
     same_at_exit = float(same_pnls[held]) if held < len(same_pnls) else actual_pnl
 
+    # In-trade peak (same direction): max gain during [entry, exit)
+    in_trade_peak_same = float(np.max(same_pnls[:max(held, 1)])) if len(same_pnls) > 0 else actual_pnl
+    in_trade_peak_same_bar = int(np.argmax(same_pnls[:max(held, 1)])) if len(same_pnls) > 0 else 0
+
     # Extended: bars after actual exit
     same_ext_pnls = same_pnls[held:] if held < len(same_pnls) else np.array([actual_pnl])
-    same_ext_best_bar = held + int(np.argmax(same_ext_pnls))
-    same_ext_best = float(np.max(same_ext_pnls))
+    same_ext_best_bar_local = int(np.argmax(same_ext_pnls))
+    same_ext_best_bar = held + same_ext_best_bar_local
+    post_horizon_peak_same = float(np.max(same_ext_pnls))
+
+    # Symmetric peak-validity gates (same direction):
+    #   EXTENDED valid: post-horizon peak strictly dominates in-trade peak.
+    #   EARLY / SHORTER valid: in-trade peak dominates post-horizon (>=).
+    # At most one is strictly valid. Ties favor the shorter trade (lower
+    # exposure, no horizon-dependent assumption).
+    same_extended_valid = post_horizon_peak_same > in_trade_peak_same
+    same_shorter_valid = in_trade_peak_same >= post_horizon_peak_same
+
+    # Extended best is just the post-horizon peak — used as a reporting
+    # field regardless of validity (the gate decides candidacy below).
+    same_ext_best = post_horizon_peak_same
 
     # Overall same best
     same_best_bar = int(np.argmax(same_pnls))
@@ -136,23 +192,54 @@ def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> D
     # At exit: flip at the exit bar
     counter_at_exit = float(counter_pnls[held]) if held < len(counter_pnls) else 0.0
 
-    # Extended: flip at entry and hold
-    counter_ext_best_bar = int(np.argmax(counter_pnls))
-    counter_ext_best = float(np.max(counter_pnls))
+    # In-trade peak (counter direction): max flipped-position gain during
+    # [entry, exit). This is what a counter-direction entry at bar 0 would
+    # have captured WITHIN the original trade's time window.
+    in_trade_peak_counter = float(np.max(counter_pnls[:max(held, 1)])) if len(counter_pnls) > 0 else 0.0
+    in_trade_peak_counter_bar = int(np.argmax(counter_pnls[:max(held, 1)])) if len(counter_pnls) > 0 else 0
+
+    # Extended: counter PnL past the actual exit bar
+    counter_ext_pnls = counter_pnls[held:] if held < len(counter_pnls) else np.array([0.0])
+    counter_ext_best_bar_local = int(np.argmax(counter_ext_pnls))
+    counter_ext_best_bar = held + counter_ext_best_bar_local
+    post_horizon_peak_counter = float(np.max(counter_ext_pnls))
+
+    # Symmetric peak-validity gates (counter direction):
+    counter_extended_valid = post_horizon_peak_counter > in_trade_peak_counter
+    counter_in_trade_valid = in_trade_peak_counter >= post_horizon_peak_counter
+
+    counter_ext_best = post_horizon_peak_counter
 
     # Overall counter best
     counter_best_bar = int(np.argmax(counter_pnls))
     counter_best = float(counter_pnls[counter_best_bar])
 
     # === BEST ACTION ===
+    # Baseline options: always candidates.
+    #   SAME_AT_EXIT / COUNTER_AT_EXIT = what happened / what flipping at
+    #   exit would have yielded.
+    #   COUNTER_EARLY = entry-timing regret for the counter direction (max
+    #   counter PnL in bars 1-3, not a peak-validity target).
     options = {
-        'same_early': same_early_best,
         'same_at_exit': same_at_exit,
-        'same_extended': same_ext_best,
-        'counter_early': counter_early_best,
         'counter_at_exit': counter_at_exit,
-        'counter_extended': counter_ext_best,
+        'counter_early': counter_early_best,
     }
+    # Peak-validity gated (symmetric):
+    #   SAME_EARLY is a "close at in-trade peak / shorter trade" signal.
+    #   It competes only if the in-trade peak dominates the post-horizon.
+    if same_shorter_valid:
+        options['same_early'] = same_early_best
+    if same_extended_valid:
+        options['same_extended'] = post_horizon_peak_same
+    #   COUNTER_IN_TRADE = flip at entry, close at in-trade counter peak.
+    #   New option mirroring SAME_EARLY for the flipped direction. Gated
+    #   on counter_in_trade_valid. Also requires a non-trivial in-trade
+    #   counter peak (> 0) to be a meaningful candidate.
+    if counter_in_trade_valid and in_trade_peak_counter > 0:
+        options['counter_in_trade'] = in_trade_peak_counter
+    if counter_extended_valid:
+        options['counter_extended'] = post_horizon_peak_counter
 
     best_action = max(options, key=options.get)
     best_pnl = options[best_action]
@@ -172,6 +259,21 @@ def compute_regret(trade: Dict, all_closes: np.ndarray, entry_bar_idx: int) -> D
         'same_ext_bar': same_ext_best_bar,
         'same_best': same_best,
         'same_best_bar': same_best_bar,
+
+        # Symmetric peak-validity gates (2026-04-17):
+        # Where does the global best live, inside the trade window or
+        # outside it? At most one of (*_shorter_valid, *_extended_valid)
+        # is strictly true; ties go to SHORTER / IN_TRADE.
+        'in_trade_peak_same': in_trade_peak_same,
+        'in_trade_peak_same_bar': in_trade_peak_same_bar,
+        'post_horizon_peak_same': post_horizon_peak_same,
+        'same_shorter_valid': bool(same_shorter_valid),
+        'same_extended_valid': bool(same_extended_valid),
+        'in_trade_peak_counter': in_trade_peak_counter,
+        'in_trade_peak_counter_bar': in_trade_peak_counter_bar,
+        'post_horizon_peak_counter': post_horizon_peak_counter,
+        'counter_in_trade_valid': bool(counter_in_trade_valid),
+        'counter_extended_valid': bool(counter_extended_valid),
 
         # Counter direction
         'counter_early_best': counter_early_best,
@@ -205,10 +307,18 @@ def _empty_regret(actual_pnl):
         'actual_pnl': actual_pnl, 'actual_held': 0, 'direction': '',
         'same_early_best': 0, 'same_early_bar': 0, 'same_at_exit': actual_pnl,
         'same_ext_best': 0, 'same_ext_bar': 0, 'same_best': actual_pnl, 'same_best_bar': 0,
+        'in_trade_peak_same': 0.0, 'in_trade_peak_same_bar': 0,
+        'post_horizon_peak_same': 0.0,
+        'same_shorter_valid': False, 'same_extended_valid': False,
+        'in_trade_peak_counter': 0.0, 'in_trade_peak_counter_bar': 0,
+        'post_horizon_peak_counter': 0.0,
+        'counter_in_trade_valid': False, 'counter_extended_valid': False,
         'counter_early_best': 0, 'counter_early_bar': 0, 'counter_at_exit': 0,
         'counter_ext_best': 0, 'counter_ext_bar': 0, 'counter_best': 0, 'counter_best_bar': 0,
         'best_action': 'same_at_exit', 'best_pnl': actual_pnl, 'regret': 0,
-        'same_curve': [], 'counter_curve': [],
+        'early_entry_gain': 0.0, 'best_early_bars_before': 0,
+        'best_early_same_peak': 0.0, 'best_early_counter_peak': 0.0,
+        'same_curve': [], 'counter_curve': [], 'early_entries': [],
     }
 
 
@@ -313,21 +423,35 @@ def summarize_regret_by_branch(regret_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows).sort_values('total_regret', ascending=False)
 
 
-def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List[Dict]:
+def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m',
+                   bar_period_sec: int = DEFAULT_BAR_PERIOD_SEC) -> List[Dict]:
     """Produce corrected trades from regret analysis.
 
-    For each NMP trade, computes the optimal action and produces a new trade
-    record with the CORRECT direction, exit bar, and real PnL from prices.
+    For each trade, computes the gated best_action from compute_regret()
+    and produces a new trade record with:
+      * the direction matching best_action (same or counter-flipped)
+      * the exit bar matching the SPECIFIC peak the best_action refers to
+        (not the overall argmax — that would ignore peak-validity gates)
+      * the real PnL from actual prices at that bar
 
-    The corrected trades are what SHOULD have happened — ground truth for
-    training the tree on natural patterns instead of error predictions.
+    Per-action exit-bar map:
+      same_early        -> in_trade_peak_same_bar      (peak inside trade)
+      same_at_exit      -> actual held                 (no change)
+      same_extended     -> same_ext_bar                (peak post-horizon)
+      counter_early     -> counter_early_bar           (bar 0-3, flip early)
+      counter_at_exit   -> actual held                 (flip at exit)
+      counter_in_trade  -> in_trade_peak_counter_bar   (flip, close at in-trade
+                                                        counter peak)
+      counter_extended  -> counter_ext_bar             (flip, peak post-horizon)
 
-    Returns list of corrected trade dicts (same format as NMP trades).
+    The corrected trades are the ORACLE ground truth — what should have
+    happened. They feed any future learning layer (CNN direction flip,
+    exit timing, entry filter).
     """
     import os
     from tqdm import tqdm
 
-    # Group trades by day
+    # Group trades by day for efficient price-data loading
     by_day = {}
     for i, t in enumerate(trades):
         day = t.get('day', '')
@@ -353,10 +477,11 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
             entry_bar = min(entry_bar, n - 1)
             entry_price = closes[entry_bar]
 
-            # Compute regret for this trade
-            r = compute_regret(t, closes, entry_bar)
+            # Compute gated regret for this trade
+            r = compute_regret(t, closes, entry_bar, bar_period_sec=bar_period_sec)
             best_action = r['best_action']
             best_pnl = r['best_pnl']
+            held = int(t.get('held', 0))
 
             # Determine corrected direction
             original_dir = t['dir']
@@ -373,8 +498,6 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
             corrected_entry_price = entry_price
 
             if early_bars > 0 and approach and early_bars <= len(approach):
-                # Approach buffer is newest-last: approach[-1] = bar before entry
-                # approach[-early_bars] = the earlier entry point
                 earlier_state = approach[-early_bars]
                 if 'features' in earlier_state:
                     corrected_entry_79d = earlier_state['features']
@@ -383,13 +506,21 @@ def correct_trades(trades: List[Dict], price_dir: str = 'DATA/ATLAS/1m') -> List
                 corrected_entry_price = earlier_state.get('price', entry_price)
                 corrected_entry_bar = max(0, entry_bar - early_bars)
 
-            # Exit bar is absolute — regret computed from original entry
-            # Early entry extends segment backward, exit stays where regret said
-            if 'same' in best_action:
-                corrected_exit_bar = entry_bar + r['same_best_bar']
-            else:
-                corrected_exit_bar = entry_bar + r['counter_best_bar']
-            corrected_exit_bar = min(corrected_exit_bar, n - 1)
+            # ── Per-action exit-bar mapping (respects peak-validity gates) ─
+            # Bar offsets are from entry_bar; some are < held (intra-trade),
+            # some are >= held (post-horizon). The mapping uses the SPECIFIC
+            # peak bar the gated best_action points at.
+            action_to_offset = {
+                'same_early':       r.get('in_trade_peak_same_bar', 0),
+                'same_at_exit':     held,
+                'same_extended':    r.get('same_ext_bar', held),
+                'counter_early':    r.get('counter_early_bar', 0),
+                'counter_at_exit':  held,
+                'counter_in_trade': r.get('in_trade_peak_counter_bar', 0),
+                'counter_extended': r.get('counter_ext_bar', held),
+            }
+            offset = action_to_offset.get(best_action, held)
+            corrected_exit_bar = min(entry_bar + int(offset), n - 1)
 
             # Real PnL from actual prices at corrected entry/exit
             exit_price = closes[corrected_exit_bar]

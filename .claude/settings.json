@@ -5,7 +5,17 @@
       "Bash(git reset --hard origin/main)",
       "Bash(test -f core/keep_awake.py)",
       "Bash(git restore:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(rm -rf DATA/ATLAS_LIVE/5s/_chunks/*.parquet)",
+      "Bash(rm -rf DATA/FEATURES_LIVE_5s/*.parquet)",
+      "Bash(ls DATA/ATLAS_LIVE/5s/_chunks/)",
+      "Bash(ls DATA/FEATURES_LIVE_5s/)",
+      "Read(//c/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/**)",
+      "Bash(ls -la DATA/FEATURES_LIVE_5s/)",
+      "Bash(ls -la DATA/ATLAS_LIVE/5s/_chunks/)",
+      "Bash(ls -la DATA/ATLAS_NT8/5s/MNQ_06-26/2026_04_16.csv)",
+      "Bash(wc -l DATA/ATLAS_NT8/5s/MNQ_06-26/2026_04_16.csv)",
+      "Read(//c/Users/reyse/OneDrive/Desktop/Bayesian-AI/**)"
     ],
     "additionalDirectories": [
       "c:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\training\\output\\tree",

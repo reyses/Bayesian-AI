@@ -29,7 +29,7 @@ from training.nightmare_blended import (
     H1_AGAINST_Z_MIN, H1_Z_MIN, WICK_5M_MIN, WICK_15M_MIN,
     FREIGHT_TRAIN_THRESHOLD, FREIGHT_TRAIN_VR_MAX,
     MTF_Z_MIN, MTF_VR_MIN, MTF_VOL_MIN, MTF_5M_VEL_MIN, MTF_1M_VEL_ALIVE,
-    _N_CORE,
+    _N_CORE, ROCHE, VR_ENTRY,
 )
 from core.ledger import Ledger
 from core import sim_executor
@@ -37,7 +37,8 @@ from core import sim_executor
 FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 ALL_TIERS = ['FADE_CALM', 'RIDE_AGAINST', 'KILL_SHOT', 'CASCADE',
-             'FADE_AGAINST', 'MTF_BREAKOUT', 'MTF_EXHAUSTION', 'FREIGHT_TRAIN']
+             'FADE_AGAINST', 'MTF_BREAKOUT', 'MTF_EXHAUSTION', 'FREIGHT_TRAIN',
+             'BASE_NMP', 'BASE_NMP_V2']
 
 
 def tier_classifier(tier):
@@ -114,6 +115,38 @@ def tier_classifier(tier):
                                (breakout_dir == 'short' and dmi < 5))
                 if dmi_aligned:
                     return breakout_dir, 'MTF_BREAKOUT', True
+            return None, None, False
+
+        if tier == 'BASE_NMP':
+            # Vanilla NMP (FADE MODE ONLY): the original single-mode gate.
+            # Kept for A/B comparison against BASE_NMP_V2 (two-mode).
+            if abs(z) > ROCHE and vr < VR_ENTRY:
+                return direction, 'BASE_NMP', False
+            return None, None, False
+
+        if tier == 'BASE_NMP_V2':
+            # Vanilla NMP per docs/archive/legacy/nightmare_protocol.pdf §7.
+            # Two modes sharing the Roche-limit trigger |z| > ROCHE:
+            #
+            #   Stable regime  (λ<0, proxy: vr < VR_ENTRY)
+            #     -> FADE the edge. direction = counter-z.
+            #   Chaotic regime (λ>0, proxy: vr >= VR_ENTRY)
+            #     -> RIDE the edge. direction = with-z.
+            #
+            # Both branches require |z| > ROCHE so we only act at the band
+            # edge. VR splits the direction, not the gate.
+            if abs(z) > ROCHE:
+                if vr < VR_ENTRY:
+                    # Stable -> fade
+                    fade_dir = 'short' if z > 0 else 'long'
+                    return fade_dir, 'BASE_NMP_V2', False
+                else:
+                    # Chaotic -> ride the breakout
+                    ride_dir = 'long' if z > 0 else 'short'
+                    # cnn_flipped=True signals the caller this is the ride
+                    # direction (opposite of the default fade) so the exit
+                    # physics pick the RIDE branch instead of FADE.
+                    return ride_dir, 'BASE_NMP_V2', True
             return None, None, False
 
         if tier == 'FADE_CALM':

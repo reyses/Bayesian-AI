@@ -31,7 +31,7 @@ from training.sfe_ticker import FeatureTicker
 from training.nightmare_blended import BlendedEngine
 from core.features import FEATURE_NAMES
 
-FEATURES_DIR = 'DATA/FEATURES_79D_5s'
+FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s'   # moved inside ATLAS/ after lookahead fix
 ATLAS_1M = 'DATA/ATLAS/1m'
 OUTPUT_DIR = 'reports/findings'
 
