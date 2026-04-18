@@ -69,8 +69,24 @@ TF_EXIT_MIN_PEAK_PNL   = 10.0
 # Framed as physics, not safety: "the fade doesn't happen → thesis dead."
 TF_EXIT_MAX_HOLD_MIN   = 60
 
-# RIDE_AGAINST — 1h velocity opposes fade direction
-RA_H1_VEL_MIN        = 3.0
+# RIDE_AGAINST — 1h velocity opposes fade direction (sweep optimum = 2.0)
+RA_H1_VEL_MIN        = 2.0
+# Entry filter: require 5m_bar_range above threshold. EDA on 6,112 trades
+# (2026-04-18) showed peak-reachers have 5m_bar_range median 67 vs 49 for
+# non-reachers (Cohen d = +0.33 at 5m, +0.32 at 15m, similar across TFs).
+# Physics: the 1h-velocity-reversal thesis needs volatile market to play
+# out; quiet market = 1h_vel signal is spurious.
+RA_ENTRY_MIN_5M_BAR_RANGE = 55.0
+
+# Phantom entry config. When conditions fire we WAIT for price to move
+# PHANTOM_CONFIRM_TICKS in our direction within PHANTOM_MAX_WAIT_MIN before
+# committing capital. Trades off entry-price (worse) for fizzle protection
+# (cut entries that would've never printed). Per-tier dict; tiers not in
+# the dict enter immediately as before.
+#   Key = tier name; Value = (confirm_ticks, max_wait_minutes)
+PHANTOM_ENTRY = {
+    'RIDE_AGAINST': (4, 2),   # 4-tick ($2) confirm within 2 min (optimal per sweep)
+}
 
 # RIDE_AGAINST peak-arrival exit (same physics as TREND_FOLLOWER — price
 # returns to regression mean). Derived from Q3 EDA on 1,916 peak-bearing
@@ -118,6 +134,34 @@ KS_EXIT_MIN_PEAK_PNL   = 10.0
 # 30-60m: 57% WR -$8/tr. 60+m: losers. Cut at 30m — aligns with
 # "quick-wins-above-70%" principle.
 KS_EXIT_MAX_HOLD_MIN   = 30
+
+# NMP_FADE peak-arrival exit. Default catch-all fade tier; direction is
+# mostly right (52.7% peak>$20, lowest selectivity across tiers). Q3 EDA
+# on 7,118 peak-bearing trades (2026-04-18) gives universal template:
+#   1m_p_at_center:     entry 0.07 -> peak 0.37  (d/sigma = +9.93, dominant)
+#   1m_reversion_prob:  entry 0.71 -> peak 0.88  (d/sigma = +0.81)
+#   1m_variance_ratio:  entry <1.0 (by entry gate), stays ~same at peak
+#                       (weak signal for this tier, no-op as exit check).
+# Q2 hold-time cliff at 15 min (same as RIDE_AGAINST): 5-15m bucket is
+# 76% WR at +$22.79/tr; past 15m is break-even or losing.
+NF_EXIT_P_CENTER_MIN   = 0.35
+NF_EXIT_REVERSION_MIN  = 0.80
+NF_EXIT_VR_MAX         = 1.0    # no-op (always true for NMP_FADE entries)
+NF_EXIT_MIN_PEAK_PNL   = 10.0
+NF_EXIT_MAX_HOLD_MIN   = 15
+
+# MTF_BREAKOUT peak-arrival exit. Trend tier (rides multi-TF z-aligned
+# breakouts) but the peak signature is UNIVERSAL — p_center spikes when
+# price is about to revert, even in trends. Q3 on 807 peak-bearing trades:
+#   1m_p_at_center:    entry 0.07 -> peak 0.48 (d/sigma = +12.83, dominant)
+#   1m_reversion_prob: entry 0.67 -> peak 0.93 (d/sigma = +1.05)
+# NO timeout: Q2 shows 0-60m losers, 120m+ winners. Trends need time.
+# The inverse-signal exit is too slow (mean 109m, peak $98 -> give $110
+# -> close -$12). Peak rule should fire mid-pullback, capturing peak $98.
+MB_EXIT_P_CENTER_MIN   = 0.35
+MB_EXIT_REVERSION_MIN  = 0.80
+MB_EXIT_VR_MAX         = 1.0
+MB_EXIT_MIN_PEAK_PNL   = 10.0
 
 # FADE_AGAINST — 1h z extreme against fade + 5m quiet
 FA_H1_Z_MIN          = 1.5
@@ -181,6 +225,7 @@ _1M_P_CENTER_IDX  = _core(TF_1M, _P_CENTER)  # 21
 _5M_Z_IDX         = _core(TF_5M, _Z)         # 24
 _5M_VEL_IDX       = _core(TF_5M, _VELOCITY)  # 27
 _5M_ACCEL_IDX     = _core(TF_5M, _ACCEL)     # 28
+_5M_BAR_RANGE_IDX = _core(TF_5M, 6)          # 30 (core[6] = bar_range)
 _15M_Z_IDX        = _core(TF_15M, _Z)        # 36
 _1H_Z_IDX         = _core(TF_1H, _Z)         # 48
 _1H_VEL_IDX       = _core(TF_1H, _VELOCITY)  # 51
@@ -217,33 +262,44 @@ TIER_MAP = {
 
 
 class IsoEngine:
-    """Pure physics engine: 9-tier priority cascade, inverse-signal exits."""
+    """Pure physics engine: 9-tier priority cascade, inverse-signal exits.
+
+    Supports chain positions: up to `max_chains` concurrent positions per
+    tier engine. Each position is independent — own entry price, own peak
+    tracking, own exit rule check. A new chain opens when the tier's entry
+    condition fires again while already in a position AND the direction
+    matches existing positions AND we're under the cap. Inverse-signal
+    direction (opposite of existing) doesn't chain — it naturally triggers
+    exit logic on the open positions.
+    """
 
     # 5s slope window (bars). 12 bars = last 60 seconds.
     # EDA (2026-04-18) showed d=-0.31 separator for TREND_FOLLOWER winners vs
     # tail losers at this window. Kept as a general tool available to any tier.
     SLOPE_WINDOW_BARS = 12
 
-    def __init__(self, only_tier: str = None):
+    def __init__(self, only_tier: str = None, max_chains: int = 4):
         self.only_tier = only_tier
         if only_tier is not None and only_tier not in TIER_MAP:
             raise ValueError(f'only_tier must be in {list(TIER_MAP)} or None')
+        self.max_chains = max(1, int(max_chains))
 
-        self.in_pos = False
-        self.direction = None
-        self.entry_price = 0.0
-        self.entry_79d = None
-        self.entry_tier = None
-        self.entry_ts = 0.0
-        self.bars_held = 0
-        self.peak_pnl = 0.0
-        self._trade_path = []
+        # Chain-aware state: list of open position dicts. Each has
+        # direction, entry_price, entry_ts, entry_tier, entry_79d,
+        # entry_abs_z, entry_approach, bars_held, peak_pnl, trade_path.
+        self._positions = []
+
+        # Phantom entry pending slot (at most one pending at a time).
+        # None when no pending. Dict when waiting for confirmation:
+        #   {tier, direction, signal_price, signal_ts, signal_z, entry_feat,
+        #    confirm_ticks, max_wait_min}
+        self._pending = None
+
         self._approach_buffer = []
         self.trades = []
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._last_price = 0.0
-        self._entry_abs_z = 0.0
 
         # ── Slope infrastructure ──────────────────────────────────────
         # 5s close buffer for OLS-β (velocity of regression mean) computation.
@@ -253,6 +309,23 @@ class IsoEngine:
         self._sec_ts = None         # np.int64 array of 5s bar timestamps
         self._sec_close = None      # np.float64 array of aligned closes
         self._sec_cursor = 0        # monotonic search cursor (resets per day)
+
+    # ── Backward-compat properties (legacy callers may still read these) ──
+    @property
+    def in_pos(self):
+        return bool(self._positions)
+
+    @property
+    def direction(self):
+        return self._positions[0]['direction'] if self._positions else None
+
+    @property
+    def entry_tier(self):
+        return self._positions[0]['entry_tier'] if self._positions else None
+
+    @property
+    def n_positions(self):
+        return len(self._positions)
 
     def set_sec_closes(self, sec_df):
         """Load the day's 5s OHLCV for slope (β) computation.
@@ -326,8 +399,8 @@ class IsoEngine:
         z = feat[_1M_Z_IDX]
         vr = feat[_1M_VR_IDX]
 
-        # Approach buffer when flat (kept for downstream regret/analysis)
-        if not self.in_pos:
+        # Approach buffer when no open positions (for entry context).
+        if not self._positions:
             self._approach_buffer.append({
                 'timestamp': ts, 'price': price,
                 'features': feat.copy(),
@@ -335,34 +408,76 @@ class IsoEngine:
             if len(self._approach_buffer) > 10:
                 self._approach_buffer = self._approach_buffer[-10:]
 
-        # ── IN-TRADE UPDATE + EXIT ──────────────────────────────────────
-        if self.in_pos:
-            self.bars_held = int((ts - self.entry_ts) // 60)
-
-            if self.direction == 'long':
-                pnl = (price - self.entry_price) / TICK * TV
+        # ── IN-TRADE UPDATE + EXIT for each open position ───────────────
+        closed_indices = []
+        for i, pos in enumerate(self._positions):
+            pos['bars_held'] = int((ts - pos['entry_ts']) // 60)
+            if pos['direction'] == 'long':
+                pnl = (price - pos['entry_price']) / TICK * TV
             else:
-                pnl = (self.entry_price - price) / TICK * TV
-            self.peak_pnl = max(self.peak_pnl, pnl)
-
-            self._trade_path.append({
-                'bar': self.bars_held, 'timestamp': ts, 'price': price,
-                'pnl': pnl, 'peak_pnl': self.peak_pnl,
+                pnl = (pos['entry_price'] - price) / TICK * TV
+            pos['peak_pnl'] = max(pos['peak_pnl'], pnl)
+            pos['trade_path'].append({
+                'bar': pos['bars_held'], 'timestamp': ts, 'price': price,
+                'pnl': pnl, 'peak_pnl': pos['peak_pnl'],
                 'features': feat.copy(),
             })
-
-            # Tier-specific exit — 1m boundaries only
             if is_1m:
-                exit_reason = self._check_exit(feat, z, vr)
+                exit_reason = self._check_exit(pos, feat, z, vr)
                 if exit_reason:
-                    self._close_trade(price, ts, time_str, exit_reason, feat)
-                    return
+                    self._close_position(pos, price, ts, time_str, exit_reason, feat)
+                    closed_indices.append(i)
+        # Remove closed positions (reverse order preserves indices).
+        for i in reversed(closed_indices):
+            self._positions.pop(i)
 
-        # ── ENTRY (1m boundaries, |z|>ROCHE) ────────────────────────────
-        if not self.in_pos and is_1m and price > 100 and abs(z) > ROCHE:
+        # ── PHANTOM PENDING: confirm or expire ──────────────────────────
+        # Each tick after a signal fires, check if price has moved enough
+        # in our direction to confirm. Runs on every bar (not just 1m)
+        # so confirmation can fire fast once price starts to move.
+        if self._pending is not None and len(self._positions) < self.max_chains:
+            p = self._pending
+            if p['direction'] == 'long':
+                ticks_moved = (price - p['signal_price']) / TICK
+            else:
+                ticks_moved = (p['signal_price'] - price) / TICK
+            if ticks_moved >= p['confirm_ticks']:
+                # Confirmed! Enter at CURRENT price (not signal price).
+                self._open_trade(p['direction'], price, ts, time_str,
+                                 p['entry_feat'], p['tier'], p['signal_z'])
+                self._pending = None
+            elif (ts - p['signal_ts']) >= p['max_wait_min'] * 60:
+                self._pending = None   # expired without confirmation
+
+        # ── ENTRY / CHAIN (1m boundaries, |z|>ROCHE, under cap) ─────────
+        if (is_1m and price > 100 and abs(z) > ROCHE
+                and len(self._positions) < self.max_chains
+                and self._pending is None):
             tier, direction = self._classify(feat, z, vr)
             if tier is not None:
-                self._open_trade(direction, price, ts, time_str, feat, tier, z)
+                # Chain only if direction matches existing. Opposing
+                # direction = inverse signal (already handled by exits).
+                if (not self._positions
+                        or direction == self._positions[0]['direction']):
+                    phantom_cfg = PHANTOM_ENTRY.get(tier)
+                    if phantom_cfg is None:
+                        # Immediate entry (legacy behavior for tiers
+                        # without phantom config).
+                        self._open_trade(direction, price, ts, time_str,
+                                         feat, tier, z)
+                    else:
+                        # Start phantom pending — watch for confirmation.
+                        confirm_ticks, max_wait_min = phantom_cfg
+                        self._pending = {
+                            'tier': tier,
+                            'direction': direction,
+                            'signal_price': price,
+                            'signal_ts': ts,
+                            'signal_z': z,
+                            'entry_feat': feat.copy(),
+                            'confirm_ticks': confirm_ticks,
+                            'max_wait_min': max_wait_min,
+                        }
 
     # ══════════════════════════════════════════════════════════════════
     # Per-tier fire functions — return direction or None
@@ -422,18 +537,21 @@ class IsoEngine:
 
     @staticmethod
     def _ride_against_fires(feat, z):
+        """RIDE_AGAINST (FLIPPED direction — fade z despite h1_vel opposition).
+
+        Setup: z at band edge + 1h velocity opposing the fade direction.
+        Phantom entry (4-tick confirm) filters fizzles. All other entry
+        filters (bar_range, h1_against_fade) removed — they were over-
+        restrictive; phantom does the work now.
+        """
         h1_vel = feat[_1H_VEL_IDX]
-        h1_z = feat[_1H_Z_IDX]
         fade_dir = 'short' if z > 0 else 'long'
         h1_vel_against = ((fade_dir == 'long' and h1_vel < -RA_H1_VEL_MIN)
                           or (fade_dir == 'short' and h1_vel > RA_H1_VEL_MIN))
         if not h1_vel_against:
             return None
-        h1_against_fade = ((fade_dir == 'long' and h1_z > FA_H1_Z_MIN)
-                           or (fade_dir == 'short' and h1_z < -FA_H1_Z_MIN))
-        if h1_against_fade:
-            return None
-        return 'long' if h1_vel > 0 else 'short'
+        # FLIPPED: return fade direction (opposite of h1_vel).
+        return fade_dir
 
     @staticmethod
     def _fade_against_fires(feat, z):
@@ -528,36 +646,28 @@ class IsoEngine:
                 return tier_name, direction
         return None, None
 
-    def _check_exit(self, feat, z, vr):
-        """Tier-specific exit logic.
+    def _check_exit(self, pos, feat, z, vr):
+        """Tier-specific exit logic for a single position (chain-aware).
 
-        TREND_FOLLOWER: peak-arrival rule (rule of three) with amplitude gate.
-          Exit when price has returned to the regression mean. Three
-          symmetric confirmations required, matching the entry thesis
-          inversely:
-            1. 1m_p_at_center > 0.35   (position: at center)
-            2. 1m_reversion_prob > 0.80 (probability: OU reversion done)
-            3. 1m_variance_ratio < 1.0  (regime: chaotic -> stable)
-          PLUS amplitude gate: peak_pnl >= $10. The peak rule can't fire
-          if a real peak never formed — those trades fall through to the
-          inverse-signal exit instead.
+        pos is a position dict with keys: direction, entry_tier, bars_held,
+        peak_pnl, etc. Each open position is evaluated independently.
 
-        All tiers: inverse-signal exit as fallback. If the entry tier's
-        own condition fires in the opposite direction, the setup has
-        reversed — exit.
+        TREND_FOLLOWER / RIDE_AGAINST / KILL_SHOT share the same peak-arrival
+        rule (3-feature template from Q3 EDA) with per-tier amplitude gate
+        and timeout thresholds. All other tiers fall through to inverse-signal.
         """
-        if self.entry_tier is None:
+        entry_tier = pos['entry_tier']
+        bars_held = pos['bars_held']
+        peak_pnl = pos['peak_pnl']
+        direction = pos['direction']
+        if entry_tier is None:
             return None
 
         # TREND_FOLLOWER exits
-        if self.entry_tier == 'TREND_FOLLOWER':
-            # Max-hold timeout — fade thesis has ~60 min timescale. Past
-            # that the entire edge is gone (data: 60-120m bucket at
-            # -$32/tr, 300+m at -$309/tr).
-            if self.bars_held >= TF_EXIT_MAX_HOLD_MIN:
+        if entry_tier == 'TREND_FOLLOWER':
+            if bars_held >= TF_EXIT_MAX_HOLD_MIN:
                 return 'trend_follower_timeout'
-            # Peak-arrival rule (amplitude-gated)
-            if self.peak_pnl >= TF_EXIT_MIN_PEAK_PNL:
+            if peak_pnl >= TF_EXIT_MIN_PEAK_PNL:
                 p_center = feat[_1M_P_CENTER_IDX]
                 reversion = feat[_1M_REVERSION_IDX]
                 m1_vr = feat[_1M_VR_IDX]
@@ -566,16 +676,16 @@ class IsoEngine:
                         and m1_vr < TF_EXIT_VR_MAX):
                     return 'trend_follower_peak'
 
-        # RIDE_AGAINST exits — same peak-arrival physics (price to center)
-        # plus 15m timeout (natural timescale per hold-bucket analysis).
-        if self.entry_tier == 'RIDE_AGAINST':
-            # Max-hold timeout (15m — 4x tighter than TREND_FOLLOWER because
-            # the 1h-vel-reversal thesis plays out fast or not at all).
-            if self.bars_held >= RA_EXIT_MAX_HOLD_MIN:
+        # RIDE_AGAINST exits (flipped direction — fade)
+        # Thesis-dead removed: old check fired on h1_vel sign flip which
+        # was DIRECTIONALLY RIGHT for riding but directionally BACKWARD
+        # for fading. With flipped direction, h1_vel decay is the signal
+        # reversion is winning (favorable). Peak rule + timeout + inverse
+        # handle exits.
+        if entry_tier == 'RIDE_AGAINST':
+            if bars_held >= RA_EXIT_MAX_HOLD_MIN:
                 return 'ride_against_timeout'
-            # Peak-arrival rule (amplitude-gated — mean winner peak is $213,
-            # so >=$10 is a safe floor that keeps winners).
-            if self.peak_pnl >= RA_EXIT_MIN_PEAK_PNL:
+            if peak_pnl >= RA_EXIT_MIN_PEAK_PNL:
                 p_center = feat[_1M_P_CENTER_IDX]
                 reversion = feat[_1M_REVERSION_IDX]
                 m1_vr = feat[_1M_VR_IDX]
@@ -584,16 +694,11 @@ class IsoEngine:
                         and m1_vr < RA_EXIT_VR_MAX):
                     return 'ride_against_peak'
 
-        # KILL_SHOT exits — peak-arrival physics + amplitude gate + 30m timeout.
-        # With peak rule on (Round 1), hold distribution collapsed from bimodal
-        # to monotonic decay past 30m. The prior "300+m wins" bucket was an
-        # artifact of trades that eventually reverted with no peak rule to
-        # capture them. Now peak rule catches those. Remaining past-30m trades
-        # are losers. 30m = user's quick-wins-above-70%-WR cutoff.
-        if self.entry_tier == 'KILL_SHOT':
-            if self.bars_held >= KS_EXIT_MAX_HOLD_MIN:
+        # KILL_SHOT exits
+        if entry_tier == 'KILL_SHOT':
+            if bars_held >= KS_EXIT_MAX_HOLD_MIN:
                 return 'kill_shot_timeout'
-            if self.peak_pnl >= KS_EXIT_MIN_PEAK_PNL:
+            if peak_pnl >= KS_EXIT_MIN_PEAK_PNL:
                 p_center = feat[_1M_P_CENTER_IDX]
                 reversion = feat[_1M_REVERSION_IDX]
                 m1_vr = feat[_1M_VR_IDX]
@@ -602,10 +707,29 @@ class IsoEngine:
                         and m1_vr < KS_EXIT_VR_MAX):
                     return 'kill_shot_peak'
 
+        # MTF_BREAKOUT — NO tier-specific exit rule (same conclusion as NMP_FADE).
+        # Peak rule captured +$19.9K on 845 winners at 90% WR, but the 254
+        # never-worked trades ran to inverse at mean peak $2.7, mean give $85,
+        # costing -$21K. Net: -$2,204 WORSE than inverse-only baseline.
+        # Trend tier with noisy entries: winners need time, losers need to
+        # fall through to inverse without a rule interfering.
+
+        # NMP_FADE — NO tier-specific exit rule. Peak rule HURT this tier:
+        # it captured winners at mean peak $23 (early), but winners' natural
+        # peak is $69, so we were shortening winners more than saving losers.
+        # As the least-selective catch-all tier (52.7% peak>$20, smallest
+        # winner peaks across all tiers), NMP_FADE does best with just the
+        # inverse-signal fallback — let winners run to their natural inverse.
+        # Measured journey (chains=1):
+        #   inverse-only:              +$40.13/day (BEST)
+        #   + peak rule + 15m timeout: +$32.71/day
+        #   + peak rule (no timeout):  +$31.46/day
+        # Constants retained (NF_EXIT_*) for possible future use or A/B.
+
         # Inverse-signal (universal fallback)
-        direction_fired = self._tier_fires(self.entry_tier, feat, z, vr)
-        if direction_fired is not None and direction_fired != self.direction:
-            return f'{self.entry_tier.lower()}_inverse'
+        direction_fired = self._tier_fires(entry_tier, feat, z, vr)
+        if direction_fired is not None and direction_fired != direction:
+            return f'{entry_tier.lower()}_inverse'
         return None
 
     # ══════════════════════════════════════════════════════════════════
@@ -613,74 +737,73 @@ class IsoEngine:
     # ══════════════════════════════════════════════════════════════════
 
     def _open_trade(self, direction, price, ts, time_str, feat, tier, z):
-        self.in_pos = True
-        self.direction = direction
-        self.entry_price = price
-        self.entry_79d = feat.copy()
-        self.entry_tier = tier
-        self.entry_ts = ts
-        self.bars_held = 0
-        self.peak_pnl = 0.0
-        self._trade_path = []
-        self._entry_approach = list(self._approach_buffer)
-        self._entry_abs_z = abs(z)
+        """Open a new position (primary or chain). Chains allowed up to
+        self.max_chains total concurrent positions."""
+        pos = {
+            'direction': direction,
+            'entry_price': price,
+            'entry_ts': ts,
+            'entry_tier': tier,
+            'entry_79d': feat.copy(),
+            'entry_abs_z': abs(z),
+            'entry_approach': list(self._approach_buffer),
+            'bars_held': 0,
+            'peak_pnl': 0.0,
+            'trade_path': [{
+                'bar': 0, 'timestamp': ts, 'price': price,
+                'pnl': 0.0, 'peak_pnl': 0.0,
+                'features': feat.copy(),
+            }],
+            'chain_idx': len(self._positions),   # 0 = primary, 1+ = chain
+        }
+        self._positions.append(pos)
 
-        self._trade_path.append({
-            'bar': 0, 'timestamp': ts, 'price': price,
-            'pnl': 0.0, 'peak_pnl': 0.0,
-            'features': feat.copy(),
-        })
-
-    def _close_trade(self, price, ts, time_str, exit_reason, feat):
-        if not self.in_pos:
-            return
-        if self.direction == 'long':
-            pnl = (price - self.entry_price) / TICK * TV
+    def _close_position(self, pos, price, ts, time_str, exit_reason, feat):
+        """Close a specific position (by reference). Caller removes it
+        from self._positions (see on_state loop)."""
+        if pos['direction'] == 'long':
+            pnl = (price - pos['entry_price']) / TICK * TV
         else:
-            pnl = (self.entry_price - price) / TICK * TV
+            pnl = (pos['entry_price'] - price) / TICK * TV
         self.daily_pnl += pnl
 
+        entry_79d = pos['entry_79d']
         self.trades.append({
             'trade_id': len(self.trades),
             'time': time_str,
-            'timestamp': self._trade_path[0]['timestamp'] if self._trade_path else ts,
-            'dir': self.direction,
-            'entry_price': self.entry_price,
+            'timestamp': pos['trade_path'][0]['timestamp'] if pos['trade_path'] else ts,
+            'dir': pos['direction'],
+            'entry_price': pos['entry_price'],
             'exit_price': price,
             'pnl': pnl,
-            'held': self.bars_held,
-            'peak': self.peak_pnl,
-            'entry_tier': self.entry_tier,
+            'held': pos['bars_held'],
+            'peak': pos['peak_pnl'],
+            'entry_tier': pos['entry_tier'],
             'exit_reason': exit_reason,
-            'entry_79d': self.entry_79d.tolist() if hasattr(self.entry_79d, 'tolist') else list(self.entry_79d),
+            'chain_idx': pos.get('chain_idx', 0),
+            'entry_79d': entry_79d.tolist() if hasattr(entry_79d, 'tolist') else list(entry_79d),
             'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
-            'approach': self._entry_approach,
-            'path': self._trade_path,
+            'approach': pos['entry_approach'],
+            'path': pos['trade_path'],
         })
-        self.in_pos = False
-        self.direction = None
-        self.entry_tier = None
 
     def force_close(self, reason='end_of_day'):
-        if self.in_pos:
-            ts = self._trade_path[-1]['timestamp'] if self._trade_path else 0
-            feat = self._trade_path[-1]['features'] if self._trade_path else self.entry_79d
+        """Close all open positions at the last-known price."""
+        while self._positions:
+            pos = self._positions[0]
+            ts = pos['trade_path'][-1]['timestamp'] if pos['trade_path'] else 0
+            feat = pos['trade_path'][-1]['features'] if pos['trade_path'] else pos['entry_79d']
             if feat is None:
                 feat = np.zeros(91)
             time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M') if ts > 0 else '??:??'
-            self._close_trade(self._last_price, ts, time_str, reason, feat)
+            self._close_position(pos, self._last_price, ts, time_str, reason, feat)
+            self._positions.pop(0)
 
     def reset(self):
-        self.in_pos = False
-        self.direction = None
-        self.entry_price = 0.0
-        self.bars_held = 0
-        self.peak_pnl = 0.0
-        self.daily_pnl = 0.0
-        self._trade_path = []
+        self._positions = []
+        self._pending = None
         self._approach_buffer = []
-        self.entry_tier = None
-        self.entry_ts = 0.0
+        self.daily_pnl = 0.0
         # Invalidate 5s slope buffer — caller must call set_sec_closes() per day.
         # If they forget, _slope_1m returns 0.0 (safe fallback, not stale data).
         self._sec_ts = None

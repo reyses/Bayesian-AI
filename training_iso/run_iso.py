@@ -54,14 +54,19 @@ def _print_summary(results):
     print(f'{"="*60}')
 
 
-def run_iso_forward(target='is', only_tiers=None):
+def run_iso_forward(target='is', only_tiers=None, max_chains=4):
     """Run isolated forward pass — each tier gets its OWN engine, no interference.
 
     By default all 9 tiers run in parallel on the same bar stream. Pass
     only_tiers=['TREND_FOLLOWER'] (etc) to restrict to a subset — useful
     for fast single-tier iteration.
 
-    Output trades carry `entry_tier` so per-tier metrics roll up cleanly.
+    `max_chains` controls how many concurrent positions each tier engine can
+    hold. Default 4 = primary + up to 3 chains. Pass 1 to disable chaining
+    (single position per tier, legacy behavior).
+
+    Output trades carry `entry_tier` and `chain_idx` so per-tier metrics
+    roll up cleanly (chain_idx=0 is primary, 1+ are chain positions).
     """
     from training_iso.nightmare_iso import IsoEngine, TIER_PRIORITY
     from training.sfe_ticker import FeatureTicker
@@ -74,7 +79,8 @@ def run_iso_forward(target='is', only_tiers=None):
         return [], []
 
     active_tiers = only_tiers if only_tiers else TIER_PRIORITY
-    print(f'ISO FORWARD — {len(feat_files)} day(s), tiers: {active_tiers}')
+    print(f'ISO FORWARD — {len(feat_files)} day(s), tiers: {active_tiers}, '
+          f'max_chains={max_chains}')
     all_results = []
     all_trades = []
 
@@ -87,7 +93,8 @@ def run_iso_forward(target='is', only_tiers=None):
         sec_file = os.path.join(ATLAS_5S, f'{day_name}.parquet')
         sec_df = pd.read_parquet(sec_file) if os.path.exists(sec_file) else None
 
-        engines = {t: IsoEngine(only_tier=t) for t in active_tiers}
+        engines = {t: IsoEngine(only_tier=t, max_chains=max_chains)
+                   for t in active_tiers}
         for eng in engines.values():
             eng.set_sec_closes(sec_df)
         ft = FeatureTicker(fpath, price_file=price_file)
@@ -212,7 +219,6 @@ def main():
     only_tiers = None
     if '--tier' in args:
         idx = args.index('--tier')
-        # Consume all following positional args until next flag
         tier_args = []
         for a in args[idx + 1:]:
             if a.startswith('--'):
@@ -225,10 +231,24 @@ def main():
                 raise SystemExit(f'unknown tier {t!r}; valid: {TIER_PRIORITY}')
         only_tiers = tier_args
 
+    # --chains N sets max concurrent positions per tier (default 4)
+    max_chains = 4
+    if '--chains' in args:
+        idx = args.index('--chains')
+        if idx + 1 >= len(args) or args[idx + 1].startswith('--'):
+            raise SystemExit('--chains requires an integer')
+        try:
+            max_chains = int(args[idx + 1])
+        except ValueError:
+            raise SystemExit(f'--chains value must be an integer, got {args[idx+1]!r}')
+        if max_chains < 1:
+            raise SystemExit('--chains must be >= 1')
+
     print(f'{"="*60}')
     print(f'ISOLATED PIPELINE V2 — complete NMP, no tiers, no CNN')
     if only_tiers:
         print(f'  Restricted to tiers: {only_tiers}')
+    print(f'  Max chains per tier: {max_chains}')
     print(f'  Regret window: 10 min before entry / 30 min after exit'
           + ('  [SKIPPED]' if no_regret else ''))
     print(f'  Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
@@ -241,11 +261,39 @@ def main():
     print(f'PHASE 1: NMP two-mode forward pass')
     print(f'{"="*40}')
     t0 = _time.perf_counter()
-    results, trades = run_iso_forward('is', only_tiers=only_tiers)
+    results, trades = run_iso_forward('is', only_tiers=only_tiers,
+                                      max_chains=max_chains)
     if trades:
         os.makedirs(os.path.join(OUTPUT_DIR, 'trades'), exist_ok=True)
+        # With chains enabled we can hit 30k+ trades; keeping per-bar 91D
+        # feature vectors in the path list blows out RAM during pickle dump.
+        # For large runs, strip `features` from path/approach bars — keep
+        # bar/ts/price/pnl/peak_pnl (small scalars). Top-level `entry_79d`
+        # and `exit_79d` remain for Q-analysis at segment level.
+        #
+        # Small runs (e.g. --tier X --chains 1) keep features so Q3
+        # peak-signature re-analysis continues to work.
+        STRIP_THRESHOLD = 12000  # ~180MB at 8k trades with features; bumped so
+                                 # single-tier runs keep features for Q3 EDA.
+                                 # Full chains=4 runs (33k trades) still strip.
+        needs_strip = len(trades) > STRIP_THRESHOLD
+        if needs_strip:
+            def _strip_feat(bar):
+                return {k: v for k, v in bar.items() if k != 'features'}
+            slim = []
+            for t in trades:
+                t2 = dict(t)
+                if 'path' in t2 and t2['path']:
+                    t2['path'] = [_strip_feat(b) for b in t2['path']]
+                if 'approach' in t2 and t2['approach']:
+                    t2['approach'] = [_strip_feat(b) for b in t2['approach']]
+                slim.append(t2)
+            payload = slim
+            print(f'  Large run ({len(trades):,} trades) — stripped path features to fit RAM')
+        else:
+            payload = trades
         with open(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.pkl'), 'wb') as f:
-            pickle.dump(trades, f)
+            pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
         flat = [{k: v for k, v in t.items() if not isinstance(v, (list, dict, np.ndarray))}
                 for t in trades]
         pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.csv'), index=False)

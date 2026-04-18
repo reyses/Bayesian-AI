@@ -13,7 +13,8 @@
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
 
 ## Workflow Preference
-- **TIER-BUILDING METHODOLOGY**: See `memory/feedback_tier_three_questions.md` — three simple questions replace CART/ML brute force when building or rebuilding a tier. Q1: are entries right? (peak-bucket). Q2: what persistent signal says we're wrong? (bar-N path). Q3: what do all peaks have in common? (entry→peak feature delta normalized by σ). Used successfully on TREND_FOLLOWER 2026-04-18.
+- **TIER-BUILDING PLAYBOOK**: See `memory/tier_building_playbook.md` — consolidated 11-section methodology. Covers: data integrity checklist, three-question method (Q1 peak-bucket / Q2 hold cliff / Q3 peak signature), phantom entry + relaxation principle, direction-flip test, chain positions, 5 advanced EDA questions (peak-reacher, higher-TF state, resonance cascade, chop, gravity well), exit physics (trail, MAE, 5m alignment, thesis-validity), and anti-patterns. Supersedes `feedback_tier_three_questions.md`.
+- **TIER-BUILDING METHOD SUMMARY** (read playbook for detail): three simple questions replace CART/ML brute force. Q1: are entries right? (peak-bucket). Q2: what persistent signal says we're wrong? (bar-N path → natural timescale → timeout). Q3: what do all peaks have in common? (entry→peak feature delta normalized by σ → universal 3-feature rule: p_center > 0.35 AND reversion_prob > 0.80 AND vr < 1.0, plus $10 amplitude gate).
 - **RCA PROCESS MANDATORY**: See `memory/feedback_rca_process.md` — follow the 9-step RCA for ALL system improvements. No shortcuts. No theoretical improvements without data.
 - **1s TICKER IS THE ONLY HONEST TEST**: Batch SFE showed +$777, honest ticker showed +$48. Use `nightmare_ticker.py` for all testing. Always zero lookahead.
 - **ANALYZE BY DAY, NOT MONTH**: See `memory/feedback_daily_hourly_review.md` — each day must stand on its own. Mode > mean.
