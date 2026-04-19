@@ -154,7 +154,87 @@ def run_iso_forward(target='is', only_tiers=None, max_chains=4):
             per = total / len(sub)
             print(f'{tier:<17} {count:>6,} {wr:>4.0f}% ${total:>+9,.0f} ${per:>+8.2f}')
 
+        # Per-tier PnL MODE bucket breakdown — surfaces where each tier's
+        # trades land on the $/trade spectrum. Mode in REAL_WIN/STRONG_WIN
+        # = healthy; mode in MED_LOSS/BIG_LOSS = tier needs a fix.
+        _print_tier_mode_buckets(all_trades, active_tiers)
+
     return all_results, all_trades
+
+
+# PnL bucket boundaries (mirror tick-buckets on dollars, signed).
+# 10 buckets: 5 loss tiers + 5 win tiers.
+_PNL_BUCKETS = [
+    ('BIG_LOSS',      float('-inf'),  -50.0),
+    ('MED_LOSS',      -50.0,          -25.0),
+    ('REAL_LOSS',     -25.0,          -10.0),
+    ('MARG_LOSS',     -10.0,           -5.0),
+    ('NOISE_LOSS',     -5.0,            0.0),
+    ('NOISE_WIN',       0.0,            5.0),
+    ('MARG_WIN',        5.0,           10.0),
+    ('REAL_WIN',       10.0,           25.0),
+    ('STRONG_WIN',     25.0,           50.0),
+    ('BIG_WIN',        50.0, float('inf')),
+]
+
+
+def _bucket_of(pnl):
+    for name, lo, hi in _PNL_BUCKETS:
+        if lo <= pnl < hi:
+            return name
+    return 'BIG_WIN' if pnl >= 50 else 'BIG_LOSS'
+
+
+def _print_tier_mode_buckets(trades, active_tiers):
+    """Per-tier PnL bucket distribution + mode. Highlights where each tier
+    bleeds (mode in loss buckets) vs thrives (mode in win buckets)."""
+    from collections import Counter
+    print()
+    print(f'{"="*100}')
+    print(f'PnL MODE BUCKETS per tier (which bucket is most populated)')
+    print(f'{"="*100}')
+    print(f'  Buckets: BIG_LOSS<-$50 · MED_LOSS<-$25 · REAL_LOSS<-$10 · '
+          f'MARG_LOSS<-$5 · NOISE_LOSS<$0')
+    print(f'           NOISE_WIN<$5 · MARG_WIN<$10 · REAL_WIN<$25 · '
+          f'STRONG_WIN<$50 · BIG_WIN>=$50')
+    print()
+    # Compact header (bucket abbreviations)
+    abbrevs = ['BL', 'ML', 'RL', 'mL', 'nL', 'nW', 'mW', 'RW', 'SW', 'BW']
+    header = (f'  {"Tier":<18} {"MODE":<12} '
+              + ' '.join(f'{a:>4}' for a in abbrevs))
+    print(header)
+    print('  ' + '-' * (len(header) - 2))
+
+    for tier in active_tiers:
+        sub = [t for t in trades if t.get('entry_tier') == tier]
+        if not sub:
+            continue
+        counts = Counter(_bucket_of(t.get('pnl', 0.0)) for t in sub)
+        mode_name = counts.most_common(1)[0][0]
+        mode_n = counts[mode_name]
+        mode_pct = mode_n / len(sub) * 100
+        cells = []
+        for name, _, _ in _PNL_BUCKETS:
+            n = counts.get(name, 0)
+            pct = n / len(sub) * 100 if n else 0
+            cells.append(f'{pct:>3.0f}%' if n else '   -')
+        mode_str = f'{mode_name}({mode_pct:.0f}%)'
+        print(f'  {tier:<18} {mode_str:<12} ' + ' '.join(cells))
+
+    # Overall
+    counts = Counter(_bucket_of(t.get('pnl', 0.0)) for t in trades)
+    mode_name = counts.most_common(1)[0][0]
+    mode_n = counts[mode_name]
+    mode_pct = mode_n / len(trades) * 100
+    cells = []
+    for name, _, _ in _PNL_BUCKETS:
+        n = counts.get(name, 0)
+        pct = n / len(trades) * 100 if n else 0
+        cells.append(f'{pct:>3.0f}%' if n else '   -')
+    print('  ' + '-' * (len(header) - 2))
+    mode_str = f'{mode_name}({mode_pct:.0f}%)'
+    print(f'  {"ALL":<18} {mode_str:<12} ' + ' '.join(cells))
+    print()
 
 
 def run_regret(pkl_name: str = 'iso_is.pkl'):

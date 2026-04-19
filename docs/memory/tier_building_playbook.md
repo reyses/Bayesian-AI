@@ -474,7 +474,19 @@ This is preferred over hand-picked thresholds because it's adaptive to
 the tier's specific distribution — some tiers have wider W/L gaps at
 bar 5, others at bar 15.
 
-### 9bis-f. Loser peak signatures (next lever, not yet implemented)
+### 9bis-f. POST-PHYSICS: MAE stop (risk management, deferred)
+
+2026-04-19 `big_loss_physics.py` finding: BIG_LOSS trades (pnl < −$50)
+cost the engine ~$356K IS (−$128/trade over 2,219 trades). Every single
+one crosses −$40 MAE by median bar 9. Only 14% of winners ever dip to
+−$40. A universal −$40 MAE stop estimated to net **+$166K / +$600/day**.
+
+**NOT part of physics work.** Physics = peak signatures, cliff cuts,
+cluster-based exits (all derived from FEATURE state). MAE stop is
+capital-protection risk management — flat $-threshold, no physics
+insight. Deferred to a separate live-risk-mgmt pass.
+
+### 9bis-g. Loser peak signatures (next lever, not yet implemented)
 
 ~25% of losers reach MARGINAL or higher bucket before reversing
 ("round-trippers"). Clustering their peak-state features could surface
