@@ -204,6 +204,19 @@ KSC_CLUSTER_SHORT_Z_HIGH   = -0.36
 KSC_CLUSTER_LONG_Z_LOW     = 0.04
 KSC_CLUSTER_LONG_Z_SE      = 0.54
 KSC_CLUSTER_LONG_Z_HIGH    = 0.97
+
+# KILL_SHOT_CALM BIG_LOSS entry filter (2026-04-19 EDA).
+# BIG_LOSS trades enter in wide-range 1h regimes with h1 trending AGAINST
+# the CALM reversal thesis. Cohen d:
+#   1h_bar_range  d=+0.65 (BL=329 vs Other=195) — wide hourly range
+#   5m_bar_range  d=+0.63 (BL=86 vs Other=45) — wide 5m range
+#   1h_dmi_diff   d=-0.55 (BL=-8.4 vs Other=+1.1) — 1h trend down (against fade-short setups)
+# Filter: reject entry when ALL three match the BL centroid direction.
+# Using AND reduces false-positives (Other trades with just one high value
+# are kept). Thresholds = midpoints of BL/Other means.
+KSC_BL_1H_RANGE_MAX    = 262.0
+KSC_BL_5M_RANGE_MAX    = 65.0
+KSC_BL_1H_DMI_MIN      = -4.0
 KSI_DOMINANT_1H_RANGE_MAX  = 367.5
 KSI_DOMINANT_1H_VOLREL_MAX = 1.03
 KSI_DOMINANT_1H_PCENTER_MIN = 0.615
@@ -321,6 +334,7 @@ _15M_Z_IDX        = _core(TF_15M, _Z)        # 36
 _15M_VOL_REL_IDX  = _core(TF_15M, _VOL_REL)  # 41 (for regime gate)
 _15M_BAR_RANGE_IDX = _core(TF_15M, 6)        # 42 (slot 6 = bar_range)
 _1H_Z_IDX         = _core(TF_1H, _Z)         # 48
+_1H_DMI_DIFF_IDX  = _core(TF_1H, _DMI)       # 49 (for KSC BIG_LOSS filter)
 _1H_VEL_IDX       = _core(TF_1H, _VELOCITY)  # 51
 _1M_WICK_IDX      = _help(TF_1M, HELPER_WICK)    # 77
 _5M_WICK_IDX      = _help(TF_5M, HELPER_WICK)    # 80
@@ -681,6 +695,11 @@ class IsoEngine:
         Regime gate: 15m_bar_range <= 93 OR 15m_vol_rel <= 0.9 (market is
         quiet). In calm markets, wicks tend to reject — go WITH fade
         direction (KILL_SHOT's original reversal thesis).
+
+        BIG_LOSS filter (2026-04-19): reject entry when 1h regime is wide
+        AND trending against the fade direction. Physics: a 15m calm
+        moment inside a 1h-wide session means the wick is likely a
+        pullback in a larger trend — continuation more likely than reversal.
         """
         normal = cls._kill_shot_fires(feat, z)
         if normal is None:
@@ -688,6 +707,14 @@ class IsoEngine:
         if (feat[_15M_BAR_RANGE_IDX] > KS_REGIME_RANGE_MIN
                 and feat[_15M_VOL_REL_IDX] > KS_REGIME_VOLREL_MIN):
             return None   # active regime — let ACTIVE tier handle it
+
+        # BIG_LOSS filter — single strongest signal.
+        # 1h_bar_range > 300 targets only the extreme wide-range 1h regimes
+        # (BL mean 329, Other mean 195, d=+0.65). Stricter than midpoint
+        # to reduce false-positives on winning trades.
+        if feat[_1H_BAR_RANGE_IDX] > 300.0:
+            return None   # wide-1h regime — too dangerous for reversal thesis
+
         # CALM → fade direction (reversal bet, original KILL_SHOT).
         return normal
 
