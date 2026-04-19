@@ -198,6 +198,23 @@ NMP_CLUSTER_LONG_DMI15S   = 17.0
 NMP_CLUSTER_LONG_DMI1M    = 11.0
 NMP_CLUSTER_LONG_Z1M      = 1.26
 
+# RIDE_AGAINST STRONG-bucket cluster signatures (2026-04-19 GMM on 721
+# winners). Two strongest mirror clusters selected (other 2 are weaker).
+# |Δ/σ| 0.67-1.04 on top features. Pattern differs from NMP/INVERSE —
+# RIDE_AGAINST peaks on MULTI-TF agreement (5m/1m trend + z_se extension).
+# Current state: 4.2% peak capture, 1,575 timeouts bleeding $54K of regret.
+RA_CLUSTER_PEAK_GATE       = 10.0   # REAL+ amp gate
+# REAL-bucket Cluster 2 (N=289, short-side): pure multi-TF bear extension.
+# Stronger |Δ/σ| than STRONG Cluster 1 (1.06 vs 0.87) and larger sample.
+RA_CLUSTER_SHORT_Z15M      = -1.35   # 15m_z_se
+RA_CLUSTER_SHORT_DMI5M     = -14.89  # 5m_dmi_diff
+RA_CLUSTER_SHORT_DMI1M     = -12.44  # 1m_dmi_diff
+# STRONG-bucket Cluster 3 (N=224, long-side): 15s upper-band extension.
+# No clean long mirror in REAL bucket — keeping STRONG Cluster 3.
+RA_CLUSTER_LONG_Z15S       = 0.96
+RA_CLUSTER_LONG_DIRVOL1M   = 0.94
+RA_CLUSTER_LONG_Z5M_LOW    = -0.26
+
 # NMP_FADE BIG_LOSS entry filter (2026-04-19 EDA).
 # BL N=1,296 (58% of all engine BIG_LOSS). Strongest separators:
 #   5m_bar_range  d=+0.52 (BL=115 vs Other=73)
@@ -365,6 +382,9 @@ _5M_Z_IDX         = _core(TF_5M, _Z)         # 24
 _5M_VEL_IDX       = _core(TF_5M, _VELOCITY)  # 27
 _5M_ACCEL_IDX     = _core(TF_5M, _ACCEL)     # 28
 _5M_BAR_RANGE_IDX = _core(TF_5M, 6)          # 30 (core[6] = bar_range)
+_5M_DMI_IDX       = _core(TF_5M, _DMI)       # 25 (for RA cluster exits)
+_5M_Z_LOW_IDX     = _core(TF_5M, 11)         # 35 (for RA cluster exits)
+_1M_DIR_VOL_IDX   = _help(TF_1M, HELPER_DIRVOL)  # 76 (for RA cluster exits)
 _15M_Z_IDX        = _core(TF_15M, _Z)        # 36
 _15M_VOL_REL_IDX  = _core(TF_15M, _VOL_REL)  # 41 (for regime gate)
 _15M_BAR_RANGE_IDX = _core(TF_15M, 6)        # 42 (slot 6 = bar_range)
@@ -971,6 +991,13 @@ class IsoEngine:
                     and z_1m > NMP_CLUSTER_LONG_Z1M):
                 return 'nmp_cluster_long_extension'
 
+        # RIDE_AGAINST cluster signatures TESTED and REVERTED 2026-04-19.
+        # Cluster rules at $10 amp gate captured 358 trades but net effect
+        # was -$288. Reason: 37% of RIDE_AGAINST trades are timeouts with
+        # peak $6.87 avg — below the $10 amp gate, so cluster rules can't
+        # reach them. The timeout cohort needs a milestone/cut approach,
+        # not a peak-signature approach.
+
         # MTF_BREAKOUT DOMINANT-bucket cluster signatures (2026-04-19).
         # Trend-extension peak: strong DMI + extended z_se. Mirror clusters
         # on long (+) and short (-) sides. 273-trade cluster population.
@@ -1030,6 +1057,13 @@ class IsoEngine:
         # reversion is winning (favorable). Peak rule + timeout + inverse
         # handle exits.
         if entry_tier == 'RIDE_AGAINST':
+            # Milestone cut TESTED and REVERTED 2026-04-19:
+            # Bar 10 + peak < $4.50 (Youden's J=0.40, W keep 67%) dropped
+            # RIDE from +$2,944 to +$1,024. Cut too many developing winners.
+            # Cluster rules also tested + reverted: timeouts peak at $6.87,
+            # below $10 amp gate so cluster rules couldn't reach them.
+            # RIDE's current shape (65% WR, +$0.70/trade) is apparently
+            # near-ceiling for the playbook tools on this tier.
             if bars_held >= RA_EXIT_MAX_HOLD_MIN:
                 return 'ride_against_timeout'
             if peak_pnl >= RA_EXIT_MIN_PEAK_PNL:
