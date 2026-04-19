@@ -182,6 +182,31 @@ MTF_CLUSTER_SHORT_DMI1M    = -16.62
 MTF_CLUSTER_SHORT_DMI15S   = -14.82
 MTF_CLUSTER_SHORT_Z5M      = -1.14
 
+# NMP_FADE DOMINANT-bucket cluster signatures (2026-04-19 GMM on 2,153
+# winners). Two mirror clusters — short-side and long-side directional
+# extension. |Δ/σ| = 0.71-0.94 on top features. Huge samples (N=672+907).
+# Fade thesis: we peak when price has MOVED FAR in our favor = band
+# extension. Same physics pattern as INVERSE/MTF_BREAKOUT (they all
+# capture extension peaks) with NMP-specific thresholds.
+# Currently 95.7% of NMP_FADE peaks are NOT captured — tier only uses
+# inverse-signal fallback exit. Expected lift: very large.
+NMP_CLUSTER_PEAK_GATE     = 10.0   # REAL+ amp gate
+NMP_CLUSTER_SHORT_DMI15S  = -20.0
+NMP_CLUSTER_SHORT_Z1M     = -1.58
+NMP_CLUSTER_SHORT_DMI1M   = -13.0
+NMP_CLUSTER_LONG_DMI15S   = 17.0
+NMP_CLUSTER_LONG_DMI1M    = 11.0
+NMP_CLUSTER_LONG_Z1M      = 1.26
+
+# NMP_FADE BIG_LOSS entry filter (2026-04-19 EDA).
+# BL N=1,296 (58% of all engine BIG_LOSS). Strongest separators:
+#   5m_bar_range  d=+0.52 (BL=115 vs Other=73)
+#   15m_bar_range d=+0.52 (BL=213 vs Other=131)
+# Reject trades entering in extreme wide-range 5m regime. Threshold chosen
+# stricter than midpoint (94) — 130 targets only the wide tail where BL
+# density is highest, to minimize false-positive winner rejections.
+NMP_FADE_BL_5M_RANGE_MAX = 130.0
+
 # KILL_SHOT regime gate (2026-04-19): split INVERSE into two sub-tiers
 # based on market activity at entry. Cohen d at entry showed:
 #   15m_bar_range: W=107, L=81, d=+0.28
@@ -799,6 +824,12 @@ class IsoEngine:
     def _nmp_fade_fires(feat, z, vr):
         if abs(z) <= ROCHE or vr >= VR_ENTRY:
             return None
+        # NMP_FADE BL entry filter TESTED and REVERTED 2026-04-19:
+        # 5m_bar_range > 130 filter dropped NMP_FADE from +$13,942 to
+        # +$2,770. Too much overlap between BL and winning trades in the
+        # high-range zone — cutting the tail removes proportionally more
+        # winners than BLs. BL filters don't scale well with tier volume
+        # when the separator d is moderate (d=0.52) and Other N is large.
         return 'short' if z > 0 else 'long'
 
     @staticmethod
@@ -920,6 +951,25 @@ class IsoEngine:
                     and z_se_15s > KSC_CLUSTER_LONG_Z_SE
                     and z_high_15s > KSC_CLUSTER_LONG_Z_HIGH):
                 return 'ksc_cluster_long_reversal'
+
+        # NMP_FADE DOMINANT-bucket cluster signatures (2026-04-19 GMM on
+        # 2,153 winners). Mirror clusters — short/long-side fade peak
+        # (price at band extension). Robust samples (N=672 + 907) and
+        # strong |Δ/σ| (0.71-0.94).
+        if entry_tier == 'NMP_FADE' and peak_pnl >= NMP_CLUSTER_PEAK_GATE:
+            dmi_15s = feat[_15S_DMI_IDX]
+            dmi_1m  = feat[_1M_DMI_IDX]
+            z_1m    = feat[_1M_Z_IDX]
+            # Cluster 0: short-side fade peak (price dropped to lower extreme)
+            if (dmi_15s < NMP_CLUSTER_SHORT_DMI15S
+                    and z_1m < NMP_CLUSTER_SHORT_Z1M
+                    and dmi_1m < NMP_CLUSTER_SHORT_DMI1M):
+                return 'nmp_cluster_short_extension'
+            # Cluster 1: long-side fade peak (price rose to upper extreme)
+            if (dmi_15s > NMP_CLUSTER_LONG_DMI15S
+                    and dmi_1m > NMP_CLUSTER_LONG_DMI1M
+                    and z_1m > NMP_CLUSTER_LONG_Z1M):
+                return 'nmp_cluster_long_extension'
 
         # MTF_BREAKOUT DOMINANT-bucket cluster signatures (2026-04-19).
         # Trend-extension peak: strong DMI + extended z_se. Mirror clusters
