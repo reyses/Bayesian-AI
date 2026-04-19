@@ -158,6 +158,33 @@ KSI_CLUSTER_SHORT_DMI15S = -10.5
 KSI_CLUSTER_SHORT_Z5M    = -0.91
 KSI_CLUSTER_SHORT_DMI1M  = -9.25
 
+# KILL_SHOT_INVERSE DOMINANT-bucket signature (GMM cluster on 42 winners
+# with peak >= 80 ticks, 2026-04-19). Direction-agnostic: peaks happen
+# during HIGHER-TF CALM regime — 1h bar range compressed, vol_rel low,
+# price near center. Physics: extended move followed by 1h regime
+# settling = peak is in.
+# Amplitude gate set to $40 (STRONG+ boundary = 80 ticks) so we only
+# check this in bucket-appropriate territory.
+KSI_DOMINANT_PEAK_GATE     = 80.0  # tightened 2026-04-19 to $80 (160 ticks,
+                                   # solid DOMINANT territory).
+
+# MTF_BREAKOUT DOMINANT-bucket cluster signatures (2026-04-19 GMM on 273 winners
+# w/ peak >= 80 ticks). Two mirrored clusters — long-side and short-side trend
+# extension. |Δ/σ| = 0.68-0.94 on top features (strongest signature so far).
+# Physics: trend has sustained force → exit at extension peak.
+# Amp gate at $10 (20 ticks = REAL bucket boundary) since signature itself
+# provides selectivity; firing earlier on mid-trade peaks is fine.
+MTF_CLUSTER_PEAK_GATE      = 10.0
+MTF_CLUSTER_LONG_DMI1M     = 14.16
+MTF_CLUSTER_LONG_DMI15S    = 16.17
+MTF_CLUSTER_LONG_Z5M       = 0.928
+MTF_CLUSTER_SHORT_DMI1M    = -16.62
+MTF_CLUSTER_SHORT_DMI15S   = -14.82
+MTF_CLUSTER_SHORT_Z5M      = -1.14
+KSI_DOMINANT_1H_RANGE_MAX  = 367.5
+KSI_DOMINANT_1H_VOLREL_MAX = 1.03
+KSI_DOMINANT_1H_PCENTER_MIN = 0.615
+
 # KILL_SHOT no-progress cut (Q2 cliff, 2026-04-19 EDA).
 # Winner p90 time-to-$5 = 12 bars. If trade hasn't shown $5 of peak progress
 # by bar 15, thesis is dead — cut before the 30-bar timeout takes full damage.
@@ -248,6 +275,10 @@ HELPER_DIRVOL = 1   # helper slot 1 = dir_vol
 
 # Pre-computed indices
 _15S_DMI_IDX      = _core(TF_15S, _DMI)      # 1  (for KSI cluster exits)
+# 1h features for DOMINANT-bucket cluster signature (higher-TF calm).
+_1H_BAR_RANGE_IDX = _core(TF_1H, 6)          # 54 (slot 6 = bar_range)
+_1H_VOL_REL_IDX   = _core(TF_1H, _VOL_REL)   # 53
+_1H_P_CENTER_IDX  = _core(TF_1H, _P_CENTER)  # 57
 _1M_Z_IDX         = _core(TF_1M, _Z)         # 12
 _1M_DMI_IDX       = _core(TF_1M, _DMI)       # 13
 _1M_VR_IDX        = _core(TF_1M, _VR)        # 14
@@ -273,7 +304,10 @@ _1D_DIR_VOL_IDX   = _help(TF_1D, HELPER_DIRVOL)  # 88
 TIER_PRIORITY = [
     'TREND_FOLLOWER',
     'CASCADE',
-    'KILL_SHOT',
+    # 'KILL_SHOT' dropped 2026-04-19 — the reversal-side of the wick-rejection
+    # setup was losing money (58% WR, -$1.51/trade = -$454 total). The
+    # continuation side (KILL_SHOT_INVERSE) wins on the SAME trigger at 62%
+    # WR / +$2.60/trade. Keeping only the profitable direction.
     'KILL_SHOT_INVERSE',
     'RIDE_AGAINST',
     'FADE_AGAINST',
@@ -286,7 +320,6 @@ TIER_PRIORITY = [
 TIER_MAP = {
     'TREND_FOLLOWER':    9,
     'CASCADE':           8,
-    'KILL_SHOT':         7,
     'KILL_SHOT_INVERSE': 6,
     'RIDE_AGAINST':      5,
     'FADE_AGAINST':      4,
@@ -458,6 +491,17 @@ class IsoEngine:
                 'pnl': pnl, 'peak_pnl': pos['peak_pnl'],
                 'features': feat.copy(),
             })
+            # Fast-path exits: every 5s bar (sub-minute, 15s-feature-driven
+            # cluster signatures). Runs first so we catch peak states without
+            # waiting for the 1m boundary.
+            exit_reason = self._check_fast_exits(pos, feat)
+            if exit_reason:
+                self._close_position(pos, price, ts, time_str, exit_reason, feat)
+                closed_indices.append(i)
+                continue
+            # Slow-path exits: 1m boundary (no-progress cut, peak rule,
+            # timeout, inverse-signal fallback — all use 1m features or
+            # bars_held which is 1m-granular).
             if is_1m:
                 exit_reason = self._check_exit(pos, feat, z, vr)
                 if exit_reason:
@@ -713,6 +757,70 @@ class IsoEngine:
                 return tier_name, direction
         return None, None
 
+    def _check_fast_exits(self, pos, feat):
+        """Sub-minute exit rules. Called on EVERY bar (5s cadence), not
+        just 1m boundaries.
+
+        Rules included: KILL_SHOT_INVERSE cluster signatures that depend on
+        15s-TF features (`15s_dmi_diff`). At 1m cadence we'd wait up to
+        45s after the signature appears; at 5s cadence we catch it within
+        5s of the 15s feature updating. Peak-signature capture is faster,
+        less give-back.
+
+        Rules NOT included (stay in _check_exit @ 1m): peak rule (uses
+        1m features only, which don't update within a minute), no-progress
+        cut (uses bars_held which is 1m-granular), timeout (same), inverse-
+        signal fallback (tier fire functions use 1m features).
+
+        Amplitude gate on peak_pnl ensures we don't fire on noise. The
+        gate is monotonic (peak can only grow), so once crossed the rule
+        stays eligible.
+        """
+        entry_tier = pos['entry_tier']
+        peak_pnl = pos['peak_pnl']
+        if entry_tier is None:
+            return None
+        # KILL_SHOT_INVERSE cluster-signature exits (15s feature-driven).
+        # Long-side directional extension or short-side extension.
+        if entry_tier == 'KILL_SHOT_INVERSE':
+            # REAL-bucket signature (amp >= $5): directional extension.
+            # Long- or short-side, whichever matches.
+            if peak_pnl >= KS_EXIT_CUT_PEAK_MAX:
+                dmi_15s = feat[_15S_DMI_IDX]
+                z_5m    = feat[_5M_Z_IDX]
+                dmi_1m  = feat[_1M_DMI_IDX]
+                if (dmi_15s > KSI_CLUSTER_LONG_DMI15S
+                        and z_5m > KSI_CLUSTER_LONG_Z5M
+                        and dmi_1m > KSI_CLUSTER_LONG_DMI1M):
+                    return 'ksi_cluster_long_extension'
+                if (dmi_15s < KSI_CLUSTER_SHORT_DMI15S
+                        and z_5m < KSI_CLUSTER_SHORT_Z5M
+                        and dmi_1m < KSI_CLUSTER_SHORT_DMI1M):
+                    return 'ksi_cluster_short_extension'
+            # DOMINANT-bucket signature TESTED and REVERTED 2026-04-19:
+            # 20-sample cluster (higher-TF calm) didn't generalize. At
+            # amp gates of $40/$60/$80 the rule cost $70/$7/$25 vs
+            # no-DOMINANT baseline. Signature likely overfit to cluster.
+
+        # MTF_BREAKOUT DOMINANT-bucket cluster signatures (2026-04-19).
+        # Trend-extension peak: strong DMI + extended z_se. Mirror clusters
+        # on long (+) and short (-) sides. 273-trade cluster population.
+        if entry_tier == 'MTF_BREAKOUT' and peak_pnl >= MTF_CLUSTER_PEAK_GATE:
+            dmi_15s = feat[_15S_DMI_IDX]
+            dmi_1m  = feat[_1M_DMI_IDX]
+            z_5m    = feat[_5M_Z_IDX]
+            # Cluster 0: long-side trend extension (N=158)
+            if (dmi_1m > MTF_CLUSTER_LONG_DMI1M
+                    and dmi_15s > MTF_CLUSTER_LONG_DMI15S
+                    and z_5m > MTF_CLUSTER_LONG_Z5M):
+                return 'mtf_cluster_long_extension'
+            # Cluster 1: short-side trend extension (N=115)
+            if (dmi_1m < MTF_CLUSTER_SHORT_DMI1M
+                    and dmi_15s < MTF_CLUSTER_SHORT_DMI15S
+                    and z_5m < MTF_CLUSTER_SHORT_Z5M):
+                return 'mtf_cluster_short_extension'
+        return None
+
     def _check_exit(self, pos, feat, z, vr):
         """Tier-specific exit logic for a single position (chain-aware).
 
@@ -722,6 +830,9 @@ class IsoEngine:
         TREND_FOLLOWER / RIDE_AGAINST / KILL_SHOT share the same peak-arrival
         rule (3-feature template from Q3 EDA) with per-tier amplitude gate
         and timeout thresholds. All other tiers fall through to inverse-signal.
+
+        NOTE: cluster-signature rules (INVERSE's 15s-feature-driven exits) now
+        live in _check_fast_exits, called every 5s bar instead of every 1m.
         """
         entry_tier = pos['entry_tier']
         bars_held = pos['bars_held']
@@ -772,27 +883,8 @@ class IsoEngine:
             if bars_held >= KS_EXIT_CUT_BAR and peak_pnl < KS_EXIT_CUT_PEAK_MAX:
                 return 'kill_shot_no_progress'
 
-            # ── KILL_SHOT_INVERSE cluster-signature exits ────────────────
-            # REAL-bucket clustering (2026-04-19) surfaced two peak
-            # signatures: long-extension and short-extension. Fire when
-            # market reaches the signature's centroid state. Only applies
-            # to INVERSE — normal KILL_SHOT's 301-trade sample didn't
-            # produce clean clusters.
-            if entry_tier == 'KILL_SHOT_INVERSE' and peak_pnl >= KS_EXIT_CUT_PEAK_MAX:
-                dmi_15s = feat[_15S_DMI_IDX]
-                z_5m    = feat[_5M_Z_IDX]
-                dmi_1m  = feat[_1M_DMI_IDX]
-                # Cluster 0: long-side directional extension
-                if (dmi_15s > KSI_CLUSTER_LONG_DMI15S
-                        and z_5m > KSI_CLUSTER_LONG_Z5M
-                        and dmi_1m > KSI_CLUSTER_LONG_DMI1M):
-                    return 'ksi_cluster_long_extension'
-                # Cluster 1: short-side directional extension
-                if (dmi_15s < KSI_CLUSTER_SHORT_DMI15S
-                        and z_5m < KSI_CLUSTER_SHORT_Z5M
-                        and dmi_1m < KSI_CLUSTER_SHORT_DMI1M):
-                    return 'ksi_cluster_short_extension'
-
+            # NOTE: KILL_SHOT_INVERSE cluster exits moved to
+            # _check_fast_exits (runs every 5s bar, not 1m).
             if bars_held >= KS_EXIT_MAX_HOLD_MIN:
                 return 'kill_shot_timeout'
             if peak_pnl >= KS_EXIT_MIN_PEAK_PNL:
