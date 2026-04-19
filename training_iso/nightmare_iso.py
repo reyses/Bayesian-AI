@@ -217,6 +217,16 @@ KSC_CLUSTER_LONG_Z_HIGH    = 0.97
 KSC_BL_1H_RANGE_MAX    = 262.0
 KSC_BL_5M_RANGE_MAX    = 65.0
 KSC_BL_1H_DMI_MIN      = -4.0
+
+# KILL_SHOT_CALM milestone cuts (2026-04-19 Youden's J sweep).
+# Data-defined peak-ticks thresholds at each bar N. If peak_ticks < T
+# at bar N, trade is statistically unlikely to become a winner — cut.
+# Milestones are MORE LENIENT than the shared bar-15 cut (peak < $5 = 10
+# ticks) where the data supports it, and introduce EARLIER cuts.
+KSC_MILESTONES = [
+    (7,  4.0),   # J=0.54: W keep 72%, L cut 83% (peak < 8 ticks)
+    (15, 3.5),   # J=0.60: W keep 89%, L cut 71% (peak < 7 ticks)
+]
 KSI_DOMINANT_1H_RANGE_MAX  = 367.5
 KSI_DOMINANT_1H_VOLREL_MAX = 1.03
 KSI_DOMINANT_1H_PCENTER_MIN = 0.615
@@ -989,6 +999,13 @@ class IsoEngine:
         # in _check_fast_exits (handled separately above).
         if entry_tier in ('KILL_SHOT', 'KILL_SHOT_INVERSE',
                           'KILL_SHOT_ACTIVE', 'KILL_SHOT_CALM'):
+            # KILL_SHOT_CALM milestone cuts (data-defined at each bar).
+            # Runs FIRST so earlier cuts (bar 7) fire before the shared
+            # bar-15 rule. Milestone = (bar_N, min_peak_pnl).
+            if entry_tier == 'KILL_SHOT_CALM':
+                for bar_n, min_peak in KSC_MILESTONES:
+                    if bars_held >= bar_n and peak_pnl < min_peak:
+                        return f'ksc_milestone_bar{bar_n}'
             # No-progress cut (Q2 cliff): if we haven't shown $5 of peak
             # progress by bar 15, the thesis is dead — cut before 30-bar
             # timeout takes full damage.
