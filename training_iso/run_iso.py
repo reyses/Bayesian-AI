@@ -1,15 +1,24 @@
 """
-Isolated pipeline V2 — complete NMP, no tiers, no CNN.
+Isolated pipeline V2 — 9-tier physics, no CNN.
 
-Pure physics baseline per the original Nightmare Protocol (§7):
-  * Two-mode NMP entry (NMP_FADE + NMP_RIDE) gated on |z|>ROCHE.
-  * Bounded regret analysis (10 min before entry / 30 min after exit).
-  * Peak-validity gate on EXTENDED options (post-horizon peak must
-    exceed in-trade peak to count as a "hold longer" signal).
-  * No CNN overlay. No chains. No negative exits.
+Defaults (common tier-fixing workflow):
+  * Phase 1 forward pass only, 9 tiers isolated, chains OFF (one position
+    per tier at a time), regret skipped.
+  * Each tier runs in its own IsoEngine with only_tier=T. No cross-tier
+    interference. Per-tier trades tagged with entry_tier in the output.
+
+Flags (all opt-in):
+  --regret          Run Phase 2 regret analysis (10/30-min bounded)
+  --chains N        Enable chain positions up to N per tier (N>=1, default 1)
+  --tier NAME ...   Restrict to specific tiers (e.g. --tier NMP_FADE RIDE_AGAINST)
+
+Back-compat: --no-regret is accepted as a no-op (matches current default).
 
 Usage:
-    python training_iso/run_iso.py
+    python training_iso/run_iso.py                         # default Phase-1 all-tier
+    python training_iso/run_iso.py --chains 4              # with chain multiplier
+    python training_iso/run_iso.py --tier RIDE_AGAINST     # single tier
+    python training_iso/run_iso.py --regret                # also run regret
 """
 import os
 import sys
@@ -211,9 +220,24 @@ def run_regret():
 
 
 def main():
+    """Iso pipeline — Phase 1 (forward pass) only by default.
+
+    Defaults (for the common tier-fixing workflow):
+        no regret phase, chains=1 (isolated single position per tier)
+
+    Opt-in flags:
+        --regret         : also run Phase 2 regret analysis
+        --chains N       : enable chain positions up to N per tier (1 = off)
+        --tier NAME ...  : restrict to specific tier(s)
+
+    Back-compat: --no-regret is accepted but a no-op (that is now the default).
+    """
     from training_iso.nightmare_iso import TIER_PRIORITY
     args = sys.argv[1:]
-    no_regret = '--no-regret' in args
+
+    # Default: skip regret. --regret opts IN. --no-regret is accepted as
+    # a no-op for back-compat (that's the default now).
+    run_regret_phase = '--regret' in args
 
     # --tier TIER_NAME (one or more) restricts run to those tiers only
     only_tiers = None
@@ -231,8 +255,8 @@ def main():
                 raise SystemExit(f'unknown tier {t!r}; valid: {TIER_PRIORITY}')
         only_tiers = tier_args
 
-    # --chains N sets max concurrent positions per tier (default 4)
-    max_chains = 4
+    # --chains N sets max concurrent positions per tier (default 1 = off)
+    max_chains = 1
     if '--chains' in args:
         idx = args.index('--chains')
         if idx + 1 >= len(args) or args[idx + 1].startswith('--'):
@@ -248,9 +272,10 @@ def main():
     print(f'ISOLATED PIPELINE V2 — complete NMP, no tiers, no CNN')
     if only_tiers:
         print(f'  Restricted to tiers: {only_tiers}')
-    print(f'  Max chains per tier: {max_chains}')
-    print(f'  Regret window: 10 min before entry / 30 min after exit'
-          + ('  [SKIPPED]' if no_regret else ''))
+    print(f'  Max chains per tier: {max_chains}'
+          + ('' if max_chains > 1 else '  [chaining OFF]'))
+    print(f'  Regret phase: '
+          + ('ENABLED (10/30-min window)' if run_regret_phase else 'SKIPPED [default]'))
     print(f'  Started: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     print(f'{"="*60}')
 
@@ -299,8 +324,8 @@ def main():
         pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.csv'), index=False)
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
-    # Phase 2: Regret (optional)
-    if not no_regret:
+    # Phase 2: Regret (opt-in via --regret flag; skipped by default)
+    if run_regret_phase:
         print(f'\n{"="*40}')
         print(f'PHASE 2: Bounded regret (10/30 min, peak-validity gated)')
         print(f'{"="*40}')
@@ -308,7 +333,7 @@ def main():
         run_regret()
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
     else:
-        print(f'\n(Phase 2 regret skipped — --no-regret flag)')
+        print(f'\n(Phase 2 regret skipped — default; pass --regret to enable)')
 
     # Summary
     print(f'\n{"="*40}')
