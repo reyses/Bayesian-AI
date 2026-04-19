@@ -393,6 +393,98 @@ the journal with the data that proves it. Future sessions will ask
 
 ---
 
+## 9bis. Peak-Bucket Framework (2026-04-19 discoveries)
+
+The bucket framework reframes exits around **peak-ticks promotion**
+rather than single-threshold cuts. Trades move through buckets over
+their lifetime; each bucket has its own physics and its own exit rules.
+
+### 9bis-a. Peak buckets (ticks-native, TV=$0.50)
+
+| Bucket | Ticks | Dollars | Meaning |
+|---|---:|---:|---|
+| NOISE | 0–4 | $0–2 | bar-oscillation noise |
+| FAKE | 5–9 | $2.50–4.50 | small move, no conviction |
+| MARGINAL | 10–19 | $5–9.50 | real but small |
+| REAL | 20–39 | $10–19.50 | significant directional move |
+| STRONG | 40–79 | $20–39.50 | major move, thesis worked |
+| DOMINANT | 80+ | $40+ | captured full range |
+
+Ticks are the instrument-native unit. Dollar thresholds drift with
+contract value; ticks don't.
+
+### 9bis-b. Bucket position predicts outcome (KILL_SHOT_INVERSE)
+
+Bar 10+ observation: trades in REAL+ bucket are **0% losers**. Once a
+trade promotes to REAL, it's essentially a guaranteed winner. The
+bucket IS the forecast.
+
+Corollary: trades still in NOISE/FAKE past bar 10 are bleeders with
+>90% loss probability. Cut without hesitation.
+
+### 9bis-c. Multi-exit by bucket (2026-04-19)
+
+One entry setup → multiple exit rules, one per bucket signature. Each
+bucket has its own physics:
+
+- **REAL bucket** (KILL_SHOT_INVERSE, 170 winners): dominant signature
+  = directional extension (`|15s_dmi_diff|` large + `|5m_z_se|` large +
+  `|1m_dmi_diff|` large). GMM split it by direction sign — same
+  signature on positive/negative sides.
+- **STRONG bucket** (62 winners): extreme 15s z-extension
+  (`15s_z_low > 0.38 AND 15s_z_se > 1.03 AND 15s_z_high > 1.77`). All
+  three z values high = price at upper band across the short TF.
+- **DOMINANT bucket** (42 winners, biggest $/trade): **higher-TF calm**
+  (`1h_bar_range < 367 AND 1h_vol_rel < 1.03 AND 1h_p_at_center > 0.615`).
+  Totally different physics than REAL — peaks happen when 1h regime is
+  quiet. Captures the big-move tail.
+
+Implementation pattern: sorted rules, first-match-wins in `_check_exit`.
+No-progress cut fires first (before rules), peak-signature rules next,
+timeout last.
+
+### 9bis-d. Parallel inverse-direction tier (2026-04-19)
+
+For setups where WR is just modestly above 50%, running a parallel
+tier with **flipped direction** on the SAME trigger captures the
+continuation side. Worked for KILL_SHOT: the `KILL_SHOT_INVERSE` tier
+(same trigger, opposite direction) produced 528 trades at 62% WR and
++$1,373 (vs KILL_SHOT normal at 58% WR / -$454). Both tiers share the
+same setup; they split on direction thesis.
+
+Caveat: this works when the underlying trigger has ambiguous direction
+physics (wick could reverse OR continue). For triggers with strong
+direction conviction (e.g. TREND_FOLLOWER already flipped), inverse
+doesn't add value.
+
+### 9bis-e. Data-defined milestone thresholds (2026-04-19)
+
+At each bar checkpoint N, sweep peak_ticks thresholds and pick the value
+that maximizes Youden's J (winner-retention − loser-retention). The
+argmax is the physics-defined milestone for bar N.
+
+KILL_SHOT_INVERSE milestone findings:
+- bar 2-10: T ≈ 12 ticks (moderate separators, J=0.38–0.45)
+- bar 15: T=7 ticks (J=0.63, 85% W keep / 78% L cut)
+- bar 20: T=18 ticks (J=0.67, 67% W keep / **100% L cut**)
+
+Strong rules (J ≥ 0.20) ship directly. Weak (J < 0.10) is noise.
+
+This is preferred over hand-picked thresholds because it's adaptive to
+the tier's specific distribution — some tiers have wider W/L gaps at
+bar 5, others at bar 15.
+
+### 9bis-f. Loser peak signatures (next lever, not yet implemented)
+
+~25% of losers reach MARGINAL or higher bucket before reversing
+("round-trippers"). Clustering their peak-state features could surface
+"peak-about-to-reverse" signatures → proactive break-even exits.
+
+Population size: ~70 trades total across KILL_SHOT + INVERSE. Small
+but workable. Same pipeline (PCA + GMM) as winner clustering.
+
+---
+
 ## 10. Tools Reference
 
 Living tools, updated 2026-04-18:
@@ -409,6 +501,21 @@ Living tools, updated 2026-04-18:
   (velocity of regression mean) was d=-0.31 moderate signal for
   TREND_FOLLOWER. Infra available via `IsoEngine._slope_1m(ts)` but not
   yet consumed.
+- **`tools/tier_exit_physics.py --tier NAME`** — comprehensive exit-design
+  report: cohort summary, peak timing, bar-N trajectory, fork bar,
+  give-back from peak, slope β at entry/peak/exit, cut-rule scan, entry
+  discrimination, peak signature. Writes `reports/findings/exit_physics_<TIER>.md`.
+- **`tools/peak_bucket_lifecycle.py --tier NAME`** — bar-by-bar bucket
+  heatmap (NOISE → DOMINANT) + per-bucket peak-signature clustering
+  (GMM on 91D peak-state features). Writes `peak_lifecycle_<TIER>.md`.
+  Requires features-intact pickle (single-tier run < 12K strip threshold).
+- **`tools/milestone_thresholds.py --tier NAME`** — data-defined
+  peak-ticks milestone per bar (Youden's J sweep). Writes
+  `milestone_thresholds_<TIER>.md`. Physics-derived cut gates, no
+  hand-picked thresholds.
+- **`tools/loser_cliff_eda.py --tier NAME`** — legacy focused cliff tool
+  (Q2 hold-time separator). Superseded by `milestone_thresholds.py`
+  but kept for the entry-feature Cohen d output.
 - **Ad-hoc Python** for Q2 (path pnl trajectories) and Q3 (entry→peak
   feature deltas). Pattern is consistent: load `iso_is.pkl`, filter by
   `entry_tier`, compute, print.

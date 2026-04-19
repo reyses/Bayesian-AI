@@ -1,0 +1,150 @@
+# Peak Bucket Lifecycle — KILL_SHOT_INVERSE
+
+**528 trades** (326 winners / 197 losers)
+
+## Part 1 — Bar-by-bar peak bucket heatmap
+
+At each bar N of the trade life, what % of still-open trades sit in each peak bucket? Row = cohort × bar. Cell = % of trades in that bucket at that bar.
+
+Buckets (ticks): NOISE 0-4 · FAKE 5-9 · MARGINAL 10-19 · REAL 20-39 · STRONG 40-79 · DOMINANT 80+
+
+### WINNERS
+
+| bar | n_open | NOISE | FAKE | MARGINAL | REAL | STRONG | DOMINANT |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 326 | 52% | 12% | 17% | 10% | 5% | 3% |
+| 2 | 296 | 38% | 14% | 18% | 15% | 11% | 4% |
+| 3 | 256 | 31% | 17% | 17% | 18% | 12% | 5% |
+| 5 | 153 | 33% | 16% | 23% | 14% | 7% | 6% |
+| 7 | 95 | 38% | 21% | 18% | 12% | 5% | 6% |
+| 10 | 58 | 33% | 14% | 29% | 17% | 0% | 7% |
+| 15 | 26 | 8% | 23% | 35% | 19% | 8% | 8% |
+| 20 | 6 | 17% | 0% | 33% | 33% | 0% | 17% |
+| 25 | 2 | 50% | 0% | 50% | 0% | 0% | 0% |
+| 30 | 2 | 50% | 0% | 50% | 0% | 0% | 0% |
+| 45 | 1 | 100% | 0% | 0% | 0% | 0% | 0% |
+
+### LOSERS
+
+| bar | n_open | NOISE | FAKE | MARGINAL | REAL | STRONG | DOMINANT |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 197 | 79% | 13% | 6% | 2% | 1% | 0% |
+| 2 | 189 | 75% | 13% | 8% | 3% | 1% | 0% |
+| 3 | 169 | 69% | 17% | 9% | 5% | 0% | 0% |
+| 5 | 136 | 63% | 21% | 15% | 1% | 0% | 0% |
+| 7 | 131 | 63% | 22% | 13% | 1% | 1% | 0% |
+| 10 | 117 | 67% | 23% | 9% | 1% | 0% | 0% |
+| 15 | 109 | 63% | 27% | 10% | 0% | 0% | 0% |
+| 20 | 12 | 25% | 8% | 67% | 0% | 0% | 0% |
+| 25 | 10 | 10% | 10% | 80% | 0% | 0% | 0% |
+| 30 | 8 | 12% | 12% | 75% | 0% | 0% | 0% |
+| 45 | 3 | 33% | 33% | 33% | 0% | 0% | 0% |
+
+## Part 2 — Per-bucket peak signature clustering
+
+Clusters the 91D feature vector AT the peak bar for WINNERS in each bucket. Each cluster = distinct exit signature. Top 3 distinctive features per cluster -> candidate exit rule.
+
+### Bucket: REAL
+
+- Winners in bucket: 149
+- PCA: 10 components (50% var)
+- BIC: K2=6717, K3=6849, K4=7026  ->  **K=2** selected
+
+#### Cluster 0  —  N=58
+
+| rank | feature | cluster mean | global mean | |Δ/σ| | side |
+|---:|---|---:|---:|---:|---|
+| 1 | 1m_z_low | -1.754 | -0.728 | 0.85 | LOW |
+| 2 | 1m_z_se | -0.925 | 0.078 | 0.83 | LOW |
+| 3 | 15s_dmi_diff | -12.753 | 1.083 | 0.81 | LOW |
+| 4 | 1m_dmi_diff | -10.194 | 0.019 | 0.76 | LOW |
+| 5 | 1m_z_high | -0.051 | 0.808 | 0.73 | LOW |
+
+**Candidate exit rule:**
+```
+if 1m_z_low < -1.75 AND 1m_z_se < -0.925 AND 15s_dmi_diff < -12.75:
+    return 'real_cluster_0'
+```
+
+#### Cluster 1  —  N=91
+
+| rank | feature | cluster mean | global mean | |Δ/σ| | side |
+|---:|---|---:|---:|---:|---|
+| 1 | 1m_z_low | -0.075 | -0.728 | 0.54 | HIGH |
+| 2 | 1m_z_se | 0.716 | 0.078 | 0.53 | HIGH |
+| 3 | 15s_dmi_diff | 9.902 | 1.083 | 0.52 | HIGH |
+| 4 | 1m_dmi_diff | 6.529 | 0.019 | 0.48 | HIGH |
+| 5 | 1m_z_high | 1.355 | 0.808 | 0.46 | HIGH |
+
+**Candidate exit rule:**
+```
+if 1m_z_low > -0.075 AND 1m_z_se > 0.716 AND 15s_dmi_diff > 9.90:
+    return 'real_cluster_1'
+```
+
+### Bucket: STRONG
+
+- Winners in bucket: 62
+- PCA: 10 components (62% var)
+- BIC: K2=3096, K3=3034, K4=3161  ->  **K=3** selected
+
+#### Cluster 0  —  N=39
+
+| rank | feature | cluster mean | global mean | |Δ/σ| | side |
+|---:|---|---:|---:|---:|---|
+| 1 | 1m_dir_vol | -0.965 | -0.288 | 0.39 | LOW |
+| 2 | 15m_vol_rel | 0.820 | 1.137 | 0.35 | LOW |
+| 3 | 1h_vol_rel | 0.575 | 0.814 | 0.28 | LOW |
+| 4 | 15s_z_se | -0.297 | -0.034 | 0.26 | LOW |
+| 5 | 5m_dmi_diff | -1.763 | 1.294 | 0.25 | LOW |
+
+_Signal too weak for rule (top features |Δ/σ| < 0.5)._
+
+#### Cluster 1  —  N=8 (skipped, too small)
+
+#### Cluster 2  —  N=15
+
+| rank | feature | cluster mean | global mean | |Δ/σ| | side |
+|---:|---|---:|---:|---:|---|
+| 1 | 15s_z_low | 0.375 | -0.647 | 1.05 | HIGH |
+| 2 | 15s_z_se | 1.030 | -0.034 | 1.04 | HIGH |
+| 3 | 15s_z_high | 1.766 | 0.596 | 0.98 | HIGH |
+| 4 | 1h_dir_vol | 1.256 | 0.156 | 0.94 | HIGH |
+| 5 | 15m_z_high | 1.433 | 0.638 | 0.73 | HIGH |
+
+**Candidate exit rule:**
+```
+if 15s_z_low > 0.375 AND 15s_z_se > 1.03 AND 15s_z_high > 1.77:
+    return 'strong_cluster_2'
+```
+
+### Bucket: DOMINANT
+
+- Winners in bucket: 42
+- PCA: 10 components (66% var)
+- BIC: K2=2138, K3=2127, K4=1998  ->  **K=4** selected
+
+#### Cluster 0  —  N=8 (skipped, too small)
+
+#### Cluster 1  —  N=8 (skipped, too small)
+
+#### Cluster 2  —  N=6 (skipped, too small)
+
+#### Cluster 3  —  N=20
+
+| rank | feature | cluster mean | global mean | |Δ/σ| | side |
+|---:|---|---:|---:|---:|---|
+| 1 | 1h_bar_range | 367.500 | 563.690 | 0.55 | LOW |
+| 2 | 1h_vol_rel | 1.027 | 1.559 | 0.52 | LOW |
+| 3 | 1h_p_at_center | 0.615 | 0.492 | 0.51 | HIGH |
+| 4 | 1D_dmi_diff | -1.120 | -8.995 | 0.50 | HIGH |
+| 5 | time_of_day | 0.563 | 0.639 | 0.47 | LOW |
+
+**Candidate exit rule:**
+```
+if 1h_bar_range < 367.50 AND 1h_vol_rel < 1.03 AND 1h_p_at_center > 0.615:
+    return 'dominant_cluster_3'
+```
+
+---
+_Generated by `tools/peak_bucket_lifecycle.py --tier KILL_SHOT_INVERSE`_
