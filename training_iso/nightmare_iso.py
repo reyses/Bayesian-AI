@@ -190,6 +190,20 @@ MTF_CLUSTER_SHORT_Z5M      = -1.14
 # CALM markets reject (reversal win). Threshold = midpoint of W/L means.
 KS_REGIME_RANGE_MIN     = 93.0    # 15m_bar_range split
 KS_REGIME_VOLREL_MIN    = 0.90    # 15m_vol_rel split
+
+# KILL_SHOT_CALM REAL-bucket cluster signatures (2026-04-19 GMM on 165
+# winners). Reversal thesis — peak happens when price is at 15s band
+# extreme (all three z values aligned negative for short, positive for
+# long). Different physics from INVERSE/ACTIVE which peak on DMI/vel
+# extension.
+KSC_CLUSTER_PEAK_GATE      = 10.0   # REAL-bucket boundary — don't fire until
+                                    # trade is solidly in REAL+ territory.
+KSC_CLUSTER_SHORT_Z_LOW    = -1.34
+KSC_CLUSTER_SHORT_Z_SE     = -0.88
+KSC_CLUSTER_SHORT_Z_HIGH   = -0.36
+KSC_CLUSTER_LONG_Z_LOW     = 0.04
+KSC_CLUSTER_LONG_Z_SE      = 0.54
+KSC_CLUSTER_LONG_Z_HIGH    = 0.97
 KSI_DOMINANT_1H_RANGE_MAX  = 367.5
 KSI_DOMINANT_1H_VOLREL_MAX = 1.03
 KSI_DOMINANT_1H_PCENTER_MIN = 0.615
@@ -283,7 +297,10 @@ HELPER_WICK = 2     # helper slot 2 = wick_ratio
 HELPER_DIRVOL = 1   # helper slot 1 = dir_vol
 
 # Pre-computed indices
+_15S_Z_IDX        = _core(TF_15S, _Z)        # 0  (= 15s_z_se)
 _15S_DMI_IDX      = _core(TF_15S, _DMI)      # 1  (for KSI cluster exits)
+_15S_Z_HIGH_IDX   = _core(TF_15S, 10)        # 10 (slot 10 = z_high)
+_15S_Z_LOW_IDX    = _core(TF_15S, 11)        # 11 (slot 11 = z_low)
 # 1h features for DOMINANT-bucket cluster signature (higher-TF calm).
 _1H_BAR_RANGE_IDX = _core(TF_1H, 6)          # 54 (slot 6 = bar_range)
 _1H_VOL_REL_IDX   = _core(TF_1H, _VOL_REL)   # 53
@@ -847,6 +864,25 @@ class IsoEngine:
             # 20-sample cluster (higher-TF calm) didn't generalize. At
             # amp gates of $40/$60/$80 the rule cost $70/$7/$25 vs
             # no-DOMINANT baseline. Signature likely overfit to cluster.
+
+        # KILL_SHOT_CALM REAL-bucket cluster signatures (2026-04-19 GMM on 165
+        # winners). Reversal peak: price at 15s band extreme. Different
+        # physics from ACTIVE/INVERSE — uses z_low/z_se/z_high (band position)
+        # not dmi_diff (trend strength).
+        if entry_tier == 'KILL_SHOT_CALM' and peak_pnl >= KSC_CLUSTER_PEAK_GATE:
+            z_se_15s   = feat[_15S_Z_IDX]
+            z_high_15s = feat[_15S_Z_HIGH_IDX]
+            z_low_15s  = feat[_15S_Z_LOW_IDX]
+            # Short-side reversal peak (price at LOWER band extreme)
+            if (z_low_15s < KSC_CLUSTER_SHORT_Z_LOW
+                    and z_se_15s < KSC_CLUSTER_SHORT_Z_SE
+                    and z_high_15s < KSC_CLUSTER_SHORT_Z_HIGH):
+                return 'ksc_cluster_short_reversal'
+            # Long-side reversal peak (price at UPPER band extreme)
+            if (z_low_15s > KSC_CLUSTER_LONG_Z_LOW
+                    and z_se_15s > KSC_CLUSTER_LONG_Z_SE
+                    and z_high_15s > KSC_CLUSTER_LONG_Z_HIGH):
+                return 'ksc_cluster_long_reversal'
 
         # MTF_BREAKOUT DOMINANT-bucket cluster signatures (2026-04-19).
         # Trend-extension peak: strong DMI + extended z_se. Mirror clusters
