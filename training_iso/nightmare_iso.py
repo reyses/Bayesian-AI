@@ -141,6 +141,33 @@ KS_EXIT_MIN_PEAK_PNL   = 10.0
 # "quick-wins-above-70%" principle.
 KS_EXIT_MAX_HOLD_MIN   = 30
 
+# KILL_SHOT_INVERSE peak-cluster exits (GMM on 170 REAL-bucket winners,
+# 2026-04-19). Two clusters surfaced — same physics signature mirrored on
+# opposite directional sides. Winners peak at strong directional extension:
+# |15s_dmi_diff| large + |5m_z_se| large + |1m_dmi_diff| large.
+#
+# Thresholds = cluster centroid values (mean feature value within cluster).
+# Long side (N=97): dmi_15s > 12.5, z_5m > 0.79, dmi_1m > 10.0
+# Short side (N=73): dmi_15s < -10.5, z_5m < -0.91, dmi_1m < -9.25
+# Asymmetric thresholds reflect observed cluster centers, not symmetric
+# by design — the short side clustered at slightly looser extension.
+KSI_CLUSTER_LONG_DMI15S  = 12.5
+KSI_CLUSTER_LONG_Z5M     = 0.79
+KSI_CLUSTER_LONG_DMI1M   = 10.0
+KSI_CLUSTER_SHORT_DMI15S = -10.5
+KSI_CLUSTER_SHORT_Z5M    = -0.91
+KSI_CLUSTER_SHORT_DMI1M  = -9.25
+
+# KILL_SHOT no-progress cut (Q2 cliff, 2026-04-19 EDA).
+# Winner p90 time-to-$5 = 12 bars. If trade hasn't shown $5 of peak progress
+# by bar 15, thesis is dead — cut before the 30-bar timeout takes full damage.
+# Data (current direction, 301 trades): 47% winners <$5 / 72% losers <$5 at
+# bar 15 (25pp separation). Same rule applies to KILL_SHOT_INVERSE (parallel
+# tier, opposite direction on same setup — whichever direction is wrong
+# gets cut fast; whichever is right captures peak-rule exit).
+KS_EXIT_CUT_BAR         = 15
+KS_EXIT_CUT_PEAK_MAX    = 5.0
+
 # NMP_FADE peak-arrival exit. Default catch-all fade tier; direction is
 # mostly right (52.7% peak>$20, lowest selectivity across tiers). Q3 EDA
 # on 7,118 peak-bearing trades (2026-04-18) gives universal template:
@@ -220,6 +247,7 @@ HELPER_WICK = 2     # helper slot 2 = wick_ratio
 HELPER_DIRVOL = 1   # helper slot 1 = dir_vol
 
 # Pre-computed indices
+_15S_DMI_IDX      = _core(TF_15S, _DMI)      # 1  (for KSI cluster exits)
 _1M_Z_IDX         = _core(TF_1M, _Z)         # 12
 _1M_DMI_IDX       = _core(TF_1M, _DMI)       # 13
 _1M_VR_IDX        = _core(TF_1M, _VR)        # 14
@@ -246,6 +274,7 @@ TIER_PRIORITY = [
     'TREND_FOLLOWER',
     'CASCADE',
     'KILL_SHOT',
+    'KILL_SHOT_INVERSE',
     'RIDE_AGAINST',
     'FADE_AGAINST',
     'MTF_EXHAUSTION',
@@ -255,15 +284,16 @@ TIER_PRIORITY = [
 ]
 
 TIER_MAP = {
-    'TREND_FOLLOWER': 8,
-    'CASCADE':        7,
-    'KILL_SHOT':      6,
-    'RIDE_AGAINST':   5,
-    'FADE_AGAINST':   4,
-    'MTF_EXHAUSTION': 3,
-    'MTF_BREAKOUT':   2,
-    'NMP_RIDE':       1,
-    'NMP_FADE':       0,
+    'TREND_FOLLOWER':    9,
+    'CASCADE':           8,
+    'KILL_SHOT':         7,
+    'KILL_SHOT_INVERSE': 6,
+    'RIDE_AGAINST':      5,
+    'FADE_AGAINST':      4,
+    'MTF_EXHAUSTION':    3,
+    'MTF_BREAKOUT':      2,
+    'NMP_RIDE':          1,
+    'NMP_FADE':          0,
 }
 
 
@@ -541,6 +571,25 @@ class IsoEngine:
                       or (fade_dir == 'short' and h1_z > CASCADE_H1_Z_MIN))
         return None if h1_aligned else fade_dir
 
+    @classmethod
+    def _kill_shot_inverse_fires(cls, feat, z):
+        """KILL_SHOT_INVERSE — same setup, opposite direction.
+
+        Thesis: KILL_SHOT identifies extreme reversal/continuation events.
+        Current direction (fade) is correct 61% of the time. The 39% that
+        run against us are BIG (avg -$33 vs winner +$18). Running the
+        inverse direction in parallel extracts the edge regardless of which
+        way the market actually resolves.
+
+        Both tiers share the bar-15 peak<$5 no-progress cut in _check_exit.
+        Whichever direction is wrong gets cut fast; whichever is right
+        captures the peak-rule exit.
+        """
+        normal = cls._kill_shot_fires(feat, z)
+        if normal is None:
+            return None
+        return 'short' if normal == 'long' else 'long'
+
     @staticmethod
     def _ride_against_fires(feat, z):
         """RIDE_AGAINST (FLIPPED direction — fade z despite h1_vel opposition).
@@ -628,15 +677,16 @@ class IsoEngine:
         return ride_dir
 
     def _tier_fires(self, tier_name, feat, z, vr):
-        if tier_name == 'TREND_FOLLOWER': return self._trend_follower_fires(feat)
-        if tier_name == 'CASCADE':        return self._cascade_fires(feat, z)
-        if tier_name == 'KILL_SHOT':      return self._kill_shot_fires(feat, z)
-        if tier_name == 'RIDE_AGAINST':   return self._ride_against_fires(feat, z)
-        if tier_name == 'FADE_AGAINST':   return self._fade_against_fires(feat, z)
-        if tier_name == 'MTF_EXHAUSTION': return self._mtf_exhaustion_fires(feat, z, vr)
-        if tier_name == 'MTF_BREAKOUT':   return self._mtf_breakout_fires(feat, z)
-        if tier_name == 'NMP_FADE':       return self._nmp_fade_fires(feat, z, vr)
-        if tier_name == 'NMP_RIDE':       return self._nmp_ride_fires(feat, z, vr)
+        if tier_name == 'TREND_FOLLOWER':    return self._trend_follower_fires(feat)
+        if tier_name == 'CASCADE':           return self._cascade_fires(feat, z)
+        if tier_name == 'KILL_SHOT':         return self._kill_shot_fires(feat, z)
+        if tier_name == 'KILL_SHOT_INVERSE': return self._kill_shot_inverse_fires(feat, z)
+        if tier_name == 'RIDE_AGAINST':      return self._ride_against_fires(feat, z)
+        if tier_name == 'FADE_AGAINST':      return self._fade_against_fires(feat, z)
+        if tier_name == 'MTF_EXHAUSTION':    return self._mtf_exhaustion_fires(feat, z, vr)
+        if tier_name == 'MTF_BREAKOUT':      return self._mtf_breakout_fires(feat, z)
+        if tier_name == 'NMP_FADE':          return self._nmp_fade_fires(feat, z, vr)
+        if tier_name == 'NMP_RIDE':          return self._nmp_ride_fires(feat, z, vr)
         return None
 
     def _classify(self, feat, z, vr):
@@ -711,8 +761,38 @@ class IsoEngine:
                         and m1_vr < RA_EXIT_VR_MAX):
                     return 'ride_against_peak'
 
-        # KILL_SHOT exits
-        if entry_tier == 'KILL_SHOT':
+        # KILL_SHOT / KILL_SHOT_INVERSE exits (shared rules, opposite directions).
+        # Both tiers fire on the same wick-rejection setup; INVERSE just trades
+        # the other way. Same exit logic applies — whichever direction is wrong
+        # hits the no-progress cut fast, whichever is right runs to peak rule.
+        if entry_tier in ('KILL_SHOT', 'KILL_SHOT_INVERSE'):
+            # No-progress cut (Q2 cliff): if we haven't shown $5 of peak
+            # progress by bar 15, the thesis is dead — cut before 30-bar
+            # timeout takes full damage.
+            if bars_held >= KS_EXIT_CUT_BAR and peak_pnl < KS_EXIT_CUT_PEAK_MAX:
+                return 'kill_shot_no_progress'
+
+            # ── KILL_SHOT_INVERSE cluster-signature exits ────────────────
+            # REAL-bucket clustering (2026-04-19) surfaced two peak
+            # signatures: long-extension and short-extension. Fire when
+            # market reaches the signature's centroid state. Only applies
+            # to INVERSE — normal KILL_SHOT's 301-trade sample didn't
+            # produce clean clusters.
+            if entry_tier == 'KILL_SHOT_INVERSE' and peak_pnl >= KS_EXIT_CUT_PEAK_MAX:
+                dmi_15s = feat[_15S_DMI_IDX]
+                z_5m    = feat[_5M_Z_IDX]
+                dmi_1m  = feat[_1M_DMI_IDX]
+                # Cluster 0: long-side directional extension
+                if (dmi_15s > KSI_CLUSTER_LONG_DMI15S
+                        and z_5m > KSI_CLUSTER_LONG_Z5M
+                        and dmi_1m > KSI_CLUSTER_LONG_DMI1M):
+                    return 'ksi_cluster_long_extension'
+                # Cluster 1: short-side directional extension
+                if (dmi_15s < KSI_CLUSTER_SHORT_DMI15S
+                        and z_5m < KSI_CLUSTER_SHORT_Z5M
+                        and dmi_1m < KSI_CLUSTER_SHORT_DMI1M):
+                    return 'ksi_cluster_short_extension'
+
             if bars_held >= KS_EXIT_MAX_HOLD_MIN:
                 return 'kill_shot_timeout'
             if peak_pnl >= KS_EXIT_MIN_PEAK_PNL:

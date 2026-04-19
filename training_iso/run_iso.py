@@ -12,6 +12,13 @@ Flags (all opt-in):
   --chains N        Enable chain positions up to N per tier (N>=1, default 1)
   --tier NAME ...   Restrict to specific tiers (e.g. --tier NMP_FADE RIDE_AGAINST)
 
+Pickle output naming:
+  Full-engine runs write `iso_is.pkl` (canonical baseline).
+  Single-tier or restricted runs write `iso_is_<TIERS>.pkl` with a `+`-joined
+  suffix so they don't clobber the baseline. Example:
+    --tier KILL_SHOT                       →  iso_is_KILL_SHOT.pkl
+    --tier KILL_SHOT KILL_SHOT_INVERSE     →  iso_is_KILL_SHOT+KILL_SHOT_INVERSE.pkl
+
 Back-compat: --no-regret is accepted as a no-op (matches current default).
 
 Usage:
@@ -150,7 +157,7 @@ def run_iso_forward(target='is', only_tiers=None, max_chains=4):
     return all_results, all_trades
 
 
-def run_regret():
+def run_regret(pkl_name: str = 'iso_is.pkl'):
     """Run bounded regret + produce corrected trades.
 
     Uses training_iso/regret.py which caps the counterfactual window to
@@ -158,10 +165,14 @@ def run_regret():
     peak-validity check, and produces corrected trades that exit at the
     SPECIFIC peak bar each gated best_action points at (not the overall
     argmax).
+
+    `pkl_name` defaults to the canonical full-engine baseline. Single-tier
+    runs pass their tier-suffixed pickle name so Phase 2 analyzes the same
+    trades Phase 1 just produced.
     """
     from training_iso.regret import compute_all_regrets, correct_trades
 
-    trade_path = os.path.join(OUTPUT_DIR, 'trades', 'iso_is.pkl')
+    trade_path = os.path.join(OUTPUT_DIR, 'trades', pkl_name)
     with open(trade_path, 'rb') as f:
         trades = pickle.load(f)
     print(f'Regret on {len(trades)} ISO trades...')
@@ -268,10 +279,14 @@ def main():
         if max_chains < 1:
             raise SystemExit('--chains must be >= 1')
 
+    n_tiers = len(only_tiers) if only_tiers else len(TIER_PRIORITY)
     print(f'{"="*60}')
-    print(f'ISOLATED PIPELINE V2 — complete NMP, no tiers, no CNN')
+    print(f'ISOLATED PIPELINE V2 — {n_tiers} per-tier engines, no CNN')
+    print(f'  Isolation: ON (1 engine per tier, no cross-tier interference)')
     if only_tiers:
         print(f'  Restricted to tiers: {only_tiers}')
+    else:
+        print(f'  Tiers active: all {n_tiers}')
     print(f'  Max chains per tier: {max_chains}'
           + ('' if max_chains > 1 else '  [chaining OFF]'))
     print(f'  Regret phase: '
@@ -288,6 +303,15 @@ def main():
     t0 = _time.perf_counter()
     results, trades = run_iso_forward('is', only_tiers=only_tiers,
                                       max_chains=max_chains)
+    # Compute the pickle name even if trades is empty — regret phase needs
+    # the path to know which file to read (it was written by a prior run
+    # with same tier scope, most likely).
+    if only_tiers:
+        pkl_name = f'iso_is_{"+".join(only_tiers)}.pkl'
+        csv_name = f'iso_is_{"+".join(only_tiers)}.csv'
+    else:
+        pkl_name = 'iso_is.pkl'
+        csv_name = 'iso_is.csv'
     if trades:
         os.makedirs(os.path.join(OUTPUT_DIR, 'trades'), exist_ok=True)
         # With chains enabled we can hit 30k+ trades; keeping per-bar 91D
@@ -317,11 +341,19 @@ def main():
             print(f'  Large run ({len(trades):,} trades) — stripped path features to fit RAM')
         else:
             payload = trades
-        with open(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.pkl'), 'wb') as f:
+
+        # Pickle name: full-engine runs go to `iso_is.pkl` (canonical baseline
+        # consumed by downstream analysis tools). Single-tier or restricted
+        # runs get a suffix so they don't clobber the full-engine pickle.
+        # Suffix = slugged tier list (e.g. iso_is_KILL_SHOT.pkl,
+        # iso_is_KILL_SHOT+KILL_SHOT_INVERSE.pkl).
+        pkl_path = os.path.join(OUTPUT_DIR, 'trades', pkl_name)
+        with open(pkl_path, 'wb') as f:
             pickle.dump(payload, f, protocol=pickle.HIGHEST_PROTOCOL)
         flat = [{k: v for k, v in t.items() if not isinstance(v, (list, dict, np.ndarray))}
                 for t in trades]
-        pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', 'iso_is.csv'), index=False)
+        pd.DataFrame(flat).to_csv(os.path.join(OUTPUT_DIR, 'trades', csv_name), index=False)
+        print(f'  Wrote: training_iso/output/trades/{pkl_name}')
     print(f'  Done in {_time.perf_counter()-t0:.0f}s')
 
     # Phase 2: Regret (opt-in via --regret flag; skipped by default)
@@ -330,7 +362,7 @@ def main():
         print(f'PHASE 2: Bounded regret (10/30 min, peak-validity gated)')
         print(f'{"="*40}')
         t0 = _time.perf_counter()
-        run_regret()
+        run_regret(pkl_name=pkl_name)
         print(f'  Done in {_time.perf_counter()-t0:.0f}s')
     else:
         print(f'\n(Phase 2 regret skipped — default; pass --regret to enable)')
