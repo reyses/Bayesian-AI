@@ -16,8 +16,8 @@ Pickle output naming:
   Full-engine runs write `iso_is.pkl` (canonical baseline).
   Single-tier or restricted runs write `iso_is_<TIERS>.pkl` with a `+`-joined
   suffix so they don't clobber the baseline. Example:
-    --tier KILL_SHOT                       →  iso_is_KILL_SHOT.pkl
-    --tier KILL_SHOT KILL_SHOT_INVERSE     →  iso_is_KILL_SHOT+KILL_SHOT_INVERSE.pkl
+    --tier KILL_SHOT                       ->  iso_is_KILL_SHOT.pkl
+    --tier KILL_SHOT KILL_SHOT_INVERSE     ->  iso_is_KILL_SHOT+KILL_SHOT_INVERSE.pkl
 
 Back-compat: --no-regret is accepted as a no-op (matches current default).
 
@@ -139,30 +139,33 @@ def run_iso_forward(target='is', only_tiers=None, max_chains=4):
     _print_summary(all_results)
 
     if all_trades:
+        from collections import Counter as _Counter
+        # Main per-tier KPI table: N, WR, Total, $/trade, Mode bucket.
         print()
-        print(f'{"Tier":<17} {"N":>6} {"WR":>5} {"Total":>10} {"$/trade":>9}')
-        print('-' * 55)
-        tiers = Counter(t.get('entry_tier', '?') for t in all_trades)
+        print(f'{"Tier":<17} {"N":>6} {"WR":>4} {"Total":>10} {"$/tr":>7} '
+              f'{"Mode":>20}')
+        print('-' * 72)
         for tier in active_tiers:
-            count = tiers.get(tier, 0)
-            if count == 0:
+            sub = [t for t in all_trades if t.get('entry_tier') == tier]
+            if not sub:
                 print(f'{tier:<17} {0:>6}  (no trades)')
                 continue
-            sub = [t for t in all_trades if t.get('entry_tier') == tier]
-            wr = sum(1 for t in sub if t['pnl'] > 0) / len(sub) * 100
+            count = len(sub)
+            wr = sum(1 for t in sub if t['pnl'] > 0) / count * 100
             total = sum(t['pnl'] for t in sub)
-            per = total / len(sub)
-            print(f'{tier:<17} {count:>6,} {wr:>4.0f}% ${total:>+9,.0f} ${per:>+8.2f}')
+            per = total / count
+            b_counts = _Counter(_bucket_of(t.get('pnl', 0.0)) for t in sub)
+            mode_name, mode_n = b_counts.most_common(1)[0]
+            mode_pct = mode_n / count * 100
+            mode_str = f'{mode_name}({mode_pct:.0f}%)'
+            print(f'{tier:<17} {count:>6,} {wr:>3.0f}% ${total:>+9,.0f} '
+                  f'${per:>+6.2f} {mode_str:>20}')
 
-        # Per-tier PnL MODE bucket breakdown — surfaces where each tier's
-        # trades land on the $/trade spectrum. Mode in REAL_WIN/STRONG_WIN
-        # = healthy; mode in MED_LOSS/BIG_LOSS = tier needs a fix.
+        # Per-tier 10-bucket distribution (details)
         _print_tier_mode_buckets(all_trades, active_tiers)
 
-        # Adaptive MAE-stop sweep: for each tier, find the drawdown
-        # threshold that maximizes net savings. Shows the risk-management
-        # upside (deferred post-physics work).
-        _print_mae_cut_adaptive(all_trades, active_tiers)
+        # MAE-cut lift summary (separate section, lift-only — no full table).
+        _print_mae_cut_lift(all_trades, active_tiers)
 
     return all_results, all_trades
 
@@ -281,24 +284,13 @@ def _mae_cut_delta(trades, threshold):
     return net, n_cut, n_winner_cut, n_loser_saved
 
 
-def _print_mae_cut_adaptive(trades, active_tiers):
-    """Per-tier sweep of MAE-stop thresholds. Picks the threshold that
-    maximizes net PnL delta (savings). Shows the adaptive best mix.
+def _print_mae_cut_lift(trades, active_tiers):
+    """MAE-stop potential lift (post-physics risk-management estimate).
 
-    Purpose: risk-management layer (post-physics). Shows how much bleed
-    could be cut per tier and what universal threshold performs best.
+    Adaptive-mix lift only — per-tier threshold is auto-picked to maximize
+    net savings. No full table: show just the total $/day lift and the
+    global benchmark alongside.
     """
-    print(f'{"="*100}')
-    print(f'MAE-STOP ADAPTIVE SWEEP (risk management layer, post-physics)')
-    print(f'{"="*100}')
-    print(f'  For each tier, sweep MAE thresholds and pick the one with max')
-    print(f'  net savings. Delta = sum of (threshold - current_pnl) for trades')
-    print(f'  whose MAE touched threshold.')
-    print()
-    print(f'  {"Tier":<18} {"Best T":>8} {"Net save":>12} '
-          f'{"N cut":>7} {"W cut":>7} {"L saved":>8}')
-    print('  ' + '-' * 70)
-
     per_tier_best = {}
     for tier in active_tiers:
         sub = [t for t in trades if t.get('entry_tier') == tier]
@@ -306,43 +298,30 @@ def _print_mae_cut_adaptive(trades, active_tiers):
             continue
         best = None
         for T in _MAE_SWEEP:
-            net, n_cut, n_w, n_l = _mae_cut_delta(sub, T)
+            net, _, _, _ = _mae_cut_delta(sub, T)
             if best is None or net > best['net']:
-                best = {'T': T, 'net': net, 'n_cut': n_cut,
-                        'n_w': n_w, 'n_l': n_l}
+                best = {'T': T, 'net': net}
         if best:
             per_tier_best[tier] = best
-            save_str = f'${best["net"]:+,.0f}'
-            marker = '  *' if best['net'] > 0 else '  -'
-            print(f'  {tier:<18} {"$" + str(best["T"]):>8} {save_str:>12} '
-                  f'{best["n_cut"]:>7} {best["n_w"]:>7} {best["n_l"]:>8}{marker}')
 
-    # Overall — try global threshold that maximizes total savings
-    print('  ' + '-' * 70)
     global_best = None
     for T in _MAE_SWEEP:
-        net, n_cut, n_w, n_l = _mae_cut_delta(trades, T)
+        net, _, _, _ = _mae_cut_delta(trades, T)
         if global_best is None or net > global_best['net']:
-            global_best = {'T': T, 'net': net, 'n_cut': n_cut,
-                           'n_w': n_w, 'n_l': n_l}
-    if global_best:
-        print(f'  {"GLOBAL":<18} {"$" + str(global_best["T"]):>8} '
-              f'${global_best["net"]:>+10,.0f}  {global_best["n_cut"]:>7} '
-              f'{global_best["n_w"]:>7} {global_best["n_l"]:>8}')
+            global_best = {'T': T, 'net': net}
 
-    # Sum of per-tier bests (adaptive mix) — what if each tier used its OWN
-    # best threshold?
+    n_days = max(1, len(set(t.get('day', '') for t in trades)))
     mix_save = sum(b['net'] for b in per_tier_best.values())
-    mix_cut = sum(b['n_cut'] for b in per_tier_best.values())
-    print(f'  {"ADAPTIVE MIX":<18} {"varies":>8} ${mix_save:>+10,.0f}  '
-          f'{mix_cut:>7}')
-    print()
+
+    print(f'{"="*100}')
+    print(f'MAE-cut lift (risk-management layer, post-physics; NOT applied '
+          f'to engine total)')
+    print(f'{"="*100}')
     if global_best:
-        n_days = max(1, len(set(t.get('day', '') for t in trades)))
-        print(f'  Global save ${global_best["net"]:,.0f} / '
-              f'{n_days} days = ${global_best["net"]/n_days:+.2f}/day')
-        print(f'  Adaptive save ${mix_save:,.0f} / '
-              f'{n_days} days = ${mix_save/n_days:+.2f}/day')
+        print(f'  Global best T=${global_best["T"]}   save ${global_best["net"]:>+12,.0f}   '
+              f'->  ${global_best["net"]/n_days:+.2f}/day')
+    print(f'  Adaptive mix (per-tier T)    save ${mix_save:>+12,.0f}   '
+          f'->  ${mix_save/n_days:+.2f}/day')
     print()
 
 
