@@ -159,6 +159,11 @@ def run_iso_forward(target='is', only_tiers=None, max_chains=4):
         # = healthy; mode in MED_LOSS/BIG_LOSS = tier needs a fix.
         _print_tier_mode_buckets(all_trades, active_tiers)
 
+        # Adaptive MAE-stop sweep: for each tier, find the drawdown
+        # threshold that maximizes net savings. Shows the risk-management
+        # upside (deferred post-physics work).
+        _print_mae_cut_adaptive(all_trades, active_tiers)
+
     return all_results, all_trades
 
 
@@ -234,6 +239,110 @@ def _print_tier_mode_buckets(trades, active_tiers):
     print('  ' + '-' * (len(header) - 2))
     mode_str = f'{mode_name}({mode_pct:.0f}%)'
     print(f'  {"ALL":<18} {mode_str:<12} ' + ' '.join(cells))
+    print()
+
+
+# MAE-stop threshold sweep (ticks / dollars). Negative = drawdown threshold.
+_MAE_SWEEP = [-20, -25, -30, -35, -40, -50, -60, -75, -100]
+
+
+def _running_min(trade):
+    """Worst PnL ever seen during the trade (MAE). Returns 0 if no path."""
+    path = trade.get('path', [])
+    if not path:
+        return 0.0
+    return min(p.get('pnl', 0.0) for p in path)
+
+
+def _mae_cut_delta(trades, threshold):
+    """Estimate PnL delta from applying an MAE stop at `threshold`.
+
+    For each trade whose MAE touches threshold:
+      - We would exit at threshold (approximation: actual cross price ≈ T).
+      - Delta = threshold − current_pnl (positive = save, negative = cost).
+    Returns (net_delta, n_cut, n_winners_cut, n_losers_saved).
+    """
+    net = 0.0
+    n_cut = 0
+    n_winner_cut = 0
+    n_loser_saved = 0
+    for t in trades:
+        mae = _running_min(t)
+        if mae > threshold:
+            continue   # never touched threshold — no change
+        current = t.get('pnl', 0.0)
+        delta = threshold - current
+        net += delta
+        n_cut += 1
+        if current > 0:
+            n_winner_cut += 1
+        elif current < threshold:
+            n_loser_saved += 1
+    return net, n_cut, n_winner_cut, n_loser_saved
+
+
+def _print_mae_cut_adaptive(trades, active_tiers):
+    """Per-tier sweep of MAE-stop thresholds. Picks the threshold that
+    maximizes net PnL delta (savings). Shows the adaptive best mix.
+
+    Purpose: risk-management layer (post-physics). Shows how much bleed
+    could be cut per tier and what universal threshold performs best.
+    """
+    print(f'{"="*100}')
+    print(f'MAE-STOP ADAPTIVE SWEEP (risk management layer, post-physics)')
+    print(f'{"="*100}')
+    print(f'  For each tier, sweep MAE thresholds and pick the one with max')
+    print(f'  net savings. Delta = sum of (threshold - current_pnl) for trades')
+    print(f'  whose MAE touched threshold.')
+    print()
+    print(f'  {"Tier":<18} {"Best T":>8} {"Net save":>12} '
+          f'{"N cut":>7} {"W cut":>7} {"L saved":>8}')
+    print('  ' + '-' * 70)
+
+    per_tier_best = {}
+    for tier in active_tiers:
+        sub = [t for t in trades if t.get('entry_tier') == tier]
+        if not sub:
+            continue
+        best = None
+        for T in _MAE_SWEEP:
+            net, n_cut, n_w, n_l = _mae_cut_delta(sub, T)
+            if best is None or net > best['net']:
+                best = {'T': T, 'net': net, 'n_cut': n_cut,
+                        'n_w': n_w, 'n_l': n_l}
+        if best:
+            per_tier_best[tier] = best
+            save_str = f'${best["net"]:+,.0f}'
+            marker = '  *' if best['net'] > 0 else '  -'
+            print(f'  {tier:<18} {"$" + str(best["T"]):>8} {save_str:>12} '
+                  f'{best["n_cut"]:>7} {best["n_w"]:>7} {best["n_l"]:>8}{marker}')
+
+    # Overall — try global threshold that maximizes total savings
+    print('  ' + '-' * 70)
+    global_best = None
+    for T in _MAE_SWEEP:
+        net, n_cut, n_w, n_l = _mae_cut_delta(trades, T)
+        if global_best is None or net > global_best['net']:
+            global_best = {'T': T, 'net': net, 'n_cut': n_cut,
+                           'n_w': n_w, 'n_l': n_l}
+    if global_best:
+        print(f'  {"GLOBAL":<18} {"$" + str(global_best["T"]):>8} '
+              f'${global_best["net"]:>+10,.0f}  {global_best["n_cut"]:>7} '
+              f'{global_best["n_w"]:>7} {global_best["n_l"]:>8}')
+
+    # Sum of per-tier bests (adaptive mix) — what if each tier used its OWN
+    # best threshold?
+    mix_save = sum(b['net'] for b in per_tier_best.values())
+    mix_cut = sum(b['n_cut'] for b in per_tier_best.values())
+    print(f'  {"ADAPTIVE MIX":<18} {"varies":>8} ${mix_save:>+10,.0f}  '
+          f'{mix_cut:>7}')
+    print()
+    if global_best:
+        n_days = max(1, len(set(t.get('day', '') for t in trades)))
+        print(f'  Global save ${global_best["net"]:,.0f} / '
+              f'{n_days} days = ${global_best["net"]/n_days:+.2f}/day')
+        print(f'  Adaptive save ${mix_save:,.0f} / '
+              f'{n_days} days = ${mix_save/n_days:+.2f}/day')
     print()
 
 

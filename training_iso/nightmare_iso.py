@@ -181,6 +181,15 @@ MTF_CLUSTER_LONG_Z5M       = 0.928
 MTF_CLUSTER_SHORT_DMI1M    = -16.62
 MTF_CLUSTER_SHORT_DMI15S   = -14.82
 MTF_CLUSTER_SHORT_Z5M      = -1.14
+
+# KILL_SHOT regime gate (2026-04-19): split INVERSE into two sub-tiers
+# based on market activity at entry. Cohen d at entry showed:
+#   15m_bar_range: W=107, L=81, d=+0.28
+#   15m_vol_rel:   W=1.04, L=0.76, d=+0.28
+# Physics: wicks in ACTIVE markets continue (continuation win); wicks in
+# CALM markets reject (reversal win). Threshold = midpoint of W/L means.
+KS_REGIME_RANGE_MIN     = 93.0    # 15m_bar_range split
+KS_REGIME_VOLREL_MIN    = 0.90    # 15m_vol_rel split
 KSI_DOMINANT_1H_RANGE_MAX  = 367.5
 KSI_DOMINANT_1H_VOLREL_MAX = 1.03
 KSI_DOMINANT_1H_PCENTER_MIN = 0.615
@@ -292,6 +301,8 @@ _5M_VEL_IDX       = _core(TF_5M, _VELOCITY)  # 27
 _5M_ACCEL_IDX     = _core(TF_5M, _ACCEL)     # 28
 _5M_BAR_RANGE_IDX = _core(TF_5M, 6)          # 30 (core[6] = bar_range)
 _15M_Z_IDX        = _core(TF_15M, _Z)        # 36
+_15M_VOL_REL_IDX  = _core(TF_15M, _VOL_REL)  # 41 (for regime gate)
+_15M_BAR_RANGE_IDX = _core(TF_15M, 6)        # 42 (slot 6 = bar_range)
 _1H_Z_IDX         = _core(TF_1H, _Z)         # 48
 _1H_VEL_IDX       = _core(TF_1H, _VELOCITY)  # 51
 _1M_WICK_IDX      = _help(TF_1M, HELPER_WICK)    # 77
@@ -304,11 +315,14 @@ _1D_DIR_VOL_IDX   = _help(TF_1D, HELPER_DIRVOL)  # 88
 TIER_PRIORITY = [
     'TREND_FOLLOWER',
     'CASCADE',
-    # 'KILL_SHOT' dropped 2026-04-19 — the reversal-side of the wick-rejection
-    # setup was losing money (58% WR, -$1.51/trade = -$454 total). The
-    # continuation side (KILL_SHOT_INVERSE) wins on the SAME trigger at 62%
-    # WR / +$2.60/trade. Keeping only the profitable direction.
-    'KILL_SHOT_INVERSE',
+    # KILL_SHOT 2026-04-19 history:
+    #   * Original (reversal-side only) dropped: -$454 drag.
+    #   * KILL_SHOT_INVERSE (continuation-side only) replaced it: +$1,438.
+    #   * Split 2026-04-19 into ACTIVE (continuation in active regime) and
+    #     CALM (reversal in calm regime). Each sub-tier gets its own
+    #     regime-matched thesis → richer entry discrimination.
+    'KILL_SHOT_ACTIVE',
+    'KILL_SHOT_CALM',
     'RIDE_AGAINST',
     'FADE_AGAINST',
     'MTF_EXHAUSTION',
@@ -318,9 +332,10 @@ TIER_PRIORITY = [
 ]
 
 TIER_MAP = {
-    'TREND_FOLLOWER':    9,
-    'CASCADE':           8,
-    'KILL_SHOT_INVERSE': 6,
+    'TREND_FOLLOWER':    10,
+    'CASCADE':           9,
+    'KILL_SHOT_ACTIVE':  7,
+    'KILL_SHOT_CALM':    6,
     'RIDE_AGAINST':      5,
     'FADE_AGAINST':      4,
     'MTF_EXHAUSTION':    3,
@@ -617,22 +632,47 @@ class IsoEngine:
 
     @classmethod
     def _kill_shot_inverse_fires(cls, feat, z):
-        """KILL_SHOT_INVERSE — same setup, opposite direction.
-
-        Thesis: KILL_SHOT identifies extreme reversal/continuation events.
-        Current direction (fade) is correct 61% of the time. The 39% that
-        run against us are BIG (avg -$33 vs winner +$18). Running the
-        inverse direction in parallel extracts the edge regardless of which
-        way the market actually resolves.
-
-        Both tiers share the bar-15 peak<$5 no-progress cut in _check_exit.
-        Whichever direction is wrong gets cut fast; whichever is right
-        captures the peak-rule exit.
-        """
+        """Legacy: kept for backward-compat with saved pickles / tests,
+        not in TIER_PRIORITY anymore. Replaced by ACTIVE + CALM split."""
         normal = cls._kill_shot_fires(feat, z)
         if normal is None:
             return None
         return 'short' if normal == 'long' else 'long'
+
+    @classmethod
+    def _kill_shot_active_fires(cls, feat, z):
+        """KILL_SHOT_ACTIVE — wick rejection in ACTIVE market → continuation.
+
+        Regime gate: 15m_bar_range > 93 AND 15m_vol_rel > 0.9 (both big
+        enough to indicate trending activity). When both pass, wicks are
+        typically continuation signals — go WITH the wick direction (i.e.
+        OPPOSITE of KILL_SHOT's fade direction).
+        """
+        normal = cls._kill_shot_fires(feat, z)
+        if normal is None:
+            return None
+        if (feat[_15M_BAR_RANGE_IDX] <= KS_REGIME_RANGE_MIN
+                or feat[_15M_VOL_REL_IDX] <= KS_REGIME_VOLREL_MIN):
+            return None   # not in active regime — let CALM tier handle it
+        # ACTIVE → take continuation direction (opposite of normal fade).
+        return 'short' if normal == 'long' else 'long'
+
+    @classmethod
+    def _kill_shot_calm_fires(cls, feat, z):
+        """KILL_SHOT_CALM — wick rejection in CALM market → reversal.
+
+        Regime gate: 15m_bar_range <= 93 OR 15m_vol_rel <= 0.9 (market is
+        quiet). In calm markets, wicks tend to reject — go WITH fade
+        direction (KILL_SHOT's original reversal thesis).
+        """
+        normal = cls._kill_shot_fires(feat, z)
+        if normal is None:
+            return None
+        if (feat[_15M_BAR_RANGE_IDX] > KS_REGIME_RANGE_MIN
+                and feat[_15M_VOL_REL_IDX] > KS_REGIME_VOLREL_MIN):
+            return None   # active regime — let ACTIVE tier handle it
+        # CALM → fade direction (reversal bet, original KILL_SHOT).
+        return normal
 
     @staticmethod
     def _ride_against_fires(feat, z):
@@ -725,6 +765,8 @@ class IsoEngine:
         if tier_name == 'CASCADE':           return self._cascade_fires(feat, z)
         if tier_name == 'KILL_SHOT':         return self._kill_shot_fires(feat, z)
         if tier_name == 'KILL_SHOT_INVERSE': return self._kill_shot_inverse_fires(feat, z)
+        if tier_name == 'KILL_SHOT_ACTIVE':  return self._kill_shot_active_fires(feat, z)
+        if tier_name == 'KILL_SHOT_CALM':    return self._kill_shot_calm_fires(feat, z)
         if tier_name == 'RIDE_AGAINST':      return self._ride_against_fires(feat, z)
         if tier_name == 'FADE_AGAINST':      return self._fade_against_fires(feat, z)
         if tier_name == 'MTF_EXHAUSTION':    return self._mtf_exhaustion_fires(feat, z, vr)
@@ -782,7 +824,11 @@ class IsoEngine:
             return None
         # KILL_SHOT_INVERSE cluster-signature exits (15s feature-driven).
         # Long-side directional extension or short-side extension.
-        if entry_tier == 'KILL_SHOT_INVERSE':
+        # KILL_SHOT_ACTIVE inherits KILL_SHOT_INVERSE's REAL-bucket cluster
+        # signature rules (same continuation physics). KILL_SHOT_CALM
+        # (reversal thesis) does NOT use these — its peak physics is
+        # different; for now CALM uses basic _check_exit rules only.
+        if entry_tier in ('KILL_SHOT_INVERSE', 'KILL_SHOT_ACTIVE'):
             # REAL-bucket signature (amp >= $5): directional extension.
             # Long- or short-side, whichever matches.
             if peak_pnl >= KS_EXIT_CUT_PEAK_MAX:
@@ -872,11 +918,14 @@ class IsoEngine:
                         and m1_vr < RA_EXIT_VR_MAX):
                     return 'ride_against_peak'
 
-        # KILL_SHOT / KILL_SHOT_INVERSE exits (shared rules, opposite directions).
-        # Both tiers fire on the same wick-rejection setup; INVERSE just trades
-        # the other way. Same exit logic applies — whichever direction is wrong
-        # hits the no-progress cut fast, whichever is right runs to peak rule.
-        if entry_tier in ('KILL_SHOT', 'KILL_SHOT_INVERSE'):
+        # KILL_SHOT family exits (shared base rules across all sub-tiers).
+        # KILL_SHOT (legacy), _INVERSE (legacy), _ACTIVE, _CALM all fire on
+        # the same wick-rejection trigger — just with different direction
+        # logic based on regime. Base rules: no-progress cut, peak rule,
+        # timeout. ACTIVE additionally uses INVERSE's cluster signatures
+        # in _check_fast_exits (handled separately above).
+        if entry_tier in ('KILL_SHOT', 'KILL_SHOT_INVERSE',
+                          'KILL_SHOT_ACTIVE', 'KILL_SHOT_CALM'):
             # No-progress cut (Q2 cliff): if we haven't shown $5 of peak
             # progress by bar 15, the thesis is dead — cut before 30-bar
             # timeout takes full damage.
