@@ -322,6 +322,23 @@ MTFE_VOL_MIN         = 1.0
 MTFE_5M_VEL_MIN      = 10.0
 MTFE_1M_VEL_MIN      = 5.0
 
+# MTF_EXHAUSTION exits (2026-04-19). Previously: NO exit rules at all —
+# 125 trades ALL exit via end_of_day, 59% of peak missed. Adding universal
+# peak rule (price returns to center / mean reversion complete) + timeout.
+# Expected: capture the 58 DOMINANT-bucket winners (avg peak $57) before
+# they decay back to small gains.
+MTFE_EXIT_P_CENTER_MIN   = 0.35
+MTFE_EXIT_REVERSION_MIN  = 0.80
+MTFE_EXIT_VR_MAX         = 1.0
+MTFE_EXIT_MIN_PEAK_PNL   = 9999.0  # Peak rule DISABLED — any amp gate
+                                   # cuts the BIG_WIN tail this tier depends on.
+                                   # Keeping timeout only.
+MTFE_EXIT_MAX_HOLD_MIN   = 360    # 360-bar timeout (6h). Sweep optimum.
+                                  # Tested 60/180/240/300/360/420. Peak at
+                                  # 360: trades need long holds to catch
+                                  # BIG_WIN tail but 360 cuts end-of-day
+                                  # bleeders vs full-day end_of_day exit.
+
 # MTF_BREAKOUT — multi-TF z aligned + dmi not strongly against
 MTFB_Z_MIN           = 1.3
 MTFB_DMI_AGAINST_MAX = 5.0
@@ -1049,6 +1066,21 @@ class IsoEngine:
                         and reversion > TF_EXIT_REVERSION_MIN
                         and m1_vr < TF_EXIT_VR_MAX):
                     return 'trend_follower_peak'
+
+        # MTF_EXHAUSTION exits (added 2026-04-19, previously no rules).
+        # Tier fires on 5m accel turning while 1m still alive — thesis is
+        # mean reversion after exhaustion. Peak = reversion complete.
+        if entry_tier == 'MTF_EXHAUSTION':
+            if bars_held >= MTFE_EXIT_MAX_HOLD_MIN:
+                return 'mtf_exhaustion_timeout'
+            if peak_pnl >= MTFE_EXIT_MIN_PEAK_PNL:
+                p_center = feat[_1M_P_CENTER_IDX]
+                reversion = feat[_1M_REVERSION_IDX]
+                m1_vr = feat[_1M_VR_IDX]
+                if (p_center > MTFE_EXIT_P_CENTER_MIN
+                        and reversion > MTFE_EXIT_REVERSION_MIN
+                        and m1_vr < MTFE_EXIT_VR_MAX):
+                    return 'mtf_exhaustion_peak'
 
         # RIDE_AGAINST exits (flipped direction — fade)
         # Thesis-dead removed: old check fired on h1_vel sign flip which
