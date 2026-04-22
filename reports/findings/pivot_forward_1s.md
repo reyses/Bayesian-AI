@@ -2,7 +2,7 @@
 
 Exits resolved at 1-second granularity (no same-bar TP/SL ambiguity).
 
-r_confirm=$5.0 TP=$30.0 SL=$10.0 min_res=0.5
+r_confirm=$5.0 TP=$50.0 SL=$3.0 min_res=0.5
 **Velocity filter**: skipping pivots where price_vel agrees with prediction (8-18% WR zone).
 **Velocity flip**: flipping direction when price_vel strongly agrees with prediction (92% WR inverted).
 
@@ -10,14 +10,14 @@ r_confirm=$5.0 TP=$30.0 SL=$10.0 min_res=0.5
 
 | Dataset | Days | Pivots | Trades | $/day | $/trade | WR | $WR | Total | Hold (s) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| IS | 277 | 95,082 | 64,449 | $-722 | $-3.10 | 17.4% | -38% | $-200,011 | 25 |
-| OOS | 68 | 26,304 | 18,055 | $-796 | $-3.00 | 17.4% | -37% | $-54,141 | 6 |
+| IS | 277 | 95,082 | 64,449 | $+48 | $+0.21 | 6.2% | +7% | $+13,410 | 71 |
+| OOS | 68 | 26,304 | 18,055 | $+80 | $+0.30 | 6.3% | +11% | $+5,471 | 66 |
 
 ## Exit breakdown
 
 | Reason | IS N | IS % | OOS N | OOS % |
 |---|---:|---:|---:|---:|
-| SL | 53,144 | 82.5% | 14,611 | 80.9% |
-| TP | 10,998 | 17.1% | 3,056 | 16.9% |
-| entry_past_day_end | 0 | 0.0% | 342 | 1.9% |
-| eod | 307 | 0.5% | 46 | 0.3% |
+| SL | 60,403 | 93.7% | 16,578 | 91.8% |
+| TP | 3,847 | 6.0% | 1,095 | 6.1% |
+| entry_past_day_end | 49 | 0.1% | 355 | 2.0% |
+| eod | 150 | 0.2% | 27 | 0.1% |

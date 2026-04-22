@@ -78,8 +78,10 @@ def resolve_exit_1s(sec_data, entry_ts, entry_price, direction,
         return entry_price, entry_ts, 'no_1s_data', 0
 
     ts_arr = sec_data['ts']
-    # side='right': skip the entry second itself (where we just placed the order)
-    start_idx = np.searchsorted(ts_arr, entry_ts, side='right')
+    # 1m bar at ts=T closes at T+60 (covers [T, T+60)). Entry is at the
+    # 1m close = price at T+59. To walk 1s bars AFTER the entry close,
+    # start at the next 1m bar's first 1s bar (ts >= T+60).
+    start_idx = np.searchsorted(ts_arr, entry_ts + 60, side='left')
     if start_idx >= len(ts_arr):
         return entry_price, entry_ts, 'entry_past_day_end', 0
 
