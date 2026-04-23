@@ -1885,9 +1885,10 @@ def main():
         sys.argv.pop(idx)  # remove --atlas
         sys.argv.pop(idx)  # remove the value
 
-        atlas_name = os.path.basename(atlas_root.rstrip('/'))  # e.g. "ATLAS_NT8"
-        feat_name = atlas_name.replace('ATLAS', 'FEATURES')    # e.g. "FEATURES_NT8"
-        FEATURES_DIR = os.path.join('DATA', feat_name)
+        # Features live INSIDE the atlas (2026-04-17 refactor).
+        # Old layout: DATA/FEATURES_NT8_5s/  (deprecated)
+        # New layout: DATA/ATLAS_NT8/FEATURES_5s/
+        FEATURES_DIR = os.path.join(atlas_root, 'FEATURES')
         FEATURES_DIR_5S = f'{FEATURES_DIR}_5s'
         FEATURES_DIR_1M = f'{FEATURES_DIR}_1m'
         ATLAS_1S = os.path.join(atlas_root, '1s')

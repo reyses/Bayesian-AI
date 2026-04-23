@@ -220,7 +220,14 @@ class LiveEngine:
 
         with keep_awake(display=True):
             try:
-                await self._main_loop()
+                # Main NT8 message loop + background button watcher run in
+                # parallel. Button watcher polls dashboard shared_state every
+                # 50ms so FLATTEN/BUY/SELL/SAVE NOW propagate with <100ms
+                # latency regardless of NT8 message cadence.
+                await asyncio.gather(
+                    self._main_loop(),
+                    self._button_watcher(),
+                )
             except KeyboardInterrupt:
                 logger.info("Keyboard interrupt — shutting down")
             except Exception as e:
@@ -236,14 +243,15 @@ class LiveEngine:
                 self._shutting_down = True
                 break
 
-            # Check manual order buttons (BUY/SELL/FLATTEN)
-            manual = self._shared_state.pop('manual_order', None)
-            if manual:
-                await self._handle_manual_order(manual)
+            # Button handling moved to _button_watcher (background task)
+            # so FLATTEN/BUY/SELL/SAVE_NOW propagate with <100ms latency
+            # instead of being gated on NT8 message cadence.
 
             try:
+                # Short timeout so shared_state['shutdown'] is checked
+                # every second. Dashboard-close must propagate quickly.
                 msg = await asyncio.wait_for(
-                    self._client.inbound.get(), timeout=30.0)
+                    self._client.inbound.get(), timeout=1.0)
             except asyncio.TimeoutError:
                 continue
 
@@ -509,6 +517,39 @@ class LiveEngine:
         else:
             logger.warning(f'OrderManager rejected entry: {side} {tier}')
 
+    async def _button_watcher(self):
+        """Background task that polls shared_state for dashboard button
+        presses every 50ms. Runs in parallel with _main_loop so buttons
+        react with <100ms latency regardless of NT8 message activity.
+
+        Handles:
+          - manual_order (BUY/SELL/FLATTEN)
+          - save_now (SAVE NOW button)
+        """
+        while not self._shutting_down:
+            try:
+                # Also respect shutdown signals from GUI
+                if (self._shared_state.get('shutdown')
+                        or self._shared_state.get('shutdown_flatten')):
+                    # Let _main_loop handle the actual shutdown teardown
+                    await asyncio.sleep(0.05)
+                    continue
+
+                manual = self._shared_state.pop('manual_order', None)
+                if manual:
+                    await self._handle_manual_order(manual)
+
+                if self._shared_state.pop('save_now', False):
+                    try:
+                        self._force_flush()
+                    except Exception as e:
+                        logger.warning(f'Save-now failed: {e}')
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:
+                logger.warning(f'Button watcher error: {e}')
+            await asyncio.sleep(0.05)   # 50ms poll
+
     async def _handle_manual_order(self, action: str):
         """Handle BUY/SELL/FLATTEN from dashboard buttons.
         Manual trades go through BlendedEngine for full CNN exit management."""
@@ -682,6 +723,10 @@ class LiveEngine:
         if not fill_price:
             return
 
+        # Fill received — clear any pending manual-order UI lock.
+        # Dashboard disables buttons on click and re-enables here.
+        self._shared_state['manual_order_pending'] = False
+
         # Only correct entry fills (not exit fills)
         # Entry fill: we're in position and NOT closing
         if self._engine.in_pos and not self._closing_position:
@@ -694,12 +739,28 @@ class LiveEngine:
 
     def _on_account_update(self, msg: dict):
         """Track account equity from NT8."""
+        unrealized = msg.get('unrealized_pnl', 0)
         self._gui.push({
             'type': 'ACCOUNT_UPDATE',
             'cash': msg.get('cash_value', 0),
-            'unrealized': msg.get('unrealized_pnl', 0),
+            'unrealized': unrealized,
             'net_liq': msg.get('net_liquidation', 0),
         })
+
+        # ── ACCOUNT-LEVEL HARD STOP ──────────────────────────────────
+        # Uses NT8's unrealized P&L (already in account dollars, scaled
+        # for contract count). Fires immediately if drawdown exceeds the
+        # configured threshold AND we have an open position.
+        # Threshold is negative (e.g. -80 = stop at $80 account loss).
+        ACCOUNT_HARD_STOP = -40.0
+        if (self._position_open
+                and not self._closing_position
+                and unrealized <= ACCOUNT_HARD_STOP):
+            logger.warning(
+                f'ACCOUNT HARD STOP: unrealized={unrealized:.2f} '
+                f'<= {ACCOUNT_HARD_STOP} — flattening position')
+            self._closing_position = True
+            asyncio.ensure_future(self._close_position('account_hard_stop'))
 
     # ── Status & Monitoring ────────────────────────────────────────────
 
@@ -764,6 +825,37 @@ class LiveEngine:
             logger.warning(f'Tuning load failed: {e}')
 
     # ── Shutdown ───────────────────────────────────────────────────────
+
+    def _force_flush(self):
+        """Flush all buffered state to disk without shutting down.
+
+        Triggered by SAVE NOW button on the dashboard. Useful for
+        snapshotting mid-session. Writes:
+          - Ledger CSV (flush buffered rows)
+          - Live ATLAS + FEATURES parquets (via _save_live_data)
+          - Active trade state (via _save_active_trade)
+
+        Does NOT close the ledger file — engine keeps appending after.
+        """
+        logger.info('SAVE NOW triggered — flushing buffers...')
+        # 1. Ledger buffer flush (continues writing after)
+        if hasattr(self, '_ledger_file') and self._ledger_file:
+            try:
+                self._ledger_file.flush()
+                logger.info(f'  Ledger flushed: {self._ledger_path}')
+            except Exception as e:
+                logger.warning(f'  Ledger flush failed: {e}')
+        # 2. Live ATLAS + FEATURES parquets
+        try:
+            self._save_live_data()
+        except Exception as e:
+            logger.warning(f'  Live data save failed: {e}')
+        # 3. Active trade state snapshot
+        try:
+            self._save_active_trade()
+        except Exception as e:
+            logger.warning(f'  Active trade save failed: {e}')
+        logger.info('SAVE NOW complete')
 
     async def _shutdown(self):
         """Graceful shutdown: flatten, save regret, retrain brain, disconnect."""

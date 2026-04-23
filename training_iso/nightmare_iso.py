@@ -215,6 +215,24 @@ RA_CLUSTER_LONG_Z15S       = 0.96
 RA_CLUSTER_LONG_DIRVOL1M   = 0.94
 RA_CLUSTER_LONG_Z5M_LOW    = -0.26
 
+# FADE_AGAINST DOMINANT-bucket cluster signatures (2026-04-19 GMM on 146
+# winners). Mirror pair — multi-TF DMI extension (same pattern as NMP_FADE
+# and MTF_BREAKOUT). Strong |Δ/σ| 0.75-1.00.
+# Amp gate at $40 (DOMINANT boundary) because FADE_AGAINST has 37% BIG_WIN
+# bucket — we must not cut winners prematurely. Only fire when peak is
+# already in DOMINANT territory.
+# Peak bar distribution: 35.7% of winners peak beyond bar 420. Late-peak
+# winners need long holds; cluster rule catches them near peak without
+# waiting for end_of_day give-back.
+FA_CLUSTER_PEAK_GATE      = 80.0   # Raised from $40 (cost -$2,514 by
+                                   # cutting BIG_WIN tail too early).
+FA_CLUSTER_SHORT_DMI5M    = -21.9
+FA_CLUSTER_SHORT_DMI15M   = -21.7
+FA_CLUSTER_SHORT_DMI1M    = -20.1
+FA_CLUSTER_LONG_DMI5M     = 17.5
+FA_CLUSTER_LONG_DMI15M    = 17.0
+FA_CLUSTER_LONG_DMI1M     = 18.1
+
 # NMP_FADE BIG_LOSS entry filter (2026-04-19 EDA).
 # BL N=1,296 (58% of all engine BIG_LOSS). Strongest separators:
 #   5m_bar_range  d=+0.52 (BL=115 vs Other=73)
@@ -403,6 +421,7 @@ _5M_DMI_IDX       = _core(TF_5M, _DMI)       # 25 (for RA cluster exits)
 _5M_Z_LOW_IDX     = _core(TF_5M, 11)         # 35 (for RA cluster exits)
 _1M_DIR_VOL_IDX   = _help(TF_1M, HELPER_DIRVOL)  # 76 (for RA cluster exits)
 _15M_Z_IDX        = _core(TF_15M, _Z)        # 36
+_15M_DMI_IDX      = _core(TF_15M, _DMI)      # 37 (for FA cluster exits)
 _15M_VOL_REL_IDX  = _core(TF_15M, _VOL_REL)  # 41 (for regime gate)
 _15M_BAR_RANGE_IDX = _core(TF_15M, 6)        # 42 (slot 6 = bar_range)
 _1H_Z_IDX         = _core(TF_1H, _Z)         # 48
@@ -415,36 +434,108 @@ _1H_WICK_IDX      = _help(TF_1H, HELPER_WICK)    # 86
 _1D_DIR_VOL_IDX   = _help(TF_1D, HELPER_DIRVOL)  # 88
 
 # Tier priority (first match wins in cascade mode; isolated mode ignores)
+#
+# TIER_PRIORITY (2026-04-19 rebalance). Ordered by $/trade (expected value
+# per firing, measured at chains=1 baseline). Controls cascade first-match-
+# wins AND conflict resolution in forward-pass contexts. 100%-conflict
+# pair analysis (tools/tier_signal_conflicts.py) showed the prior order
+# was inverted: TREND_FOLLOWER ($0.82/tr) at pos 1, NMP_RIDE ($40/tr) at
+# pos 10. Current order fixes that — higher-EV tiers win contested bars.
+#
+# Per-tier $/trade (chains=1):
+#   1. CASCADE           $42.84
+#   2. NMP_RIDE          $40.01
+#   3. FADE_AGAINST      $23.19
+#   4. MTF_EXHAUSTION    $23.12
+#   5. KILL_SHOT_ACTIVE  $12.29
+#   6. KILL_SHOT_CALM     $1.96
+#   7. NMP_FADE           $1.36
+#   8. MTF_BREAKOUT       $0.86
+#   9. TREND_FOLLOWER     $0.82
+#  10. RIDE_AGAINST       $0.70
+#
+# KILL_SHOT history:
+#   * Original (reversal-side only) dropped 2026-04-19: -$454 drag.
+#   * KILL_SHOT_INVERSE (continuation-side only) replaced it: +$1,438.
+#   * Split into ACTIVE (continuation in active regime) and CALM (reversal
+#     in calm regime). Each sub-tier gets its own regime-matched thesis.
 TIER_PRIORITY = [
-    'TREND_FOLLOWER',
     'CASCADE',
-    # KILL_SHOT 2026-04-19 history:
-    #   * Original (reversal-side only) dropped: -$454 drag.
-    #   * KILL_SHOT_INVERSE (continuation-side only) replaced it: +$1,438.
-    #   * Split 2026-04-19 into ACTIVE (continuation in active regime) and
-    #     CALM (reversal in calm regime). Each sub-tier gets its own
-    #     regime-matched thesis → richer entry discrimination.
-    'KILL_SHOT_ACTIVE',
     'KILL_SHOT_CALM',
-    'RIDE_AGAINST',
-    'FADE_AGAINST',
-    'MTF_EXHAUSTION',
-    'MTF_BREAKOUT',
-    'NMP_FADE',
     'NMP_RIDE',
+    'MTF_EXHAUSTION',
+    'KILL_SHOT_ACTIVE',
+    'FADE_AGAINST',
+    'NMP_FADE',
+    'MTF_BREAKOUT',
+    'TREND_FOLLOWER',
+    'RIDE_AGAINST',
 ]
 
 TIER_MAP = {
-    'TREND_FOLLOWER':    10,
-    'CASCADE':           9,
-    'KILL_SHOT_ACTIVE':  7,
-    'KILL_SHOT_CALM':    6,
-    'RIDE_AGAINST':      5,
-    'FADE_AGAINST':      4,
-    'MTF_EXHAUSTION':    3,
-    'MTF_BREAKOUT':      2,
-    'NMP_RIDE':          1,
-    'NMP_FADE':          0,
+    'CASCADE':           10,
+    'KILL_SHOT_CALM':     9,
+    'NMP_RIDE':           8,
+    'MTF_EXHAUSTION':     7,
+    'KILL_SHOT_ACTIVE':   6,
+    'FADE_AGAINST':       5,
+    'NMP_FADE':           4,
+    'MTF_BREAKOUT':       3,
+    'TREND_FOLLOWER':     2,
+    'RIDE_AGAINST':       1,
+}
+
+# Per-tier chain-cap rebalance (2026-04-19).
+# Chain logic fires only in the SAME direction as the open position — so
+# trend-riding tiers (NMP_RIDE) benefit the most from chains, while fade
+# tiers at band extremes can stack multiple same-direction entries into a
+# reversal and take magnified losses (TREND_FOLLOWER, MTF_BREAKOUT).
+# Values derived from chains=4 baseline run $/trade response:
+#   NMP_RIDE     +$40/tr across 967 trades  — scales well, keep 4
+#   NMP_FADE     +$1.28/tr × 20K             — high volume, cap at 4
+#   FADE_AGAINST +$11/tr bimodal             — 3
+#   CASCADE      +$42/tr rare                — 2 (big winners, don't over-stack)
+#   RIDE_AGAINST +$1.28/tr                   — 2
+#   MTF_EXHAUSTION +$23/tr slow              — 2
+#   KILL_SHOT_ACTIVE +$10/tr                 — 2
+#   KILL_SHOT_CALM +$2/tr                    — 1 (small edge, don't stack)
+#   MTF_BREAKOUT +$0.04/tr (collapsed at 4)  — 1
+#   TREND_FOLLOWER -$3/tr (bled at 4)        — 1 (no chains)
+# CLI --chains N sets the GLOBAL ceiling — per-tier cap = min(cli_N, dict).
+# Tier-confirmation entry gates (2026-04-19).
+# A tier marked True requires AT LEAST ONE OTHER tier to fire same-direction
+# on the same bar for the entry to be taken. Rejects get "cascade fall-through"
+# — in cascade mode the next priority tier gets a shot.
+#
+# Derived from tier_sequence_analysis.py + amplifier_probability.py.
+# Only NMP_FADE crossed p<0.05 statistical significance on 1-year IS sample
+# (z=+3.77). CASCADE and FADE_AGAINST show directionally strong but wide-CI
+# patterns due to small solo-sample sizes (N=13 and N=46 respectively).
+# Shipping all three for OOS validation — if OOS confirms, keep; if OOS
+# disagrees, revert those with small IS samples.
+CONFIRMATION_GATES = {
+    # All DISABLED 2026-04-19 — IS vs OOS comparison revealed catastrophic
+    # overfit. IS showed +$311/day with gates; OOS flipped to -$106/day.
+    # FADE_AGAINST alone went +$51/tr IS -> -$50/tr OOS (sign reversal).
+    # Even NMP_FADE (which had p<0.0001 significance on IS) collapsed OOS.
+    # Lesson: amplifier pairs from 1-year sample don't generalize. Need
+    # multi-year data or cross-validation before shipping this pattern.
+    'NMP_FADE':     False,
+    'CASCADE':      False,
+    'FADE_AGAINST': False,
+}
+
+MAX_CHAINS_PER_TIER = {
+    'TREND_FOLLOWER':    1,
+    'MTF_BREAKOUT':      1,
+    'KILL_SHOT_CALM':    1,
+    'KILL_SHOT_ACTIVE':  2,
+    'RIDE_AGAINST':      2,
+    'MTF_EXHAUSTION':    2,
+    'CASCADE':           2,
+    'FADE_AGAINST':      3,
+    'NMP_FADE':          4,
+    'NMP_RIDE':          4,
 }
 
 
@@ -465,11 +556,21 @@ class IsoEngine:
     # tail losers at this window. Kept as a general tool available to any tier.
     SLOPE_WINDOW_BARS = 12
 
-    def __init__(self, only_tier: str = None, max_chains: int = 4):
+    def __init__(self, only_tier: str = None, max_chains: int = 4,
+                 honor_per_tier_caps: bool = True):
         self.only_tier = only_tier
         if only_tier is not None and only_tier not in TIER_MAP:
             raise ValueError(f'only_tier must be in {list(TIER_MAP)} or None')
-        self.max_chains = max(1, int(max_chains))
+        # Global chain ceiling from CLI (backward compatible).
+        cli_cap = max(1, int(max_chains))
+        # Per-tier rebalance: trend-riders get full chain headroom,
+        # fade/bleed-prone tiers get fewer. cli_cap is a CEILING: if CLI
+        # passes --chains 2, even NMP_RIDE is capped at 2 (can't exceed CLI).
+        if honor_per_tier_caps and only_tier is not None:
+            tier_cap = MAX_CHAINS_PER_TIER.get(only_tier, cli_cap)
+            self.max_chains = min(cli_cap, tier_cap)
+        else:
+            self.max_chains = cli_cap
 
         # Chain-aware state: list of open position dicts. Each has
         # direction, entry_price, entry_ts, entry_tier, entry_79d,
@@ -908,17 +1009,43 @@ class IsoEngine:
         Cascade mode (only_tier=None): priority order, first match wins.
         Kept for standalone/legacy usage; the main run_iso pipeline spins
         up one engine per tier in isolated mode.
+
+        CONFIRMATION GATES (2026-04-19): for tiers in CONFIRMATION_GATES,
+        require at least one OTHER tier to fire same direction on this bar.
+        Based on amplifier-pair analysis (tier_sequence_analysis.py) — tiers
+        marked true need joint signal to be profitable. Applied both in
+        isolated mode (for the target tier) and cascade mode (rejects and
+        falls through to next priority).
         """
+        # Lazy compute all-tier fire dict when needed for gates.
+        def _all_fires():
+            return {t: self._tier_fires(t, feat, z, vr) for t in TIER_PRIORITY}
+
         if self.only_tier is not None:
             direction = self._tier_fires(self.only_tier, feat, z, vr)
             if direction is None:
                 return None, None
+            if CONFIRMATION_GATES.get(self.only_tier):
+                fires = _all_fires()
+                has_confirm = any(d == direction
+                                  for t, d in fires.items()
+                                  if t != self.only_tier and d is not None)
+                if not has_confirm:
+                    return None, None
             return self.only_tier, direction
 
+        fires = _all_fires()
         for tier_name in TIER_PRIORITY:
-            direction = self._tier_fires(tier_name, feat, z, vr)
-            if direction is not None:
-                return tier_name, direction
+            direction = fires.get(tier_name)
+            if direction is None:
+                continue
+            if CONFIRMATION_GATES.get(tier_name):
+                has_confirm = any(d == direction
+                                  for t, d in fires.items()
+                                  if t != tier_name and d is not None)
+                if not has_confirm:
+                    continue   # gate failed, try next priority tier
+            return tier_name, direction
         return None, None
 
     def _check_fast_exits(self, pos, feat):
@@ -1007,6 +1134,14 @@ class IsoEngine:
                     and dmi_1m > NMP_CLUSTER_LONG_DMI1M
                     and z_1m > NMP_CLUSTER_LONG_Z1M):
                 return 'nmp_cluster_long_extension'
+
+        # FADE_AGAINST cluster exits TESTED and REVERTED 2026-04-19.
+        # Tried $40 and $80 amp gates. Even $80 (+$7,308) was below
+        # baseline +$7,561. Tier's BIG_WIN tail (37% of trades) peaks
+        # after bar 420 — cluster rule catches them too early. Tier
+        # keeps its end_of_day + inverse-signal exits. Same pattern as
+        # MTF_EXHAUSTION but here even long amp gate doesn't beat
+        # holding to end.
 
         # RIDE_AGAINST cluster signatures TESTED and REVERTED 2026-04-19.
         # Cluster rules at $10 amp gate captured 358 trades but net effect

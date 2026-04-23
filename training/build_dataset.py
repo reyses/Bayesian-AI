@@ -61,6 +61,11 @@ def parse_args():
                    help='ATLAS root dir (default: DATA/ATLAS). Use DATA/ATLAS_NT8 for NT8 data.')
     p.add_argument('--incremental', action='store_true',
                    help='Use FeatureProcessor: load checkpoint, process only new days')
+    p.add_argument('--warm-from', type=str, default=None,
+                   help='Path to a checkpoint.json to seed prev_velocities. '
+                        'If omitted, auto-detects the most recent sibling '
+                        'ATLAS checkpoint preceding this atlas\'s first day. '
+                        'Pass empty string ("") to force cold start.')
     return p.parse_args()
 
 
@@ -280,6 +285,100 @@ def process_one_day(day_name: str, anchor_tf: str, cache: 'AtlasCache',
 WARMUP_DAYS_CHECKPOINT = 10  # days of 5s bars to include in checkpoint
 
 
+def _load_warm_velocities(atlas_root: str, anchor_tf: str,
+                          explicit_path: str | None) -> dict:
+    """Find + load prev_velocities from a prior atlas's checkpoint.
+
+    Priority:
+      1. explicit_path if provided (or "" to force cold start)
+      2. auto-detect: scan sibling DATA/ATLAS* folders, pick the most
+         recent checkpoint whose last_ts precedes this atlas's first day
+
+    Returns a velocities dict (empty = cold start).
+    """
+    import json
+
+    # Explicit override
+    if explicit_path == '':
+        print('[WARM-START] Explicit cold start (--warm-from "")')
+        return {}
+    if explicit_path:
+        if not os.path.exists(explicit_path):
+            print(f'[WARM-START] WARNING: --warm-from {explicit_path} not found; cold start')
+            return {}
+        try:
+            with open(explicit_path) as f:
+                cp = json.load(f)
+            v = cp.get('velocities', {})
+            print(f'[WARM-START] Loaded {len(v)} velocities from {explicit_path}')
+            return v
+        except Exception as e:
+            print(f'[WARM-START] Failed reading {explicit_path}: {e}; cold start')
+            return {}
+
+    # Auto-detect: find first day's start_ts of THIS atlas
+    my_first = None
+    files = sorted(glob.glob(os.path.join(atlas_root, anchor_tf, '*.parquet')))
+    if files:
+        try:
+            df = pd.read_parquet(files[0], columns=['timestamp'])
+            my_first = float(df['timestamp'].iloc[0])
+        except Exception:
+            pass
+    if my_first is None:
+        print('[WARM-START] No atlas data yet; cold start')
+        return {}
+
+    # Scan sibling ATLAS* folders for candidate checkpoints
+    data_root = os.path.dirname(atlas_root.rstrip('/').rstrip('\\'))
+    if not data_root:
+        data_root = 'DATA'
+    candidates = []
+    for sibling in glob.glob(os.path.join(data_root, 'ATLAS*')):
+        if os.path.samefile(sibling, atlas_root) if os.path.exists(sibling) else False:
+            continue
+        if os.path.normpath(sibling) == os.path.normpath(atlas_root):
+            continue
+        cp_path = os.path.join(sibling, 'checkpoint.json')
+        if not os.path.exists(cp_path):
+            continue
+        try:
+            with open(cp_path) as f:
+                cp = json.load(f)
+            last_ts = float(cp.get('last_ts', 0))
+            if last_ts <= 0:
+                continue
+            v = cp.get('velocities', {})
+            if not v:
+                continue
+            candidates.append((last_ts, cp_path, v))
+        except Exception:
+            continue
+
+    if not candidates:
+        print('[WARM-START] No sibling checkpoint with velocities found; cold start')
+        return {}
+
+    # Prefer most recent checkpoint that precedes our first day (temporal chain).
+    # Fallback: most recent checkpoint regardless (velocities from a nearby
+    # period are still more informative than empty zeros for higher-TF state).
+    preceding = [c for c in candidates if c[0] < my_first]
+    if preceding:
+        preceding.sort(key=lambda c: c[0], reverse=True)
+        last_ts, path, velocities = preceding[0]
+        ordering = 'PRECEDES'
+    else:
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        last_ts, path, velocities = candidates[0]
+        ordering = 'OVERLAPS (may contain future data relative to this atlas)'
+    from datetime import datetime as _dt
+    print(f'[WARM-START] {ordering}')
+    print(f'[WARM-START] Warming from {path}')
+    print(f'              last_ts={_dt.utcfromtimestamp(last_ts)}  '
+          f'velocities={velocities}')
+    return velocities
+
+
 def _save_checkpoint_for_live(all_days: list, anchor_tf: str, prev_velocities: dict):
     """Build aggregator from last N days and save checkpoint for live engine."""
     from training.aggregator import Aggregator
@@ -371,7 +470,11 @@ def main():
     print(f'  ATLAS loaded: {cache.memory_mb():.0f} MB in memory')
 
     sfe = StatisticalFieldEngine()
-    prev_velocities = {}
+    # Warm-start prev_velocities from a prior atlas checkpoint when available.
+    # This chains IS → OOS → NT8 so NT8 day-1 features use real momentum
+    # state instead of cold zeros.
+    warm_from = getattr(args, 'warm_from', None)
+    prev_velocities = _load_warm_velocities(ATLAS_ROOT, anchor_tf, warm_from)
     sfe_cache = {}  # {tf: (n_bars, states, offset)} — skip SFE if no new bars
     total_rows = 0
 

@@ -267,6 +267,18 @@ class TradingDashboard:
                 self._handle_msg(msg)
         except queue.Empty:
             pass
+
+        # Re-enable manual buttons once engine clears the pending flag
+        # (engine clears it on fill confirmation from NT8).
+        if (hasattr(self, 'btn_flatten')
+                and str(self.btn_flatten['state']) == 'disabled'
+                and not self.shared_state.get('manual_order_pending')):
+            for btn in (self.btn_flatten, self.btn_buy, self.btn_sell):
+                try:
+                    btn.config(state='normal')
+                except Exception:
+                    pass
+
         if not self.shared_state.get('shutdown_confirmed'):
             self.root.after(50, self._poll_queue)
 
@@ -576,14 +588,40 @@ class TradingDashboard:
 
     # ── Button handlers ──
 
+    def _lock_manual_buttons(self, action: str):
+        """Disable manual buttons until engine confirms fill.
+        Watchdog re-enables after 8s in case fill message is lost."""
+        self.shared_state['manual_order'] = action
+        self.shared_state['manual_order_pending'] = True
+        # Disable all manual buttons
+        for btn in (self.btn_flatten, self.btn_buy, self.btn_sell):
+            try:
+                btn.config(state='disabled')
+            except Exception:
+                pass
+        # Watchdog: re-enable after 8s even if fill never comes
+        self.root.after(8000, self._force_unlock_if_still_pending)
+
+    def _force_unlock_if_still_pending(self):
+        """Safety: re-enable buttons if pending flag hung."""
+        if self.shared_state.get('manual_order_pending'):
+            self.shared_state['manual_order_pending'] = False
+            try:
+                self.lbl_save_status.config(text='fill timeout — re-armed',
+                                            fg='#ffaa00')
+                self.root.after(3000,
+                                lambda: self.lbl_save_status.config(text=''))
+            except Exception:
+                pass
+
     def _on_flatten(self):
-        self.shared_state['manual_order'] = 'FLATTEN'
+        self._lock_manual_buttons('FLATTEN')
 
     def _on_buy(self):
-        self.shared_state['manual_order'] = 'BUY'
+        self._lock_manual_buttons('BUY')
 
     def _on_sell(self):
-        self.shared_state['manual_order'] = 'SELL'
+        self._lock_manual_buttons('SELL')
 
     def _on_save(self):
         """Request engine to flush all buffers to disk immediately."""

@@ -105,7 +105,26 @@ Z_EXIT = 0.5
 # Training: disabled (let regret see full paths)
 # Live: set via BlendedEngine(live_mode=True) which overrides these
 HARD_STOP = -99999.0  # disabled in training
-HARD_STOP_LIVE = -150.0  # max loss per trade in live ($150)
+# Per-contract hard stop ceiling (backtest + backup). LIVE uses the
+# ACCOUNT-LEVEL stop in live/live_engine.py at -$40 unrealized total.
+# Account-level stop naturally halves per-contract room as chains stack:
+#   1 contract: $40 room  |  2: $20 each  |  3: $13 each  |  4: $10 each
+# — so no explicit per-chain halving needed in the physics engine.
+HARD_STOP_LIVE = -40.0  # per-contract ceiling (account stop usually fires first)
+
+# Risk-aware entry filter + sizing (2026-04-20 research).
+# Cohen d on blended OOS showed 1h_z_range (1h_z_high - 1h_z_low) is the
+# strongest z-based BIG_LOSS predictor: BL avg range 1.80 vs winner 1.43
+# (d=+0.32). Wide 1h oscillation = choppy hourly regime = high risk.
+#
+# Policy:
+#   range > Z_RANGE_REJECT     : REJECT entry entirely (too choppy)
+#   Z_RANGE_SIZE_1 to REJECT   : 1 contract only (moderate chop)
+#   Z_RANGE_SIZE_2 to SIZE_1   : 2 contracts max
+#   range < Z_RANGE_SIZE_2     : up to 3 contracts (safe regime)
+Z_RANGE_REJECT  = 2.5   # hard entry filter
+Z_RANGE_SIZE_1  = 2.0   # above this -> max 1 contract
+Z_RANGE_SIZE_2  = 1.5   # above this -> max 2 contracts
 
 # Giveback stop — protect profits from round-tripping
 # Training: disabled. Live: activated via live_mode=True
@@ -155,6 +174,8 @@ _VR = 2
 _5M_WICK_IDX = 80     # helper_start(72) + TF2*3 + 2 (was 68)
 _15M_WICK_IDX = 83    # helper_start(72) + TF3*3 + 2 (was 71)
 _1H_Z_IDX = 48        # TF4 * 12 (was 40)
+_1H_Z_HIGH_IDX = 58   # TF4*12 + 10 — for risk-aware entry filter & sizing
+_1H_Z_LOW_IDX  = 59   # TF4*12 + 11
 _1H_VELOCITY_IDX = 51 # TF4*12 + 3 (was 43)
 _1M_P_CENTER_IDX = 21 # TF1*12 + 9 (was 19)
 _1M_VELOCITY_IDX = 15 # TF1*12 + 3 (was 13)
@@ -479,7 +500,9 @@ class BlendedEngine:
                 'features': feat.copy(),
             })
 
-            # Hard stop — fires every bar, overrides everything
+            # Hard stop — fires every bar, overrides everything.
+            # Per-contract check kept for backtest. LIVE uses account-level
+            # stop driven by NT8 bridge's unrealized PnL — see live_engine.py.
             if pnl <= self._hard_stop:
                 self._close_trade(price, ts, time_str, 'hard_stop', feat)
 
@@ -563,7 +586,10 @@ class BlendedEngine:
                  self._entry_abs_z, self._entry_velocity,
                  self._tier_p_center_bars, self._p_center_bars) = saved
 
-                # Hard stop
+                # Hard stop — per-contract fallback. Account-level stop
+                # in live_engine.py ($-40 unrealized total) naturally
+                # halves per-contract room as chains stack (-$40/N), so
+                # we don't need explicit per-chain halving here.
                 if cc_pnl <= self._hard_stop:
                     exit_reason = 'hard_stop'
 
@@ -679,6 +705,9 @@ class BlendedEngine:
 
         Lookback filters from EDA applied per tier.
         """
+        # Risk-aware entry filter RESEARCH-ONLY for now (not wired in live).
+        # Validate lift via tools/z_range_filter_backtest.py first.
+
         # NMP default direction: fade the z
         direction = 'short' if z > 0 else 'long'
         cnn_flipped = False
@@ -1185,6 +1214,20 @@ class BlendedEngine:
 
         # Chain contracts stay alive — they exit independently
         # Only reverse_signal flattens all chains
+
+    def get_recommended_max_contracts(self, feat) -> int:
+        """Risk-aware contract cap based on 1h z-range oscillation at entry.
+
+        Called by live engine to size entry orders. Returns 1/2/3 based on
+        choppy-regime risk. Trade already rejected in _classify if range
+        >= Z_RANGE_REJECT, so this only sees the acceptable range.
+        """
+        z1h_range = feat[_1H_Z_HIGH_IDX] - feat[_1H_Z_LOW_IDX]
+        if z1h_range >= Z_RANGE_SIZE_1:
+            return 1
+        if z1h_range >= Z_RANGE_SIZE_2:
+            return 2
+        return 3
 
     def force_close(self, reason='end_of_day'):
         # Flatten all chain contracts first

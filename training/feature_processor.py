@@ -45,9 +45,10 @@ class FeatureProcessor:
         self._current_day = ''
 
     def _derive_output_dir(self):
-        atlas_name = os.path.basename(self._atlas_root.rstrip('/'))
-        feat_name = atlas_name.replace('ATLAS', 'FEATURES')
-        return os.path.join('DATA', f'{feat_name}_5s')
+        # Features live INSIDE the atlas folder (2026-04-17 refactor).
+        # DATA/ATLAS/FEATURES_5s/   DATA/ATLAS_NT8/FEATURES_5s/   etc.
+        # Old layout DATA/FEATURES_NT8_5s/ deprecated.
+        return os.path.join(self._atlas_root, 'FEATURES_5s')
 
     # ══════════════════════════════════════════════════════════════════
     # CHECKPOINT — load/save aggregator state
