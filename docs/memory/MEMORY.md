@@ -11,6 +11,11 @@
   NEVER let journals go stale. Lost journals = lost days of work.
   **Start of session**: read `docs/daily/INDEX.md` for context (not full journals).
 - **KEEP MEMORY UPDATED**: Update MEMORY.md when discovering new patterns, preferences, or architecture changes
+- **TOOLS INVENTORY**: Before building a new tool, check `research/TOOLS_INDEX.md` (master index of all 106 `tools/*.py`). Also browse `tools/_<category>/README.md` for categorized lists. If a matching tool exists, use or extend it — don't rebuild. Every new tool: add to both `research/TOOLS_INDEX.md` AND appropriate `tools/_<category>/README.md`.
+- **DMAIC for project frame**: Each research project lives in `research/<topic>/project.md` (Define / Measure / Analyze / Improve / Control). Improve index points to cycle files.
+- **PDCA for iteration**: Each research change = one cycle file under `research/<topic>/cycle_NN.md`. Plan written BEFORE code. Check compares actual to predicted. Artifacts in `research/<topic>/findings/YYYY-MM-DD_<topic>.md`.
+- **Metric definitions (2026-04-22)**: Trade WR = (∑profit / \|∑loss\|) − 1 (0 break-even). $/trade reported as mode AND mean. Day WR = count-based (winning days / total).
+- **OOS-only for NN-filtered validation (2026-04-23)**: Model trained on IS has seen that data. Running the engine on IS after training inflates results. Only OOS $/day is honest.
 
 ## Workflow Preference
 - **TIER-BUILDING PLAYBOOK**: See `memory/tier_building_playbook.md` — consolidated 11-section methodology. Covers: data integrity checklist, three-question method (Q1 peak-bucket / Q2 hold cliff / Q3 peak signature), phantom entry + relaxation principle, direction-flip test, chain positions, 5 advanced EDA questions (peak-reacher, higher-TF state, resonance cascade, chop, gravity well), exit physics (trail, MAE, 5m alignment, thesis-validity), and anti-patterns. Supersedes `feedback_tier_three_questions.md`.
