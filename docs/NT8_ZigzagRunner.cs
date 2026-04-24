@@ -1,6 +1,15 @@
 // =============================================================================
-// ZigzagRunner 1.2.0 -- 2026-04-24
+// ZigzagRunner 1.3.0 -- 2026-04-24
 // =============================================================================
+// CHANGELOG 1.3.0:
+//   - Trailing stop now uses max(TrailDistancePoints, TrailPercent * HWM_profit).
+//     Below the crossover (~$100 profit on MNQ at defaults), the fixed
+//     distance floor dominates (locks $10 minimum once armed).
+//     Above crossover, the percentage rule kicks in and always protects
+//     (100% - TrailPercent * 100) of HWM profit -> 90% at default 10%.
+//   - New param: TrailPercent (default 0.10 = 10%). Set to 0 to keep
+//     strict fixed-distance trail (v1.2 behavior).
+//
 // CHANGELOG 1.2.0:
 //   - Trailing stop: arms after TrailActivatePoints of unrealized profit,
 //     trails TrailDistancePoints behind the high-water mark. Defaults 10/5
@@ -99,15 +108,19 @@ namespace NinjaTrader.NinjaScript.Strategies
         public double TrailActivatePoints { get; set; }
 
         [NinjaScriptProperty]
-        [Display(Name = "Trail Distance (points)", Description = "Once armed, trail this many points behind high-water mark. MNQ: 5 pts = $10", Order = 2, GroupName = "TrailStop")]
+        [Display(Name = "Trail Distance (points)", Description = "FLOOR trail distance in points (trail never tighter than this). MNQ: 5 pts = $10", Order = 2, GroupName = "TrailStop")]
         public double TrailDistancePoints { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Trail Percent", Description = "Trail this fraction of HWM profit. Whichever is greater: Distance or Percent * HWM profit. 0.10 = 10% => protects 90% of max profit once past crossover. Set 0 to disable and use fixed distance only.", Order = 3, GroupName = "TrailStop")]
+        public double TrailPercent { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "Trade Log CSV Path", Description = "If non-empty, append one row per closed trade (full path)", Order = 1, GroupName = "Logging")]
         public string CsvPath { get; set; }
 
         // ── Version ──────────────────────────────────────────────────────
-        private const string VERSION = "1.2.0";
+        private const string VERSION = "1.3.0";
         private const string CSV_HEADER = "close_time_utc,day,entry_time_utc,exit_time_utc,direction,entry_price,exit_price,qty,pnl_points,pnl_usd,held_minutes,entry_reason,exit_reason";
 
         // ── Zigzag state ─────────────────────────────────────────────────
@@ -160,8 +173,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 EodMinuteUtc                     = 55;
                 EntryCutoffHourUtc               = 20;
                 EntryCutoffMinuteUtc             = 30;
-                TrailActivatePoints              = 10.0;   // MNQ $20
-                TrailDistancePoints              = 5.0;    // MNQ $10
+                TrailActivatePoints              = 10.0;   // MNQ $20 (arms trail)
+                TrailDistancePoints              = 5.0;    // MNQ $10 (floor)
+                TrailPercent                     = 0.10;   // 10% of HWM profit (protects 90% past crossover)
                 CsvPath                          = @"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\findings\nt8_zigzag_trades.csv";
             }
             else if (State == State.Configure)
@@ -365,9 +379,19 @@ namespace NinjaTrader.NinjaScript.Strategies
 
                 if (trailArmed)
                 {
+                    // Adaptive trail distance:
+                    //   effDist = max(TrailDistancePoints, TrailPercent * HWM_profit_in_points)
+                    // Below crossover, fixed floor dominates (locks $10 min).
+                    // Above crossover, percentage dominates (protects 1-TrailPercent of max profit).
+                    // Stop price derived from HWM only tightens (never widens) because HWM is monotone.
+                    double hwmProfitPts = currentEntryDir * (trailWaterMark - currentEntryPrice);
+                    if (hwmProfitPts < 0) hwmProfitPts = 0;  // safety: HWM should always be on profit side
+                    double pctDistPts = (TrailPercent > 0) ? (TrailPercent * hwmProfitPts) : 0.0;
+                    double effDistPts = Math.Max(TrailDistancePoints, pctDistPts);
+
                     double stopPx = (currentEntryDir > 0)
-                        ? trailWaterMark - TrailDistancePoints
-                        : trailWaterMark + TrailDistancePoints;
+                        ? trailWaterMark - effDistPts
+                        : trailWaterMark + effDistPts;
 
                     bool breached = (currentEntryDir > 0) ? (c <= stopPx) : (c >= stopPx);
                     if (breached)
