@@ -3,6 +3,44 @@ Statistical Field Engine
 Computes regression bands, z-scores, probability distributions,
 and mean-reversion/breakout statistics from price data.
 GPU-accelerated via Numba CUDA kernels.
+
+================================================================
+WHAT THIS ENGINE COMPUTES (per TF, per bar)
+================================================================
+
+Input (per bar):    price (OHLC), volume, timestamp
+Rolling window:     SFE_WINDOW = 300 bars (max buffer fed by caller)
+Inner windows:      each feature below has its own sub-window
+
+| # | Feature         | Layer | Computation                                  | Window |
+|---|-----------------|-------|----------------------------------------------|--------|
+| 0 | z_se            | L5    | (close - RM_N) / SE_N, OLS regression        | N      |
+| 1 | dmi_diff        | L3    | DI+ minus DI-                                | 14     |
+| 2 | variance_ratio  | L6    | σ²_short / σ²_long (Lo-MacKinlay)            | short, long |
+| 3 | velocity        | L4*   | WINDOWED slope (NOT 1-bar rate)              | N      |
+| 4 | acceleration    | L4*   | WINDOWED change in slope                     | N      |
+| 5 | vol_rel         | L8    | volume / 30-bar SMA                          | 30     |
+| 6 | bar_range       | L3    | (high - low) / tick                          | none   |
+| 7 | hurst           | L7    | Hurst exponent (R/S or DFA)                  | HURST_WINDOW |
+| 8 | reversion_prob  | L5    | OU first-passage P(reach center within τ)    | N      |
+| 9 | p_at_center     | L5    | 3-class probability near regression mean     | N      |
+|10 | z_high          | L5    | (high - RM_N) / SE_N                         | N      |
+|11 | z_low           | L5    | (low  - RM_N) / SE_N                         | N      |
+
+Helpers (derived from above):
+| 0 | dmi_gap         | L3    | abs(dmi_diff)                                | —      |
+| 1 | dir_vol         | L8    | sign(velocity) * vol_rel                     | —      |
+| 2 | wick_ratio      | L3    | 1 - abs(close-open)/range                    | none   |
+
+Notes:
+ * "velocity" and "acceleration" (rows 3, 4) are WINDOWED SLOPES, not true
+   1-bar Δ. They're effectively L4 (smoothed kinematics) mislabeled as L2.
+   See research/feature_spec_v2.md for the corrected layering.
+ * The 300-bar SFE_WINDOW is the OUTER buffer fed to this engine. Each
+   feature has its own INNER window (N, 14, 30, HURST_WINDOW, etc.).
+ * z_high / z_low use the SAME RM_N + SE_N fit as z_se — they're the
+   bar's extreme extents in σ-space.
+================================================================
 """
 import numpy as np
 import pandas as pd

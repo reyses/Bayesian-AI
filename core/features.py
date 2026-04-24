@@ -6,32 +6,72 @@ Unified Feature Vector — Single Source of Truth
 Same 12 measurements at every timeframe. The fractal state in one array.
 Each TF is just a different aggregation window on the same 5s atomic data.
 
+================================================================
+FEATURE LAYERING (see research/feature_spec_v2.md — 2026-04-23)
+================================================================
+
+Each feature belongs to a physical-concept layer. Layer tells you:
+  - whether the feature has a window parameter
+  - what it actually measures
+  - which features duplicate each other (redundant signal)
+
+| L | Purpose              | Features (per TF)                     | Window | Status |
+|---|----------------------|---------------------------------------|--------|--------|
+| 1 | Raw inputs           | price, volume, time (not stored)      | no     | input  |
+| 2 | 1-bar Δ (L2)         | velocity_1b, accel_1b, jerk_1b,       | no     | REQUIRED|
+|   |                      | vol_delta_1b, vol_accel_1b            |        | (2026-04-23)|
+| 3 | Bar shape            | bar_range, wick_ratio, dmi_gap        | no     | OK     |
+| 4 | RM kinematics        | implicit in z_se fit (RM, β, γ)       | N      | OK     |
+| 5 | Residual / σ-space   | z_se, z_high, z_low, p_at_center,     | N      | OK     |
+|   |                      | reversion_prob                        |        |        |
+| 6 | Dispersion / scale   | variance_ratio                        | N      | PARTIAL|
+|   |                      | (σ itself is only via z_se denom)     |        |        |
+| 7 | Distribution shape   | hurst                                 | N      | PARTIAL|
+|   |                      | (missing: skew, kurtosis, ER)         |        |        |
+| 8 | Volume               | vol_rel, dir_vol                      | N      | OK     |
+| 9 | Global               | time_of_day                           | —      | OK     |
+
+KNOWN MISLABELS (2026-04-23 audit):
+  - `velocity`     → actually windowed-slope. Cleaner name: slope_β_N
+  - `acceleration` → actually windowed-Δ-of-slope. Cleaner name: curvature_γ_N
+    (or replace with true 1-bar Δ² for L2 primitive)
+
+KNOWN GAPS (candidates for v3 spec):
+  - kurtosis (fat-tail detector — we proved bands are fat-tailed)
+  - skew (asymmetric distribution)
+  - ATR (gap-aware volatility; σ via z_se is close-only)
+  - efficiency_ratio / chord_ratio (trend vs chop)
+  - price_vol_correlation (conviction signal)
+
+================================================================
+
 Core features (per TF):
-  [0]  z_se             — position in regression band (SE units)
-  [1]  dmi_diff         — DI+ minus DI- (direction + strength)
-  [2]  variance_ratio   — short/long vol ratio (regime)
-  [3]  velocity         — price rate of change
-  [4]  acceleration     — velocity change (chop detector)
-  [5]  vol_rel          — volume vs 30-bar SMA (conviction)
-  [6]  bar_range        — (high-low)/tick (risk)
-  [7]  hurst            — persistence exponent
-  [8]  reversion_prob   — P(revert to center) from OU first-passage
-  [9]  p_at_center      — 3-class probability near mean
-  [10] z_high           — where bar high touched in z-space (gravity well upper)
-  [11] z_low            — where bar low touched in z-space (gravity well lower)
+  [0]  z_se             — position in regression band (SE units)       [L5]
+  [1]  dmi_diff         — DI+ minus DI- (direction + strength)         [L3]
+  [2]  variance_ratio   — short/long vol ratio (regime)                [L6]
+  [3]  velocity         — price rate of change (WINDOWED SLOPE)        [L4, mislabeled]
+  [4]  acceleration     — velocity change                              [L4, mislabeled]
+  [5]  vol_rel          — volume vs 30-bar SMA (conviction)            [L8]
+  [6]  bar_range        — (high-low)/tick (risk)                       [L3]
+  [7]  hurst            — persistence exponent                         [L7]
+  [8]  reversion_prob   — P(revert to center) from OU first-passage    [L5]
+  [9]  p_at_center      — 3-class probability near mean                [L5]
+  [10] z_high           — where bar high touched in z-space            [L5]
+  [11] z_low            — where bar low touched in z-space             [L5]
 
 Helper features (per TF):
-  [0] dmi_gap          — abs(dmi_diff)
-  [1] dir_vol          — sign(velocity) * vol_rel
-  [2] wick_ratio       — 1 - abs(close-open)/range
+  [0] dmi_gap          — abs(dmi_diff)                                 [L3]
+  [1] dir_vol          — sign(velocity) * vol_rel                      [L8]
+  [2] wick_ratio       — 1 - abs(close-open)/range                     [L3]
 
 Global:
-  time_of_day          — timestamp % 86400 / 86400
+  time_of_day          — timestamp % 86400 / 86400                     [L9]
 
 TF order: 15s, 1m, 5m, 15m, 1h, 1D
 Layout: [15s_core(12), 1m_core(12), ..., 1D_core(12), 15s_help(3), ..., 1D_help(3), time_of_day]
 
 Spec: docs/Active/FEATURE_VECTOR_SPEC.md
+Layered spec (newer): research/feature_spec_v2.md
 """
 
 import numpy as np

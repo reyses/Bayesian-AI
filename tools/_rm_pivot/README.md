@@ -41,3 +41,4 @@
 | [`chart_strategy_comparison.py`](../chart_strategy_comparison.py) | CURRENT vs IDEAL (cusp → mean cross) side-by-side |
 | [`chart_regression_z.py`](../chart_regression_z.py) | Regression mean + z overlay (zoomed-out) |
 | [`chart_1s_trades.py`](../chart_1s_trades.py) | 1s-pivot forward-pass trades per day |
+| [`chart_5s_with_1h_bands.py`](../chart_5s_with_1h_bands.py) | 5s price overlaid with 1h RM + ±1σ/2σ/3σ bands (step per hour) |

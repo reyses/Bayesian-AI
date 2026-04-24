@@ -82,6 +82,7 @@ Complete index of everything under `tools/`. Grouped by function. Each entry: **
 | `chart_rm_trades.py` | Chart RM-slope trades: price+RM+trade segments, slope panel |
 | `chart_strategy_comparison.py` | CURRENT vs IDEAL (cusp → mean cross) strategies side-by-side |
 | `chart_regression_z.py` | Regression mean + z overlay on price (zoomed-out) |
+| `chart_5s_with_1h_bands.py` | 5s price with 1h RM + ±1σ/2σ/3σ bands overlay (step-per-hour) |
 | `pivot_inspector.py` | Visualize real vs fakeout pivots color-coded on price chart |
 
 ## 6. Physics / Nightmare Engines

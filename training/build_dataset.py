@@ -1,5 +1,38 @@
 """
-Build 79D Feature Dataset — sequential, per-TF, zero lookahead.
+Build 91D Feature Dataset — sequential, per-TF, zero lookahead.
+
+================================================================
+FEATURE ARCHITECTURE (layered primitives — see research/feature_spec_v2.md)
+================================================================
+
+Each TF produces 15 measurements (12 core + 3 helper). Stack across 6 TFs
+(15s, 1m, 5m, 15m, 1h, 1D) + 1 global time feature = 91D.
+
+By layer (physical meaning, NOT the file's storage order):
+
+| L | Purpose                   | Features (per TF)                            | Windowed? |
+|---|---------------------------|----------------------------------------------|-----------|
+| 1 | Raw measurement           | price, volume, time (INPUTS, not output)     | no        |
+| 2 | 1-bar Δ (noisy, honest)   | (not stored; velocity computed windowed)     | —         |
+| 3 | Bar shape                 | bar_range, wick_ratio, dmi_gap               | no        |
+| 4 | RM kinematics             | (RM, β, γ) implicit in the OLS fit           | window N  |
+| 5 | Residual (position in σ)  | z_se, z_high, z_low, p_at_center,            | window N  |
+|   |                           | reversion_prob                               |           |
+| 6 | Dispersion / scale        | variance_ratio, (σ via z_se denominator)     | window N  |
+| 7 | Distribution shape        | hurst                                        | window N  |
+| 8 | Volume                    | vol_rel, dir_vol                             | window N  |
+| 9 | Global context            | time_of_day                                  | —         |
+
+Note (2026-04-23 audit): "velocity" and "acceleration" in the current 91D
+are windowed derivatives (effectively slope and slope-change), not true
+L2 1-bar Δ. Consider renaming to slope_β_N / curvature_γ_N in v3.
+
+Windows: SFE uses `SFE_WINDOW = 300` bars to feed the engine (the 300-bar
+tail is the rolling history); individual features inside SFE have their
+own inner windows (see core/statistical_field_engine.py for per-feature
+window parameters — e.g. DMI period = 14, Hurst window = HURST_WINDOW).
+
+================================================================
 
 Computes each TF's features independently from ATLAS parquets.
 No partial bars. Each TF updates only when its bar closes.
@@ -10,7 +43,7 @@ For each day:
   1. Load anchor TF bars for this day
   2. For each higher TF: load all bars UP TO this day (cross-day history)
   3. Run SFE on tail(300) per TF — gets states for latest bars
-  4. For each anchor bar: find latest closed bar per TF, assemble 79D
+  4. For each anchor bar: find latest closed bar per TF, assemble 91D
 
 Usage:
   python training/build_dataset.py                          # all days, 1m anchor
