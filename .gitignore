@@ -92,3 +92,14 @@ DATA/NMP_TRADES/*.pkl
 DATA/NMP_TREE/*.pkl
 DATA/FEATURES_79D*/
 
+# v2 feature parquets + their JSON metadata sidecars (rebuild via build_dataset_v2.py)
+DATA/ATLAS/FEATURES_5s_v2/
+*.parquet.meta.json
+
+# v2 RM engine trade outputs (regenerable via training_RM_physics_v2/run_rm.py)
+training_RM_physics_v2/output/trades/
+training_RM_physics_v2/output/*.pt
+
+# Engine run logs
+reports/findings/rm_run_*.txt
+
