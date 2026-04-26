@@ -1,24 +1,42 @@
 // =============================================================================
-// ZigzagRunner 1.3.0 -- 2026-04-24
+// ZigzagRunner 1.2.0-RC -- 2026-04-25  (RELEASE CANDIDATE; not yet promoted)
 // =============================================================================
-// CHANGELOG 1.3.0:
-//   - Trailing stop now uses max(TrailDistancePoints, TrailPercent * HWM_profit).
-//     Below the crossover (~$100 profit on MNQ at defaults), the fixed
-//     distance floor dominates (locks $10 minimum once armed).
-//     Above crossover, the percentage rule kicks in and always protects
-//     (100% - TrailPercent * 100) of HWM profit -> 90% at default 10%.
-//   - New param: TrailPercent (default 0.10 = 10%). Set to 0 to keep
-//     strict fixed-distance trail (v1.2 behavior).
+// VERSION POLICY (effective 2026-04-25):
+//   - Released versions  : no suffix.   Currently only v1.0 is RELEASED (live
+//                                       on NT8 Sim101 since 2026-04-24, in VOE).
+//   - Release candidates : -RC suffix.  v1.1-RC, v1.2-RC are deploy candidates;
+//                                       built but NOT deployed live.
+//   - Promotion          : drop -RC.    Only happens on explicit user approval
+//                                       to deploy. Until then, v1.0 stays live.
 //
-// CHANGELOG 1.2.0:
-//   - Trailing stop: arms after TrailActivatePoints of unrealized profit,
-//     trails TrailDistancePoints behind the high-water mark. Defaults 10/5
-//     points ($20/$10 on MNQ). Set TrailActivatePoints <= 0 to disable.
-//     Trail is checked on bar close (OnBarClose calc). Exits as market via
-//     ExitLong/ExitShort -> fills next bar open. Exit reason tag:
-//     "TrailStopLong" / "TrailStopShort".
+// CHANGELOG 1.2.0-RC (2026-04-25 — the "true v1.2" per user designation):
+//   ZigzagRunner 1.2.0-RC = v1.0 logic + trailing stop + hard stop loss.
+//   Both opposite-pivot exit (v1.0) AND trail/SL run simultaneously;
+//   whichever fires first wins.
 //
-// CHANGELOG 1.1.0:
+//   * Trailing stop (carried from earlier RC iterations):
+//       arms when unrealized profit reaches TrailActivatePoints (default 10).
+//       trail distance = max(TrailDistancePoints, TrailPercent * HWM_profit).
+//       Default 5pt / 10% so trail tightens as profit grows. Trail check on
+//       1m close (Calculate.OnBarClose); exits as market on next bar open.
+//       Set TrailActivatePoints <= 0 to disable.
+//
+//   * Hard stop loss (NEW in 1.2.0-RC):
+//       SetStopLoss(CalculationMode.Ticks, StopLossPoints * 4).  Pre-placed
+//       NT8 stop order — fires intra-bar at the trigger price, NOT on bar
+//       close. Default StopLossPoints = 10 (= 40 ticks = $20 max loss/trade
+//       on MNQ at 1 contract).
+//
+//   * Calibration: chosen against last-20-days volatility regime
+//       (mean 1m bar range 13.9 pt, p90 = 24.6 pt).  SL at 10pt = below
+//       p90 means tight cap on chop, accepts being a noise-stop in trending
+//       moves. See reports/findings/2026-04-25_cascade_pivot_quality.md
+//       and reports/findings/daily_volatility_regime.csv.
+//
+//   * Per-trade max loss bound: $20 (SL trigger) + $2 (RT commission) = $22.
+//     Per-day worst observed in current regime: -$750 (vs -$978 without SL).
+//
+// CHANGELOG 1.1.0-RC:
 //   - Per-trade CSV logging via OnExecutionUpdate (CsvPath parameter).
 //     Appends one row per closed trade: entry/exit time + price, direction,
 //     qty, PnL (points + USD), held duration, entry/exit reason tags.
@@ -75,7 +93,7 @@ using NinjaTrader.NinjaScript.Strategies;
 
 namespace NinjaTrader.NinjaScript.Strategies
 {
-    public class ZigzagRunner : Strategy
+    public class ZigzagRunner_v12RC : Strategy
     {
         // ── Settings ─────────────────────────────────────────────────────
 
@@ -116,11 +134,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         public double TrailPercent { get; set; }
 
         [NinjaScriptProperty]
+        [Display(Name = "Stop Loss (points)", Description = "Hard catastrophic backstop in points. Pre-placed via SetStopLoss; fires intra-bar at trigger price. Default 10pt = $20 max loss/trade on MNQ at 1 contract. Set 0 to disable. Calibrated to current vol regime (last-20-day p90 1m bar range = 24.6 pt; SL=10 = aggressive cap).", Order = 1, GroupName = "StopLoss")]
+        public double StopLossPoints { get; set; }
+
+        [NinjaScriptProperty]
         [Display(Name = "Trade Log CSV Path", Description = "If non-empty, append one row per closed trade (full path)", Order = 1, GroupName = "Logging")]
         public string CsvPath { get; set; }
 
         // ── Version ──────────────────────────────────────────────────────
-        private const string VERSION = "1.3.0";
+        private const string VERSION = "1.2.0-RC";
         private const string CSV_HEADER = "close_time_utc,day,entry_time_utc,exit_time_utc,direction,entry_price,exit_price,qty,pnl_points,pnl_usd,held_minutes,entry_reason,exit_reason";
 
         // ── Zigzag state ─────────────────────────────────────────────────
@@ -148,7 +170,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (State == State.SetDefaults)
             {
-                Name                             = "ZigzagRunner";
+                Name                             = "ZigzagRunner_v1.2-RC";
                 Description                      = "Zigzag pivot-retracement strategy (pure rule, no ML). v" + VERSION;
                 Calculate                        = Calculate.OnBarClose;
                 EntriesPerDirection              = 1;
@@ -176,6 +198,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 TrailActivatePoints              = 10.0;   // MNQ $20 (arms trail)
                 TrailDistancePoints              = 5.0;    // MNQ $10 (floor)
                 TrailPercent                     = 0.10;   // 10% of HWM profit (protects 90% past crossover)
+                StopLossPoints                   = 10.0;   // MNQ $20 hard backstop per trade (1.2.0-RC default)
                 CsvPath                          = @"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\reports\findings\nt8_zigzag_trades.csv";
             }
             else if (State == State.Configure)
@@ -487,6 +510,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 else if (Position.MarketPosition == MarketPosition.Short && newPivotDir == -1)
                     ExitShort(Position.Quantity, "ShortExitPastCutoff", "");
                 return;
+            }
+
+            // ─── Hard stop loss (1.2.0-RC): set BEFORE entry so the next ────
+            // EnterLong/EnterShort attaches a pre-placed stop order. Stop fires
+            // intra-bar at the trigger price (1s precision in NT8 fill model).
+            // Tick conversion: MNQ tick = 0.25, so points * 4 = ticks.
+            if (StopLossPoints > 0)
+            {
+                int slTicks = (int)Math.Round(StopLossPoints * 4.0);
+                SetStopLoss(CalculationMode.Ticks, slTicks);
             }
 
             // ─── Before cutoff: place/reverse via Enter (NT8 auto-closes opposite) ───
