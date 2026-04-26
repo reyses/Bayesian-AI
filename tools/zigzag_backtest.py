@@ -16,7 +16,7 @@ Two PnL models reported per R threshold:
 
   REALISTIC  (with slippage + commission):
     Entry fill  = uniform random in [low, high] of the 1s bar immediately
-                  following the 1m confirmation close.
+                  following the confirmation close.
     Exit fill   = same sampling method on the 1s bar following next
                   confirmation.
     Commission  = $1 entry + $1 exit per contract = $2 round-trip.
@@ -25,11 +25,25 @@ Two PnL models reported per R threshold:
   Fallback: if the 1s bar is missing for a required second (thin session),
   fall through to the 1m bar's [low, high] for that sample.
 
+Hybrid timing mode  (--confirm-tf-seconds N, default 0 = disabled):
+  Mirrors NT8_ZigzagRunnerHybrid v1.4. Pivot EXTREMES still come from 1m
+  closes (unchanged trade semantics), but RETRACEMENT CONFIRMATION is
+  checked on a secondary N-second series. Confirmation timestamps move
+  earlier by 0..(60-N) seconds vs 1m-only mode.
+
+  Theoretical PnL is INVARIANT to the confirmation TF (it depends only on
+  pivot extreme prices, not on when retracement was detected). So
+  --confirm-tf-seconds only changes the realistic numbers via earlier
+  fill timestamps. N=0 (default) preserves v1.3 byte-identical behavior.
+  N=60 with aligned 60s bars also reduces to v1.3.
+
 Usage:
     python tools/zigzag_backtest.py                    # ATLAS, 8-way R sweep, both models
     python tools/zigzag_backtest.py --atlas DATA/ATLAS_NT8
     python tools/zigzag_backtest.py --r 20 30 50
     python tools/zigzag_backtest.py --no-realistic     # skip 1s-bar loading for speed
+    python tools/zigzag_backtest.py --confirm-tf-seconds 5    # v1.4 hybrid (5s confirm)
+    python tools/zigzag_backtest.py --confirm-tf-seconds 60   # parity-with-v1.3 sanity check
 """
 from __future__ import annotations
 
@@ -106,13 +120,122 @@ def zigzag_pivots_with_confirmation(closes: np.ndarray, r: float):
 
 
 def theoretical_leg_profits(pivots, r: float) -> list[float]:
-    """Idealized profit per leg in POINTS: leg_mag - 2*R."""
+    """Idealized profit per leg in POINTS: leg_mag - 2*R.
+
+    Invariant w.r.t. confirmation TF: only depends on pivot extreme prices,
+    which are determined by 1m closes regardless of secondary-TF setup.
+    """
     profits = []
     for i in range(len(pivots) - 1):
         _, p1, _, _ = pivots[i]
         _, p2, _, _ = pivots[i + 1]
         profits.append(abs(p1 - p2) - 2.0 * r)
     return profits
+
+
+# ─── Hybrid pivot dispatcher (v1.3 vs v1.4 timing) ────────────────────────
+
+def compute_pivots_unified(closes_1m: np.ndarray,
+                           ts_1m: np.ndarray,
+                           r: float,
+                           confirm_tf_seconds: int = 0,
+                           df_secondary: pd.DataFrame | None = None) -> list:
+    """Unified pivot detection. Returns (extreme_idx, extreme_price, kind, confirm_ts).
+
+    confirm_tf_seconds = 0:  v1.3 single-TF behavior. Pivot extremes and retracement
+                             both run on 1m closes. confirm_ts = ts_1m[confirm_idx]+60.
+    confirm_tf_seconds > 0:  v1.4 hybrid. 1m closes track extremes (semantically identical
+                             to v1.3); retracement check runs on `df_secondary` bars
+                             (period = confirm_tf_seconds). confirm_ts = secondary bar
+                             close timestamp.
+
+    Falls back to v1.3 path if df_secondary is missing/empty.
+
+    Implementation note (parity invariant):
+        Within each 1m window i, secondary bars are checked against the OLD extreme
+        (the running extreme as of the prior 1m close). At the END of the window the
+        1m close is processed (extends extreme or resets it post-pivot). This ordering
+        matches v1.3 where retracement at bar i is computed against ext_price BEFORE
+        bar i extends/resets it. With confirm_tf_seconds = 60 (one secondary bar per
+        window, aligned to 1m), the result is byte-identical to v1.3.
+    """
+    n = len(closes_1m)
+    if n < 2:
+        return []
+
+    # ── v1.3 path ─────────────────────────────────────────────────────────
+    if confirm_tf_seconds <= 0 or df_secondary is None or len(df_secondary) == 0:
+        pivots_1m = zigzag_pivots_with_confirmation(closes_1m, r)
+        return [(ext_idx, ext_price, kind, int(ts_1m[confirm_idx]) + 60)
+                for (ext_idx, ext_price, kind, confirm_idx) in pivots_1m]
+
+    # ── v1.4 hybrid path ──────────────────────────────────────────────────
+    ts_2 = df_secondary['timestamp'].values.astype(np.int64)
+    closes_2 = df_secondary['close'].values.astype(np.float64)
+    sec = int(confirm_tf_seconds)
+
+    pivots: list = []
+    direction: str | None = None     # None / 'up' / 'down'
+    ext_idx: int = 0
+    ext_price: float = float(closes_1m[0])
+    extreme_pending: bool = False    # True after pivot fires; cleared at next 1m close
+
+    # Initial window: from start of bar 0's close to start of bar 1's close.
+    # We start checking secondary bars AFTER bar 0 has closed (i.e., from ts_1m[0]+60
+    # forward), to mirror Python's existing zigzag_pivots_with_confirmation which
+    # also does not check at bar 0.
+    last_window_close_ts: int = int(ts_1m[0]) + 60
+
+    for i in range(1, n):
+        c_1m = float(closes_1m[i])
+        ts_1m_close = int(ts_1m[i]) + 60   # close of THIS 1m bar (assuming ts is bar START)
+
+        # ── Step 1: process secondary bars in (last_window_close_ts, ts_1m_close]
+        # secondary bar k has close = ts_2[k] + sec; we want close in that range,
+        # i.e. ts_2[k] in (last_window_close_ts - sec, ts_1m_close - sec].
+        lo_idx = np.searchsorted(ts_2, last_window_close_ts - sec, side='right')
+        hi_idx = np.searchsorted(ts_2, ts_1m_close - sec, side='right')
+
+        for k in range(lo_idx, hi_idx):
+            if extreme_pending:
+                # A pivot fired earlier in this same window — extreme is undefined
+                # until the next 1m close re-initializes it. Skip retracement checks.
+                continue
+            c2 = float(closes_2[k])
+            ts2_close = int(ts_2[k]) + sec
+            if direction is None:
+                if c2 - ext_price >= r:
+                    pivots.append((ext_idx, ext_price, 'low', ts2_close))
+                    direction = 'up'
+                    extreme_pending = True
+                elif ext_price - c2 >= r:
+                    pivots.append((ext_idx, ext_price, 'high', ts2_close))
+                    direction = 'down'
+                    extreme_pending = True
+            elif direction == 'up':
+                if ext_price - c2 >= r:
+                    pivots.append((ext_idx, ext_price, 'high', ts2_close))
+                    direction = 'down'
+                    extreme_pending = True
+            else:  # 'down'
+                if c2 - ext_price >= r:
+                    pivots.append((ext_idx, ext_price, 'low', ts2_close))
+                    direction = 'up'
+                    extreme_pending = True
+
+        # ── Step 2: 1m close at ts_1m_close — update or reseed extreme.
+        if extreme_pending:
+            ext_idx, ext_price = i, c_1m
+            extreme_pending = False
+        elif direction == 'up' and c_1m > ext_price:
+            ext_idx, ext_price = i, c_1m
+        elif direction == 'down' and c_1m < ext_price:
+            ext_idx, ext_price = i, c_1m
+        # direction is None and no pivot: keep initial seed (matches v1.3 behavior).
+
+        last_window_close_ts = ts_1m_close
+
+    return pivots
 
 
 # ─── Realistic fill simulation ────────────────────────────────────────────
@@ -154,9 +277,13 @@ def realistic_leg_pnl_usd(pivots,
                            commission_per_side: float) -> list[float]:
     """Per-leg $ PnL with random-in-1s-bar fills and commission.
 
+    Pivots carry an absolute confirmation timestamp `confirm_ts` (seconds since epoch,
+    at the bar CLOSE instant). For v1.3 mode confirm_ts = ts_1m[confirm_idx]+60.
+    For v1.4 hybrid mode confirm_ts = secondary-bar close (5s grid by default).
+
     For each consecutive pivot pair (p_i, p_{i+1}):
-      entry 1s bar  = 1s bar at ts_1m[confirm_idx_of_p_i] + 60  (first sec of next 1m)
-      exit  1s bar  = 1s bar at ts_1m[confirm_idx_of_p_{i+1}] + 60
+      entry 1s bar  = 1s bar at confirm_ts_of_p_i      (first sec at/after confirmation)
+      exit  1s bar  = 1s bar at confirm_ts_of_p_{i+1}
       direction     = long if p_i is 'low' else short
 
     Missing 1s bar -> fallback to 1m bar OHLC random sample.
@@ -177,13 +304,11 @@ def realistic_leg_pnl_usd(pivots,
 
     pnls = []
     for i in range(len(pivots) - 1):
-        _, _, kind_entry, confirm_idx_entry = pivots[i]
-        _, _, _, confirm_idx_exit = pivots[i + 1]
-        if confirm_idx_entry >= len(ts_1m) or confirm_idx_exit >= len(ts_1m):
-            continue
+        _, _, kind_entry, confirm_ts_entry = pivots[i]
+        _, _, _, confirm_ts_exit = pivots[i + 1]
 
-        entry_ts = int(ts_1m[confirm_idx_entry]) + 60
-        exit_ts = int(ts_1m[confirm_idx_exit]) + 60
+        entry_ts = int(confirm_ts_entry)
+        exit_ts = int(confirm_ts_exit)
 
         entry_fill = _random_fill_in_1s_bar(entry_ts, ts_1s, low_1s, high_1s, fallback_1m, rng)
         exit_fill = _random_fill_in_1s_bar(exit_ts, ts_1s, low_1s, high_1s, fallback_1m, rng)
@@ -223,14 +348,75 @@ def _load_1s_for_day(atlas_root: str, day: str) -> pd.DataFrame | None:
     return pd.read_parquet(p).sort_values('timestamp').reset_index(drop=True)
 
 
+_KNOWN_PERIOD_DIRS = {
+    5: '5s',  15: '15s',  30: '30s',
+    60: '1m',  300: '5m',  900: '15m',  1800: '30m',  3600: '1h',
+}
+
+
+def _load_secondary_for_day(atlas_root: str, day: str, period_seconds: int) -> pd.DataFrame | None:
+    """Load secondary-TF bars at `period_seconds` granularity for hybrid confirmation.
+
+    Strategy:
+      1. period_seconds == 1     -> use the 1s parquet.
+      2. period_seconds in       -> read the existing parquet directly
+         {5,15,30,60,300,900,
+          1800,3600}              (60s is mapped to the 1m dir by DATA convention).
+      3. period_seconds is a
+         multiple of 60 but not   -> RESAMPLE the 1m parquet on the fly. We retain only
+         on disk (e.g. 2m, 3m,       1m bars whose CLOSE aligns to an N-period boundary
+         10m)                        (i.e. (ts + 60) % N == 0). The N-period bar's close
+                                     price equals that 1m bar's close. This is exact for
+                                     hybrid retracement detection (which only consults the
+                                     close column), without needing OHLC reconstruction.
+      4. otherwise                -> return None; caller reverts to 1m-only confirmation.
+    """
+    if period_seconds <= 0:
+        return None
+    if period_seconds == 1:
+        return _load_1s_for_day(atlas_root, day)
+
+    # ── Path 2: existing parquet on disk ──────────────────────────────────
+    if period_seconds in _KNOWN_PERIOD_DIRS:
+        p = os.path.join(atlas_root, _KNOWN_PERIOD_DIRS[period_seconds], f'{day}.parquet')
+        if os.path.exists(p):
+            return pd.read_parquet(p).sort_values('timestamp').reset_index(drop=True)
+        # Fall through to resampling if disk file is unexpectedly missing.
+
+    # ── Path 3: resample 1m -> N-period (only if N divides into 60s grid) ─
+    if period_seconds % 60 != 0:
+        return None
+    p_1m = os.path.join(atlas_root, '1m', f'{day}.parquet')
+    if not os.path.exists(p_1m):
+        return None
+    df_1m = pd.read_parquet(p_1m).sort_values('timestamp').reset_index(drop=True)
+    if len(df_1m) == 0:
+        return None
+    ts = df_1m['timestamp'].values.astype(np.int64)
+    closes = df_1m['close'].values.astype(np.float64)
+    mask = ((ts + 60) % period_seconds) == 0
+    if not mask.any():
+        return None
+    return pd.DataFrame({
+        'timestamp': (ts[mask] + 60 - period_seconds).astype(np.int64),
+        'close': closes[mask],
+    }).reset_index(drop=True)
+
+
 # ─── Main backtest driver ──────────────────────────────────────────────────
 
 def backtest_one_R(r: float,
                    day_paths: list[tuple[str, str]],
                    atlas_root: str,
                    realistic: bool,
-                   commission_per_side: float) -> dict:
-    """Aggregate stats at a single R threshold across all days."""
+                   commission_per_side: float,
+                   confirm_tf_seconds: int = 0) -> dict:
+    """Aggregate stats at a single R threshold across all days.
+
+    confirm_tf_seconds:
+        0  -> v1.3 single-TF behavior (default; byte-identical to pre-v1.4 baseline).
+        N>0 -> v1.4 hybrid: 1m extremes, N-second retracement confirmation.
+    """
     rng = np.random.default_rng(SLIPPAGE_SEED)
 
     # Theoretical totals
@@ -260,7 +446,15 @@ def backtest_one_R(r: float,
         lows_1m = df1m['low'].values.astype(np.float64)
         highs_1m = df1m['high'].values.astype(np.float64)
 
-        pivots = zigzag_pivots_with_confirmation(closes, r)
+        # Hybrid mode loads the secondary TF for retracement-confirmation timing.
+        # Falls through to v1.3 path if disk doesn't have the requested period.
+        df_secondary = None
+        if confirm_tf_seconds > 0:
+            df_secondary = _load_secondary_for_day(atlas_root, day, confirm_tf_seconds)
+
+        pivots = compute_pivots_unified(closes, ts_1m, r,
+                                         confirm_tf_seconds=confirm_tf_seconds,
+                                         df_secondary=df_secondary)
         if len(pivots) < 2:
             continue
 
@@ -342,6 +536,11 @@ def main():
                     help='Per-side commission in $ (default $1 = $2 round-trip)')
     ap.add_argument('--no-realistic', action='store_true',
                     help='Skip realistic simulation (faster; theoretical only)')
+    ap.add_argument('--confirm-tf-seconds', type=int, default=0,
+                    help='Hybrid retracement-confirmation TF in seconds. 0 = v1.3 single-TF '
+                         'behavior (default; byte-identical to pre-v1.4 baseline). '
+                         '5 = v1.4 hybrid (1m extremes, 5s confirm). 60 = parity sanity. '
+                         'Requires DATA/<atlas>/<N>s/*.parquet to be present.')
     args = ap.parse_args()
 
     day_paths = _list_1m_days(args.atlas)
@@ -353,6 +552,11 @@ def main():
     print(f'Zigzag backtest -- {len(day_paths)} day files under {args.atlas}/1m/')
     print(f'R sweep (points): {args.r}')
     print(f'MNQ: 1 point = ${DOLLAR_PER_POINT}')
+    if args.confirm_tf_seconds > 0:
+        print(f'Hybrid timing: 1m extremes + {args.confirm_tf_seconds}s retracement confirmation '
+              f'(v1.4 mode). Theoretical PnL invariant; realistic fills move earlier.')
+    else:
+        print('Single-TF mode: 1m extremes + 1m retracement confirmation (v1.3 baseline).')
     if realistic:
         print(f'Realistic model: 1s-bar uniform-random fills, '
               f'${args.commission}/side commission (= ${2 * args.commission} round-trip)')
@@ -362,7 +566,10 @@ def main():
 
     rows = []
     for r in tqdm(args.r, desc='R sweep'):
-        rows.append(backtest_one_R(r, day_paths, args.atlas, realistic, args.commission))
+        row = backtest_one_R(r, day_paths, args.atlas, realistic, args.commission,
+                              confirm_tf_seconds=args.confirm_tf_seconds)
+        row['confirm_tf_seconds'] = args.confirm_tf_seconds
+        rows.append(row)
 
     df = pd.DataFrame(rows)
 
@@ -389,8 +596,11 @@ def main():
     print('  real_* : 1s-bar random fill + $2 round-trip commission -- DEPLOYABLE ESTIMATE')
     print('  dWR    : day win rate   tWR : trade win rate   med_trade : median $ per trade (OOS)')
 
-    # Save
-    out_csv = 'reports/findings/zigzag_backtest.csv'
+    # Save — separate output per confirm-TF so v1.3 baseline is never overwritten by a hybrid run.
+    if args.confirm_tf_seconds > 0:
+        out_csv = f'reports/findings/zigzag_backtest_hybrid_{args.confirm_tf_seconds}s.csv'
+    else:
+        out_csv = 'reports/findings/zigzag_backtest.csv'
     os.makedirs(os.path.dirname(out_csv), exist_ok=True)
     df.to_csv(out_csv, index=False)
     print(f'\nWrote: {out_csv}')
