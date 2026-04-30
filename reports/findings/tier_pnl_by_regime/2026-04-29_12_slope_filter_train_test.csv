@@ -1,0 +1,7 @@
+tier,n_total,train_n,train_baseline_pnl,T_picked,train_kept_n,train_filtered_pnl,train_improvement_total,train_improvement_per_kept_trade,test_n,test_baseline_pnl,test_kept_n,test_filtered_pnl,test_improvement_total,test_improvement_per_kept_trade,generalizes_total,generalizes_per_trade
+RIDE_CALM,637,445,2751.0,0.5,315,11866.5,9115.5,31.489406099518458,192,1010.5,136,5025.0,4014.5,31.68550857843137,True,True
+RIDE_AGAINST,1423,996,27618.0,0.5,758,35768.0,8150.0,19.45841942969768,427,11712.0,319,15038.5,3326.5,19.7140618002687,True,True
+FADE_AGAINST,352,246,14586.5,1.5,202,17971.5,3385.0,29.673106335023746,106,9051.0,90,9860.5,809.5,24.174318658280924,True,True
+BASE_NMP,1195,836,11066.5,0.5,650,13658.0,2591.5,7.774867500920134,359,8930.5,279,10501.0,1570.5,12.761948263296095,True,True
+FADE_CALM,365,255,29757.0,3.0,247,29996.5,239.5,4.749202190997863,110,12884.0,110,12884.0,0.0,0.0,False,False
+KILL_SHOT,106,74,1968.0,5.0,74,1968.0,0.0,0.0,32,603.5,32,603.5,0.0,0.0,False,False

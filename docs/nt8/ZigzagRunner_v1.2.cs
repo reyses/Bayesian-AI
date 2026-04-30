@@ -81,8 +81,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         private string currentEntryReason;
         private readonly object csvLock = new object();
 
-        private DynamicRiskManager riskMgr;
-        private StagnationMonitor stagnationMon;
+        private DynamicRiskManager_v12 riskMgr;
+        private StagnationMonitor_v12 stagnationMon;
         private double currentTradeMfePts;   
         private double currentTradeMaePts;   
 
@@ -141,8 +141,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     t2ActPts = TrailDistancePoints / TrailPercent;
                 }
 
-                riskMgr = new DynamicRiskManager(HardStopLossPoints, TrailActivatePoints, TrailDistancePoints, t2ActPts, TrailPercent, RouteStopOrder);
-                stagnationMon = new StagnationMonitor(MaxNegativeBars);
+                riskMgr = new DynamicRiskManager_v12(HardStopLossPoints, TrailActivatePoints, TrailDistancePoints, t2ActPts, TrailPercent, RouteStopOrder);
+                stagnationMon = new StagnationMonitor_v12(MaxNegativeBars);
                 EnsureCsvHeader();
             }
         }
@@ -301,7 +301,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                         currentTradeMfePts = 0.0;
                         currentTradeMaePts = 0.0;
                         riskMgr.ResetState(); 
-                        stagnationMon = new StagnationMonitor(MaxNegativeBars);
+                        stagnationMon = new StagnationMonitor_v12(MaxNegativeBars);
                     }
                     return;
                 }
@@ -323,7 +323,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 currentTradeMfePts = 0.0;
                 currentTradeMaePts = 0.0;
                 riskMgr.ResetState(); 
-                stagnationMon = new StagnationMonitor(MaxNegativeBars);
+                stagnationMon = new StagnationMonitor_v12(MaxNegativeBars);
             }
         }
 
@@ -476,7 +476,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             if (!isFlipping && currentEntryDir != 0)
             {
-                if (riskMgr.State == StopState.Null)
+                if (riskMgr.State == StopState_v12.Null)
                 {
                     riskMgr.OnInitialFill(currentEntryPrice, currentEntryDir, c);
                 }
@@ -493,7 +493,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                     currentTradeMaePts = -unrealizedPts;
                 }
 
-                riskMgr.EvaluateStopState(Position, c);
+                riskMgr.EvaluateStopState_v12(Position, c);
 
                 if (stagnationMon.RequiresFlatten(Position, c, CurrentBar, currentEntryPrice))
                 {
@@ -552,9 +552,9 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
     }
 
-    public enum StopState { Null, Initial, Tier1, Tier2 }
+    public enum StopState_v12 { Null, Initial, Tier1, Tier2 }
 
-    public class DynamicRiskManager
+    public class DynamicRiskManager_v12
     {
         private readonly double initialStopPts;
         private readonly double t1ActivationPts;
@@ -563,11 +563,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         private readonly double t2TrailPct;
         private readonly Action<double, int, double> stopRouter;
 
-        private StopState currentState = StopState.Null;
+        private StopState_v12 currentState = StopState_v12.Null;
         private double maxUnrealizedPts = 0.0;
         private double currentStopPrice = 0.0;
 
-        public DynamicRiskManager(double initialStopPts, double t1ActivationPts, double t1TrailPts, double t2ActivationPts, double t2TrailPct, Action<double, int, double> stopRouter)
+        public DynamicRiskManager_v12(double initialStopPts, double t1ActivationPts, double t1TrailPts, double t2ActivationPts, double t2TrailPct, Action<double, int, double> stopRouter)
         {
             this.initialStopPts = initialStopPts;
             this.t1ActivationPts = t1ActivationPts;
@@ -577,11 +577,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             this.stopRouter = stopRouter;
         }
 
-        public StopState State { get { return currentState; } }
+        public StopState_v12 State { get { return currentState; } }
         public double MaxUnrealized { get { return maxUnrealizedPts; } }
         public double CurrentStop { get { return currentStopPrice; } }
 
-        public void EvaluateStopState(Position position, double currentPrice)
+        public void EvaluateStopState_v12(Position position, double currentPrice)
         {
             if (position == null || position.MarketPosition == MarketPosition.Flat) 
             {
@@ -607,7 +607,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         public void OnInitialFill(double fillPrice, int direction, double currentPrice)
         {
             ResetState();
-            currentState = StopState.Initial;
+            currentState = StopState_v12.Initial;
             
             if (initialStopPts > 0.0)
             {
@@ -623,7 +623,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         public void ResetState()
         {
-            currentState = StopState.Null;
+            currentState = StopState_v12.Null;
             maxUnrealizedPts = 0.0;
             currentStopPrice = 0.0;
         }
@@ -632,15 +632,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (t2ActivationPts > 0.0 && maxPts >= t2ActivationPts) 
             {
-                currentState = StopState.Tier2;
+                currentState = StopState_v12.Tier2;
             }
             else if (t1ActivationPts > 0.0 && maxPts >= t1ActivationPts) 
             {
-                currentState = StopState.Tier1;
+                currentState = StopState_v12.Tier1;
             }
-            else if (currentState == StopState.Null) 
+            else if (currentState == StopState_v12.Null) 
             {
-                currentState = StopState.Initial;
+                currentState = StopState_v12.Initial;
             }
         }
 
@@ -655,7 +655,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             double entry = position.AveragePrice;
             double newStop = 0.0;
 
-            if (currentState == StopState.Initial)
+            if (currentState == StopState_v12.Initial)
             {
                 if (initialStopPts <= 0.0) 
                 {
@@ -663,7 +663,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
                 newStop = entry - (direction * initialStopPts);
             }
-            else if (currentState == StopState.Tier1)
+            else if (currentState == StopState_v12.Tier1)
             {
                 if (t1TrailPts <= 0.0) 
                 {
@@ -672,7 +672,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 double peakPrice = entry + (direction * maxUnrealizedPts);
                 newStop = peakPrice - (direction * t1TrailPts);
             }
-            else if (currentState == StopState.Tier2)
+            else if (currentState == StopState_v12.Tier2)
             {
                 double peakPrice = entry + (direction * maxUnrealizedPts);
                 double dynamicTrail = t2TrailPct * maxUnrealizedPts;
@@ -715,7 +715,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         }
     }
 
-    public class StagnationMonitor
+    public class StagnationMonitor_v12
     {
         private readonly int maxNegativeBars;
         private int consecutiveNegativeBars = 0;
@@ -723,7 +723,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         
         public int MaxConsecutiveNegative { get; private set; }
 
-        public StagnationMonitor(int maxNegativeBars)
+        public StagnationMonitor_v12(int maxNegativeBars)
         {
             this.maxNegativeBars = maxNegativeBars;
             this.MaxConsecutiveNegative = 0;

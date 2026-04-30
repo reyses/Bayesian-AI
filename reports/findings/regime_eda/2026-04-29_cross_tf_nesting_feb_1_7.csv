@@ -1,0 +1,7 @@
+parent_tf,child_tf,parent_segments,child_peaks_total,child_per_parent_mean,child_per_parent_median,child_per_parent_max,n_empty_parents
+4h,1h,8,11,1.375,1.0,2,0
+4h,15m,8,35,4.375,3.0,9,0
+4h,1m,8,42,5.25,0.0,36,6
+1h,15m,8,35,4.375,4.0,9,0
+1h,1m,8,40,5.0,0.0,34,6
+15m,1m,35,40,1.1428571428571428,0.0,13,29

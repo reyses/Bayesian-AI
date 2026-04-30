@@ -1,0 +1,28 @@
+Median-split decision rules for top-4 |rho| features.
+If 'edge_above_minus_below' is large + same-sign as rho, the
+feature provides a tradeable signal.
+
+FEATURE: prior_day_range
+  Rule:                 prior_day_range >= 341.5000
+  ABOVE: N= 44  mean=$ -245.16  WR= 31.8%
+  BELOW: N= 42  mean=$  -75.44  WR= 31.0%
+  Edge (above - below): $ -169.72
+
+FEATURE: mean_range_5d
+  Rule:                 mean_range_5d >= 351.0250
+  ABOVE: N= 43  mean=$ -303.47  WR= 25.6%
+  BELOW: N= 43  mean=$  -21.08  WR= 37.2%
+  Edge (above - below): $ -282.38
+
+FEATURE: range_expansion
+  Rule:                 range_expansion >= 0.9305
+  ABOVE: N= 43  mean=$ -296.76  WR= 23.3%
+  BELOW: N= 43  mean=$  -27.79  WR= 39.5%
+  Edge (above - below): $ -268.97
+
+FEATURE: range_trajectory
+  Rule:                 range_trajectory >= 0.9040
+  ABOVE: N= 43  mean=$ -260.41  WR= 27.9%
+  BELOW: N= 43  mean=$  -64.14  WR= 34.9%
+  Edge (above - below): $ -196.27
+

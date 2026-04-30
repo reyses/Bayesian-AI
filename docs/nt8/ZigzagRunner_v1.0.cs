@@ -1,9 +1,95 @@
 // =============================================================================
-// ZigzagRunner 1.0.1 -- 2026-04-25  (BASELINE + position-size safety patch)
+// ZigzagRunner 1.0.4 -- 2026-04-27  (BUGFIX: decouple exit from entry)
 // =============================================================================
 //
 // Pure zigzag pivot-retracement strategy for NinjaTrader 8.
 // No CNN, no ML, no Python bridge. Self-contained NinjaScript Strategy.
+//
+// CHANGELOG 1.0.4 (2026-04-27) -- STRUCTURAL BUGFIX:
+//   * BUG: v1.0.0 -> v1.0.3 had NO mid-session exit mechanism. Exits
+//     were an ACCIDENTAL SIDE EFFECT of opposite-direction entries:
+//        Counter mode: HIGH pivot fires SHORT entry, which (because we
+//                      were long from prior LOW pivot) implicitly exits
+//                      the long via ExitLong then EnterShort.
+//        With mode:    Same alternation hides the missing exit.
+//        Always-long:  Every pivot wants LONG. Idempotent guard returns
+//                      early. The first-of-session long is held until
+//                      EOD force-close. 1.21 trades/day with 18.75 hr
+//                      avg time in market = strategy degenerates into
+//                      buy-and-hold-each-session.
+//        Skip mode:    Same — no exit signal exists.
+//
+//     User exposed this on 2026-04-27 with OnHighPivot=Long, OnLowPivot=
+//     Long. NT8 Strategy Analyzer reported only 5 trades in a 6-day
+//     window where ~130 were expected. Diagnosis: the strategy works
+//     in counter/with modes only because direction always alternates.
+//     The new flexibility in v1.0.3 broke the alternation assumption.
+//
+//   * FIX: ALWAYS exit current position BEFORE any entry decision.
+//     The exit is now a first-class operation, not a side effect.
+//
+//        if (Position long)  ExitLong(...);
+//        if (Position short) ExitShort(...);
+//        if (action == Skip) return;       // flat now, stay flat
+//        if (action == Long)  EnterLong(...);
+//        if (action == Short) EnterShort(...);
+//
+//   * BACKWARD COMPATIBILITY: Counter and with modes produce IDENTICAL
+//     trades to v1.0.3. In those modes direction always alternates, so
+//     "exit then enter same direction" never happens. Net behavior
+//     unchanged. Always-long / always-short / skip modes now work
+//     correctly — every pivot rebalances the position.
+//
+//   * COMMISSION IMPACT: Always-long mode now generates ~33 trades/day
+//     instead of ~1. Commission rises proportionally. The +$269/day
+//     observed in v1.0.3 always-long was misleading because it was
+//     just regime drift. With proper per-pivot rebalancing, commission
+//     friction will be much higher (33 × $1.90 = $63/day in fees alone).
+//
+//   * The CSV ledger and signal-name semantics are unchanged from
+//     v1.0.3. Exit reasons now include "PivotExitLong" / "PivotExitShort"
+//     for the new always-exit path; "FlipExitLong" / "FlipExitShort"
+//     reasons are removed (replaced by the unconditional pivot exit).
+//
+// CHANGELOG 1.0.3 (2026-04-27):
+//   * NEW: Per-pivot direction control via two PivotAction enum properties.
+//     Replaces the v1.0.2 `RideWithTrend` bool with full flexibility:
+//
+//        OnHighPivot ∈ {Long, Short, Skip}   default = Short (v1.0 baseline)
+//        OnLowPivot  ∈ {Long, Short, Skip}   default = Long  (v1.0 baseline)
+//
+//     Common configurations:
+//        High=Short, Low=Long   = v1.0 counter-trend (default)
+//        High=Long,  Low=Short  = v1.0.2 RideWithTrend (with-trend)
+//        High=Long,  Low=Long   = ALWAYS LONG (= the "flip shorts to long"
+//                                 pattern motivated by the 2026-04-27 NT8
+//                                 backtest showing shorts have a reliable
+//                                 -98%-probability losing edge in MNQ
+//                                 March-April regime, while longs profit
+//                                 in BOTH counter and with modes)
+//        High=Short, Low=Short  = ALWAYS SHORT (mirror of above; would
+//                                 work in a downward-biased regime)
+//        High=Long,  Low=Skip   = long-on-highs only (= With longs only)
+//        High=Skip,  Low=Long   = long-on-lows only  (= Counter longs only)
+//
+//     Empirical basis from 3/20-4/25/2026 NT8 backtest (R=50, 1s primary):
+//        Counter overall: -$275 net, with the breakdown
+//          Counter Long:  +$3,135  (LOW pivot -> LONG)
+//          Counter Short: -$3,410  (HIGH pivot -> SHORT)
+//        With overall:    -$4,081 net, with the breakdown
+//          With Long:     +$1,240  (HIGH pivot -> LONG)
+//          With Short:    -$5,321  (LOW pivot -> SHORT)
+//        Both LONG sides profitable; both SHORT sides losers.
+//        Predicted: High=Long + Low=Long = +$3,135 + $1,240 ≈ +$4,375
+//        on the same 36-day window (~$122/day).
+//
+//   * No change to entry/exit timing, EOD, R, position-size hardening,
+//     or any other tunable. Direction control is the only delta.
+//
+// CHANGELOG 1.0.2 (2026-04-26) -- SUPERSEDED BY 1.0.3:
+//   * RideWithTrend bool removed. The two-enum approach in 1.0.3 is a
+//     strict superset (RideWithTrend=true == OnHighPivot=Long,
+//     OnLowPivot=Short).
 //
 // CHANGELOG 1.0.1 (2026-04-25):
 //   * Position-size hardening (no behavior change in normal flow):
@@ -18,11 +104,11 @@
 //        is bounded) with two clean 1-contract orders.
 //   No change to entry/exit logic, EOD, R, or any tunable parameter.
 //
-// LOGIC (unchanged from 1.0.0):
+// LOGIC (1.0.3 — direction set by OnHighPivot / OnLowPivot enum properties):
 //   1. Zigzag on bar closes with threshold R (points).
 //   2. When a pivot is CONFIRMED (price retraces R from current extreme):
-//      - High pivot  -> reverse to SHORT
-//      - Low  pivot  -> reverse to LONG
+//      - HIGH pivot -> action defined by OnHighPivot (Long, Short, or Skip)
+//      - LOW  pivot -> action defined by OnLowPivot  (Long, Short, or Skip)
 //   3. Past Entry Cutoff UTC: no new entries. Existing position is held
 //      until EOD.
 //   4. EOD force-close at configurable UTC time.
@@ -38,6 +124,7 @@
 using System;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Windows.Media;            // Brushes (for AddPlot colors, v1.0.4 plots patch)
 using NinjaTrader.Cbi;
 using NinjaTrader.Data;
 using NinjaTrader.NinjaScript;
@@ -74,8 +161,29 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Display(Name = "Entry Cutoff Minute UTC", Description = "No new entries after this minute (0-59)", Order = 4, GroupName = "Schedule")]
         public int EntryCutoffMinuteUtc { get; set; }
 
+        // ── Per-pivot direction control (v1.0.3) ─────────────────────────
+        // Two independent enum properties decide what each pivot type does.
+        // Default (Short on highs, Long on lows) = original v1.0 counter-
+        // trend behavior. Set both to Long for "always long, flip shorts".
+
+        [NinjaScriptProperty]
+        [Display(Name = "On High Pivot", Description = "Action when a HIGH pivot is confirmed. Default Short = v1.0 counter-trend. Set to Long for trend-following entry on highs (with-mode longs). Set to Skip to disable entries on highs.", Order = 1, GroupName = "Direction")]
+        public PivotAction_v10 OnHighPivot { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "On Low Pivot", Description = "Action when a LOW pivot is confirmed. Default Long = v1.0 counter-trend. Set to Short for trend-following entry on lows (with-mode shorts). Set to Skip to disable entries on lows.", Order = 2, GroupName = "Direction")]
+        public PivotAction_v10 OnLowPivot { get; set; }
+
         // ── Version ──────────────────────────────────────────────────────
-        private const string VERSION = "1.0.1";
+        private const string VERSION = "1.0.4";
+
+        // ── Plot accessors (NT8 convention, added 2026-04-28) ────────────
+        [System.Xml.Serialization.XmlIgnore]
+        [Browsable(false)]
+        public Series<double> Extreme  { get { return Values[0]; } }
+        [System.Xml.Serialization.XmlIgnore]
+        [Browsable(false)]
+        public Series<double> RTrigger { get { return Values[1]; } }
 
         // ── Zigzag state ─────────────────────────────────────────────────
         // direction: 0 = undefined (before first pivot), +1 = up leg, -1 = down leg
@@ -114,6 +222,17 @@ namespace NinjaTrader.NinjaScript.Strategies
                 EodMinuteUtc                     = 55;
                 EntryCutoffHourUtc               = 20;
                 EntryCutoffMinuteUtc             = 30;
+                OnHighPivot                      = PivotAction_v10.Short;  // v1.0 baseline (counter-trend)
+                OnLowPivot                       = PivotAction_v10.Long;   // v1.0 baseline (counter-trend)
+
+                // ── Chart plots (added 2026-04-28, no behavior change) ──────
+                // Plot 0: current zigzag extreme price (orange).
+                // Plot 1: R trigger level (cyan) — price at which the next
+                //         pivot would CONFIRM if reached this bar.
+                // Using simple AddPlot(Brush, name) overload to avoid
+                // Stroke/DashStyleHelper assembly-reference issues.
+                AddPlot(Brushes.Orange, "Extreme");
+                AddPlot(Brushes.Cyan,   "RTrigger");
             }
             else if (State == State.Configure)
             {
@@ -230,6 +349,26 @@ namespace NinjaTrader.NinjaScript.Strategies
                 }
             }
 
+            // ─── Plot updates (every bar, runs regardless of pivot) ────
+            // Plot 0: current zigzag extreme (orange line)
+            // Plot 1: R trigger price (gray dashed) — where pivot would
+            //         confirm: extreme - R if up leg (tracking HIGH);
+            //                   extreme + R if down leg (tracking LOW)
+            if (!double.IsNaN(extremePrice))
+            {
+                Values[0][0] = extremePrice;
+                if (direction != 0)
+                {
+                    Values[1][0] = direction > 0
+                        ? extremePrice - RPoints
+                        : extremePrice + RPoints;
+                }
+                else
+                {
+                    Values[1][0] = extremePrice;
+                }
+            }
+
             if (!pivotConfirmed) return;
             lastPivotDir = newPivotDir;
 
@@ -237,34 +376,64 @@ namespace NinjaTrader.NinjaScript.Strategies
             // Note: v1.1+ adds a reverse-exit here. v1.0 just holds.
             if (minsOfDay >= entryCutMins) return;
 
-            // ─── 1.0.1: explicit exit-before-entry (no NT8 auto-flip) ────
-            // Pattern: if currently in opposite direction, close that position
-            // with its own ExitLong/ExitShort order, then place a clean
-            // EnterShort/EnterLong of exactly `Contracts` units. Each order
-            // logs as exactly Contracts units, never a combined flip.
+            // ─── 1.0.4: STRUCTURAL FIX — decouple exit from entry ────────
+            // Every pivot ALWAYS exits the current position FIRST. This
+            // closes a v1.0.0-1.0.3 bug: exits were an accidental side
+            // effect of opposite-direction entries. In counter/with modes
+            // direction always alternated, so the exit happened naturally
+            // on every pivot. In always-long / always-short / skip modes,
+            // there was no opposite-direction trigger, so the position
+            // stayed open until EOD force-close. Trades degenerated to
+            // ~1/day overnight holds.
             //
-            // Idempotent guard: skip the new entry if already at target
-            // direction & size.
+            // Counter and with modes are byte-equivalent to v1.0.3 because
+            // direction always alternates: ExitLong then EnterShort vs.
+            // (idempotent skip + ExitLong + EnterShort) produce the same
+            // single round-trip. The new logic is a strict superset.
+            //
+            // Always-long / always-short / skip modes now correctly fire
+            // ~33 trades/day with proper per-pivot exits.
+            PivotAction_v10 action;
+            string pivotLabel;
             if (newPivotDir == +1)
             {
-                // Want SHORT
-                if (Position.MarketPosition == MarketPosition.Short &&
-                    Position.Quantity >= Contracts)
-                    return; // already short at target
-                if (Position.MarketPosition == MarketPosition.Long)
-                    ExitLong(Position.Quantity, "FlipExitLong", "");
-                EnterShort(Contracts, "ShortAtHighPivot");
+                action     = OnHighPivot;
+                pivotLabel = "HighPivot";
             }
             else
             {
-                // Want LONG
-                if (Position.MarketPosition == MarketPosition.Long &&
-                    Position.Quantity >= Contracts)
-                    return; // already long at target
-                if (Position.MarketPosition == MarketPosition.Short)
-                    ExitShort(Position.Quantity, "FlipExitShort", "");
-                EnterLong(Contracts, "LongAtLowPivot");
+                action     = OnLowPivot;
+                pivotLabel = "LowPivot";
             }
+
+            // ALWAYS exit current position first (whatever direction it is).
+            if (Position.MarketPosition == MarketPosition.Long)
+                ExitLong(Position.Quantity, "PivotExitLong", "");
+            else if (Position.MarketPosition == MarketPosition.Short)
+                ExitShort(Position.Quantity, "PivotExitShort", "");
+
+            // Skip = stay flat after the exit above. No new entry fires.
+            if (action == PivotAction_v10.Skip)
+                return;
+
+            if (action == PivotAction_v10.Short)
+                EnterShort(Contracts, "ShortAt" + pivotLabel);
+            else  // PivotAction_v10.Long
+                EnterLong(Contracts, "LongAt" + pivotLabel);
         }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    // PivotAction_v10 (v1.0.3, 2026-04-27)
+    // ─────────────────────────────────────────────────────────────────────
+    // Per-pivot-type direction action. Public + version-suffixed name so
+    // it can coexist with similar enums in v1.1/v1.2/etc. without colliding
+    // when NT8 compiles the entire Strategies/ folder into one assembly.
+    // ═════════════════════════════════════════════════════════════════════
+    public enum PivotAction_v10
+    {
+        Long,    // EnterLong on this pivot type
+        Short,   // EnterShort on this pivot type
+        Skip,    // No entry on this pivot type
     }
 }

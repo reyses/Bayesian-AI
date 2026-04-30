@@ -1,0 +1,2 @@
+tier,is_baseline_n,is_baseline_pnl,is_baseline_per_trade,T_picked_on_is,is_kept_n,is_filtered_pnl,is_filtered_per_trade,is_improvement,is_improvement_per_kept_trade,oos_baseline_n,oos_baseline_pnl,oos_baseline_per_trade,oos_kept_n,oos_filtered_pnl,oos_filtered_per_trade,oos_improvement,oos_improvement_per_kept_trade,generalizes
+KILL_SHOT,70,1876.5,26.807142857142857,5.0,70,1876.5,26.807142857142857,0.0,0.0,36,695.0,19.305555555555557,36,695.0,19.305555555555557,0.0,0.0,False
