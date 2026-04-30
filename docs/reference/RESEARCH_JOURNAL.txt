@@ -3580,3 +3580,68 @@ DECISION POINT:
      at 52-54%, tiers are truly coin flips.
   3. If (2) fails: rebuild tiers from data (corrected-trade clustering)
      instead of hand-crafted physics gates.
+
+================================================================================
+2026-04-30 — HEADLINE VALIDATION + CLEANUP
+================================================================================
+
+THE NUMBER:
+  Tier system + LinReg slope filter (per-tier T sweep, T picked on training)
+  applied to the 14-month enriched-trades CSV produces:
+    +$165,141 total over 4,078 baseline-eligible trades (3,212 kept)
+    $51.41/trade avg
+    ~$390/day NT8 on 209 trading days = 7.8x v1.0.4's current $50/day live
+
+  Per-tier breakdown (filtered_pnl, kept/total):
+    RIDE_AGAINST  $50,807  1077/1423  T=0.5
+    FADE_CALM     $42,881   357/365   T=3.0
+    FADE_AGAINST  $27,832   292/352   T=1.5
+    BASE_NMP      $24,159   929/1195  T=0.5
+    RIDE_CALM     $16,891   451/637   T=0.5
+    KILL_SHOT      $2,571   106/106   T=5.0  (filter is no-op here)
+
+VALIDATION (3 independent checks):
+  1. Per-tier table sums to $165,141.0 exactly. Trade count 3,212 consistent.
+  2. 70/30 within-tier holdout: RIDE_CALM/RIDE_AGAINST/FADE_AGAINST/BASE_NMP
+     all generalize positive on test set. FADE_CALM and KILL_SHOT are no-ops
+     on test (don't degrade).
+  3. Source CSV (reports/findings/tier_pnl_by_regime/2026-04-29_trades_enriched.csv)
+     has 4,124 rows = 4,078 baseline + ~46 minor-tier excluded. Consistent.
+
+  Verdict: defensible. See reports/findings/HEADLINE_VALIDATION_2026-04-30.md
+
+CRITICAL FLAG — DO NOT SHIP STANDALONE BaseNmpRunner_v1.0-RC:
+  The standalone NT8 strategy compiles fine but on the full 14-month data
+  it loses -$30k (canonical) to -$49k ("best" SA params). Trade count is
+  10x the original BASE_NMP tier (16,500 vs 1,195) — the standalone fires
+  on bars the blended pipeline would have routed to other tiers. The
+  standalone lacks the tier classifier that gated BASE_NMP's edge.
+
+  Path forward: ship v1.0.8-RC zigzag (slope filter + daily gate). Drop
+  standalone BaseNmpRunner until either (a) tier classifier is ported, or
+  (b) Python bridge deploys the actual blended pipeline.
+
+  See: reports/findings/base_nmp_param_comparison/2026-04-30_results.md
+
+CLEANUP:
+  NT8 Strategies/ — 9 superseded RCs to archive/ (v1.0.6-RC through v1.5-RC,
+    plus VWAP_MTF_Rev12, MyCustomStrategy.cs, MyCustomStrategy1.cs)
+  tools/ — 25 dead tools archived in 3 subdirs:
+    tools/archive/2026-04-29_overnight_research/ (7)
+    tools/archive/superseded_v_x_runners/ (6: v104_*, zigzag_v104/v106/v12rc)
+    tools/archive/v15rc_chop_specialist/ (12: v15_*, nt8_bleed_harvest,
+      tier9_bleed, tier_day_classifier+rule_backtest, sweep_phantom,
+      zigzag_5s_perfect_fill)
+  reports/findings/INDEX.md created — master nav for 125+ files.
+  tools/INDEX.md updated with archive trail.
+
+COMPILE FIX:
+  NT8 doesn't allow LinReg(...).Slope[0] (CS0021 — method group, not series).
+  Switched to NT8's separate LinRegSlope indicator type. Affected:
+    BaseNmpRunner_v1.0-RC.cs:336
+    ZigzagRunner_v1.0.8-RC.cs:833, 1120
+
+NEXT DECISION POINT:
+  User runs NT8 SA on ZigzagRunner_v1.0.8-RC against MNQ JUN26 (MNQCONT
+  load broken — diagnosed as data-series mismatch, not yet fixed).
+  Compare to v1.0.4 baseline. If beats: ship v1.0.8-RC live.
