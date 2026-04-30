@@ -103,3 +103,12 @@ training_RM_physics_v2/output/*.pt
 # Engine run logs
 reports/findings/rm_run_*.txt
 
+# Peak feature overlay per-day batch (~118MB; reproducible via
+# tools/peak_feature_overlay_chart.py --mode per_day)
+# Keep representative samples committed; gitignore the rest.
+reports/findings/peak_feature_overlay/per_day/*.png
+!reports/findings/peak_feature_overlay/per_day/2025_06_09.png
+!reports/findings/peak_feature_overlay/per_day/2025_11_04.png
+!reports/findings/peak_feature_overlay/per_day/2026_01_08.png
+!reports/findings/peak_feature_overlay/per_day/2026_02_19.png
+

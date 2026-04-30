@@ -37,8 +37,16 @@ read off the feature value at every peak by following the line down.
 reports/findings/peak_feature_overlay/per_day/YYYY_MM_DD.png
 ```
 
-One PNG per peak-bearing trading day. ~209 days expected; days with no
-peaks or no features data are skipped silently.
+**Full batch produced 328 PNGs / ~118 MB on disk** (no skips). To keep the
+repo lean, only 4 representative sample charts are committed (2025-06-09,
+2025-11-04, 2026-01-08, 2026-02-19); the remaining 324 are gitignored
+locally and reproducible via:
+
+```bash
+python tools/peak_feature_overlay_chart.py --mode per_day
+```
+
+Single-day rendering takes ~3 sec. Full batch took 16.3 min on this machine.
 
 ## Tool
 
