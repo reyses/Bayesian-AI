@@ -80,3 +80,15 @@
 | `seeds.py` | Seed file I/O |
 | `plots.py` | Shared plotting helpers |
 | `tbn_trade_aware.py` | Trade-aware TBN analysis |
+
+## Archive (orphaned/superseded — do NOT use)
+
+Recent archive activity (2026-04-30 cleanup):
+
+| Subdir | Why archived |
+|---|---|
+| `tools/archive/2026-04-29_overnight_research/` | One-shot scripts from overnight EDA cycle. Outputs preserved in `reports/findings/`. 7 files. |
+| `tools/archive/superseded_v_x_runners/` | v1.0.4 / v1.0.6 / v1.2-RC backtest + parity scripts. Strategies retired. 6 files. |
+| `tools/archive/v15rc_chop_specialist/` | v1.5-RC chop-specialist family (v15_*, nt8_bleed_harvest, tier9_bleed, tier_day_*, sweep_phantom, zigzag_5s_perfect_fill). Strategy archived. 12 files. |
+
+If you need one of these back, `git mv` it from the archive subdir — history is intact.
