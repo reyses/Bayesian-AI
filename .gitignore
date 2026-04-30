@@ -112,3 +112,12 @@ reports/findings/peak_feature_overlay/per_day/*.png
 !reports/findings/peak_feature_overlay/per_day/2026_01_08.png
 !reports/findings/peak_feature_overlay/per_day/2026_02_19.png
 
+# Entry outcome overlay per-day batch (~99MB; reproducible via
+# tools/entry_outcome_overlay_chart.py --mode per_day)
+# Keep representative samples committed; gitignore the rest.
+reports/findings/entry_outcome_overlay/per_day/*.png
+!reports/findings/entry_outcome_overlay/per_day/2025_06_09.png
+!reports/findings/entry_outcome_overlay/per_day/2026_01_07.png
+!reports/findings/entry_outcome_overlay/per_day/2026_01_08.png
+!reports/findings/entry_outcome_overlay/per_day/2026_02_05.png
+
