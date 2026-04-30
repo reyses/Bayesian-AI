@@ -121,3 +121,7 @@ reports/findings/entry_outcome_overlay/per_day/*.png
 !reports/findings/entry_outcome_overlay/per_day/2026_01_08.png
 !reports/findings/entry_outcome_overlay/per_day/2026_02_05.png
 
+# NT8 tick imports (raw Databento exports, 38MB-1.1GB each — regenerate
+# via tools/databento_to_nt8_ticks.py)
+examples/nt8_import_ticks/
+
