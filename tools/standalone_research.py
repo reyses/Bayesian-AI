@@ -104,10 +104,10 @@ def _build_col_names(prefix=""):
 PLOTS_DIR = _res_plots.PLOTS_DIR
 
 
-def _resolve_plots_dir(data_path, analysis_days=0):
+def _resolve_plots_dir(data_path, analysis_days=0, base_tf=None):
     """Thin wrapper: resolve in plots module, sync to this module."""
     global PLOTS_DIR
-    sub = _res_plots.resolve_plots_dir(data_path, analysis_days)
+    sub = _res_plots.resolve_plots_dir(data_path, analysis_days, base_tf=base_tf)
     PLOTS_DIR = _res_plots.PLOTS_DIR
     return sub
 
@@ -201,7 +201,8 @@ def main():
         args.base_tf = '1m' if cache_mode == 'v2_features' else '15m'
 
     # Resolve plots dir based on data path
-    sample_label = _resolve_plots_dir(args.data, getattr(args, 'analysis_days', 0))
+    sample_label = _resolve_plots_dir(args.data, getattr(args, 'analysis_days', 0),
+                                      base_tf=args.base_tf)
 
     # Capture all output to report file
     _report_buf = io.StringIO()

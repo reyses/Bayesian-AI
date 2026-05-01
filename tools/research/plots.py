@@ -31,9 +31,11 @@ _REGIME_COLORS = [
 PLOTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots', 'standalone')
 
 
-def resolve_plots_dir(data_path, analysis_days=0):
-    """Set PLOTS_DIR subfolder based on data path + analysis window.
+def resolve_plots_dir(data_path, analysis_days=0, base_tf=None):
+    """Set PLOTS_DIR subfolder based on data path + analysis window + base TF.
     ATLAS_1DAY -> 1d, ATLAS_1WEEK -> 1w, ATLAS+30d -> 1m, ATLAS full -> 1y.
+    If base_tf is provided, suffix as <window>_<base_tf> (e.g., 1y_5m) so
+    runs at different base TFs don't overwrite each other.
     Returns the subfolder name."""
     global PLOTS_DIR
     base = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plots', 'standalone')
@@ -48,6 +50,8 @@ def resolve_plots_dir(data_path, analysis_days=0):
         sub = '1m'
     else:
         sub = '1y'
+    if base_tf:
+        sub = f"{sub}_{base_tf}"
     PLOTS_DIR = os.path.join(base, sub)
     os.makedirs(PLOTS_DIR, exist_ok=True)
     return sub
