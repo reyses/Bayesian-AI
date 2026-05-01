@@ -382,27 +382,27 @@ def main():
         f.write(f"**Baseline (majority class):** {baseline_acc:.1%}\n\n")
 
         f.write("## Per-TF (own cadence)\n\n")
-        f.write(pd.DataFrame(per_tf_rows).to_markdown(index=False))
+        f.write(pd.DataFrame(per_tf_rows).to_string(index=False))
         f.write("\n\n")
 
         f.write(f"## Per-TF (projected onto {args.common_tf} cadence)\n\n")
-        f.write(pd.DataFrame(per_tf_common_rows).to_markdown(index=False))
+        f.write(pd.DataFrame(per_tf_common_rows).to_string(index=False))
         f.write("\n\n")
 
         f.write("## Composite: majority vote (stratified)\n\n")
-        f.write(pd.DataFrame(maj_rows).to_markdown(index=False))
+        f.write(pd.DataFrame(maj_rows).to_string(index=False))
         f.write("\n\n")
 
         f.write("## Composite: strict-all\n\n")
-        f.write(pd.DataFrame([strict_score]).to_markdown(index=False))
+        f.write(pd.DataFrame([strict_score]).to_string(index=False))
         f.write("\n\n")
 
         f.write("## Composite: magnitude-weighted (stratified by |weighted_sum|)\n\n")
-        f.write(pd.DataFrame(w_rows).to_markdown(index=False))
+        f.write(pd.DataFrame(w_rows).to_string(index=False))
         f.write("\n\n")
 
         f.write(f"## Composite: confgated-majority (|pred|>{args.conf_threshold})\n\n")
-        f.write(pd.DataFrame([cg_score]).to_markdown(index=False))
+        f.write(pd.DataFrame([cg_score]).to_string(index=False))
         f.write("\n")
     print(f"\n  [saved] {md_path}")
 

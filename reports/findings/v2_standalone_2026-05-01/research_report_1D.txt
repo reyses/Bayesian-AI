@@ -1,0 +1,826 @@
+======================================================================
+  STANDALONE RESEARCH
+  Data: DATA/ATLAS
+  Base TF: 1D
+  Context: 21d warmup, 0d analysis
+  Mode: PRICE I-MR (default)
+======================================================================
+
+--- STEP 1: Loading base TF data (1D) ---
+  1D: 345 bars loaded
+
+--- STEP 2: Price I-MR Chart ---
+  Price I-MR: 345 bars, warmup=103, analysis=327
+  Center=20458.20, MR_bar=257.22, UCL_MR=840.32, UCL_I=21142.40, LCL_I=19774.01
+
+--- STEP 3: Regime Detection ---
+  Regimes: 8 raw -> 5 after merge (min_bars=8)
+    R0:   56 bars, price=20818.8, vol=231.33, dir=SHORT, chg=-5244.8
+    R1:   64 bars, price=20469.9, vol=241.96, dir=LONG, chg=+4090.5
+    R2:   78 bars, price=23663.5, vol=138.72, dir=LONG, chg=+2626.8
+    R3:   35 bars, price=25352.9, vol=245.29, dir=LONG, chg=+921.0
+    R4:   94 bars, price=25214.5, vol=200.53, dir=LONG, chg=+137.0
+
+--- STEP 4: Oracle MFE/MAE ---
+  Oracle: 322 bars with MFE/MAE (lookahead=5)
+
+--- STEP 5: Generating charts ---
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0_price_imr.png
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0b_regime_summary.png
+
+======================================================================
+  REGIME SUMMARY
+======================================================================
+  Analysis bars: 322
+  Regimes: 5
+  MFE: mean=512.02, std=451.58
+  MAE: mean=398.03, std=377.71
+  Win rate (MFE > MAE): 57.5%
+
+  Regime     Dir        N      WR      MFE      MAE    Vol      Price
+  ---------- ------ ----- ------- -------- -------- ------ ----------
+  R0         SHORT     56   69.6%   +850.2    355.7 231.33    20818.8
+  R1         LONG      64   65.6%   +633.1    352.1 241.96    20469.9
+  R2         LONG      78   64.1%   +338.4    291.7 138.72    23663.5
+  R3         LONG      35   40.0%   +431.5    615.0 245.29    25352.9
+  R4         LONG      89   44.9%   +396.1    465.6 200.53    25214.5
+
+  DIRECTIONAL SPLIT:
+  LONG:    266 bars, WR=54.9%
+  SHORT:    56 bars, WR=69.6%
+
+--- STEP 7 (v2): Loading precomputed features from DATA/ATLAS/FEATURES_5s_v2 ---
+  Loading v2 features for 345 days from DATA/ATLAS/FEATURES_5s_v2
+  v2 load summary: precomputed=345, live-computed=0, skipped=0
+  v2 features: 4,149,145 5s rows, 186 cols
+
+--- STEP 8 (v2): Reindex onto 1D bars ---
+  Samples: 326, Level features: 186, Delta features: 184
+  X: 8*23=184 stack + current_MR + L0_time_of_day = 186 level features
+  [SKIP] Analysis A (--start L)
+  [SKIP] Analysis B (--start L)
+  [SKIP] Analysis C (--start L)
+  [SKIP] Analysis D (--start L)
+  [SKIP] Analysis E (--start L)
+  [SKIP] Analysis F (--start L)
+  [SKIP] Analysis G (--start L)
+  [SKIP] Analysis H (--start L)
+  [SKIP] Analysis I (--start L)
+  [SKIP] Analysis J (--start L)
+  [SKIP] Analysis K (--start L)
+
+======================================================================
+  ANALYSIS L: SIGNED MFE OLS (DIRECTION FROM PRICE PREDICTION)
+  Y = MFE * sign(direction)  |  positive=UP, negative=DOWN
+  sign(prediction) -> direction,  |prediction| -> confidence
+======================================================================
+
+  Matched samples: 322 (oracle bars with fractal context)
+  UP (positive): 266 (82.6%)  DOWN (negative): 56 (17.4%)
+  Y range: [-3191.5, 2395.5], mean=216.31, std=647.53
+
+  OLS Signed MFE:
+    Train R2:     0.9163
+    Test R2:      -17.6479
+    Test adj-R2:  -1789.2032
+
+  Direction from sign(prediction):
+    Accuracy: 58/97 = 59.8%
+    Baseline (majority): 82.5%
+    Lift: -22.7%
+
+  Confidence gates (|predicted signed MFE| > threshold):
+   Threshold      N   Accuracy     Lift  % of data
+  ---------- ------ ---------- -------- ----------
+         0.0     97      59.8%   -22.7%     100.0%
+         1.0     97      59.8%   -22.7%     100.0%
+         2.0     97      59.8%   -22.7%     100.0%
+         5.0     97      59.8%   -22.7%     100.0%
+        10.0     97      59.8%   -22.7%     100.0%
+        20.0     96      60.4%   -22.1%      99.0%
+        50.0     93      61.3%   -21.2%      95.9%
+
+  When actual LONG:  47/80 = 58.8%
+  When actual SHORT: 11/17 = 64.7%
+
+  TOP 20 FEATURES (by |coefficient| in signed MFE OLS):
+  Rank  Feature                                       Coeff    |Coeff|
+  ----  ---------------------------------------- ---------- ----------
+     1  d7_5s__price_mean_w                      -538066.6024 538066.6024
+     2  d7_5s__vwap_w                            +344683.3462 344683.3462
+     3  d6_15s__vwap_w                           +234803.5953 234803.5953
+     4  d5_1m__price_mean_w                      +189566.4971 189566.4971
+     5  d4_5m__price_mean_w                      -164402.8514 164402.8514
+     6  d6_15s__price_mean_w                     +157659.6974 157659.6974
+     7  d4_5m__vwap_w                            -151708.7714 151708.7714
+     8  d3_15m__price_mean_w                     -102134.1814 102134.1814
+     9  d3_15m__vwap_w                           +44408.4100 44408.4100
+    10  d5_1m__vwap_w                            -16575.9546 16575.9546
+    11  d0_1D__price_mean_w                      -8222.9758  8222.9758
+    12  d0_1D__vwap_w                            +6736.3260  6736.3260
+    13  d1_4h__vwap_w                            -6595.8303  6595.8303
+    14  d1_4h__price_mean_w                      +6340.4334  6340.4334
+    15  d4_5m__price_velocity_1b                 -3967.1084  3967.1084
+    16  d2_1h__price_mean_w                      +3809.9278  3809.9278
+    17  d3_15m__price_velocity_1b                -3074.4745  3074.4745
+    18  d4_5m__body                              +2891.0738  2891.0738
+    19  d3_15m__vol_velocity_1b                  +2423.0819  2423.0819
+    20  d4_5m__vol_mean_w                        +2259.1521  2259.1521
+
+  ANALYSIS L CONCLUSION:
+  PROMISING: 59.8% direction accuracy from signed MFE OLS.
+  The 16D fractal context can predict not just WHERE price is,
+  but which WAY it's going and how FAR. One regression gives
+  direction (sign) + confidence (magnitude) + TP target (|pred|).
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0n_signed_mfe_direction.png
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0o_price_direction_overlay.png
+
+======================================================================
+  ANALYSIS M: NEXT-PRICE FORECAST
+  Y = close[t+1]  |  X = 192D fractal context at time t
+  direction = sign(predicted_next - current_price)
+======================================================================
+
+  Consecutive pairs: 325
+  Actual direction: UP=173 (53.2%)  DOWN=152 (46.8%)  FLAT=0
+  Delta range: [-1168.0, 2320.8], mean=7.50, std=307.88
+
+  OLS Next-Price Forecast:
+    Train R2:     0.9980
+    Test R2:      -3.3657
+    Test adj-R2:  -422.4749
+
+  Residuals: mean=-154.38, std=976.60
+  Actual moves: mean=202.87, std=274.35
+  Signal-to-noise: 0.208 (poor)
+
+  Direction = sign(predicted_next - current):
+    Accuracy: 52/98 = 53.1%
+    Baseline (majority): 52.0%
+    Lift: +1.0%
+
+  Confidence gates (|predicted delta| > threshold):
+   Threshold      N   Accuracy     Lift  % of data
+  ---------- ------ ---------- -------- ----------
+         0.0     98      53.1%    +1.0%     100.0%
+         1.0     97      52.6%    +0.5%      99.0%
+         2.0     97      52.6%    +0.5%      99.0%
+         5.0     95      52.6%    +0.6%      96.9%
+        10.0     94      52.1%    +0.1%      95.9%
+        20.0     92      52.2%    +0.1%      93.9%
+        50.0     91      51.6%    -0.4%      92.9%
+       100.0     83      53.0%    +1.0%      84.7%
+
+  When actual UP:   19/47 = 40.4%
+  When actual DOWN: 33/51 = 64.7%
+
+  ANALYSIS M CONCLUSION:
+  MARGINAL: 53.1% accuracy, slight lift over baseline.
+  SNR=0.21: residual noise > typical moves.
+
+  ===============================================================================================
+  PREDICTION TABLE (test set: 98 rows)
+  ===============================================================================================
+  Timestamp            Current     Actual  Predicted    Act.D   Pred.D   Dir   Act  OK
+  -----------------------------------------------------------------------------------------------
+  2025-11-13 00:00    25108.00   25147.50   24336.21   +39.50  -771.79  DOWN    UP   N
+  2025-11-14 00:00    25147.50   25170.00   24291.25   +22.50  -856.25  DOWN    UP   N
+  2025-11-16 00:00    25170.00   24920.00   24524.55  -250.00  -645.45  DOWN  DOWN   Y
+  2025-11-17 00:00    24920.00   24591.00   24797.76  -329.00  -122.24  DOWN  DOWN   Y
+  2025-11-18 00:00    24591.00   25109.25   25025.73  +518.25  +434.73    UP    UP   Y
+  2025-11-19 00:00    25109.25   24137.00   24498.37  -972.25  -610.88  DOWN  DOWN   Y
+  2025-11-20 00:00    24137.00   24349.25   23834.86  +212.25  -302.14  DOWN    UP   N
+  2025-11-21 00:00    24349.25   24471.75   22163.17  +122.50 -2186.08  DOWN    UP   N
+  2025-11-23 00:00    24471.75   24959.75   23809.52  +488.00  -662.23  DOWN    UP   N
+  2025-11-24 00:00    24959.75   25086.25   24447.05  +126.50  -512.70  DOWN    UP   N
+  2025-11-25 00:00    25086.25   25323.50   23507.76  +237.25 -1578.49  DOWN    UP   N
+  2025-11-26 00:00    25323.50   25328.00   25563.37    +4.50  +239.87    UP    UP   Y
+  2025-11-27 00:00    25328.00   25484.75   25886.55  +156.75  +558.55    UP    UP   Y
+  2025-11-28 00:00    25484.75   25466.50   25806.01   -18.25  +321.26    UP  DOWN   N
+  2025-11-30 00:00    25466.50   25399.00   28503.64   -67.50 +3037.14    UP  DOWN   N
+  2025-12-01 00:00    25399.00   25623.25   23920.51  +224.25 -1478.49  DOWN    UP   N
+  2025-12-02 00:00    25623.25   25647.50   24605.81   +24.25 -1017.44  DOWN    UP   N
+  2025-12-03 00:00    25647.50   25621.25   25375.37   -26.25  -272.13  DOWN  DOWN   Y
+  2025-12-04 00:00    25621.25   25735.00   25227.15  +113.75  -394.10  DOWN    UP   N
+  2025-12-05 00:00    25735.00   25745.50   25260.59   +10.50  -474.41  DOWN    UP   N
+  2025-12-07 00:00    25745.50   25726.50   25803.92   -19.00   +58.42    UP  DOWN   N
+  2025-12-08 00:00    25726.50   25672.00   25361.09   -54.50  -365.41  DOWN  DOWN   Y
+  2025-12-09 00:00    25672.00   25729.25   26457.09   +57.25  +785.09    UP    UP   Y
+  2025-12-10 00:00    25729.25   25671.50   25731.49   -57.75    +2.24    UP  DOWN   N
+  2025-12-11 00:00    25671.50   25203.00   26575.65  -468.50  +904.15    UP  DOWN   N
+  2025-12-12 00:00    25203.00   25194.00   24286.32    -9.00  -916.68  DOWN  DOWN   Y
+  2025-12-14 00:00    25194.00   25058.50   25276.66  -135.50   +82.66    UP  DOWN   N
+  2025-12-15 00:00    25058.50   25076.25   25062.84   +17.75    +4.34    UP    UP   Y
+  2025-12-16 00:00    25076.25   24705.00   25042.23  -371.25   -34.02  DOWN  DOWN   Y
+  2025-12-17 00:00    24705.00   25023.50   25918.18  +318.50 +1213.18    UP    UP   Y
+    ...
+  2026-03-08 00:00    24214.50   24881.75   24459.85  +667.25  +245.35    UP    UP   Y
+  2026-03-09 00:00    24881.75   25015.75   23122.72  +134.00 -1759.03  DOWN    UP   N
+  2026-03-10 00:00    25015.75   24788.00   25674.90  -227.75  +659.15    UP  DOWN   N
+  2026-03-11 00:00    24788.00   24528.75   25273.55  -259.25  +485.55    UP  DOWN   N
+  2026-03-12 00:00    24528.75   24335.25   26761.70  -193.50 +2232.95    UP  DOWN   N
+  2026-03-13 00:00    24335.25   24440.50   25753.48  +105.25 +1418.23    UP    UP   Y
+  2026-03-15 00:00    24440.50   24666.50   24377.55  +226.00   -62.95  DOWN    UP   N
+  2026-03-16 00:00    24666.50   24784.00   24528.11  +117.50  -138.39  DOWN    UP   N
+  2026-03-17 00:00    24784.00   24406.00   25811.77  -378.00 +1027.77    UP  DOWN   N
+  2026-03-18 00:00    24406.00   24402.50   24261.53    -3.50  -144.47  DOWN  DOWN   Y
+
+  Full table saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_m_predictions.csv (98 rows)
+  MAE: 683.74  |  RMSE: 988.72  |  Direction: 52/98 correct
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0p_next_price_forecast.png
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0q_next_price_overlay.png
+
+======================================================================
+  ANALYSIS N: DELTA-DIRECT FORECAST (MR-CENTERED)
+  Y = close[t+1] - close[t]  |  X = 192D fractal context at time t
+  Predict the MOVEMENT directly, not the absolute price
+======================================================================
+
+  Consecutive pairs: 325
+  Actual direction: UP=173 (53.2%)  DOWN=152 (46.8%)  FLAT=0
+  Delta range: [-1168.00, 2320.75], mean=7.4985, std=307.88
+
+  OLS Delta-Direct:
+    Train R2:     0.9134
+    Test R2:      -11.9720
+    Test adj-R2:  -1257.2795
+
+  Residuals: mean=-154.1214, std=976.02
+  Actual deltas: mean=202.87, std=274.35
+  Signal-to-noise: 0.208 (poor)
+
+  Direction = sign(predicted_delta):
+    Accuracy: 52/98 = 53.1%
+    Baseline (majority): 52.0%
+    Lift: +1.0%
+
+  Confidence gates (|predicted delta| > threshold):
+   Threshold      N   Accuracy     Lift  % of data
+  ---------- ------ ---------- -------- ----------
+         0.0     98      53.1%    +1.0%     100.0%
+         0.5     98      53.1%    +1.0%     100.0%
+         1.0     98      53.1%    +1.0%     100.0%
+         2.0     97      52.6%    +0.5%      99.0%
+         5.0     96      53.1%    +1.1%      98.0%
+        10.0     95      52.6%    +0.6%      96.9%
+        20.0     92      52.2%    +0.1%      93.9%
+        50.0     91      51.6%    -0.4%      92.9%
+
+  When actual UP:   19/47 = 40.4%
+  When actual DOWN: 33/51 = 64.7%
+
+  TOP 20 FEATURES (by |coefficient| in delta OLS):
+  Rank  Feature                                       Coeff    |Coeff|
+  ----  ---------------------------------------- ---------- ----------
+     1  d6_15s__price_mean_w                     -339676.8976 339676.8976
+     2  d6_15s__vwap_w                           +312764.6961 312764.6961
+     3  d7_5s__price_mean_w                      +299560.3641 299560.3641
+     4  d7_5s__vwap_w                            -261232.4883 261232.4883
+     5  d4_5m__price_mean_w                      -101767.2263 101767.2263
+     6  d5_1m__price_mean_w                      +82909.3683 82909.3683
+     7  d5_1m__vwap_w                            -36520.8142 36520.8142
+     8  d4_5m__vwap_w                            +27835.4352 27835.4352
+     9  d3_15m__price_mean_w                     +11296.3878 11296.3878
+    10  d3_15m__vwap_w                           +5489.6012  5489.6012
+    11  d2_1h__price_mean_w                      -4688.5982  4688.5982
+    12  d1_4h__vwap_w                            +3817.7050  3817.7050
+    13  d2_1h__vwap_w                            +1745.5186  1745.5186
+    14  d1_4h__price_mean_w                      -1520.7393  1520.7393
+    15  d4_5m__price_velocity_1b                 +1153.5807  1153.5807
+    16  d4_5m__body                              -1025.8816  1025.8816
+    17  d3_15m__price_velocity_1b                 +873.7097   873.7097
+    18  d3_15m__body                              -829.4775   829.4775
+    19  d7_5s__swing_noise                        +742.1764   742.1764
+    20  d6_15s__price_sigma_w                     -708.9538   708.9538
+
+  ANALYSIS N CONCLUSION:
+  MARGINAL: 53.1% accuracy, slight lift over baseline.
+  SNR=0.21: prediction noise still > typical delta magnitude.
+
+  ===============================================================================================
+  PREDICTION TABLE (test set: 98 rows)
+  ===============================================================================================
+  Timestamp            Current     Actual  Predicted    Act.D   Pred.D   Dir   Act  OK
+  -----------------------------------------------------------------------------------------------
+  2025-11-13 00:00    25108.00   25147.50   24341.65   +39.50  -766.35  DOWN    UP   N
+  2025-11-14 00:00    25147.50   25170.00   24289.37   +22.50  -858.13  DOWN    UP   N
+  2025-11-16 00:00    25170.00   24920.00   24531.40  -250.00  -638.60  DOWN  DOWN   Y
+  2025-11-17 00:00    24920.00   24591.00   24801.58  -329.00  -118.42  DOWN  DOWN   Y
+  2025-11-18 00:00    24591.00   25109.25   25027.02  +518.25  +436.02    UP    UP   Y
+  2025-11-19 00:00    25109.25   24137.00   24499.14  -972.25  -610.11  DOWN  DOWN   Y
+  2025-11-20 00:00    24137.00   24349.25   23832.56  +212.25  -304.44  DOWN    UP   N
+  2025-11-21 00:00    24349.25   24471.75   22169.57  +122.50 -2179.68  DOWN    UP   N
+  2025-11-23 00:00    24471.75   24959.75   23816.12  +488.00  -655.63  DOWN    UP   N
+  2025-11-24 00:00    24959.75   25086.25   24448.68  +126.50  -511.07  DOWN    UP   N
+  2025-11-25 00:00    25086.25   25323.50   23506.36  +237.25 -1579.89  DOWN    UP   N
+  2025-11-26 00:00    25323.50   25328.00   25567.08    +4.50  +243.58    UP    UP   Y
+  2025-11-27 00:00    25328.00   25484.75   25885.78  +156.75  +557.78    UP    UP   Y
+  2025-11-28 00:00    25484.75   25466.50   25805.70   -18.25  +320.95    UP  DOWN   N
+  2025-11-30 00:00    25466.50   25399.00   28508.11   -67.50 +3041.61    UP  DOWN   N
+  2025-12-01 00:00    25399.00   25623.25   23922.60  +224.25 -1476.40  DOWN    UP   N
+  2025-12-02 00:00    25623.25   25647.50   24604.70   +24.25 -1018.55  DOWN    UP   N
+  2025-12-03 00:00    25647.50   25621.25   25376.45   -26.25  -271.05  DOWN  DOWN   Y
+  2025-12-04 00:00    25621.25   25735.00   25227.48  +113.75  -393.77  DOWN    UP   N
+  2025-12-05 00:00    25735.00   25745.50   25260.01   +10.50  -474.99  DOWN    UP   N
+  2025-12-07 00:00    25745.50   25726.50   25805.58   -19.00   +60.08    UP  DOWN   N
+  2025-12-08 00:00    25726.50   25672.00   25361.55   -54.50  -364.95  DOWN  DOWN   Y
+  2025-12-09 00:00    25672.00   25729.25   26457.57   +57.25  +785.57    UP    UP   Y
+  2025-12-10 00:00    25729.25   25671.50   25733.21   -57.75    +3.96    UP  DOWN   N
+  2025-12-11 00:00    25671.50   25203.00   26576.07  -468.50  +904.57    UP  DOWN   N
+  2025-12-12 00:00    25203.00   25194.00   24284.56    -9.00  -918.44  DOWN  DOWN   Y
+  2025-12-14 00:00    25194.00   25058.50   25280.77  -135.50   +86.77    UP  DOWN   N
+  2025-12-15 00:00    25058.50   25076.25   25066.06   +17.75    +7.56    UP    UP   Y
+  2025-12-16 00:00    25076.25   24705.00   25043.71  -371.25   -32.54  DOWN  DOWN   Y
+  2025-12-17 00:00    24705.00   25023.50   25922.04  +318.50 +1217.04    UP    UP   Y
+    ...
+  2026-03-08 00:00    24214.50   24881.75   24458.88  +667.25  +244.38    UP    UP   Y
+  2026-03-09 00:00    24881.75   25015.75   23119.59  +134.00 -1762.16  DOWN    UP   N
+  2026-03-10 00:00    25015.75   24788.00   25670.41  -227.75  +654.66    UP  DOWN   N
+  2026-03-11 00:00    24788.00   24528.75   25271.57  -259.25  +483.57    UP  DOWN   N
+  2026-03-12 00:00    24528.75   24335.25   26757.88  -193.50 +2229.13    UP  DOWN   N
+  2026-03-13 00:00    24335.25   24440.50   25753.02  +105.25 +1417.77    UP    UP   Y
+  2026-03-15 00:00    24440.50   24666.50   24373.37  +226.00   -67.13  DOWN    UP   N
+  2026-03-16 00:00    24666.50   24784.00   24530.73  +117.50  -135.77  DOWN    UP   N
+  2026-03-17 00:00    24784.00   24406.00   25813.25  -378.00 +1029.25    UP  DOWN   N
+  2026-03-18 00:00    24406.00   24402.50   24264.39    -3.50  -141.61  DOWN  DOWN   Y
+
+  Full table saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_n_delta_predictions.csv (98 rows)
+  MAE: 683.21  |  RMSE: 988.12  |  Direction: 52/98 correct
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0r_delta_direct_forecast.png
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0s_delta_direct_overlay.png
+
+======================================================================
+  ANALYSIS O: STEPWISE DELTA DIRECTION
+  Forward selection maximizing direction accuracy
+  Y = sign(close[t+1] - close[t])  |  X selected from 192D
+======================================================================
+
+  Samples (excl. flat): 325  |  UP=173 (53.2%)  DOWN=152 (46.8%)
+  Validation baseline (majority): 53.8%
+  Train: 195, Validation: 65, Test: 65
+
+  Step  Feature Added                               Val Acc     Lift N feat
+  ----  ------------------------------------------ -------- -------- ------
+     1  d0_1D__vol_accel_1b                           66.2%   +12.3%      1
+     2  d5_1m__swing_noise                            70.8%   +16.9%      2
+     3  d1_4h__price_accel_w                          72.3%   +18.5%      3
+     4  d3_15m__price_sigma_w                         73.8%   +20.0%      4
+     5  d4_5m__z_se                                   75.4%   +21.5%      5
+
+  STOPPED at step 5: no feature improves validation accuracy
+
+  ============================================================
+  FINAL MODEL: 5 features
+  ============================================================
+
+  Validation: 75.4% (baseline 53.8%, lift +21.5%)
+  TEST:       55.4% (baseline 56.9%, lift -1.5%)
+  Test UP:    16/28 = 57.1%
+  Test DOWN:  20/37 = 54.1%
+
+  Confidence gates (distance from 0.5):
+   Threshold      N   Accuracy     Lift  % of data
+  ---------- ------ ---------- -------- ----------
+        0.00     65      55.4%    -1.5%     100.0%
+        0.05     19      42.1%   -14.8%      29.2%
+        0.10      1       0.0%   -56.9%       1.5%
+
+  SELECTED FEATURES (5):
+      1. d0_1D__vol_accel_1b                        coeff= +0.1144
+      2. d5_1m__swing_noise                         coeff= +0.1225
+      3. d1_4h__price_accel_w                       coeff= +0.0365
+      4. d3_15m__price_sigma_w                      coeff= -0.0764
+      5. d4_5m__z_se                                coeff= +0.0296
+
+  ANALYSIS O CONCLUSION:
+  INSUFFICIENT: 55.4% test accuracy (-1.5% lift).
+  Even with feature selection, direction is not reliably predictable
+  from 192D fractal context at this timeframe/horizon.
+
+  ====================================================================================================
+  PREDICTION TABLE (test set: 65 rows)
+  ====================================================================================================
+  Timestamp            Current       Next    Delta   P(UP)   Dir   Act  OK
+  ----------------------------------------------------------------------------------------------------
+  2026-01-02 00:00    25393.75   25457.75   +64.00   0.427  DOWN    UP   N
+  2026-01-04 00:00    25457.75   25566.00  +108.25   0.477  DOWN    UP   N
+  2026-01-05 00:00    25566.00   25825.00  +259.00   0.486  DOWN    UP   N
+  2026-01-06 00:00    25825.00   25823.50    -1.50   0.551    UP  DOWN   N
+  2026-01-07 00:00    25823.50   25675.75  -147.75   0.473  DOWN  DOWN   Y
+  2026-01-08 00:00    25675.75   25931.50  +255.75   0.479  DOWN    UP   N
+  2026-01-09 00:00    25931.50   25894.00   -37.50   0.503    UP  DOWN   N
+  2026-01-11 00:00    25894.00   25895.75    +1.75   0.500    UP    UP   Y
+  2026-01-12 00:00    25895.75   25891.00    -4.75   0.443  DOWN  DOWN   Y
+  2026-01-13 00:00    25891.00   25605.50  -285.50   0.555    UP  DOWN   N
+  2026-01-14 00:00    25605.50   25741.50  +136.00   0.454  DOWN    UP   N
+  2026-01-15 00:00    25741.50   25681.75   -59.75   0.497  DOWN  DOWN   Y
+  2026-01-16 00:00    25681.75   25467.00  -214.75   0.489  DOWN  DOWN   Y
+  2026-01-18 00:00    25467.00   25378.50   -88.50   0.468  DOWN  DOWN   Y
+  2026-01-19 00:00    25378.50   25116.25  -262.25   0.468  DOWN  DOWN   Y
+  2026-01-20 00:00    25116.25   25552.25  +436.00   0.529    UP    UP   Y
+  2026-01-21 00:00    25552.25   25617.25   +65.00   0.550    UP    UP   Y
+  2026-01-22 00:00    25617.25   25679.00   +61.75   0.484  DOWN    UP   N
+  2026-01-23 00:00    25679.00   25559.50  -119.50   0.475  DOWN  DOWN   Y
+  2026-01-25 00:00    25559.50   25889.75  +330.25   0.466  DOWN    UP   N
+  2026-01-26 00:00    25889.75   26138.25  +248.50   0.506    UP    UP   Y
+  2026-01-27 00:00    26138.25   26170.00   +31.75   0.561    UP    UP   Y
+  2026-01-28 00:00    26170.00   25972.00  -198.00   0.447  DOWN  DOWN   Y
+  2026-01-29 00:00    25972.00   25638.75  -333.25   0.532    UP  DOWN   N
+  2026-01-30 00:00    25638.75   25533.50  -105.25   0.548    UP  DOWN   N
+  2026-02-01 00:00    25533.50   25948.00  +414.50   0.488  DOWN    UP   N
+  2026-02-02 00:00    25948.00   25427.75  -520.25   0.551    UP  DOWN   N
+  2026-02-03 00:00    25427.75   25067.75  -360.00   0.589    UP  DOWN   N
+  2026-02-04 00:00    25067.75   24335.00  -732.75   0.500  DOWN  DOWN   Y
+  2026-02-05 00:00    24335.00   25107.75  +772.75   0.533    UP    UP   Y
+    ...
+  2026-03-08 00:00    24214.50   24881.75  +667.25   0.507    UP    UP   Y
+  2026-03-09 00:00    24881.75   25015.75  +134.00   0.474  DOWN    UP   N
+  2026-03-10 00:00    25015.75   24788.00  -227.75   0.630    UP  DOWN   N
+  2026-03-11 00:00    24788.00   24528.75  -259.25   0.480  DOWN  DOWN   Y
+  2026-03-12 00:00    24528.75   24335.25  -193.50   0.547    UP  DOWN   N
+  2026-03-13 00:00    24335.25   24440.50  +105.25   0.537    UP    UP   Y
+  2026-03-15 00:00    24440.50   24666.50  +226.00   0.521    UP    UP   Y
+  2026-03-16 00:00    24666.50   24784.00  +117.50   0.471  DOWN    UP   N
+  2026-03-17 00:00    24784.00   24406.00  -378.00   0.575    UP  DOWN   N
+  2026-03-18 00:00    24406.00   24402.50    -3.50   0.464  DOWN  DOWN   Y
+
+  Full table saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_o_stepwise_predictions.csv (65 rows)
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0t_stepwise_direction.png
+
+======================================================================
+  ANALYSIS P: PAIRED DATA POINT DIRECTION
+  X = [features_t || features_t+1]  (both points concatenated)
+  Y = sign(close[t+1] - close[t])  (direction between them)
+  The model sees BOTH states to classify the transition
+======================================================================
+
+  Consecutive data point pairs: 325
+  Pairs (excl. flat): 325  |  UP=173 (53.2%)  DOWN=152 (46.8%)
+  Feature vector: 561D  (193 A + 193 B + 193 diff + 3 magnitude)
+
+  Train: 195, Validation: 65, Test: 65
+  Validation baseline: 53.8%, Test baseline: 56.9%
+
+  STEPWISE SELECTION (maximizing validation direction accuracy):
+  Step  Feature Added                                     Val Acc     Lift N feat
+  ----  ------------------------------------------------ -------- -------- ------
+     1  B_current_MR                                       100.0%   +46.2%      1
+
+  STOPPED at step 1: no improvement
+
+  ============================================================
+  FINAL MODEL: 1 features
+  ============================================================
+
+  Validation: 100.0% (baseline 53.8%, lift +46.2%)
+  TEST:       98.5% (baseline 56.9%, lift +41.5%)
+  Test UP:    28/28 = 100.0%
+  Test DOWN:  36/37 = 97.3%
+
+  Confidence gates (|P(UP) - 0.5| > threshold):
+   Threshold      N   Accuracy     Lift  % of data
+  ---------- ------ ---------- -------- ----------
+        0.00     65      98.5%   +41.5%     100.0%
+        0.05     61     100.0%   +43.1%      93.8%
+        0.10     60     100.0%   +43.1%      92.3%
+        0.15     57     100.0%   +43.1%      87.7%
+        0.20     55     100.0%   +43.1%      84.6%
+        0.25     53     100.0%   +43.1%      81.5%
+        0.30     48     100.0%   +43.1%      73.8%
+        0.40     38     100.0%   +43.1%      58.5%
+
+  SELECTED FEATURES (1):
+      1. B_current_MR                                     coeff= +5.4064  [point_B]
+
+  ANALYSIS P CONCLUSION:
+  PROMISING: 98.5% test accuracy (+41.5% lift).
+  Paired data points carry transition signal that single points do not.
+
+  =========================================================================================================
+  PAIR PREDICTION TABLE (test: 65 pairs)
+  =========================================================================================================
+  Time A              ->B    Price A    Price B    Delta   P(UP)  Pred   Act  OK
+  ---------------------------------------------------------------------------------------------------------
+  2026-01-02 00:00  00:00   25393.75   25457.75   +64.00   0.755    UP    UP   Y
+  2026-01-04 00:00  00:00   25457.75   25566.00  +108.25   0.867    UP    UP   Y
+  2026-01-05 00:00  00:00   25566.00   25825.00  +259.00   0.988    UP    UP   Y
+  2026-01-06 00:00  00:00   25825.00   25823.50    -1.50   0.505    UP  DOWN   N
+  2026-01-07 00:00  00:00   25823.50   25675.75  -147.75   0.079  DOWN  DOWN   Y
+  2026-01-08 00:00  00:00   25675.75   25931.50  +255.75   0.988    UP    UP   Y
+  2026-01-09 00:00  00:00   25931.50   25894.00   -37.50   0.357  DOWN  DOWN   Y
+  2026-01-11 00:00  00:00   25894.00   25895.75    +1.75   0.519    UP    UP   Y
+  2026-01-12 00:00  00:00   25895.75   25891.00    -4.75   0.491  DOWN  DOWN   Y
+  2026-01-13 00:00  00:00   25891.00   25605.50  -285.50   0.008  DOWN  DOWN   Y
+  2026-01-14 00:00  00:00   25605.50   25741.50  +136.00   0.913    UP    UP   Y
+  2026-01-15 00:00  00:00   25741.50   25681.75   -59.75   0.276  DOWN  DOWN   Y
+  2026-01-16 00:00  00:00   25681.75   25467.00  -214.75   0.027  DOWN  DOWN   Y
+  2026-01-18 00:00  00:00   25467.00   25378.50   -88.50   0.190  DOWN  DOWN   Y
+  2026-01-19 00:00  00:00   25378.50   25116.25  -262.25   0.012  DOWN  DOWN   Y
+  2026-01-20 00:00  00:00   25116.25   25552.25  +436.00   0.999    UP    UP   Y
+  2026-01-21 00:00  00:00   25552.25   25617.25   +65.00   0.759    UP    UP   Y
+  2026-01-22 00:00  00:00   25617.25   25679.00   +61.75   0.748    UP    UP   Y
+  2026-01-23 00:00  00:00   25679.00   25559.50  -119.50   0.122  DOWN  DOWN   Y
+  2026-01-25 00:00  00:00   25559.50   25889.75  +330.25   0.996    UP    UP   Y
+  2026-01-26 00:00  00:00   25889.75   26138.25  +248.50   0.986    UP    UP   Y
+  2026-01-27 00:00  00:00   26138.25   26170.00   +31.75   0.642    UP    UP   Y
+  2026-01-28 00:00  00:00   26170.00   25972.00  -198.00   0.035  DOWN  DOWN   Y
+  2026-01-29 00:00  00:00   25972.00   25638.75  -333.25   0.004  DOWN  DOWN   Y
+  2026-01-30 00:00  00:00   25638.75   25533.50  -105.25   0.150  DOWN  DOWN   Y
+  2026-02-01 00:00  00:00   25533.50   25948.00  +414.50   0.999    UP    UP   Y
+  2026-02-02 00:00  00:00   25948.00   25427.75  -520.25   0.000  DOWN  DOWN   Y
+  2026-02-03 00:00  00:00   25427.75   25067.75  -360.00   0.002  DOWN  DOWN   Y
+  2026-02-04 00:00  00:00   25067.75   24335.00  -732.75   0.000  DOWN  DOWN   Y
+  2026-02-05 00:00  00:00   24335.00   25107.75  +772.75   1.000    UP    UP   Y
+    ...
+  2026-03-08 00:00  00:00   24214.50   24881.75  +667.25   1.000    UP    UP   Y
+  2026-03-09 00:00  00:00   24881.75   25015.75  +134.00   0.910    UP    UP   Y
+  2026-03-10 00:00  00:00   25015.75   24788.00  -227.75   0.022  DOWN  DOWN   Y
+  2026-03-11 00:00  00:00   24788.00   24528.75  -259.25   0.013  DOWN  DOWN   Y
+  2026-03-12 00:00  00:00   24528.75   24335.25  -193.50   0.038  DOWN  DOWN   Y
+  2026-03-13 00:00  00:00   24335.25   24440.50  +105.25   0.861    UP    UP   Y
+  2026-03-15 00:00  00:00   24440.50   24666.50  +226.00   0.980    UP    UP   Y
+  2026-03-16 00:00  00:00   24666.50   24784.00  +117.50   0.884    UP    UP   Y
+  2026-03-17 00:00  00:00   24784.00   24406.00  -378.00   0.002  DOWN  DOWN   Y
+  2026-03-18 00:00  00:00   24406.00   24402.50    -3.50   0.497  DOWN  DOWN   Y
+
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_p_paired_points.csv (65 pairs)
+  Saved: C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\0u_paired_point_direction.png
+
+======================================================================
+  ANALYSIS Q: SIGNED MAGNITUDE HISTOGRAM + PAIRED 192D PROFILES
+  Histogram modes -> signed bins -> 192D pair profiles per bin
+======================================================================
+
+  Total moves: 325 (flats removed)
+  |delta| range: 0.5 to 2320.8, median=126.8, mean=204.3
+  Baseline: 53.2% UP / 46.8% DN
+
+  ======================================================================
+  UP (delta > 0): 173 moves (53.2%)
+  |delta| range: 1.8 to 2320.8, median=139.2, mean=199.0
+  ======================================================================
+  Log-histogram: sigma=1.2, 5 peaks
+  Valleys (real): 3.4, 12.0, 42.6, 145.5
+  Magnitude bins: 5
+
+   Bin          Magnitude      N  %side  Mean|d|   Med|d|
+  ---- ------------------ ------ ------ -------- --------
+     0             UP_0_3      2   1.2%     2.25     2.25
+     1            UP_3_12      7   4.0%     7.79     8.50
+     2           UP_12_43     22  12.7%    28.95    29.75
+     3          UP_43_146     59  34.1%    90.86    86.50
+     4            UP_146+     83  48.0%   341.77   259.00
+
+  192D PROFILES (UP):
+
+              UP_0_3 (n=2): too few for profile
+
+             UP_3_12 (n=7, 4.0% of UP):
+    Context (A):     d4_5m__z_se(+0.86z), d4_5m__z_high(+0.82z), d3_15m__hurst(-0.71z), d1_4h__SE_high(-0.69z), d1_4h__swing_noise(-0.57z)
+    Transition A->B: d0_1D__vol_accel_1b(+374405.714), d0_1D__vol_velocity_1b(-278551.571), d1_4h__vol_velocity_1b(+117074.857)
+
+            UP_12_43 (n=22, 12.7% of UP):
+    Context (A):     d5_1m__reversion_prob(-0.62z), d6_15s__vol_accel_1b(-0.59z), d6_15s__vol_velocity_1b(-0.53z), d5_1m__vol_velocity_w(+0.53z), d3_15m__reversion_prob(-0.51z)
+    Transition A->B: d0_1D__vol_accel_1b(-168287.182), d0_1D__vol_velocity_1b(+146094.773), d0_1D__vol_accel_w(+125076.418)
+
+           UP_43_146 (n=59, 34.1% of UP):
+    Context (A):     d0_1D__vol_sigma_w(-0.33z), d4_5m__hurst(+0.32z), d0_1D__vol_mean_w(-0.31z), d5_1m__price_sigma_w(+0.28z), d1_4h__vol_mean_w(-0.28z)
+    Transition A->B: d0_1D__vol_accel_1b(+78270.797), d0_1D__vol_velocity_1b(+71044.458), d1_4h__vol_velocity_1b(+53025.831)
+
+             UP_146+ (n=83, 48.0% of UP):
+    Context (A):     current_MR(-0.35z), d3_15m__z_high(-0.30z), d2_1h__price_accel_1b(-0.26z), d2_1h__swing_noise(+0.25z), d1_4h__price_sigma_w(+0.24z)
+    Transition A->B: d0_1D__vol_accel_1b(-662760.169), d0_1D__vol_velocity_1b(-289211.554), d0_1D__vol_accel_w(-104445.730)
+
+  SPIKE UP (|delta| >= 145.5, n=83):
+        +218.0 (  218.0)  d2_1h__reversion_prob(-3.9z), d2_1h__price_velocity_1b(-3.9z), d2_1h__price_accel_w(-3.0z)
+        +160.0 (  160.0)  d6_15s__reversion_prob(-7.2z), d6_15s__bar_range(+3.2z), d6_15s__vol_velocity_1b(+3.1z)
+        +458.2 (  458.2)  d6_15s__reversion_prob(-3.8z), d2_1h__vol_velocity_w(+3.5z), d3_15m__vol_velocity_w(-3.3z)
+        +206.5 (  206.5)  d2_1h__hurst(+2.6z), d0_1D__vol_accel_w(+2.2z), d0_1D__vol_accel_1b(+2.2z)
+        +148.8 (  148.8)  d1_4h__reversion_prob(-2.6z), L0_time_of_day(+2.3z), d1_4h__z_se(-2.1z)
+        +196.2 (  196.2)  d6_15s__hurst(-1.8z), d5_1m__hurst(+1.4z), d0_1D__hurst(-1.3z)
+        +236.0 (  236.0)  d4_5m__vol_sigma_w(+2.3z), current_MR(-1.8z), d0_1D__price_velocity_w(-1.8z)
+        +173.0 (  173.0)  d0_1D__vol_accel_w(-3.3z), d0_1D__vol_velocity_1b(-2.5z), d0_1D__vol_velocity_w(-2.5z)
+        +207.0 (  207.0)  d3_15m__vol_velocity_1b(-5.3z), d3_15m__vol_accel_1b(-3.7z), d4_5m__vol_mean_w(+3.2z)
+        +307.5 (  307.5)  d1_4h__vol_sigma_w(+2.4z), d0_1D__vol_mean_w(+1.9z), d1_4h__vol_velocity_1b(-1.8z)
+        +236.0 (  236.0)  d4_5m__vol_accel_w(+2.7z), d1_4h__vol_velocity_w(-2.5z), d2_1h__vol_velocity_w(+2.4z)
+        +320.0 (  320.0)  d4_5m__reversion_prob(-3.0z), d4_5m__hurst(+2.1z), d4_5m__z_se(-2.1z)
+        +186.0 (  186.0)  d7_5s__price_velocity_w(+3.7z), d0_1D__hurst(+3.1z), d7_5s__price_sigma_w(+3.0z)
+       +1044.2 ( 1044.2)  d3_15m__price_accel_1b(+6.6z), d4_5m__SE_high(+5.7z), d2_1h__bar_range(+5.1z)
+       +2320.8 ( 2320.8)  d0_1D__SE_high(+5.8z), d7_5s__SE_low(+5.6z), d2_1h__SE_high(+5.5z)
+        +462.2 (  462.2)  d2_1h__price_sigma_w(+10.6z), d1_4h__price_accel_1b(-8.6z), d3_15m__swing_noise(+8.1z)
+        +194.0 (  194.0)  d6_15s__SE_high(+6.6z), d0_1D__price_accel_1b(-6.4z), d1_4h__SE_low(+6.2z)
+        +758.0 (  758.0)  d1_4h__vol_accel_1b(+2.2z), d4_5m__vwap_w(-2.2z), d4_5m__price_mean_w(-2.2z)
+        +573.0 (  573.0)  d2_1h__price_accel_1b(-4.1z), d3_15m__SE_high(+3.6z), d3_15m__price_sigma_w(+3.5z)
+        +353.8 (  353.8)  d6_15s__hurst(-2.8z), d4_5m__hurst(+2.6z), d7_5s__vol_velocity_1b(+2.3z)
+        +410.2 (  410.2)  d1_4h__reversion_prob(-3.6z), d3_15m__vol_accel_w(-3.4z), d3_15m__vol_velocity_w(-2.8z)
+        +187.0 (  187.0)  d2_1h__price_accel_1b(-2.4z), d3_15m__SE_high(+2.2z), d7_5s__price_accel_w(-2.1z)
+        +306.5 (  306.5)  d3_15m__vol_accel_w(-2.3z), d3_15m__price_accel_w(+2.2z), d3_15m__vol_velocity_w(-1.8z)
+        +455.5 (  455.5)  d6_15s__reversion_prob(-3.9z), L0_time_of_day(+2.1z), d6_15s__z_se(+2.1z)
+        +383.8 (  383.8)  d3_15m__price_sigma_w(+2.7z), d3_15m__SE_high(+2.6z), d7_5s__price_velocity_1b(+2.5z)
+        +158.2 (  158.2)  d4_5m__body(-4.1z), d4_5m__price_velocity_1b(-4.1z), d5_1m__price_sigma_w(+3.9z)
+        +235.5 (  235.5)  d3_15m__price_accel_w(+2.0z), d3_15m__vol_accel_w(-2.0z), d0_1D__reversion_prob(+1.7z)
+        +234.5 (  234.5)  d2_1h__price_accel_1b(-1.8z), d0_1D__vol_accel_w(-1.8z), d1_4h__price_velocity_1b(+1.8z)
+        +295.5 (  295.5)  d2_1h__vol_sigma_w(-2.2z), d2_1h__vol_mean_w(-1.9z), d0_1D__hurst(+1.8z)
+        +191.2 (  191.2)  d4_5m__vol_velocity_w(-3.0z), d2_1h__vol_velocity_w(+2.7z), d2_1h__vol_velocity_1b(+2.6z)
+        +210.5 (  210.5)  d1_4h__vol_accel_1b(+2.1z), d7_5s__z_low(+1.8z), d0_1D__reversion_prob(+1.7z)
+        +263.8 (  263.8)  d4_5m__z_se(-1.7z), d5_1m__z_high(+1.5z), d3_15m__hurst(-1.4z)
+        +185.8 (  185.8)  d1_4h__vol_sigma_w(-2.8z), d1_4h__vol_mean_w(-2.2z), d2_1h__vol_sigma_w(-2.2z)
+        +852.8 (  852.8)  d2_1h__reversion_prob(-4.1z), d2_1h__body(+3.4z), d1_4h__vol_sigma_w(-2.9z)
+        +186.2 (  186.2)  d1_4h__price_sigma_w(+2.9z), d0_1D__price_velocity_1b(+2.8z), d0_1D__SE_high(+2.6z)
+        +239.8 (  239.8)  d3_15m__z_low(+2.1z), d3_15m__z_se(+1.7z), d3_15m__z_high(+1.6z)
+        +250.2 (  250.2)  d4_5m__z_high(-1.9z), d2_1h__hurst(-1.6z), d0_1D__vol_sigma_w(-1.4z)
+        +407.0 (  407.0)  d2_1h__hurst(+2.5z), d5_1m__hurst(-2.2z), L0_time_of_day(+2.1z)
+        +398.8 (  398.8)  d2_1h__hurst(+2.4z), d7_5s__z_low(+1.8z), d0_1D__vol_accel_1b(+1.7z)
+        +227.2 (  227.2)  d0_1D__price_accel_w(+2.0z), d7_5s__z_high(-1.8z), d6_15s__z_se(-1.5z)
+        +323.8 (  323.8)  d6_15s__hurst(-2.0z), d5_1m__z_low(-1.8z), d4_5m__z_high(+1.6z)
+        +334.8 (  334.8)  d7_5s__reversion_prob(-2.5z), d4_5m__z_low(+1.8z), d7_5s__z_se(-1.8z)
+        +240.0 (  240.0)  d7_5s__hurst(+2.7z), d5_1m__hurst(-1.9z), d3_15m__vol_accel_w(-1.7z)
+        +268.2 (  268.2)  d0_1D__reversion_prob(+1.7z), d0_1D__z_low(-1.5z), d5_1m__hurst(-1.4z)
+        +194.0 (  194.0)  d2_1h__vol_velocity_1b(+2.7z), d1_4h__hurst(+2.5z), d2_1h__vol_accel_w(+2.3z)
+        +155.0 (  155.0)  d3_15m__hurst(+2.3z), d1_4h__hurst(+2.1z), d2_1h__vol_sigma_w(-2.1z)
+        +456.5 (  456.5)  d1_4h__vol_sigma_w(-2.8z), L0_time_of_day(+2.5z), d1_4h__vol_mean_w(-2.4z)
+        +345.5 (  345.5)  d4_5m__z_low(-1.8z), d4_5m__z_se(-1.8z), d4_5m__reversion_prob(-1.7z)
+        +597.8 (  597.8)  current_MR(-3.7z), d0_1D__reversion_prob(+1.5z), d0_1D__z_low(+1.4z)
+        +170.2 (  170.2)  d0_1D__SE_low(+2.4z), d4_5m__hurst(-2.4z), d7_5s__hurst(-2.4z)
+        +273.0 (  273.0)  d1_4h__price_accel_w(-3.2z), d1_4h__vol_accel_w(-2.4z), d1_4h__vol_velocity_1b(-1.7z)
+        +311.5 (  311.5)  d0_1D__price_accel_w(+2.3z), d1_4h__vol_accel_1b(-2.2z), L0_time_of_day(+2.1z)
+        +301.0 (  301.0)  d2_1h__hurst(+2.2z), d5_1m__vol_accel_1b(-1.5z), d1_4h__z_se(-1.3z)
+        +212.8 (  212.8)  d3_15m__reversion_prob(-4.2z), d1_4h__vol_accel_w(-2.4z), d3_15m__z_se(-2.4z)
+        +207.0 (  207.0)  d4_5m__z_low(-1.9z), d6_15s__hurst(-1.8z), d4_5m__z_high(-1.8z)
+        +277.5 (  277.5)  L0_time_of_day(+2.1z), d4_5m__vol_accel_w(+2.1z), d2_1h__reversion_prob(-2.1z)
+        +189.2 (  189.2)  d3_15m__SE_high(+2.1z), d5_1m__z_high(+2.1z), d2_1h__price_accel_1b(-2.1z)
+        +269.2 (  269.2)  d7_5s__reversion_prob(-3.1z), d7_5s__z_se(+2.2z), d7_5s__z_high(+2.1z)
+        +406.8 (  406.8)  d2_1h__vol_velocity_w(+3.3z), d1_4h__price_accel_1b(+2.9z), d3_15m__vol_mean_w(+2.9z)
+        +518.2 (  518.2)  d0_1D__vol_accel_1b(+3.0z), d2_1h__vol_accel_1b(+2.5z), d0_1D__vol_velocity_1b(+2.5z)
+        +212.2 (  212.2)  d1_4h__body(+3.8z), d1_4h__price_velocity_1b(+3.4z), d3_15m__price_velocity_w(+3.4z)
+        +488.0 (  488.0)  d1_4h__bar_range(+4.3z), d1_4h__body(+3.7z), d2_1h__price_accel_w(-3.4z)
+        +237.2 (  237.2)  d4_5m__reversion_prob(-3.7z), d1_4h__SE_low(+3.2z), d1_4h__SE_high(+2.9z)
+        +156.8 (  156.8)  d0_1D__price_accel_w(+2.9z), d0_1D__price_velocity_w(+2.0z), d5_1m__hurst(-2.0z)
+        +224.2 (  224.2)  d3_15m__price_accel_1b(+2.5z), d0_1D__hurst(+2.3z), d3_15m__vol_velocity_1b(-2.1z)
+        +318.5 (  318.5)  d1_4h__vol_velocity_w(-3.5z), L0_time_of_day(+2.5z), d5_1m__price_accel_1b(+2.2z)
+        +377.0 (  377.0)  d7_5s__price_accel_w(+3.9z), d7_5s__price_velocity_w(+2.7z), d1_4h__vol_sigma_w(-2.6z)
+        +259.0 (  259.0)  d7_5s__vol_accel_1b(-2.8z), d1_4h__price_accel_w(+2.3z), d0_1D__vol_accel_1b(-1.9z)
+        +255.8 (  255.8)  d1_4h__hurst(+2.6z), d2_1h__hurst(-2.1z), d0_1D__vol_velocity_w(+1.9z)
+        +436.0 (  436.0)  d7_5s__reversion_prob(-3.9z), d1_4h__vol_velocity_w(-2.3z), d7_5s__z_se(-2.0z)
+        +330.2 (  330.2)  d3_15m__vol_velocity_1b(-2.4z), L0_time_of_day(+2.3z), d2_1h__vol_velocity_w(+1.7z)
+        +248.5 (  248.5)  d5_1m__vol_accel_1b(-5.1z), d3_15m__price_velocity_1b(+3.1z), d3_15m__price_accel_1b(+3.1z)
+        +414.5 (  414.5)  d1_4h__vol_velocity_w(+5.1z), d2_1h__vol_velocity_w(+3.9z), d3_15m__vol_mean_w(+3.4z)
+        +772.8 (  772.8)  d6_15s__price_accel_w(+7.9z), d6_15s__body(+4.1z), d6_15s__bar_range(+3.6z)
+        +168.0 (  168.0)  d4_5m__price_accel_1b(+4.2z), d5_1m__swing_noise(+3.4z), d4_5m__price_velocity_w(-3.2z)
+        +253.5 (  253.5)  d7_5s__vol_accel_w(+3.9z), d7_5s__vol_velocity_1b(+3.4z), d7_5s__reversion_prob(-3.2z)
+        +200.2 (  200.2)  d6_15s__vol_velocity_1b(+3.7z), d6_15s__vol_velocity_w(+3.6z), d7_5s__vol_accel_1b(-3.0z)
+        +256.0 (  256.0)  d4_5m__price_velocity_w(-2.5z), d3_15m__price_accel_1b(+2.4z), d6_15s__vol_mean_w(+2.4z)
+        +272.2 (  272.2)  d6_15s__vol_accel_1b(-6.6z), d7_5s__vol_sigma_w(+6.6z), d6_15s__vol_velocity_1b(-5.8z)
+        +232.8 (  232.8)  d2_1h__vol_velocity_1b(+3.4z), d2_1h__vol_velocity_w(+2.9z), d7_5s__vol_accel_w(+2.8z)
+        +469.2 (  469.2)  d0_1D__vol_accel_1b(+2.5z), d0_1D__vol_velocity_1b(+2.2z), d2_1h__vol_accel_1b(+2.0z)
+        +667.2 (  667.2)  d2_1h__vol_velocity_1b(+4.1z), d2_1h__bar_range(+3.3z), d2_1h__vol_velocity_w(+3.2z)
+        +226.0 (  226.0)  d7_5s__vol_mean_w(+2.6z), d1_4h__vol_accel_1b(-2.3z), L0_time_of_day(+2.1z)
+
+  ======================================================================
+  DN (delta < 0): 152 moves (46.8%)
+  |delta| range: 0.5 to 1168.0, median=116.0, mean=210.4
+  ======================================================================
+  Log-histogram: sigma=1.2, 6 peaks
+  Valleys (real): 2.1, 5.9, 14.4, 29.0, 168.5
+  Magnitude bins: 6
+
+   Bin          Magnitude      N  %side  Mean|d|   Med|d|
+  ---- ------------------ ------ ------ -------- --------
+     0             DN_0_2      2   1.3%     1.00     1.00
+     1             DN_2_6      5   3.3%     4.35     4.25
+     2            DN_6_14      7   4.6%    10.04    10.50
+     3           DN_14_29      6   3.9%    20.96    19.88
+     4          DN_29_169     70  46.1%    90.20    92.38
+     5            DN_169+     62  40.8%   410.54   335.88
+
+  192D PROFILES (DN):
+
+              DN_0_2 (n=2): too few for profile
+
+              DN_2_6 (n=5, 3.3% of DN):
+    Context (A):     d2_1h__price_velocity_1b(-1.61z), d2_1h__price_accel_w(-1.26z), d2_1h__z_low(-1.21z), d2_1h__z_se(-1.17z), d0_1D__vol_velocity_w(-1.14z)
+    Transition A->B: d0_1D__vol_accel_1b(+2241754.400), d0_1D__vol_velocity_1b(+1306974.400), d0_1D__vol_accel_w(+390527.760)
+
+             DN_6_14 (n=7, 4.6% of DN):
+    Context (A):     d1_4h__hurst(+1.07z), d7_5s__price_accel_1b(-0.98z), d7_5s__body(-0.88z), d0_1D__vol_velocity_1b(+0.80z), d7_5s__reversion_prob(-0.76z)
+    Transition A->B: d0_1D__vol_accel_1b(-2322044.429), d0_1D__vol_velocity_1b(-1104299.571), d0_1D__vol_accel_w(-170853.286)
+
+            DN_14_29 (n=6, 3.9% of DN):
+    Context (A):     d3_15m__z_low(+1.34z), d3_15m__z_se(+1.02z), d2_1h__vol_velocity_1b(+0.86z), d1_4h__vol_accel_1b(-0.82z), d3_15m__z_high(+0.79z)
+    Transition A->B: d0_1D__vol_velocity_1b(-751536.667), d0_1D__vol_accel_1b(-437671.333), d0_1D__vol_accel_w(-244639.300)
+
+           DN_29_169 (n=70, 46.1% of DN):
+    Context (A):     d1_4h__bar_range(-0.28z), d1_4h__price_velocity_w(+0.25z), d3_15m__price_sigma_w(-0.24z), d3_15m__SE_low(-0.24z), d2_1h__bar_range(-0.22z)
+    Transition A->B: d0_1D__vol_accel_1b(+589327.829), d0_1D__vol_velocity_1b(+282831.186), d0_1D__vol_accel_w(+74100.126)
+
+             DN_169+ (n=62, 40.8% of DN):
+    Context (A):     d0_1D__price_velocity_w(-0.39z), d1_4h__vol_mean_w(+0.37z), d3_15m__vol_sigma_w(+0.37z), d1_4h__bar_range(+0.36z), d0_1D__vol_sigma_w(+0.36z)
+    Transition A->B: d0_1D__vol_accel_1b(+297593.000), d0_1D__vol_velocity_1b(+49618.355), d1_4h__vol_velocity_1b(-31378.435)
+
+  SPIKE DN (|delta| >= 168.5, n=62):
+        -242.5 (  242.5)  d0_1D__swing_noise(-2.1z), d6_15s__z_low(-1.9z), d7_5s__z_high(-1.9z)
+        -338.5 (  338.5)  L0_time_of_day(+2.3z), d0_1D__swing_noise(-2.1z), d1_4h__z_se(-1.8z)
+        -458.0 (  458.0)  d3_15m__vol_sigma_w(+2.6z), d0_1D__SE_low(+2.2z), d0_1D__swing_noise(-2.1z)
+        -278.5 (  278.5)  d6_15s__z_low(+1.9z), d1_4h__hurst(-1.7z), d0_1D__SE_high(+1.5z)
+        -502.0 (  502.0)  d0_1D__z_high(-1.4z), d0_1D__z_se(-1.4z), d0_1D__reversion_prob(-1.4z)
+        -372.8 (  372.8)  d1_4h__reversion_prob(-8.6z), d1_4h__body(-2.7z), d1_4h__vol_velocity_w(+2.5z)
+        -539.0 (  539.0)  d1_4h__hurst(+2.5z), d1_4h__price_velocity_w(-1.8z), d0_1D__price_velocity_w(-1.8z)
+        -454.2 (  454.2)  d2_1h__body(+4.5z), d4_5m__vol_velocity_w(-3.8z), d2_1h__vol_velocity_w(+3.8z)
+        -418.5 (  418.5)  d6_15s__bar_range(+2.6z), d3_15m__SE_low(+2.5z), d6_15s__body(+2.4z)
+        -173.0 (  173.0)  d3_15m__vol_velocity_w(-2.4z), d1_4h__price_accel_1b(+2.4z), d3_15m__vol_sigma_w(+2.0z)
+        -729.8 (  729.8)  d2_1h__vol_velocity_w(+3.4z), d3_15m__vol_mean_w(+3.0z), d1_4h__bar_range(+3.0z)
+        -325.0 (  325.0)  d3_15m__price_accel_w(+3.5z), d1_4h__vol_sigma_w(+2.4z), d1_4h__vol_velocity_1b(-2.3z)
+        -317.0 (  317.0)  d0_1D__vol_accel_w(-3.0z), d0_1D__vol_velocity_w(-2.7z), d1_4h__vol_accel_1b(+2.2z)
+        -226.8 (  226.8)  d0_1D__hurst(+2.7z), d6_15s__hurst(-2.5z), d0_1D__vol_velocity_w(-2.3z)
+        -763.8 (  763.8)  d5_1m__bar_range(+12.4z), d5_1m__price_accel_1b(-7.8z), d6_15s__SE_low(+7.6z)
+        -226.0 (  226.0)  current_MR(-2.5z), d1_4h__vol_accel_w(-2.5z), d0_1D__vol_velocity_1b(+2.2z)
+       -1168.0 ( 1168.0)  d1_4h__bar_range(+9.0z), d3_15m__SE_high(+9.0z), d1_4h__body(-7.3z)
+        -765.5 (  765.5)  current_MR(-3.8z), d2_1h__swing_noise(+2.8z), d0_1D__vol_velocity_w(+2.6z)
+        -772.5 (  772.5)  d3_15m__SE_low(+9.1z), d2_1h__price_accel_1b(+8.8z), d6_15s__price_sigma_w(+8.6z)
+        -956.5 (  956.5)  current_MR(+7.5z), d0_1D__SE_high(+6.3z), d1_4h__swing_noise(+5.1z)
+        -325.8 (  325.8)  d1_4h__swing_noise(+3.3z), d0_1D__price_velocity_w(+3.2z), d3_15m__price_accel_w(+2.7z)
+        -311.0 (  311.0)  d4_5m__vol_accel_1b(-3.0z), d0_1D__SE_low(+2.9z), d4_5m__vol_velocity_w(-2.2z)
+        -284.5 (  284.5)  d0_1D__hurst(-1.9z), d0_1D__swing_noise(+1.7z), d4_5m__price_accel_1b(+1.7z)
+        -225.5 (  225.5)  d1_4h__vol_accel_w(-2.3z), d1_4h__hurst(+1.7z), d0_1D__swing_noise(+1.7z)
+        -449.0 (  449.0)  d7_5s__hurst(+2.1z), d6_15s__price_accel_w(-1.4z), d0_1D__z_high(+1.4z)
+        -195.2 (  195.2)  d3_15m__hurst(+1.7z), d3_15m__z_low(-1.5z), d3_15m__vol_accel_w(-1.5z)
+        -427.5 (  427.5)  d5_1m__z_low(+2.0z), d3_15m__z_low(-1.9z), d6_15s__reversion_prob(-1.8z)
+        -428.5 (  428.5)  d1_4h__reversion_prob(-7.9z), d1_4h__z_se(+2.6z), d1_4h__z_high(+2.2z)
+        -281.2 (  281.2)  d6_15s__body(+2.1z), d1_4h__vol_accel_1b(+2.1z), d2_1h__hurst(+2.0z)
+        -382.8 (  382.8)  d1_4h__hurst(+1.9z), d7_5s__hurst(-1.9z), d2_1h__z_high(+1.5z)
+        -293.8 (  293.8)  d4_5m__hurst(-1.8z), d4_5m__z_high(-1.6z), d0_1D__z_high(+1.4z)
+       -1146.8 ( 1146.8)  d6_15s__reversion_prob(-2.2z), d1_4h__z_low(+1.9z), d6_15s__z_se(+1.9z)
+        -183.2 (  183.2)  d7_5s__price_velocity_1b(-3.5z), d7_5s__price_accel_w(-3.2z), d7_5s__body(-2.8z)
+        -248.5 (  248.5)  d4_5m__hurst(-2.6z), d0_1D__vol_accel_1b(+2.2z), d5_1m__z_se(+1.9z)
+        -186.8 (  186.8)  d3_15m__price_accel_1b(+3.1z), d4_5m__SE_high(+3.0z), d6_15s__hurst(+2.8z)
+        -565.2 (  565.2)  d0_1D__hurst(-2.0z), d6_15s__price_accel_w(-1.9z), d2_1h__z_se(+1.8z)
+        -456.2 (  456.2)  d7_5s__price_accel_1b(+2.4z), d4_5m__hurst(-2.4z), d1_4h__price_accel_w(-2.2z)
+        -432.5 (  432.5)  d5_1m__reversion_prob(-5.2z), d5_1m__z_se(-2.4z), d5_1m__z_low(-2.3z)
+        -250.0 (  250.0)  d4_5m__vol_velocity_w(-3.1z), d2_1h__body(-2.6z), d1_4h__vol_velocity_w(+2.3z)
+        -329.0 (  329.0)  d7_5s__price_velocity_1b(-2.9z), d0_1D__vol_accel_w(-2.9z), d0_1D__vol_velocity_1b(-2.6z)
+        -972.2 (  972.2)  d1_4h__price_accel_1b(-2.2z), d0_1D__vol_mean_w(+2.0z), d1_4h__vol_mean_w(+1.9z)
+        -468.5 (  468.5)  d3_15m__vol_velocity_w(-3.9z), d3_15m__price_accel_w(-3.2z), d5_1m__hurst(+2.3z)
+        -371.2 (  371.2)  d3_15m__z_low(-1.9z), d6_15s__reversion_prob(-1.8z), d6_15s__z_se(+1.8z)
+        -285.5 (  285.5)  d6_15s__z_high(+1.8z), d2_1h__z_low(-1.7z), d0_1D__vol_accel_1b(+1.7z)
+        -214.8 (  214.8)  d3_15m__vol_accel_w(+2.1z), d2_1h__vol_accel_1b(+1.8z), d3_15m__z_high(+1.6z)
+        -262.2 (  262.2)  d2_1h__price_velocity_1b(-3.4z), d2_1h__price_accel_w(-3.1z), d2_1h__reversion_prob(-2.7z)
+        -198.0 (  198.0)  d5_1m__hurst(-1.5z), d0_1D__z_low(+1.4z), d0_1D__vol_velocity_w(-1.4z)
+        -333.2 (  333.2)  d5_1m__vol_accel_1b(-7.2z), d5_1m__vol_velocity_1b(-4.8z), d2_1h__vol_velocity_1b(-3.8z)
+        -520.2 (  520.2)  d4_5m__price_sigma_w(+4.9z), d3_15m__price_accel_1b(-4.2z), d5_1m__swing_noise(+3.8z)
+        -360.0 (  360.0)  d0_1D__vol_accel_1b(+2.6z), d3_15m__vol_accel_1b(-2.4z), d3_15m__vol_velocity_1b(-2.4z)
+        -732.8 (  732.8)  d5_1m__vol_accel_1b(-3.4z), d7_5s__vol_sigma_w(+2.6z), d2_1h__vol_velocity_1b(-2.1z)
+        -411.8 (  411.8)  d1_4h__price_accel_w(+2.0z), d1_4h__price_velocity_w(+1.8z), d3_15m__hurst(-1.6z)
+        -184.8 (  184.8)  L0_time_of_day(+2.3z), d3_15m__vol_velocity_w(-2.1z), d3_15m__price_accel_w(-2.0z)
+        -320.2 (  320.2)  d6_15s__vol_sigma_w(+4.4z), d6_15s__vol_velocity_w(-3.1z), d6_15s__vol_accel_w(+2.8z)
+        -213.5 (  213.5)  d2_1h__vol_sigma_w(+2.1z), d4_5m__price_accel_w(-1.8z), d4_5m__z_high(+1.7z)
+        -269.2 (  269.2)  d3_15m__vol_velocity_1b(-3.6z), d2_1h__reversion_prob(-3.6z), d2_1h__price_velocity_1b(-3.4z)
+        -399.8 (  399.8)  d7_5s__vol_velocity_w(-3.6z), d6_15s__vol_accel_1b(-3.4z), d7_5s__vol_accel_w(-2.8z)
+        -446.2 (  446.2)  d4_5m__hurst(+2.5z), d2_1h__vol_accel_w(+2.2z), d1_4h__price_accel_1b(+2.0z)
+        -227.8 (  227.8)  d3_15m__vol_accel_w(+2.9z), d0_1D__vol_accel_1b(+2.9z), d0_1D__bar_range(+2.4z)
+        -259.2 (  259.2)  d1_4h__hurst(-2.9z), d0_1D__SE_low(+2.6z), d3_15m__z_high(+2.3z)
+        -193.5 (  193.5)  d5_1m__vol_accel_w(-4.2z), d3_15m__price_accel_1b(+3.7z), d5_1m__vol_velocity_w(-3.2z)
+        -378.0 (  378.0)  d6_15s__vol_velocity_w(+3.6z), d7_5s__vol_sigma_w(+2.9z), d5_1m__body(+2.6z)
+
+  ======================================================================
+  CROSS-SIDE COMPARISON
+  ======================================================================
+  UP: 173 moves, 5 modes, 4 valleys -> 5 magnitude tiers
+    Boundaries: 3.4, 12.0, 42.6, 145.5
+  DN: 152 moves, 6 modes, 5 valleys -> 6 magnitude tiers
+    Boundaries: 2.1, 5.9, 14.4, 29.0, 168.5
+
+  [saved] analysis_q_signed_histogram.png
+  [saved] analysis_q_signed_bins.csv (11 bins)
+
+======================================================================
+  ANALYSIS R: CNN PATTERN DETECTION (Conv1D, 7 classes)
+======================================================================
+  SKIP: PyTorch not available
+
+======================================================================
+  ANALYSIS S: EXIT TREND GUARD — BAND CONFLICT STUDY
+======================================================================
+  Computed rolling z-scores: slow(240), mid(60), fast(15)
+  Valid bars: slow=105, mid=285, fast=330
+  Oracle trades available: 322
+  Analyzed 45 trades (skipped 277 edge/NaN)
+
+  --- Tighten Signal Summary ---
+  Total tighten events (no guard):   592
+  Total tighten events (with guard): 592
+  Suppressed by trend guard:         0 (0.0%)
+
+  First tighten bar (no guard):   median=6, mean=6.5, p25=1
+  First tighten bar (with guard): median=6, mean=6.5, p25=1
+  Average delay from guard:       +0.0 bars
+
+  LONG trades (45): tightens 592->592 (suppressed 0, 0.0%), avg MFE=407.3
+
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_s_exit_trend_guard.png
+  [saved] C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\tools\plots\standalone\1y_1D\analysis_s_entry_zscores.png
+
+  (Skipping full 16D pipeline -- use --full to enable)
