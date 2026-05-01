@@ -2962,6 +2962,19 @@ def main():
             pred_all = ols_l.predict(X_l_all_sc)
             pred_dir_all = np.sign(pred_all)
 
+            # Export per-bar predictions to CSV so a downstream composite tool
+            # can aggregate across base TFs without refitting. Saved alongside
+            # plots in PLOTS_DIR.
+            _pred_csv_path = os.path.join(PLOTS_DIR, 'analysis_l_predictions.csv')
+            _l_ts = np.array([int(sample_ts[xi]) for xi in _l_xrows], dtype=np.int64)
+            pd.DataFrame({
+                'timestamp': _l_ts,
+                'actual_signed_mfe': Y_l,
+                'pred_signed_mfe': pred_all,
+                'pred_dir': pred_dir_all,
+            }).to_csv(_pred_csv_path, index=False)
+            print(f"  [saved] {_pred_csv_path} ({len(_l_ts)} rows)")
+
             # Map back to bar indices in base_df
             _matched_bar_idx = [bar_indices[_oracle_ts_set[int(sample_ts[xi])]]
                                 for xi in _l_xrows]
