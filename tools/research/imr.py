@@ -120,37 +120,60 @@ def detect_regimes(price_imr, min_regime_bars=8):
 
     n_raw = current_regime + 1
 
-    # Merge tiny regimes into neighbors
-    merge_pass = 0
-    while True:
-        unique_ids = [r for r in np.unique(regime_ids) if r >= 0]
-        sizes = {r: int((regime_ids == r).sum()) for r in unique_ids}
-        tiny = [r for r in unique_ids if sizes[r] < min_regime_bars]
+    # Merge tiny regimes into neighbors. Vectorized via np.bincount: per-pass
+    # cost is O(n + R) instead of O(n × R) for the dict-comprehension version.
+    # Merges all tiny regimes in one pass (each into its larger neighbor),
+    # repeats until no tiny regimes remain or pass cap hits.
+    valid_mask = regime_ids >= 0
+    n_valid_bars = int(valid_mask.sum())
+    max_passes = max(64, int(np.log2(max(n_raw, 2))) + 4)
+    for _pass in range(max_passes):
+        active = regime_ids[valid_mask]
+        if active.size == 0:
+            break
+        max_id = int(active.max())
+        counts = np.bincount(active, minlength=max_id + 1)
+        unique_ids = sorted({int(r) for r in np.unique(active)})
+        # Skip already-empty IDs (left over after prior merges).
+        live = [r for r in unique_ids if counts[r] > 0]
+        tiny = [r for r in live if counts[r] < min_regime_bars]
         if not tiny:
             break
-
-        r = tiny[0]
-        r_pos = unique_ids.index(r)
-        if r_pos > 0 and r_pos < len(unique_ids) - 1:
-            left, right = unique_ids[r_pos - 1], unique_ids[r_pos + 1]
-            target = left if sizes.get(left, 0) >= sizes.get(right, 0) else right
-        elif r_pos > 0:
-            target = unique_ids[r_pos - 1]
-        elif len(unique_ids) > 1:
-            target = unique_ids[r_pos + 1]
-        else:
+        # Build merge map: each tiny ID → its larger neighbor (in live order).
+        live_idx = {r: i for i, r in enumerate(live)}
+        merge_to = {}
+        for r in tiny:
+            i = live_idx[r]
+            left = live[i - 1] if i - 1 >= 0 else None
+            right = live[i + 1] if i + 1 < len(live) else None
+            # Skip if neighbor is also tiny — let the next pass handle it,
+            # so we don't chain into a tiny target.
+            if left is not None and counts[left] >= min_regime_bars and \
+               right is not None and counts[right] >= min_regime_bars:
+                merge_to[r] = left if counts[left] >= counts[right] else right
+            elif left is not None and counts[left] >= min_regime_bars:
+                merge_to[r] = left
+            elif right is not None and counts[right] >= min_regime_bars:
+                merge_to[r] = right
+            elif left is not None:
+                merge_to[r] = left
+            elif right is not None:
+                merge_to[r] = right
+        if not merge_to:
             break
-        regime_ids[regime_ids == r] = target
-        merge_pass += 1
-        if merge_pass > n:
-            break
+        # Apply merges in one vectorized pass via remap LUT.
+        lut = np.arange(max_id + 1, dtype=regime_ids.dtype)
+        for src, dst in merge_to.items():
+            lut[src] = dst
+        regime_ids[valid_mask] = lut[regime_ids[valid_mask]]
 
-    # Re-compact to 0-based contiguous
-    unique_ids = sorted([r for r in np.unique(regime_ids) if r >= 0])
-    remap = {old: new for new, old in enumerate(unique_ids)}
-    for i in range(n):
-        if regime_ids[i] >= 0:
-            regime_ids[i] = remap[regime_ids[i]]
+    # Re-compact to 0-based contiguous (vectorized).
+    unique_ids = sorted({int(r) for r in np.unique(regime_ids) if r >= 0})
+    remap = np.full(int(np.max(regime_ids)) + 2, -1, dtype=regime_ids.dtype)
+    for new_id, old_id in enumerate(unique_ids):
+        remap[old_id] = new_id
+    pos_mask = regime_ids >= 0
+    regime_ids[pos_mask] = remap[regime_ids[pos_mask]]
 
     n_regimes = len(unique_ids)
 
