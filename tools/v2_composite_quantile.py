@@ -457,7 +457,7 @@ def main():
         f.write(f"**Decision rule:** LONG if Q_0.25 > 0; "
                 f"SHORT if Q_0.75 < 0; FLAT otherwise.\n\n")
         f.write("## Per-TF\n\n")
-        f.write(summary_df.to_markdown(index=False))
+        f.write(summary_df.to_string(index=False))
         f.write("\n\n")
         if len(valid_results) >= 2 and 'stratify' in comp:
             f.write("## Composite\n\n")
@@ -466,7 +466,7 @@ def main():
             f.write(f"- Test bars: {comp['n_test_bars']}\n")
             f.write(f"- Baseline (majority class): {comp['baseline_acc']:.1%}\n\n")
             f.write("Stratified by agreement strength (`-1` = strict-all):\n\n")
-            f.write(pd.DataFrame(comp['stratify']).to_markdown(index=False))
+            f.write(pd.DataFrame(comp['stratify']).to_string(index=False))
             f.write("\n")
     print(f"  [saved] {md_path}")
 
