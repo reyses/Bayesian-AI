@@ -325,12 +325,16 @@ def main():
         if cache_mode == 'v2_features':
             # ─── V2 PATH: load precomputed features (or live-compute fallback) ───
             print(f"\n--- STEP 7 (v2): Loading precomputed features from {args.cache} ---")
-            # Limit ts_range to the actual analysis window (context + analysis days
-            # back from t_max). Without this we'd load 12+ months of v2 features for
-            # nothing; only the trailing window is used for the I-MR / oracle / X build.
+            # Determine v2 load window:
+            #   analysis_days > 0 → trailing (context + analysis) days from t_max
+            #   analysis_days == 0 → all remaining (load every day in base_df span)
             ts_max_total = int(base_df['timestamp'].iloc[-1])
-            window_days = max(args.context_days + args.analysis_days, 1) + 2  # +2 buffer
-            ts_min_window = ts_max_total - window_days * 86400
+            if args.analysis_days > 0:
+                window_days = args.context_days + args.analysis_days + 2  # +2 buffer
+                ts_min_window = ts_max_total - window_days * 86400
+            else:
+                # Full-span run — load all v2 days that overlap base_df
+                ts_min_window = int(base_df['timestamp'].iloc[0])
             features_5s = load_v2_features(
                 v2_dir=args.cache,
                 atlas_root=args.data,
