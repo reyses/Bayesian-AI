@@ -2976,9 +2976,21 @@ def main():
             _x_dates = [datetime.fromtimestamp(int(t), tz=_tz_l.utc) for t in ts_all]
             ax_p.plot(_x_dates, close_all, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
 
-            # Overlay colored segments at each prediction point
+            # Overlay colored segments at each prediction point.
+            # Cap segment count: with 100k+ matched bars, plotting one Line2D per
+            # segment exceeds matplotlib's renderer buffer. Sample uniformly down
+            # to _PLOT_CAP segments (preserves visual density without OOM).
+            _PLOT_CAP_SEG = 5000
+            _n_match = len(_matched_bar_idx)
+            if _n_match > _PLOT_CAP_SEG:
+                _seg_idx = np.linspace(0, _n_match - 1, _PLOT_CAP_SEG, dtype=int)
+                print(f"  Note: capped segment overlay to {_PLOT_CAP_SEG} of "
+                      f"{_n_match} samples (uniform stride).")
+            else:
+                _seg_idx = np.arange(_n_match)
             _seg_half = max(1, len(close_all) // 500)  # adaptive segment width
-            for i, bi in enumerate(_matched_bar_idx):
+            for i in _seg_idx:
+                bi = _matched_bar_idx[i]
                 _s = max(0, bi - _seg_half)
                 _e = min(len(close_all), bi + _seg_half + 1)
                 _seg_x = _x_dates[_s:_e]
@@ -2989,8 +3001,9 @@ def main():
                 _alpha = min(1.0, 0.3 + abs(pred_all[i]) / 100.0)  # stronger prediction = more opaque
                 ax_p.plot(_seg_x, _seg_y, color=_color, lw=2.0, alpha=_alpha, zorder=2)
 
-            # Mark correct/wrong with small dots
-            for i, bi in enumerate(_matched_bar_idx):
+            # Mark correct/wrong with small dots (same sampling)
+            for i in _seg_idx:
+                bi = _matched_bar_idx[i]
                 _actual_sign = 1.0 if directions[_oracle_ts_set[int(sample_ts[_l_xrows[i]])]] == 'LONG' else -1.0
                 _correct = (pred_dir_all[i] == _actual_sign)
                 if not _correct:
@@ -3317,7 +3330,17 @@ def main():
             ax_pm.plot(_x_dates_m, close_all_m, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
 
             _seg_half_m = max(1, len(close_all_m) // 500)
-            for i, bi in enumerate(_sample_bi_m):
+            # Cap segments for plotting (see Analysis L for rationale)
+            _PLOT_CAP_SEG_M = 5000
+            _n_match_m = len(_sample_bi_m)
+            if _n_match_m > _PLOT_CAP_SEG_M:
+                _seg_idx_m = np.linspace(0, _n_match_m - 1, _PLOT_CAP_SEG_M, dtype=int)
+                print(f"  Note: capped segment overlay to {_PLOT_CAP_SEG_M} of "
+                      f"{_n_match_m} samples (uniform stride).")
+            else:
+                _seg_idx_m = np.arange(_n_match_m)
+            for i in _seg_idx_m:
+                bi = _sample_bi_m[i]
                 if bi < 0:
                     continue
                 _s = max(0, bi - _seg_half_m)
@@ -3647,7 +3670,17 @@ def main():
             ax_pn.plot(_x_dates_n, close_all_n, color='#BDBDBD', lw=0.8, alpha=0.6, zorder=1)
 
             _seg_half_n = max(1, len(close_all_n) // 500)
-            for i, bi in enumerate(_sample_bi_n):
+            # Cap segments for plotting (see Analysis L for rationale)
+            _PLOT_CAP_SEG_N = 5000
+            _n_match_n = len(_sample_bi_n)
+            if _n_match_n > _PLOT_CAP_SEG_N:
+                _seg_idx_n = np.linspace(0, _n_match_n - 1, _PLOT_CAP_SEG_N, dtype=int)
+                print(f"  Note: capped segment overlay to {_PLOT_CAP_SEG_N} of "
+                      f"{_n_match_n} samples (uniform stride).")
+            else:
+                _seg_idx_n = np.arange(_n_match_n)
+            for i in _seg_idx_n:
+                bi = _sample_bi_n[i]
                 if bi < 0:
                     continue
                 _s = max(0, bi - _seg_half_n)
