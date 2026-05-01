@@ -1069,6 +1069,19 @@ def main():
         # Filter to regimes with enough shapes (min 5)
         active_rids = [rm['regime_id'] for rm in regime_meta
                        if len(shapes_by_regime.get(rm['regime_id'], [])) >= 5]
+        # Plot cap: with full-year 1m runs, regime count can be 5000+. A
+        # subplot-per-regime figure at that scale exceeds matplotlib's max
+        # buffer (~3 GB pixels). Cap to top-N by sample size.
+        _PLOT_CAP_REGIMES = 30
+        if len(active_rids) > _PLOT_CAP_REGIMES:
+            sorted_by_n = sorted(
+                active_rids,
+                key=lambda r: len(shapes_by_regime.get(r, [])),
+                reverse=True,
+            )
+            active_rids = sorted_by_n[:_PLOT_CAP_REGIMES]
+            print(f"  Note: capped regime audit plots to top {_PLOT_CAP_REGIMES} "
+                  f"regimes by sample count (had {len(sorted_by_n)} active).")
         n_active = len(active_rids)
 
         if n_active == 0:
