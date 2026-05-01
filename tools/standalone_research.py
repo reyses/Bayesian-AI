@@ -41,6 +41,63 @@ from tools.research import plots as _res_plots
 from tools.research.plots import (
     plot_price_imr, plot_regime_summary, plot_imr_charts, plot_segmented_imr,
 )
+from tools.research.features_v2 import (
+    TF_HIERARCHY_V2, TF_LABELS_V2, FEATURE_NAMES_V2,
+    N_TFS_V2, N_FEATURES_PER_TF_V2,
+    detect_v2_cache, load_v2_features, align_v2_to_base_tf, reshape_v2_to_stack,
+)
+
+
+# ── Active feature spec — set in main() based on cache mode ──
+# Default values are v1 (preserves existing behavior when --cache is unset
+# or points to an .npz file).
+_ACTIVE_TF_HIERARCHY = TF_HIERARCHY        # 12 TFs
+_ACTIVE_TF_LABELS = TF_LABELS               # ['d0_1W', ..., 'd11_15s']
+_ACTIVE_FEATURE_NAMES = FEATURE_NAMES       # 16 v1 feature names
+_ACTIVE_N_TFS = 12
+_ACTIVE_N_FEATURES = 16
+_ACTIVE_EXTRAS = ['current_MR']             # appended to flattened stack
+_ACTIVE_PID_NAME = 'self_pid'               # feature used in PID drill-down (line 5459)
+
+
+def _set_active_spec_v2():
+    """Switch active feature spec to v2 (8 TFs × 23 features + L0).
+
+    Rebinds the module-level TF_HIERARCHY / TF_LABELS / FEATURE_NAMES so
+    existing analyses that reference these names by import pick up v2 values
+    automatically. This avoids touching every analysis call site.
+    """
+    global _ACTIVE_TF_HIERARCHY, _ACTIVE_TF_LABELS, _ACTIVE_FEATURE_NAMES
+    global _ACTIVE_N_TFS, _ACTIVE_N_FEATURES, _ACTIVE_EXTRAS, _ACTIVE_PID_NAME
+    global TF_HIERARCHY, TF_LABELS, FEATURE_NAMES
+    _ACTIVE_TF_HIERARCHY = TF_HIERARCHY_V2
+    _ACTIVE_TF_LABELS = TF_LABELS_V2
+    _ACTIVE_FEATURE_NAMES = FEATURE_NAMES_V2
+    _ACTIVE_N_TFS = N_TFS_V2                # 8
+    _ACTIVE_N_FEATURES = N_FEATURES_PER_TF_V2  # 23
+    _ACTIVE_EXTRAS = ['current_MR', 'L0_time_of_day']
+    _ACTIVE_PID_NAME = 'reversion_prob'     # v2 closest analog of self_pid
+    # Rebind module-level names so all downstream analyses pick up v2 values
+    TF_HIERARCHY = TF_HIERARCHY_V2
+    TF_LABELS = TF_LABELS_V2
+    FEATURE_NAMES = FEATURE_NAMES_V2
+
+
+def _build_col_names(prefix=""):
+    """Build column names from the active spec.
+
+    Returns list of length (N_TFS * N_FEATURES) + len(EXTRAS) when prefix=='',
+    else just (N_TFS * N_FEATURES) for the delta naming.
+    """
+    cols = []
+    for d in range(_ACTIVE_N_TFS):
+        tf_lbl = _ACTIVE_TF_LABELS[d] if d < len(_ACTIVE_TF_LABELS) else f'd{d}'
+        for f in range(_ACTIVE_N_FEATURES):
+            f_lbl = _ACTIVE_FEATURE_NAMES[f] if f < len(_ACTIVE_FEATURE_NAMES) else f'f{f}'
+            cols.append(f"{prefix}{tf_lbl}__{f_lbl}")
+    if not prefix:
+        cols.extend(_ACTIVE_EXTRAS)
+    return cols
 
 
 # Module-level PLOTS_DIR — synced from plots module after resolve_plots_dir()
@@ -94,8 +151,9 @@ def main():
                         help='ATLAS data directory (default: DATA/ATLAS)')
     parser.add_argument('--months', nargs='+', default=None,
                         help='Specific months to load (e.g., 2025_01 2025_02)')
-    parser.add_argument('--base-tf', default='15m',
-                        help='Base timeframe for analysis points (default: 15m)')
+    parser.add_argument('--base-tf', default=None,
+                        help='Base timeframe for analysis points. '
+                             'Default: 15m for v1/SFE mode, 1m for v2 mode.')
     parser.add_argument('--context-days', type=int, default=21,
                         help='Warmup days before analysis window (default: 21)')
     parser.add_argument('--analysis-days', type=int, default=7,
@@ -109,11 +167,38 @@ def main():
     parser.add_argument('--skip', default='',
                         help='Comma-separated analysis letters to skip (e.g. --skip G,H,I,J,K)')
     parser.add_argument('--cache', default=None,
-                        help='Path to .npz cache. If exists, load instead of recomputing Steps 1-8. '
-                             'If not exists, compute and save to this path.')
+                        help='Polymorphic. (a) Path to .npz cache: load assembled matrices and '
+                             'skip Steps 1-8. (b) Path to v2 features dir (e.g., '
+                             'DATA/ATLAS/FEATURES_5s_v2): switch to v2 mode, load precomputed '
+                             '185D features, fall back to live core_v2 SFE compute for missing '
+                             'days. Default base-TF becomes 1m in v2 mode.')
     args = parser.parse_args()
     _start_at = args.start.upper()
     _skip_set = set(s.strip().upper() for s in args.skip.split(',') if s.strip())
+
+    # ── Detect cache mode and switch active feature spec ──────────────────
+    # cache_mode: 'v2_features' | 'npz' | 'none' (no --cache passed)
+    cache_mode = 'none'
+    if args.cache:
+        if detect_v2_cache(args.cache):
+            cache_mode = 'v2_features'
+            _set_active_spec_v2()
+        elif args.cache.endswith('.npz') or os.path.isfile(args.cache):
+            cache_mode = 'npz'
+        else:
+            # Path exists but isn't .npz and isn't a v2 dir, OR doesn't exist.
+            # Treat as npz target if it doesn't exist (compute-and-save path).
+            if not os.path.exists(args.cache):
+                cache_mode = 'npz'  # will be created below
+            else:
+                print(f"ERROR: --cache path '{args.cache}' is neither a v2 features dir "
+                      f"nor an .npz file. Expected directory containing L0/, L1_*/, "
+                      f"L2_*/, L3_*/ OR a path ending in .npz.")
+                sys.exit(1)
+
+    # Resolve base_tf default based on mode
+    if args.base_tf is None:
+        args.base_tf = '1m' if cache_mode == 'v2_features' else '15m'
 
     # Resolve plots dir based on data path
     sample_label = _resolve_plots_dir(args.data, getattr(args, 'analysis_days', 0))
@@ -131,8 +216,8 @@ def main():
     print(f"  Mode: {'FULL (16D fractal)' if args.full else 'PRICE I-MR (default)'}")
     print(f"{'='*70}")
 
-    # ── Cache load (skip Steps 1-8 if cached data exists) ────────────
-    if args.cache and os.path.exists(args.cache):
+    # ── Cache load (skip Steps 1-8 if cached .npz exists) ────────────
+    if cache_mode == 'npz' and os.path.exists(args.cache):
         print(f"\n--- LOADING CACHED DATA: {args.cache} ---")
         _cached = np.load(args.cache, allow_pickle=False)
         X = _cached['X']
@@ -140,20 +225,12 @@ def main():
         Y_p = _cached['Y_p']
         Y_d = _cached['Y_d']
         sample_ts = _cached['sample_ts'].tolist()
-        # Rebuild column names (deterministic from constants)
-        col_names = []
-        for d in range(12):
-            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-            for f in range(16):
-                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-                col_names.append(f"{tf_lbl}__{f_lbl}")
-        col_names.append("current_MR")
-        delta_col_names = []
-        for d in range(12):
-            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-            for f in range(16):
-                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-                delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
+        # Infer feature spec from X width: v1 = 12*16+1 = 193, v2 = 8*23+2 = 186
+        if X.shape[1] == N_TFS_V2 * N_FEATURES_PER_TF_V2 + 2:
+            _set_active_spec_v2()
+            print(f"  Detected v2 cache (X.shape[1]={X.shape[1]})")
+        col_names = _build_col_names(prefix="")
+        delta_col_names = _build_col_names(prefix="dt_")
         print(f"  Loaded: {X.shape[0]} samples, {X.shape[1]} features")
         print(f"  Cache size: {os.path.getsize(args.cache)/1e6:.1f} MB")
     else:
@@ -245,134 +322,185 @@ def main():
         # =====================================================================
         #  STEP 7: Load all 12 TFs + compute fractal context
         # =====================================================================
-        print(f"\n--- STEP 7: Loading all TF data + fractal context ---")
-        all_dfs = {args.base_tf: base_df}
-        for tf in TF_HIERARCHY:
-            if tf == args.base_tf:
-                continue
-            df = load_atlas_tf(args.data, tf, months=args.months)
-            if not df.empty:
-                all_dfs[tf] = df
-                print(f"  {tf:>4}: {len(df):>8,} bars")
-            else:
-                print(f"  {tf:>4}:   (not found)")
+        if cache_mode == 'v2_features':
+            # ─── V2 PATH: load precomputed features (or live-compute fallback) ───
+            print(f"\n--- STEP 7 (v2): Loading precomputed features from {args.cache} ---")
+            # Limit ts_range to the actual analysis window (context + analysis days
+            # back from t_max). Without this we'd load 12+ months of v2 features for
+            # nothing; only the trailing window is used for the I-MR / oracle / X build.
+            ts_max_total = int(base_df['timestamp'].iloc[-1])
+            window_days = max(args.context_days + args.analysis_days, 1) + 2  # +2 buffer
+            ts_min_window = ts_max_total - window_days * 86400
+            features_5s = load_v2_features(
+                v2_dir=args.cache,
+                atlas_root=args.data,
+                day_strs=None,            # auto-pick days available, filtered by ts_range
+                ts_range=(ts_min_window, ts_max_total),
+                verbose=True,
+            )
+            print(f"  v2 features: {len(features_5s):,} 5s rows, "
+                  f"{features_5s.shape[1]} cols")
 
-        print(f"\n  Computing physics per TF...")
-        all_tf_states = {}
-        for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf", ascii=True, dynamic_ncols=True):
-            if tf not in all_dfs:
-                continue
-            states = compute_tf_physics(tf, all_dfs[tf])
-            if states:
-                all_tf_states[tf] = states
-                print(f"  {tf:>4}: {len(states):>8,} states computed")
+            # =================================================================
+            #  STEP 8 (v2): Reindex onto base_tf timestamps + flatten to X
+            # =================================================================
+            print(f"\n--- STEP 8 (v2): Reindex onto {args.base_tf} bars ---")
+            analysis_idx = np.where(regime_ids >= 0)[0]
+            timestamps = base_df['timestamp'].values.astype(float)
+            close = base_df['close'].values.astype(float)
+            mr_signed = price_imr['mr']
+            n_bars = len(close)
 
-        # =====================================================================
-        #  STEP 8: Build X (fractal context + current MR) for each bar
-        #
-        #  X = 192 fractal features at time t + signed MR[t] = 193 context features
-        #  Two Y targets:
-        #    Y_price     = close[t]              (can we explain the price?)
-        #    Y_direction = sign(close[t+1]-close[t])  (can we explain the direction?)
-        # =====================================================================
-        print(f"\n--- STEP 8: Building context matrix (193 features per bar) ---")
+            # Filter to valid analysis indices (need idx-1 and idx+1)
+            valid_idx = analysis_idx[(analysis_idx >= 1) & (analysis_idx + 1 < n_bars)]
+            base_ts_for_align = timestamps[valid_idx].astype(np.int64)
+            base_ts_prev = timestamps[valid_idx - 1].astype(np.int64)
 
-        analysis_idx = np.where(regime_ids >= 0)[0]
-        timestamps = base_df['timestamp'].values.astype(float)
-        close = base_df['close'].values.astype(float)
-        mr_signed = price_imr['mr']
+            # Reindex 5s features onto base TF timestamps (current bar + previous bar for delta)
+            aligned_curr = align_v2_to_base_tf(features_5s, base_ts_for_align)
+            aligned_prev = align_v2_to_base_tf(features_5s, base_ts_prev)
 
-        # Pre-sort timestamps for each TF (for binary search alignment)
-        tf_sorted_ts = {}
-        for tf in TF_HIERARCHY:
-            if tf in all_tf_states and all_tf_states[tf]:
-                tf_sorted_ts[tf] = np.array(sorted(all_tf_states[tf].keys()))
+            # Reshape to (N, 8, 23) stacks + L0 globals
+            stack_curr, l0_curr = reshape_v2_to_stack(aligned_curr)
+            stack_prev, l0_prev = reshape_v2_to_stack(aligned_prev)
 
-        X_rows = []
-        X_delta_rows = []  # rate-of-change features
-        Y_price = []
-        Y_direction = []
-        sample_ts = []
-        base_secs = TF_SECONDS.get(args.base_tf, 900)
+            # Flatten + append [current_MR, L0_time_of_day] → (N, 8*23+2) = (N, 186)
+            mr_for_valid = mr_signed[valid_idx]
+            stack_flat = stack_curr.reshape(len(valid_idx), -1)  # (N, 184)
+            X = np.concatenate(
+                [stack_flat, mr_for_valid[:, None], l0_curr[:, None]],
+                axis=1,
+            )
+            # Delta: per-TF stack diff (no MR/L0 in delta to keep parity with v1)
+            stack_delta = (stack_curr - stack_prev).reshape(len(valid_idx), -1)
+            X_delta = stack_delta
 
-        def _build_mat(t):
-            """Build (12,16) fractal fingerprint at timestamp t."""
-            mat = np.zeros((12, 16))
-            n = 0
-            for depth_idx, tf in enumerate(TF_HIERARCHY):
-                if tf not in tf_sorted_ts:
+            Y_p = close[valid_idx]
+            next_change = close[valid_idx + 1] - close[valid_idx]
+            Y_d = np.where(next_change > 0, 1.0, np.where(next_change < 0, -1.0, 0.0))
+            sample_ts = base_ts_for_align.tolist()
+
+            print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1]}, "
+                  f"Delta features: {X_delta.shape[1]}")
+            print(f"  X: {_ACTIVE_N_TFS}*{_ACTIVE_N_FEATURES}={_ACTIVE_N_TFS*_ACTIVE_N_FEATURES} "
+                  f"stack + current_MR + L0_time_of_day = {X.shape[1]} level features")
+        else:
+            print(f"\n--- STEP 7: Loading all TF data + fractal context ---")
+            all_dfs = {args.base_tf: base_df}
+            for tf in TF_HIERARCHY:
+                if tf == args.base_tf:
                     continue
-                tf_ts_list = tf_sorted_ts[tf]
-                tf_secs = TF_SECONDS.get(tf, 60)
-                if tf_secs > base_secs:
-                    pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+                df = load_atlas_tf(args.data, tf, months=args.months)
+                if not df.empty:
+                    all_dfs[tf] = df
+                    print(f"  {tf:>4}: {len(df):>8,} bars")
                 else:
-                    pos = np.searchsorted(tf_ts_list, t, side='right') - 1
-                if pos < 0:
+                    print(f"  {tf:>4}:   (not found)")
+
+            print(f"\n  Computing physics per TF...")
+            all_tf_states = {}
+            for tf in tqdm(TF_HIERARCHY, desc="Physics", unit="tf", ascii=True, dynamic_ncols=True):
+                if tf not in all_dfs:
                     continue
-                nearest_ts = tf_ts_list[pos]
-                state = all_tf_states[tf][nearest_ts]
-                mat[depth_idx, :] = extract_16d(state, tf)
-                n += 1
-            return mat, n
+                states = compute_tf_physics(tf, all_dfs[tf])
+                if states:
+                    all_tf_states[tf] = states
+                    print(f"  {tf:>4}: {len(states):>8,} states computed")
 
-        n_bars = len(close)
-        for idx in tqdm(analysis_idx, desc="Fractal context", unit="bar", ascii=True, dynamic_ncols=True):
-            if idx + 1 >= n_bars or idx < 1:
-                continue
+            # =================================================================
+            #  STEP 8: Build X (fractal context + current MR) for each bar
+            #
+            #  X = N_FLAT fractal features + signed MR[t]
+            #  Two Y targets:
+            #    Y_price     = close[t]              (can we explain the price?)
+            #    Y_direction = sign(close[t+1]-close[t])  (can we explain the direction?)
+            # =================================================================
+            _N_FLAT = _ACTIVE_N_TFS * _ACTIVE_N_FEATURES
+            print(f"\n--- STEP 8: Building context matrix ({_N_FLAT + len(_ACTIVE_EXTRAS)} features per bar) ---")
 
-            t = int(timestamps[idx])
-            t_prev = int(timestamps[idx - 1])
-            current_mr = mr_signed[idx]
+            analysis_idx = np.where(regime_ids >= 0)[0]
+            timestamps = base_df['timestamp'].values.astype(float)
+            close = base_df['close'].values.astype(float)
+            mr_signed = price_imr['mr']
 
-            mat, has_data = _build_mat(t)
-            if has_data < 3:
-                continue
+            # Pre-sort timestamps for each TF (for binary search alignment)
+            tf_sorted_ts = {}
+            for tf in TF_HIERARCHY:
+                if tf in all_tf_states and all_tf_states[tf]:
+                    tf_sorted_ts[tf] = np.array(sorted(all_tf_states[tf].keys()))
 
-            # Build previous bar's matrix for rate-of-change
-            mat_prev, has_prev = _build_mat(t_prev)
-            if has_prev < 3:
-                delta = np.zeros_like(mat)
-            else:
-                delta = mat - mat_prev
+            X_rows = []
+            X_delta_rows = []  # rate-of-change features
+            Y_price = []
+            Y_direction = []
+            sample_ts = []
+            base_secs = TF_SECONDS.get(args.base_tf, 900)
 
-            x_row = np.concatenate([mat.flatten(), [current_mr]])  # 193 features
-            x_delta = delta.flatten()  # 192 delta features
-            X_rows.append(x_row)
-            X_delta_rows.append(x_delta)
-            Y_price.append(close[idx])
-            next_change = close[idx + 1] - close[idx]
-            Y_direction.append(1.0 if next_change > 0 else (-1.0 if next_change < 0 else 0.0))
-            sample_ts.append(t)
+            def _build_mat(t):
+                """Build (N_TFS, N_FEATURES) fractal fingerprint at timestamp t."""
+                mat = np.zeros((_ACTIVE_N_TFS, _ACTIVE_N_FEATURES))
+                n = 0
+                for depth_idx, tf in enumerate(TF_HIERARCHY):
+                    if tf not in tf_sorted_ts:
+                        continue
+                    tf_ts_list = tf_sorted_ts[tf]
+                    tf_secs = TF_SECONDS.get(tf, 60)
+                    if tf_secs > base_secs:
+                        pos = np.searchsorted(tf_ts_list, t, side='right') - 2
+                    else:
+                        pos = np.searchsorted(tf_ts_list, t, side='right') - 1
+                    if pos < 0:
+                        continue
+                    nearest_ts = tf_ts_list[pos]
+                    state = all_tf_states[tf][nearest_ts]
+                    mat[depth_idx, :] = extract_16d(state, tf)
+                    n += 1
+                return mat, n
 
-        X = np.array(X_rows)
-        X_delta = np.array(X_delta_rows)
-        Y_p = np.array(Y_price)
-        Y_d = np.array(Y_direction)
-        print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1] if len(X) > 0 else 0}, "
-              f"Delta features: {X_delta.shape[1] if len(X_delta) > 0 else 0}")
-        print(f"  X: 192 fractal + 1 current MR = 193 level features")
-        print(f"  X_delta: 192 rate-of-change (feature[t] - feature[t-1])")
+            n_bars = len(close)
+            for idx in tqdm(analysis_idx, desc="Fractal context", unit="bar", ascii=True, dynamic_ncols=True):
+                if idx + 1 >= n_bars or idx < 1:
+                    continue
 
-        # Build column names: 192 fractal + 1 current MR
-        col_names = []
-        for d in range(12):
-            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-            for f in range(16):
-                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-                col_names.append(f"{tf_lbl}__{f_lbl}")
-        col_names.append("current_MR")
+                t = int(timestamps[idx])
+                t_prev = int(timestamps[idx - 1])
+                current_mr = mr_signed[idx]
 
-        # Delta column names
-        delta_col_names = []
-        for d in range(12):
-            tf_lbl = TF_LABELS[d] if d < len(TF_LABELS) else f'd{d}'
-            for f in range(16):
-                f_lbl = FEATURE_NAMES[f] if f < len(FEATURE_NAMES) else f'f{f}'
-                delta_col_names.append(f"dt_{tf_lbl}__{f_lbl}")
+                mat, has_data = _build_mat(t)
+                if has_data < 3:
+                    continue
 
-        # ── Cache save (if --cache given and file doesn't exist yet) ──
-        if args.cache and not os.path.exists(args.cache):
+                # Build previous bar's matrix for rate-of-change
+                mat_prev, has_prev = _build_mat(t_prev)
+                if has_prev < 3:
+                    delta = np.zeros_like(mat)
+                else:
+                    delta = mat - mat_prev
+
+                x_row = np.concatenate([mat.flatten(), [current_mr]])
+                x_delta = delta.flatten()
+                X_rows.append(x_row)
+                X_delta_rows.append(x_delta)
+                Y_price.append(close[idx])
+                next_change = close[idx + 1] - close[idx]
+                Y_direction.append(1.0 if next_change > 0 else (-1.0 if next_change < 0 else 0.0))
+                sample_ts.append(t)
+
+            X = np.array(X_rows)
+            X_delta = np.array(X_delta_rows)
+            Y_p = np.array(Y_price)
+            Y_d = np.array(Y_direction)
+            print(f"  Samples: {len(Y_p)}, Level features: {X.shape[1] if len(X) > 0 else 0}, "
+                  f"Delta features: {X_delta.shape[1] if len(X_delta) > 0 else 0}")
+            print(f"  X: {_N_FLAT} fractal + 1 current MR = {_N_FLAT + 1} level features")
+            print(f"  X_delta: {_N_FLAT} rate-of-change (feature[t] - feature[t-1])")
+
+        # ── Column names from the active spec ──
+        col_names = _build_col_names(prefix="")
+        delta_col_names = _build_col_names(prefix="dt_")[:_ACTIVE_N_TFS * _ACTIVE_N_FEATURES]
+
+        # ── Cache save: only for .npz target (skip when --cache points to v2 dir) ──
+        if cache_mode == 'npz' and args.cache and not os.path.exists(args.cache):
             np.savez_compressed(args.cache,
                                 X=X, X_delta=X_delta, Y_p=Y_p, Y_d=Y_d,
                                 sample_ts=np.array(sample_ts, dtype=np.float64))
@@ -413,7 +541,7 @@ def main():
         print(f"\n  PRICE BY TIMEFRAME:")
         print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
         print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
-        for d in range(12):
+        for d in range(len(TF_HIERARCHY)):
             prefix = TF_LABELS[d]
             pf = [(n, c, a) for n, c, a in results_price if n.startswith(prefix + '__')]
             if pf:
@@ -496,7 +624,7 @@ def main():
         print(f"\n  DIRECTION BY TIMEFRAME:")
         print(f"  {'Depth':<12} {'TF':>6} {'Mean |r|':>10} {'Max |r|':>10} {'Top Factor':<35}")
         print(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10} {'-'*35}")
-        for d in range(12):
+        for d in range(len(TF_HIERARCHY)):
             prefix = TF_LABELS[d]
             df = [(n, c, a) for n, c, a in results_dir if n.startswith(prefix + '__')]
             if df:
@@ -2539,18 +2667,23 @@ def main():
 
             # Panel 4: Per-TF contribution
             ax = axes_k[1, 1]
-            tf_contrib = np.zeros(12)
-            for fi in range(192):
-                tf_idx = fi // 16
-                tf_contrib[tf_idx] += importances[fi]
-            # Add current_MR separately
-            mr_contrib = importances[192] if len(importances) > 192 else 0
+            _n_tfs = len(TF_HIERARCHY)
+            _n_feats = len(FEATURE_NAMES)
+            _n_flat = _n_tfs * _n_feats
+            tf_contrib = np.zeros(_n_tfs)
+            for fi in range(min(_n_flat, len(importances))):
+                tf_idx = fi // _n_feats
+                if tf_idx < _n_tfs:
+                    tf_contrib[tf_idx] += importances[fi]
+            # Trailing extras (current_MR, optional L0_time_of_day in v2)
+            extras_contrib = importances[_n_flat:].tolist() if len(importances) > _n_flat else []
 
-            tf_labels_plot = TF_LABELS[:12] if len(TF_LABELS) >= 12 else \
-                [f'TF{i}' for i in range(12)]
-            x_pos = np.arange(13)
-            bars = list(tf_contrib) + [mr_contrib]
-            labels = list(tf_labels_plot) + ['MR']
+            tf_labels_plot = list(TF_LABELS[:_n_tfs]) if len(TF_LABELS) >= _n_tfs else \
+                [f'TF{i}' for i in range(_n_tfs)]
+            x_pos = np.arange(_n_tfs + len(extras_contrib))
+            bars = list(tf_contrib) + list(extras_contrib)
+            extra_labels = list(_ACTIVE_EXTRAS[:len(extras_contrib)])
+            labels = list(tf_labels_plot) + extra_labels
             ax.bar(x_pos, bars, color='#1565C0')
             ax.set_xticks(x_pos)
             ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=9)
@@ -4000,10 +4133,11 @@ def main():
 
                 # Selected features
                 print(f"\n  SELECTED FEATURES ({len(_selected_p)}):")
+                _row_width = X.shape[1]  # v1: 193, v2: 186
                 for i, fi in enumerate(_selected_p):
                     _fn = _pair_col_names[fi] if fi < len(_pair_col_names) else f'f{fi}'
                     _coef = _lr_fp.coef_[0][i]
-                    _source = 'point_A' if fi < 193 else ('point_B' if fi < 386 else 'diff(B-A)')
+                    _source = 'point_A' if fi < _row_width else ('point_B' if fi < 2*_row_width else 'diff(B-A)')
                     print(f"    {i+1:>3}. {_fn:<48} coeff={_coef:>+8.4f}  [{_source}]")
 
                 # CONCLUSION
@@ -5037,13 +5171,26 @@ def main():
         print(f"  [SKIP] Analysis S (--start {_start_at})")
 
 
-    # Save the 193D feature matrix before full pipeline may overwrite `X`
-    _X_193d = X.copy() if 'X' in dir() and X is not None and len(X.shape) == 2 and X.shape[1] == 193 else None
+    # Save the assembled feature matrix before full pipeline may overwrite `X`
+    # (v1: 193 cols = 12*16+1 ; v2: 186 cols = 8*23+2)
+    _expected_widths = (193, 186)
+    _X_193d = X.copy() if 'X' in dir() and X is not None and len(X.shape) == 2 and X.shape[1] in _expected_widths else None
 
     # =====================================================================
     if not args.full:
         print(f"\n  (Skipping full 16D pipeline -- use --full to enable)")
         # Save report + exit
+        sys.stdout = _orig_stdout
+        _report_path = os.path.join(PLOTS_DIR, 'research_report.txt')
+        with open(_report_path, 'w', encoding='utf-8', errors='replace') as _rf:
+            _rf.write(_report_buf.getvalue())
+        print(f"  [saved] {_report_path}")
+        return
+
+    if cache_mode == 'v2_features':
+        print(f"\n  [SKIP] --full pipeline not supported in v2 mode "
+              f"(uses build_stacked_matrices() which is v1-only). "
+              f"Run without --cache (v1 SFE path) for the full 16D pipeline.")
         sys.stdout = _orig_stdout
         _report_path = os.path.join(PLOTS_DIR, 'research_report.txt')
         with open(_report_path, 'w', encoding='utf-8', errors='replace') as _rf:
@@ -5456,7 +5603,16 @@ def main():
               f"WR: {ks_wr:.1%}, MFE: {ks_mfe:+.0f}")
 
     # --- 18. PID drill-down ---
-    pid_idx = FEATURE_NAMES.index('self_pid')  # 14
+    # v1: 'self_pid' (PID-controller integral). v2: 'reversion_prob' (OU first-passage).
+    # _ACTIVE_PID_NAME is set to the appropriate one in main()/_set_active_spec_v2().
+    if _ACTIVE_PID_NAME in FEATURE_NAMES:
+        pid_idx = FEATURE_NAMES.index(_ACTIVE_PID_NAME)
+    else:
+        # Fallback: if active spec doesn't have the named feature, use index 0
+        # so analysis runs but produces meaningless numbers (logged below).
+        print(f"  WARNING: feature '{_ACTIVE_PID_NAME}' not in active FEATURE_NAMES; "
+              f"using index 0 for PID drill-down.")
+        pid_idx = 0
 
     print(f"\n{'='*70}")
     print(f"  PID DRILL-DOWN: I-MR x Direction")
