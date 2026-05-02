@@ -109,6 +109,49 @@ Combine MA alignment FILTER (when can we trade?) with a magnitude estimator (how
 
 This converges the two best signals into one system. The MA filter handles direction with high confidence; the magnitude estimator sets risk/sizing.
 
+## Connection to prior regime work (2026-05-01 update)
+
+**MA alignment IS a regime classifier.** When `alignment_score >= 7`, the day is by definition in a strong-trend regime (UP_SMOOTH or DOWN_SMOOTH per the 2D taxonomy). When alignment is mixed, you're in chop / transitional.
+
+This connects to two prior threads:
+- [feedback_chop_edge_regime_filter.md](feedback_chop_edge_regime_filter.md) — the zigzag counter-trend strategy WINS on chop (+$89/day) and LOSES on trend (-$95/day). Two-feature classifier (`prior_range`, `range_compression`) discriminates with d_OOS=0.77/0.78. Filter rule turns -$552 into +$5,000-6,000.
+- `tools/atlas_regime_labeler.py` (2026-04-29) — labels all 348 ATLAS days as UP/DOWN/CHOP/QUIET/TRANSITIONAL. Output: `DATA/ATLAS/regime_labels.csv`.
+
+**The right joint system is regime-conditional strategy selection:**
+- HIGH alignment → trend-following (today's MA-align direction)
+- LOW alignment + chop conditions → zigzag counter-trend (prior bleed_score filter)
+- TRANSITIONAL / mixed → skip
+
+## 2D label system (2026-05-01)
+
+Built `tools/atlas_regime_labeler_2d.py` — extends the existing daily labels with:
+- `direction_axis` ∈ {UP, DOWN, FLAT}
+- `variation_axis` ∈ {SMOOTH, CHOPPY}
+- `regime_2d` = combined (e.g., "UP_SMOOTH")
+- `split` ∈ {IS, VAL, OOS} (60/20/20 by date)
+
+Output: `DATA/ATLAS/regime_labels_2d.csv` (348 days). Distribution:
+
+| Regime | Total | IS | VAL | OOS |
+|---|---:|---:|---:|---:|
+| UP_SMOOTH | 63 | 34 | 17 | 12 |
+| UP_CHOPPY | 23 | 15 | 4 | 4 |
+| DOWN_SMOOTH | 44 | 25 | 9 | 10 |
+| DOWN_CHOPPY | 19 | 12 | 2 | 5 |
+| FLAT_SMOOTH | 71 | 51 | 13 | 7 |
+| FLAT_CHOPPY | 128 | 71 | 24 | 33 |
+
+UP_CHOPPY and DOWN_CHOPPY have thin OOS samples (4-5 days) — caveat for stat-sig analysis on those cells.
+
+Loader:
+```python
+from tools.atlas_regime_labeler_2d import load_regime_labels
+df = load_regime_labels()
+oos_up_smooth = df[(df.split == 'OOS') & (df.regime_2d == 'UP_SMOOTH')]
+```
+
+Use this as the substrate for ALL future regime-conditional analysis — MA alignment, L-model, zigzag, any composite all evaluated through the same lens.
+
 ## Anti-patterns ruled out (do NOT revisit unless new info)
 
 - **Naive cross-TF L voting at common cadence** → fails because horizons don't align (1m predicts 1h ahead, 1h predicts 8h ahead).
