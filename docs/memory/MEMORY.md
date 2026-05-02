@@ -37,6 +37,11 @@
 - **Base measurements grounded**: See `memory/feedback_base_measurements.md`
 - **Checkpoint every step**: All multi-step pipelines must save to disk after each step. See `memory/feedback_checkpoint_every_step.md`
 
+## **CURRENT PRIORITIES (2026-05-01)**
+- **MA ALIGNMENT WINS**: See [project_v2_ma_alignment_directional.md](project_v2_ma_alignment_directional.md). 7-of-8 TF vwap_w alignment → 70.5% direction acc on 20% of 5m bars (+17.6% lift). Deterministic rule, no fit, walk-forward stable. Beats every fitted composite. **15m and 1h vwap windows carry the signal**; 5s-15s too noisy, 4h-1D too coarse for 5m decisions. **Next session = parallel** (track 1: MA-alignment exit rules + MFE/MAE sizing; track 2: L-model refinement with autoregressive features REMOVED from regression but kept as alignment voters) **then joint** (filter+magnitude pair). Operational rule shippable in ~20 NT8 lines. Tool: `tools/v2_composite_ma_alignment.py`. Outputs: `reports/findings/v2_composite_ma_alignment/`. Commit `7dae2585`.
+- **L is second best**: Standalone Analysis L on 5m base, |pred|>20 gate → 70.4% acc on 45% coverage (+10.6% lift over 59.8% baseline). Higher coverage but lower lift than MA. Useful as the magnitude estimator in the joint system. CSVs at `tools/plots/standalone/1y_<TF>/analysis_l_predictions.csv` (1m, 5m, 15m, 1h, 4h, 1D).
+- **Composites tested and ruled out**: 5-voter L-aggregator, 2-voter (1m+5m), single-horizon refit, quantile (Q_0.25/Q_0.75 strict). All lose to standalone L AND to MA alignment. Each composite voter is a handicapped version of the full model — voting handicapped models can't recover what one full model exploits. See [project_v2_ma_alignment_directional.md](project_v2_ma_alignment_directional.md) "Anti-patterns ruled out".
+
 ## **CURRENT PRIORITIES (2026-04-17)**
 - **HONEST BASELINE = -$164/day IS**. See [project_honest_baseline_2026_04_17.md](project_honest_baseline_2026_04_17.md)
   - Lookahead bias in `build_dataset.py` fixed (searchsorted shifted by period). See [feedback_lookahead_audit.md](feedback_lookahead_audit.md)
