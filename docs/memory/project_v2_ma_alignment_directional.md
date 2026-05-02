@@ -82,6 +82,29 @@ Single-feature accuracy (just one TF's vwap comparison):
 - Commit: `7dae2585`
 - Source feature schema: `DATA/ATLAS/FEATURES_5s_v2/L2_<TF>/` (vwap_w + price_mean_w columns)
 
+## Trend-direction regression (2026-05-02)
+
+`tools/v2_regress_trend_direction.py` — predicts day net_move from 5m bar features. Day-level 60/20/20 split via `regime_labels_2d.csv`.
+
+| Metric | Value |
+|---|---:|
+| Test R² | 0.032 |
+| Bar-level direction acc | 63.2% (+11.9% lift) |
+| Day-level direction acc | **74.6%** (+22.5% lift, 71 days) ← new high water mark |
+
+**Per-regime (validates regime-conditional hypothesis):**
+
+| Regime | Bar acc |
+|---|---:|
+| UP_SMOOTH | **87.6%** |
+| UP_CHOPPY | 74.5% |
+| DOWN_SMOOTH | 72.7% |
+| FLAT_CHOPPY | 58.1% |
+| DOWN_CHOPPY | **43.9%** ← model misses these |
+| FLAT_SMOOTH | **42.3%** ← noise floor |
+
+The model implicitly classifies "is this a trending day?" — succeeds 73-88% on trend cells, fails 42-58% on chop/flat. Magnitude is conservatively biased (mean_pred ~ 0.5 × mean_actual on trend cells). This is the empirical proof for regime-conditional strategy selection.
+
 ## Next session — parallel and then joint
 
 ### Parallel track 1 — MA alignment exit rules
@@ -94,6 +117,12 @@ The 70.5% direction accuracy is on the entry signal only. Open questions:
 Tools to build/extend:
 - Modify `v2_composite_ma_alignment.py` to also report MFE/MAE distribution per signal (alignment_score → outcome stats)
 - Test alignment-flip-as-exit vs fixed-stop exits
+
+### Parallel track 1.5 — 6-class regime classifier (NEW, from net_move result)
+The trend-direction regression at 74.6% day-level acc shows the model IS implicitly classifying regimes (87.6% UP_SMOOTH, 42% FLAT_SMOOTH). Make this explicit:
+- Train a 6-class classifier on `regime_2d` from bar features
+- Compare confusion matrix vs the regression's per-regime accuracy
+- Use as the regime gate in the joint router
 
 ### Parallel track 2 — L-model refinement
 Even with MA alignment dominating on lift, the L approach has higher coverage (45% vs 20%). Options to push L further:
