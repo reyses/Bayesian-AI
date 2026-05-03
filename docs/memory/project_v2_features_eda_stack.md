@@ -9,10 +9,12 @@ originSessionId: e1202bdb-1787-4774-b48b-b312af212043
 **Established:** 2026-05-03.
 **Status:** 7 layers built. All run on IS only (208 days, 47k 5m bars). No fitting; pure characterization. Substrate for future regime-conditional strategy work.
 
-## The 7 layers
+## The 9 layers (updated 2026-05-03 evening)
 
 | Layer | Tool | Question answered |
 |---|---|---|
+| **TF sweep** (NEW) | `tools/v2_features_tf_sweep_eda.py` | For each (concept, TF), what's the regime-separation strength? Which concepts INVERT sign across TFs? |
+| **Context** (NEW) | `tools/v2_features_context_eda.py` | Which features don't predict price directly but RESHAPE other features' price relationships? |
 | A1 single, current | `tools/v2_features_regime_eda.py` | Per-feature × per-regime distributions; which features separate which regimes (Cohen-d) |
 | A2 pair, current | `tools/v2_features_pairwise_eda.py` | Which pairs interact non-additively; which (X_q, Y_q) cells have extreme price reactions |
 | B1 single, lookback | `tools/v2_features_lookback_eda.py` | When feature X does pattern P over N bars (mono/spike/reversal), how does price react |
@@ -20,6 +22,24 @@ originSessionId: e1202bdb-1787-4774-b48b-b312af212043
 | Chord (triplet) | `tools/v2_features_chord_eda.py` | Music metaphor: 3-feature combinations whose joint quantile cells encode recognizable state fingerprints |
 | Visual overlay | `tools/v2_features_overlay_viz.py` | Per-regime per-day PNGs: price + 12 features + chord stacked for eye-pattern recognition |
 | Volume × variation | `tools/v2_features_volume_variation_eda.py` | 4 quadrants of (vol, var) — fakeout (LOW_VOL_HIGH_VAR), compression (HIGH_VOL_LOW_VAR), capitulation, dead zone |
+
+## Structural finding (2026-05-03 evening)
+
+**The composite signal can't be additive.** Contextualization analysis showed `body` at 1h FLIPS sign in its correlation with forward return depending on `vol_sigma_w`'s quantile (corr ranges −0.108 to +0.039). A model that averages or sums them loses this. The right composite framework is **conditional**: target's sign depends on modifier's quantile bin. Two regime-router levels emerge:
+- Day-level: route between strategies based on regime_2d (UP_SMOOTH, FLAT_CHOPPY, etc.)
+- Bar-level: route target sign based on modifier quantile (intra-bar contextualizer-router)
+
+These are independent layers; both apply.
+
+## TF inversion findings (2026-05-03 evening)
+
+The same concept's regime relationship CHANGES character with timescale:
+- **bar_range**: −0.18 (5s) → −0.24 (5m) → +0.18 (1D). Intraday wide range = sells; daily wide range = bull rally. Sign flip at 1D.
+- **vol_velocity_w**: ~0 across short TFs → −0.21 at 1D. Only signals at macro TF (capitulation pattern).
+- **price_accel_w**: 0 at 5s/5m → +0.55 at 1D. Acceleration only meaningful when smoothed over multi-day window.
+- **vol_mean_w**: −0.44 at 1h → +0.07 at 1D. Inverts at the macro boundary.
+
+Universal directional carriers (no sign flip across TFs): price_velocity_w (+1.25 at 1h), price_velocity_1b (+0.52), body (+0.51), vol_sigma_w (−0.41), vwap_w / price_mean_w (+0.26 at 5s, decays).
 
 ## Headline findings
 
@@ -66,13 +86,17 @@ originSessionId: e1202bdb-1787-4774-b48b-b312af212043
 
 ## What this UNLOCKS for next session
 
-Three follow-up directions, in order of value:
+Five follow-up directions, in order of value:
 
-1. **OOS validation of EDA findings**. The 70% WR patterns and 100% chord cells need to hold on the OOS 71 days to be tradable. Re-run B1/B2/chord/vol-var with `--split OOS`. Patterns that survive = real; patterns that disappear = sample-specific noise.
+1. **Compute exact conditional rules** from top contextualizer pairs. For each (modifier, target, TF) with high lift, output the explicit rule: "when modifier in Q3, flip target's sign; when in Q0, use as-is". Directly tradable filter — and the only composite framework that captures the structural finding (target sign FLIPS based on modifier quantile).
 
-2. **State-fingerprint deployment**. Translate the top chord cells into a NinjaTrader rule. Example: when `4h_body in Q1, 4h_velocity_1b in Q2, 4h_z_low_w in Q0` → tag as FLAT_SMOOTH state. Route to FLAT_SMOOTH-appropriate strategy (zigzag bleed-score filter from prior chop-edge work).
+2. **OOS validation of EDA findings**. The 70% WR patterns, 100% chord cells, and contextualizer flips need to hold on the OOS 71 days to be tradable. Re-run B1/B2/chord/vol-var/context with `--split OOS`. Patterns that survive = real; patterns that disappear = sample-specific noise.
 
-3. **Regime-stratified rerun**. Every layer has or can gain a `--by-regime` flag. The 4h chord found cells 100% pure for FLAT_*; what about UP_SMOOTH or DOWN_CHOPPY? Need stratified analysis to find chord cells specific to each regime.
+3. **State-fingerprint deployment**. Translate the top chord cells into a NinjaTrader rule. Example: when `4h_body in Q1, 4h_velocity_1b in Q2, 4h_z_low_w in Q0` → tag as FLAT_SMOOTH state. Route to FLAT_SMOOTH-appropriate strategy (zigzag bleed-score filter from prior chop-edge work).
+
+4. **TF-axis × contextualizer cross**: do contextualizer effects ALSO invert across TFs? E.g., does `vol_sigma_w` modify `body` in opposite directions at 5m vs 1h? Single-line extension to existing context tool.
+
+5. **Regime-stratified rerun**. Every layer has or can gain a `--by-regime` flag. The 4h chord found cells 100% pure for FLAT_*; what about UP_SMOOTH or DOWN_CHOPPY? Need stratified analysis to find chord cells specific to each regime.
 
 ## Anti-patterns ruled out
 
