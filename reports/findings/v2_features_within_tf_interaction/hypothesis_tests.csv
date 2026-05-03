@@ -1,0 +1,145 @@
+hypothesis,x,y,tf,predicted,pearson,spearman,sign_actual,agrees,n,interpretation
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,5s,+,0.4016428077854375,0.43502981376419525,+,YES,46928,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,15s,+,0.5182058005727402,0.5045442968890135,+,YES,46928,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,1m,+,0.5069472956488357,0.5452485306683423,+,YES,46925,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,5m,+,0.4776628448621904,0.5299553568143186,+,YES,46919,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,15m,+,0.4498060986879432,0.5186115210619675,+,YES,46890,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,1h,+,0.41885298852609465,0.3891109645594988,+,YES,46773,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,4h,+,0.47688107970934146,0.4433885214706389,+,YES,46041,directional moves require volume
+velocity_needs_volume,abs:price_velocity_w,vol_mean_w,1D,+,0.49022674730575183,0.3916367302754347,+,YES,45813,directional moves require volume
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,5s,?,0.8666332772139221,0.699631017134466,+,unpredicted,46928,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,15s,?,0.8611857466296249,0.734114878288995,+,unpredicted,46928,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,1m,?,0.8633538729837135,0.7438252192862801,+,unpredicted,46925,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,5m,?,0.8668912920988907,0.7386912052371596,+,unpredicted,46919,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,15m,?,0.8799730179686265,0.7568555348178719,+,unpredicted,46890,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,1h,?,0.8901249331634588,0.7317429639827812,+,unpredicted,46773,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,4h,?,0.7950156199966141,0.6847793938581421,+,unpredicted,46041,high velocity vs sigma — user predicts negative
+velocity_kills_variation,abs:price_velocity_w,price_sigma_w,1D,?,0.7641092051103476,0.636494505313301,+,unpredicted,45813,high velocity vs sigma — user predicts negative
+chop_vs_trend,hurst_w,reversion_prob_w,5s,-,0.07406679497702055,0.07786711533672902,+,no,46928,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,15s,-,0.07952268028909866,0.09127416757604422,+,no,46928,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,1m,-,0.07478252091137716,0.10097660232425697,+,no,46925,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,5m,-,0.06888712051674514,0.07663799643515332,+,no,46920,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,15m,-,0.07019488306940214,0.07808358485893753,+,no,46893,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,1h,-,0.06466320587771889,0.10385963810337333,+,no,46785,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,4h,-,0.03927241689891625,0.07962484102398004,0,no,46089,Hurst trending vs reversion mean-revert (definitional)
+chop_vs_trend,hurst_w,reversion_prob_w,1D,-,0.1422035987296183,0.13984830383510966,+,no,46089,Hurst trending vs reversion mean-revert (definitional)
+range_tracks_volume,bar_range,vol_mean_w,5s,+,0.5600104452066827,0.7360255394382075,+,YES,46928,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,15s,+,0.6315943886303226,0.7544918573745899,+,YES,46928,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,1m,+,0.6241362117022702,0.7502211570905878,+,YES,46925,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,5m,+,0.6064199745778791,0.7303821012852028,+,YES,46920,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,15m,+,0.5175981859516252,0.6394318658891562,+,YES,46893,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,1h,+,0.32121136247478965,0.28262478587232587,+,YES,46785,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,4h,+,0.4384318779734975,0.4091932632275193,+,YES,46089,busy bars are big bars
+range_tracks_volume,bar_range,vol_mean_w,1D,+,0.5717290140740615,0.44135317496057674,+,YES,46089,busy bars are big bars
+body_is_velocity,body,price_velocity_1b,5s,+,0.9098114264135435,0.806050736850329,+,YES,46928,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,15s,+,0.9658312475898653,0.9108158992326334,+,YES,46928,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,1m,+,0.9972665867731488,0.9894022555141436,+,YES,46928,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,5m,+,0.952421364254355,0.9961973259821476,+,YES,46927,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,15m,+,0.9461791146552986,0.9948004656636686,+,YES,46923,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,1h,+,0.9524027832563986,0.9901696952850689,+,YES,46905,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,4h,+,0.948459688460463,0.9848204851061594,+,YES,46821,body and bar-velocity are the same primitive
+body_is_velocity,body,price_velocity_1b,1D,+,0.9541341357017635,0.941568932759219,+,YES,46641,body and bar-velocity are the same primitive
+vwap_vs_price_mean,vwap_w,price_mean_w,5s,+,0.9999998167738573,0.9999995156567748,+,YES,46928,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,15s,+,0.9999994117818864,0.9999985649519348,+,YES,46928,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,1m,+,0.9999946632662589,0.9999915956903924,+,YES,46925,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,5m,+,0.9999827700662232,0.9999665981185002,+,YES,46920,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,15m,+,0.9999259400104555,0.9998749012133566,+,YES,46893,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,1h,+,0.9994496198367975,0.9991970069014596,+,YES,46785,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,4h,+,0.9992259483313736,0.9990358626377882,+,YES,46089,VWAP and unweighted mean redundancy audit
+vwap_vs_price_mean,vwap_w,price_mean_w,1D,+,0.9986444448666225,0.9983854568915368,+,YES,46089,VWAP and unweighted mean redundancy audit
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,5s,+,0.9200310227355998,0.9531521664078587,+,YES,46928,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,15s,+,0.8291478408408286,0.956829683671604,+,YES,46928,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,1m,+,0.8570679210687819,0.9522119629066526,+,YES,46925,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,5m,+,0.761414394990692,0.9287221985418171,+,YES,46920,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,15m,+,0.8094880995890824,0.9295458384078134,+,YES,46893,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,1h,+,0.9046547059540377,0.9357442752797142,+,YES,46785,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,4h,+,0.9356484751131852,0.9122989689093918,+,YES,46089,are volume mean and volume sigma redundant
+vol_mean_vs_sigma,vol_mean_w,vol_sigma_w,1D,+,0.8276916597103716,0.8095131082325455,+,YES,46089,are volume mean and volume sigma redundant
+swing_noise_vs_range,swing_noise_w,bar_range,5s,+,0.7431609239769243,0.6436732055727528,+,YES,46928,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,15s,+,0.7419971796812804,0.7382324210121323,+,YES,46927,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,1m,+,0.7313374794471463,0.7803936406096958,+,YES,46923,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,5m,+,0.6616286188674695,0.72357716214817,+,YES,46899,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,15m,+,0.5370207115052871,0.5541629042296083,+,YES,46839,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,1h,+,0.5320005371219404,0.4835702848586849,+,YES,46569,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,4h,+,0.49757130476554007,0.3742595397093972,+,YES,45537,are swing_noise and bar_range redundant
+swing_noise_vs_range,swing_noise_w,bar_range,1D,+,0.508040755427472,0.40711874151468214,+,YES,40431,are swing_noise and bar_range redundant
+SE_symmetry,SE_high_w,SE_low_w,5s,+,0.9005289194124996,0.842294019335537,+,YES,46928,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,15s,+,0.9389765342340209,0.9133996504340794,+,YES,46928,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,1m,+,0.954811459944029,0.9435255960744456,+,YES,46925,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,5m,+,0.9097166789751503,0.8797846144360713,+,YES,46920,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,15m,+,0.9057570498556706,0.9108119023577432,+,YES,46893,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,1h,+,0.8968409632303488,0.8456021570720145,+,YES,46785,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,4h,+,0.9666711959101116,0.9129445631657521,+,YES,46089,upper and lower standard errors symmetric
+SE_symmetry,SE_high_w,SE_low_w,1D,+,0.6495020165054115,0.511400177398478,+,YES,46089,upper and lower standard errors symmetric
+z_extreme_wide_bars,abs:z_se_w,bar_range,5s,+,0.14368099623151329,0.14591376954998828,+,YES,46928,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,15s,+,0.14641816133867683,0.13867129612992432,+,YES,46928,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,1m,+,0.14017821478527234,0.14199323080654513,+,YES,46925,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,5m,+,0.16561945432268077,0.1648755622168919,+,YES,46920,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,15m,+,0.2156792689120333,0.18920729755139187,+,YES,46893,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,1h,+,0.29784003354488253,0.24748715189728368,+,YES,46785,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,4h,+,0.27139084192295404,0.2173949410862228,+,YES,46089,extreme regression dislocation comes with wide bars
+z_extreme_wide_bars,abs:z_se_w,bar_range,1D,+,0.20221853992835392,0.20942623968664684,+,YES,46089,extreme regression dislocation comes with wide bars
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,5s,+,0.03427976691655711,0.04623519433333102,0,no,46928,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,15s,+,0.030787070552642272,0.04235948650097755,0,no,46928,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,1m,+,0.02135310838748218,0.04509541522984607,0,no,46925,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,5m,+,0.017319181566067144,0.027033294771093574,0,no,46920,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,15m,+,0.012243178536878396,0.025272474640765326,0,no,46893,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,1h,+,-0.017801858048839565,-0.006494035049470067,0,no,46785,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,4h,+,0.01207173310405723,0.024551464918032537,0,no,46089,extreme z = high local variation
+z_extreme_high_sigma,abs:z_se_w,price_sigma_w,1D,+,0.026012993782539327,0.03398848359046463,0,no,46089,extreme z = high local variation
+accel_vs_velocity,price_accel_w,price_velocity_w,5s,?,0.19986469244539123,0.2052658456938747,+,unpredicted,46928,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,15s,?,0.14406655632101717,0.14233741846264666,+,unpredicted,46928,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,1m,?,0.11484337344287844,0.13586324034076225,+,unpredicted,46925,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,5m,?,0.23501743759770166,0.21370009052111616,+,unpredicted,46918,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,15m,?,0.20753082874219478,0.18347826367390163,+,unpredicted,46887,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,1h,?,0.19495987099686368,0.18237702643081735,+,unpredicted,46761,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,4h,?,0.16512015091885363,0.13501758618900847,+,unpredicted,45993,acceleration vs velocity within window
+accel_vs_velocity,price_accel_w,price_velocity_w,1D,?,0.26460680314247714,0.3029662302629803,+,unpredicted,45537,acceleration vs velocity within window
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,5s,?,-0.033354989560566636,-0.010274672486029425,0,unpredicted,46928,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,15s,?,-0.026385028928598703,-0.022329046054754543,0,unpredicted,46928,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,1m,?,-0.056915269761922654,-0.06928403471295787,-,unpredicted,46925,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,5m,?,-0.08477774301809816,-0.10835437034005688,-,unpredicted,46919,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,15m,?,-0.06513761441561658,-0.08213415964303934,-,unpredicted,46890,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,1h,?,-0.047674545802879505,-0.06426619586255276,0,unpredicted,46773,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,4h,?,-0.13736250546103862,-0.22864240716593076,-,unpredicted,46041,do volume swings drive price swings?
+vol_kinetic_drives_price,vol_velocity_w,price_velocity_w,1D,?,-0.2831390855517892,-0.32320203729707353,-,unpredicted,45813,do volume swings drive price swings?
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,5s,+,0.33425844892918033,0.582377980130336,+,YES,46928,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,15s,+,0.3376556057584251,0.5916877362518072,+,YES,46928,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,1m,+,0.4767322874100134,0.5770349318664207,+,YES,46925,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,5m,+,0.4920543634158189,0.5505230635310209,+,YES,46919,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,15m,+,0.47910093147892036,0.5130132804568424,+,YES,46890,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,1h,+,0.38117949813881574,0.30719730636293235,+,YES,46773,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,4h,+,0.33184477648360683,0.46707464635136087,+,YES,46041,rapid volume change = bigger bars
+abs_vol_velocity_vs_range,abs:vol_velocity_w,bar_range,1D,+,-0.037968183134615044,-0.191371598609334,0,no,45813,rapid volume change = bigger bars
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,5s,?,-0.007382376319529179,-0.010221711156012846,0,unpredicted,46928,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,15s,?,-0.001543492549798276,-0.008700071989850495,0,unpredicted,46927,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,1m,?,-0.006424983531714088,-0.020212209149250617,0,unpredicted,46923,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,5m,?,0.0032540553588106848,0.005871473873072809,0,unpredicted,46899,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,15m,?,0.0113217884622721,0.022421196388781123,0,unpredicted,46839,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,1h,?,0.001423317635144058,0.0037976117160010633,0,unpredicted,46569,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,4h,?,0.007569629327898545,-0.03257218345722044,0,unpredicted,45537,is reversion higher when path is noisier
+reversion_vs_swing_noise,reversion_prob_w,swing_noise_w,1D,?,-0.0986622528300735,-0.08797482004256485,-,unpredicted,40431,is reversion higher when path is noisier
+z_high_low_symmetry,z_high_w,z_low_w,5s,+,0.7372512451953841,0.7449244135220985,+,YES,46928,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,15s,+,0.8068717849536101,0.8189927110064397,+,YES,46928,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,1m,+,0.8593029548922648,0.8698890332959383,+,YES,46925,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,5m,+,0.768382108974427,0.7765080039041236,+,YES,46920,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,15m,+,0.7877609795190551,0.800374606397176,+,YES,46893,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,1h,+,0.7122459091501188,0.7290842579540374,+,YES,46785,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,4h,+,0.7547519030642166,0.7835452931638879,+,YES,46089,upper-band and lower-band z symmetric
+z_high_low_symmetry,z_high_w,z_low_w,1D,+,0.3008174234215886,0.2973749705374217,+,YES,46089,upper-band and lower-band z symmetric
+hurst_vs_swing_noise,hurst_w,swing_noise_w,5s,-,0.1557616031057097,0.19972506895919998,+,no,46928,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,15s,-,0.11569471337965709,0.1458068069349562,+,no,46927,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,1m,-,0.08090727676276871,0.08027896625944353,+,no,46923,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,5m,-,0.12025882383965698,0.1556524043650979,+,no,46899,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,15m,-,0.03459098014290911,-0.001284981489351921,0,no,46839,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,1h,-,0.20946828517557095,0.1886360269984111,+,no,46569,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,4h,-,-0.12131578520708158,-0.14770529341415262,-,YES,45537,trending market has less path noise
+hurst_vs_swing_noise,hurst_w,swing_noise_w,1D,-,0.13100000745342535,0.17285684464599307,+,no,40431,trending market has less path noise
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,5s,?,0.8976008776553028,0.5138848903771023,+,unpredicted,46928,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,15s,?,0.825121912323153,0.43987810329167726,+,unpredicted,46928,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,1m,?,0.5256804414114365,0.366502417148448,+,unpredicted,46925,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,5m,?,0.38588299175460283,0.3137169049131989,+,unpredicted,46918,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,15m,?,0.32651115769814665,0.09397641980146856,+,unpredicted,46887,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,1h,?,0.2957814824265855,0.11022879234757499,+,unpredicted,46761,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,4h,?,0.637622577536505,0.5179307653965698,+,unpredicted,45993,volume acceleration leads volume velocity
+vol_accel_vs_vol_velocity,vol_accel_w,vol_velocity_w,1D,?,0.6653660513397003,0.5551166982150226,+,unpredicted,45537,volume acceleration leads volume velocity
