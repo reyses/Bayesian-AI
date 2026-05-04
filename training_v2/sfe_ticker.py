@@ -64,6 +64,16 @@ class FeatureTicker:
         feat_matrix = self._feat_df[feat_cols].values.astype(np.float32)
         timestamps = self._feat_df['timestamp'].values
 
+        # V2 migration: directional-wick extension columns produced by
+        # tools/build_v2_to_v1_compat_cache.py. NOT in FEATURE_NAMES (91D);
+        # passed through `extension_signals` in state dict so engine can use
+        # them for richer tier classification (KILL_SHOT/CASCADE direction
+        # by wick side) without growing feat[] (CNNs still see 91D).
+        EXTENSION_COLS = [c for c in self._feat_df.columns
+                              if c.endswith('_upper_wick') or c.endswith('_lower_wick')]
+        ext_matrix = (self._feat_df[EXTENSION_COLS].values.astype(np.float32)
+                          if EXTENSION_COLS else None)
+
         for i in range(self._n):
             ts = timestamps[i]
             features = feat_matrix[i]
@@ -84,12 +94,18 @@ class FeatureTicker:
                         'volume': float(self._volumes[idx]),
                     }
 
+            ext_signals = {}
+            if ext_matrix is not None:
+                for j, col in enumerate(EXTENSION_COLS):
+                    ext_signals[col] = float(ext_matrix[i, j])
+
             yield {
                 'timestamp': float(ts),
                 'price': price,
                 'features': features,
                 'bar_idx': i,
                 'bar_data': bar_data,  # 1m OHLCV for context (exits, etc.)
+                'extension_signals': ext_signals,  # NEW: directional wicks
             }
 
     def __len__(self) -> int:

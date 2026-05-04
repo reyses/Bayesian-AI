@@ -68,12 +68,58 @@ _EPS = 1e-8
 # ─── Single-bar derivations (fast path for live engine) ──────────────────
 
 def wick_ratio_from_v2(body: float, bar_range: float) -> float:
-    """V1: 1 - abs(body) / bar_range.
+    """V1 combined wick: 1 - abs(body) / bar_range.
 
-    Returns 0.0 for zero-range bars (degenerate)."""
+    Returns total wick fraction (upper + lower) of the bar's range.
+    Returns 0.0 for zero-range bars (degenerate).
+    """
     if bar_range <= _EPS:
         return 0.0
     return 1.0 - abs(body) / bar_range
+
+
+def directional_wicks_from_ohlc(open_: float, high: float, low: float,
+                                    close: float) -> tuple[float, float]:
+    """Compute (upper_wick_ratio, lower_wick_ratio) from raw OHLC.
+
+    upper_wick = high - max(open, close)   — rejection at the ceiling
+    lower_wick = min(open, close) - low    — rejection at the support
+    ratio = wick_size / bar_range          — fraction in [0, 1]
+
+    Both summed with abs(body)/bar_range = 1.0 (decomposes the bar):
+        upper_ratio + lower_ratio + abs(body)/bar_range = 1
+
+    Direction encoding:
+      Strong lower wick + small upper wick => long bias (bounced off support).
+      Strong upper wick + small lower wick => short bias (rejected at ceiling).
+      Both wicks small => trending bar (clean direction in body).
+      Both wicks large + small body => indecision (doji).
+    """
+    bar_range = high - low
+    if bar_range <= _EPS:
+        return 0.0, 0.0
+    body_top = max(open_, close)
+    body_bot = min(open_, close)
+    upper_wick = max(high - body_top, 0.0)
+    lower_wick = max(body_bot - low, 0.0)
+    return upper_wick / bar_range, lower_wick / bar_range
+
+
+def directional_wicks_batch(open_: np.ndarray, high: np.ndarray,
+                                low: np.ndarray, close: np.ndarray
+                                ) -> tuple[np.ndarray, np.ndarray]:
+    """Vectorized directional_wicks_from_ohlc."""
+    bar_range = high - low
+    safe_range = np.where(bar_range > _EPS, bar_range, 1.0)
+    body_top = np.maximum(open_, close)
+    body_bot = np.minimum(open_, close)
+    upper_wick = np.maximum(high - body_top, 0.0)
+    lower_wick = np.maximum(body_bot - low, 0.0)
+    upper_ratio = upper_wick / safe_range
+    lower_ratio = lower_wick / safe_range
+    upper_ratio[bar_range <= _EPS] = 0.0
+    lower_ratio[bar_range <= _EPS] = 0.0
+    return upper_ratio, lower_ratio
 
 
 def p_at_center_from_z(z_se: float) -> float:

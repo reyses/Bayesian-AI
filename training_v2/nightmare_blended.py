@@ -59,9 +59,15 @@ ABSORB_VOL_MIN = 1.5            # high relative volume
 ABSORB_RANGE_MAX = 40.0         # low bar range (absorption = tight range)
 ABSORB_WICK_MIN = 0.3           # wicks present (rejection)
 
-# Wick rejection thresholds
+# Wick rejection thresholds (combined upper+lower; legacy V1 path)
 WICK_5M_MIN = 0.83
 WICK_15M_MIN = 0.77
+
+# V2 directional-wick thresholds (NEW — KILL_SHOT/CASCADE classify direction
+# by which wick dominates: strong lower wick = bounce off support → LONG;
+# strong upper wick = rejection at ceiling → SHORT). See state['extension_signals'].
+DIR_WICK_MIN = 0.40        # min wick fraction (out of bar range) to count as rejection
+DIR_WICK_DOMINANCE = 1.5   # rejecting wick must be this many × the opposite wick
 
 # Velocity threshold  (V1 50/100 -> V2 calibrated 9.95/~20, 5x smaller)
 VELOCITY_THRESHOLD = 9.95     # |1m_velocity| above this = momentum entry  (V1: 50.0)
@@ -458,6 +464,9 @@ class BlendedEngine:
         price = state['price']
         ts = state['timestamp']
         self._last_price = price
+        # V2: capture optional extension signals (directional wicks etc.)
+        # for the tier classifier. Falls back to {} if running on V1 cache.
+        self._latest_ext = state.get('extension_signals', {})
 
         is_1m = (int(ts) % 60) < 5
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
@@ -733,11 +742,47 @@ class BlendedEngine:
         v5_vel = feat[_5M_VELOCITY_IDX]
         dmi = feat[_1M_DMI_IDX]
 
+        # V2: directional wicks via state['extension_signals'].
+        # Falls back to 0 (no rejection) if absent.
+        ext = getattr(self, '_latest_ext', None) or {}
+        upper_5m = ext.get('5m_upper_wick', 0.0)
+        lower_5m = ext.get('5m_lower_wick', 0.0)
+        upper_15m = ext.get('15m_upper_wick', 0.0)
+        lower_15m = ext.get('15m_lower_wick', 0.0)
+
+        # Directional wick rejection — direction comes from WHICH wick dominates,
+        # not from z-fade default. A strong lower wick at both 5m AND 15m means
+        # the market tested support twice and bounced back — LONG bias.
+        # Strong upper wick at both = ceiling rejection — SHORT bias.
+        # Symmetric wicks (doji) → no directional signal; skip wick tiers.
+        strong_lower = (lower_5m > DIR_WICK_MIN and lower_15m > DIR_WICK_MIN
+                          and lower_5m > DIR_WICK_DOMINANCE * upper_5m
+                          and lower_15m > DIR_WICK_DOMINANCE * upper_15m)
+        strong_upper = (upper_5m > DIR_WICK_MIN and upper_15m > DIR_WICK_MIN
+                          and upper_5m > DIR_WICK_DOMINANCE * lower_5m
+                          and upper_15m > DIR_WICK_DOMINANCE * lower_15m)
+        if strong_lower:
+            wick_direction = 'long'
+        elif strong_upper:
+            wick_direction = 'short'
+        else:
+            wick_direction = None
+
+        # Legacy combined wick (fallback if directional info unavailable —
+        # e.g. running on V1 cache without extension_signals).
         has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
+
         h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
                            (direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
         h1_aligned = ((direction == 'long' and h1_z < -H1_Z_MIN) or
                       (direction == 'short' and h1_z > H1_Z_MIN))
+        # Wick-direction's alignment with 1h (separate from z-fade alignment)
+        h1_aligned_wick = wick_direction is not None and (
+            (wick_direction == 'long' and h1_z < -H1_Z_MIN) or
+            (wick_direction == 'short' and h1_z > H1_Z_MIN))
+        h1_against_wick = wick_direction is not None and (
+            (wick_direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
+            (wick_direction == 'short' and h1_z < -H1_AGAINST_Z_MIN))
 
         # Additional features for all tiers
         v5_accel = feat[_5M_ACCEL_IDX]
@@ -759,12 +804,26 @@ class BlendedEngine:
             ft_dir = 'long' if velocity > 0 else 'short'
             return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 2. KILL_SHOT — wick rejection (triggers 60% of chains)
-        if has_wick and not h1_aligned:
-            return direction, 'KILL_SHOT', False
+        # 2. KILL_SHOT — DIRECTIONAL wick rejection (V2 upgrade).
+        #    Direction comes from wick side: lower wick = bounce off support
+        #    → LONG; upper wick = ceiling rejection → SHORT. Skip if 1h
+        #    contradicts (wick-against-1h handled by h1_against_wick path
+        #    falling through to FADE_AGAINST/RIDE_AGAINST).
+        #    Skip if 1h is aligned with wick → that's CASCADE territory.
+        if wick_direction is not None and not h1_aligned_wick and not h1_against_wick:
+            flipped = (wick_direction != direction)
+            return wick_direction, 'KILL_SHOT', flipped
 
-        # 3. CASCADE — wick + 1h aligned
-        if has_wick and h1_aligned:
+        # 3. CASCADE — directional wick + 1h aligned with wick (multi-TF support/ceiling)
+        if wick_direction is not None and h1_aligned_wick:
+            flipped = (wick_direction != direction)
+            return wick_direction, 'CASCADE', flipped
+
+        # 2b/3b. Legacy combined-wick fallback (used when extension_signals
+        # unavailable, e.g. running on V1 cache). Direction defaults to z-fade.
+        if has_wick and wick_direction is None and not h1_aligned:
+            return direction, 'KILL_SHOT', False
+        if has_wick and wick_direction is None and h1_aligned:
             return direction, 'CASCADE', False
 
         # 4. RIDE_AGAINST — 1h velocity opposes (fires first 22% of chains)

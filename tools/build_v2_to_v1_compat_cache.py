@@ -58,6 +58,12 @@ V1_CORE = ['z_se', 'dmi_diff', 'variance_ratio', 'velocity', 'acceleration',
               'z_high', 'z_low']
 V1_HELPERS = ['dmi_gap', 'dir_vol', 'wick_ratio']
 
+# V2-extension columns (NEW for training_v2 — directional wick info that V1
+# never carried). These let KILL_SHOT/CASCADE classify direction by wick side
+# (lower wick → support bounce → LONG; upper wick → ceiling rejection → SHORT)
+# instead of relying on z_se sign.
+V2_EXTENSION_HELPERS = ['upper_wick', 'lower_wick']
+
 # V2 column lookup for each V1 concept that maps directly
 V1_TO_V2_DIRECT = {
     'z_se': lambda tf: f'L3_{tf}_z_se_w',
@@ -203,6 +209,25 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
             out[f'{tf}_dir_vol'] = np.zeros(n)
             out[f'{tf}_wick_ratio'] = np.zeros(n)
 
+        # ── V2-extension: upper_wick + lower_wick (directional wick info) ──
+        # Compute from raw OHLC at native TF cadence, then step-fill to anchor.
+        ohlcv_ts = ohlcv['timestamp'].values.astype(np.int64)
+        if pd.api.types.is_datetime64_any_dtype(ohlcv['timestamp']):
+            ohlcv_ts = (ohlcv['timestamp'].astype('int64') // 10**9).values
+        opens = ohlcv['open'].values.astype(np.float64)
+        highs = ohlcv['high'].values.astype(np.float64)
+        lows = ohlcv['low'].values.astype(np.float64)
+        closes = ohlcv['close'].values.astype(np.float64)
+        upper_native, lower_native = v1_compat.directional_wicks_batch(
+            opens, highs, lows, closes)
+        # Align to 5s anchor: last-closed-bar lookup
+        anchor_ts = v2['timestamp'].values.astype(np.int64)
+        last_closed = np.searchsorted(ohlcv_ts, anchor_ts - period, side='right') - 1
+        valid = (last_closed >= 0) & (last_closed < len(ohlcv_ts))
+        safe_idx = np.clip(last_closed, 0, len(ohlcv_ts) - 1)
+        out[f'{tf}_upper_wick'] = np.where(valid, upper_native[safe_idx], 0.0)
+        out[f'{tf}_lower_wick'] = np.where(valid, lower_native[safe_idx], 0.0)
+
         # dmi_gap = abs(dmi_diff)
         out[f'{tf}_dmi_gap'] = np.abs(out[f'{tf}_dmi_diff'].values)
 
@@ -212,8 +237,10 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
     else:
         out['time_of_day'] = (out['timestamp'] % 86400) / 86400.0
 
-    # Reorder columns to match V1 cache exactly:
-    #   timestamp, all CORE per-TF, all HELPERS per-TF, time_of_day
+    # Reorder columns to match V1 cache (91D), with V2-extension columns
+    # appended after time_of_day:
+    #   timestamp, V1_CORE×6TFs, V1_HELPERS×6TFs, time_of_day,
+    #   V2_EXTENSION_HELPERS×6TFs (NEW)
     cols = ['timestamp']
     for tf in V1_TFS:
         for c in V1_CORE:
@@ -222,6 +249,10 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
         for c in V1_HELPERS:
             cols.append(f'{tf}_{c}')
     cols.append('time_of_day')
+    # NEW: directional wicks (12 cols: 6 TFs × upper/lower)
+    for tf in V1_TFS:
+        for c in V2_EXTENSION_HELPERS:
+            cols.append(f'{tf}_{c}')
     out = out[cols]
 
     os.makedirs(output_dir, exist_ok=True)
