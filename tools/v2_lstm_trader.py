@@ -488,12 +488,19 @@ def main():
         rec = tp / max(tp + fn, 1)
         print(f"    {c_name:>6}  support={sup:>5}  precision={prec:.3f}  recall={rec:.3f}")
 
+    # CRITICAL: oos_endidx are positions in the OOS slice, not the global
+    # merged DataFrame. Build OOS-local close/ts/dates arrays so that
+    # close[end_idx] etc. address the correct OOS bar.
+    oos_close = close[oos_idx]
+    oos_ts = ts_int_arr[oos_idx]
+    oos_dates_arr = dates[oos_idx]
+
     # Save predictions w/ probs (Bayesian-prior format)
     pred_records = []
     for i, end in enumerate(oos_endidx):
         pred_records.append({
-            'end_idx': int(end), 'ts': int(ts_int_arr[end]),
-            'date': dates[end], 'close': float(close[end]),
+            'end_idx': int(end), 'ts': int(oos_ts[end]),
+            'date': oos_dates_arr[end], 'close': float(oos_close[end]),
             'true_class': CLASS_NAMES[oos_target[i]] if oos_target[i] >= 0 else 'NA',
             'pred_class': CLASS_NAMES[oos_pred[i]],
             'p_short': float(oos_probs[i, 0]),
@@ -507,7 +514,7 @@ def main():
     # ---- Trade simulation ----
     print(f"\n--- Trade simulation (hold={args.hold_bars}, conf>={args.confidence_threshold}) ---")
     trades_df, daily_df = simulate_trades(
-        oos_probs, oos_endidx, close, ts_int_arr, dates,
+        oos_probs, oos_endidx, oos_close, oos_ts, oos_dates_arr,
         args.hold_bars, args.confidence_threshold)
     trades_df.to_csv(os.path.join(args.output_dir, 'trades.csv'), index=False)
     daily_df.to_csv(os.path.join(args.output_dir, 'daily_pnl.csv'), index=False)
@@ -516,7 +523,7 @@ def main():
         print("  NO TRADES at this confidence threshold. Try lower --confidence-threshold")
         return
 
-    n_oos_days = len(np.unique(dates[oos_idx]))
+    n_oos_days = len(np.unique(oos_dates_arr))
     n_trades = len(trades_df)
     n_winners = int((trades_df['pnl_dollars'] > 0).sum())
     win_rate = n_winners / n_trades
@@ -528,7 +535,7 @@ def main():
     # Sharpe (daily, annualized)
     daily_pnl_full = (pd.Series(daily_df['daily_pnl'].values,
                                     index=daily_df['date'])
-                          .reindex(np.unique(dates[oos_idx]), fill_value=0))
+                          .reindex(np.unique(oos_dates_arr), fill_value=0))
     sharpe = (daily_pnl_full.mean() / daily_pnl_full.std()
                 * np.sqrt(252)) if daily_pnl_full.std() > 0 else 0
     cum_pnl = daily_pnl_full.cumsum()
