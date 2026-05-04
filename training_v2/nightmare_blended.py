@@ -966,6 +966,83 @@ class BlendedEngine:
             if not higher_tf_opposing and not h4_opposing:
                 return direction, 'FADE_CALM', False
 
+        # ════════════════════════════════════════════════════════════════
+        # WIRED-BUT-DISABLED TIERS  (kept ready, not active)
+        # ════════════════════════════════════════════════════════════════
+        # These three were defined with constants and exit logic but never
+        # routed through the auto classifier. Keeping the entry blocks here
+        # so they're trivially enable-able after V2 baseline is established.
+        #
+        # REASON COMMENTED OUT:
+        #  - MTF_EXHAUSTION's history (-$142K when previously enabled — see
+        #    line 38 comment) is a cautionary tale about climax-bar entries.
+        #  - C1 OOS lesson: 75% of IS-best rules collapse on OOS. Adding
+        #    un-validated entries before measuring the V2 baseline amplifies
+        #    rather than reduces noise.
+        #  - Each tier should be enabled INDIVIDUALLY with regime gates and
+        #    a clean A/B against the prior baseline.
+        #
+        # TO ENABLE: remove the surrounding `if False:` and configure the
+        # appropriate regime gate from EDA findings.
+        # ════════════════════════════════════════════════════════════════
+
+        # ─── 9. REGIME_FLIP (DISABLED) ──────────────────────────────────
+        # NMP base was not met (handled in inject_manual_trade for non-NMP
+        # entry, but not in the auto classifier). Fires when variance_ratio
+        # has dropped + hurst is low → regime is shifting from trending to
+        # mean-reverting. The thesis: front-run the regime change.
+        # if False:  # Wired but disabled. EDA gate: only fire in directional regimes.
+        #     if (regime in ('UP_SMOOTH', 'DOWN_SMOOTH', 'UP_CHOPPY', 'DOWN_CHOPPY') and
+        #             vr < REGIME_VR_MAX and
+        #             hurst < REGIME_HURST_MAX and
+        #             chop_1h < SWING_NOISE_CHOP_FACTOR * 100.0):
+        #         # Direction: fade the current 1m z (regime-flip thesis is reversion)
+        #         flip_dir = 'short' if z > 0 else 'long'
+        #         return flip_dir, 'REGIME_FLIP', False
+
+        # ─── 10. EXHAUSTION_BAR (DISABLED) ──────────────────────────────
+        # Climax bar: bar_range extreme + |acceleration| extreme + decelerating.
+        # Per V2 EDA: exhaustion looks cleanest when body is large and
+        # OPPOSITE to the prior trend (true climax, not chop).
+        # if False:  # Wired but disabled. EDA gate: only in directional SMOOTH regimes.
+        #     bar_range_1m_ticks = feat[6]  # 15s bar_range — using 5s might be too noisy
+        #     bar_range_5m_idx = 30  # 5m_bar_range
+        #     bar_range_5m = feat[bar_range_5m_idx]
+        #     # 5m bar_range >= 80 ticks AND |acceleration| >= 20 AND decelerating
+        #     # AND z deep AND vr trending (real climax not chop)
+        #     # Body sign: opposite-to-velocity body = exhaustion bar
+        #     decelerating = velocity * acceleration < 0
+        #     body_against_velocity = (velocity * body_1m) < 0
+        #     if (regime in ('UP_SMOOTH', 'DOWN_SMOOTH') and
+        #             bar_range_5m >= EXHAUST_BAR_RANGE_MIN and
+        #             abs(acceleration) >= EXHAUST_ACCEL_MIN and
+        #             decelerating and
+        #             body_against_velocity and
+        #             abs(z) > EXHAUST_Z_MIN and
+        #             vr > EXHAUST_VR_MIN):
+        #         # Direction: opposite to the exhausted move (fade the climax)
+        #         exh_dir = 'short' if velocity > 0 else 'long'
+        #         return exh_dir, 'EXHAUSTION_BAR', False
+
+        # ─── 11. ABSORPTION (DISABLED) ──────────────────────────────────
+        # High volume kinetic + tight bar_range + wicks present. A big
+        # player is absorbing flow without moving price → reversal setup.
+        # V2 upgrade: replace V1 vol_rel with V2 vol_velocity_w directly
+        # (cleaner kinetic measurement than vol/vol_mean_30 ratio).
+        # if False:  # Wired but disabled. EDA gate: any non-trending regime.
+        #     bar_range_1m_idx = 18  # 1m_bar_range
+        #     bar_range_1m_val = feat[bar_range_1m_idx]
+        #     wick_present = (upper_5m + lower_5m) > ABSORB_WICK_MIN
+        #     # V2: rising vol_velocity is the absorption tell (not vol_rel)
+        #     vol_kinetic_high = vol_vel_1m > 0 and vol_rel > ABSORB_VOL_MIN
+        #     if (regime in ('FLAT_CHOPPY', 'UP_CHOPPY', 'DOWN_CHOPPY') and
+        #             vol_kinetic_high and
+        #             bar_range_1m_val < ABSORB_RANGE_MAX and
+        #             wick_present):
+        #         # Direction: opposite to current bar's body (absorption side wins)
+        #         abs_dir = 'short' if body_1m > 0 else 'long'
+        #         return abs_dir, 'ABSORPTION', False
+
         return None, None, False
 
     def _check_exit(self, feat, z, vr, pnl):
