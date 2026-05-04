@@ -151,18 +151,34 @@ vol_rel = v1_compat.vol_rel_from_history(
 dir_vol = v1_compat.dir_vol_from_v2(feat['L2_1m_price_velocity_w'], vol_rel)
 ```
 
-### Threshold re-tuning
+### Threshold re-tuning — calibrated overnight
 
-After Phase 1 mechanical rewire, run a **calibration pass** comparing V1 vs V2 distributions of:
-- z_se per TF (median absolute shift, IQR shift)
-- velocity_w per TF
-- variance_ratio (should match — confirmed at machine precision)
-- vol_rel (should match — confirmed)
+I ran a distribution comparison across 5 sample days × 4 TFs (41,205 bars). **Result is decisive: keeping V1 literal thresholds on V2 features cripples the tier engine.**
 
-Where shifts are non-trivial (z_se median diff 0.47σ at 1m), re-tune the threshold:
-- `ROCHE = 2.0` may need to become `ROCHE = 1.85` or similar to fire on equivalent bar fraction
-- `VR_ENTRY = 1.0` is unchanged (variance_ratio is exact)
-- `H1_Z_MIN = 1.0`, `H1_AGAINST_Z_MIN = 1.5`: re-tune
+**Calibration table for `ROCHE = 2.0` (NMP entry trigger)**:
+
+| TF | V1 fire rate at z>2.0 | V2 rate if ROCHE=2.0 (literal) | V2 ROCHE for SAME fire rate |
+|---|---:|---:|---:|
+| 1m | 7.64% | 5.19% (−32%) | **1.87** |
+| 5m | 6.83% | **0.81% (−88%)** | **1.57** |
+| 15m | 8.04% | 4.33% (−46%) | **1.72** |
+| 1h | 12.22% | 6.53% (−47%) | **1.76** |
+
+**At 5m, keeping literal ROCHE=2.0 would gut the tier engine** — 5m NMP entries drop 88%. The V2 z_se distribution is systematically narrower (lower std) than V1's, so the same threshold catches far fewer bars.
+
+**Recommendation**: re-tune to match V1 bar-firing fraction, not literal threshold. The calibration is per-TF — no universal scaling factor. Same procedure must be applied to:
+
+- `ROCHE = 2.0` (NMP entry) — table above
+- `H1_Z_MIN = 1.0`, `H1_AGAINST_Z_MIN = 1.5` (1h alignment) — same calibration on 1h_z_se
+- `H1_AGAINST_Z_MIN`-related (FADE_AGAINST, RIDE_AGAINST) — same
+- `EXHAUST_Z_MIN = 1.4`, `MTF_Z_MIN = 1.4` — same
+- `FREIGHT_TRAIN_THRESHOLD = 100.0`, `VELOCITY_THRESHOLD = 50.0` — calibrate against V2 `L2_price_velocity_w` distribution
+- `VR_ENTRY = 1.0`, `FREIGHT_TRAIN_VR_MAX = 0.85`, `MTF_VR_MIN = 0.58`, etc. — variance_ratio is EXACT, no retune needed
+- `WICK_5M_MIN = 0.83`, `WICK_15M_MIN = 0.77` — wick_ratio is EXACT, no retune needed
+- `MTF_VOL_MIN = 2.0`, `ABSORB_VOL_PERSIST_MAX = 1.5` — vol_rel is EXACT, no retune needed
+- `H1_AGAINST_Z_MIN`-related and others — calibrate via z_se distribution
+
+**The good news**: variance_ratio, wick_ratio, vol_rel are exact (no retune), which covers 4 of the threshold families. Only z_se / velocity-based thresholds need calibration.
 
 ### Risk
 Medium — touching every tier's entry classifier and exit logic. ~50 hardcoded threshold lines. Reversible (keep V1 path active behind a flag during transition).
@@ -254,7 +270,7 @@ If V2 baseline turns out to be unstable or significantly worse than V1, restore 
 
 ## Open questions for user
 
-1. **Threshold re-tuning policy**: should I re-tune by matching the V1 BAR FRACTION (e.g., ROCHE chosen so X% of V2 bars exceed) or by maintaining the V1 LITERAL THRESHOLD value? Different choices, different post-migration baselines.
+1. ~~**Threshold re-tuning policy**~~: **ANSWERED by overnight calibration**. Maintaining V1 literal ROCHE=2.0 drops 5m fire rate by 88%. Must re-tune to match V1 bar-firing fraction. Per-TF ROCHE values: 1m→1.87, 5m→1.57, 15m→1.72, 1h→1.76. Same calibration procedure must be applied to all z_se- and velocity-based thresholds (~10 of them in `nightmare_blended.py`).
 
 2. **CNN strategy**: Option A (79D shim-fed) or B (184D V2-native)? A is the safer first cut.
 
