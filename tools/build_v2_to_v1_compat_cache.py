@@ -58,11 +58,28 @@ V1_CORE = ['z_se', 'dmi_diff', 'variance_ratio', 'velocity', 'acceleration',
               'z_high', 'z_low']
 V1_HELPERS = ['dmi_gap', 'dir_vol', 'wick_ratio']
 
-# V2-extension columns (NEW for training_v2 — directional wick info that V1
-# never carried). These let KILL_SHOT/CASCADE classify direction by wick side
-# (lower wick → support bounce → LONG; upper wick → ceiling rejection → SHORT)
-# instead of relying on z_se sign.
-V2_EXTENSION_HELPERS = ['upper_wick', 'lower_wick']
+# V2-extension columns (NEW for training_v2 — V2-only signals consumed by the
+# upgraded tier engine). All tiers in training_v2/nightmare_blended.py read
+# these via state['extension_signals'] dict (not in feat[]; CNNs unchanged).
+#
+# Per V1 TF (15s/1m/5m/15m/1h/1D):
+#   upper_wick, lower_wick  — directional wick rejection (support vs ceiling)
+#   body                    — signed close-open. V2 native; V1 had only velocity proxy
+#   swing_noise             — path noise / chop detector (D6 finding)
+#   vwap_dist               — close - vwap_w in price units (cross-domain bias)
+#   vol_velocity            — V2 vol_velocity_w, replaces V1's vol_rel for kinetic vol
+V2_EXTENSION_HELPERS = ['upper_wick', 'lower_wick', 'body', 'swing_noise',
+                            'vwap_dist', 'vol_velocity']
+
+# V2-only TF data (4h doesn't exist in V1). Single non-per-V1-TF block —
+# add 4h-specific signals here. These let RIDE_AGAINST/FADE_AGAINST add a
+# macro confirm (Cross-TF Layer 2 finding: macro velocity × micro noise).
+V2_4H_SIGNALS = ['4h_z_se', '4h_velocity', '4h_body', '4h_swing_noise']
+
+# Day-level regime label (from atlas_regime_labeler_2d) — broadcast to every
+# bar of the day. Tier engine uses for regime gates (RIDE_AGAINST gate
+# UP_SMOOTH+DOWN_SMOOTH; FADE_CALM drop FLAT; etc.).
+V2_REGIME_COL = 'regime_2d'
 
 # V2 column lookup for each V1 concept that maps directly
 V1_TO_V2_DIRECT = {
@@ -90,6 +107,27 @@ V1_UNIT_CONVERSIONS = {
 }
 
 TF_PERIOD_S = {'15s': 15, '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1D': 86400}
+
+
+_REGIME_LOOKUP = None  # lazy-loaded dict {YYYY-MM-DD: regime_2d}
+
+
+def _lookup_regime_for_day(day_yyyy_mm_dd: str) -> str:
+    """Return regime_2d label ('UP_SMOOTH' / etc.) for a given day, or 'UNKNOWN'.
+
+    day_yyyy_mm_dd is in 'YYYY_MM_DD' format (matches parquet filename).
+    """
+    global _REGIME_LOOKUP
+    if _REGIME_LOOKUP is None:
+        try:
+            from tools.atlas_regime_labeler_2d import load_regime_labels
+            df = load_regime_labels('DATA/ATLAS/regime_labels_2d.csv').copy()
+            df['date'] = df['date'].astype(str).str[:10]
+            _REGIME_LOOKUP = dict(zip(df['date'], df['regime_2d']))
+        except Exception:
+            _REGIME_LOOKUP = {}
+    iso = day_yyyy_mm_dd.replace('_', '-')
+    return _REGIME_LOOKUP.get(iso, 'UNKNOWN')
 
 
 def load_ohlcv_with_history(atlas_root: str, tf: str, day: str,
@@ -209,8 +247,9 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
             out[f'{tf}_dir_vol'] = np.zeros(n)
             out[f'{tf}_wick_ratio'] = np.zeros(n)
 
-        # ── V2-extension: upper_wick + lower_wick (directional wick info) ──
-        # Compute from raw OHLC at native TF cadence, then step-fill to anchor.
+        # ── V2-extension signals (NEW — for V2-native tier engine) ──
+        # Compute from V2 columns + raw OHLC at native TF cadence, then
+        # step-fill to anchor.
         ohlcv_ts = ohlcv['timestamp'].values.astype(np.int64)
         if pd.api.types.is_datetime64_any_dtype(ohlcv['timestamp']):
             ohlcv_ts = (ohlcv['timestamp'].astype('int64') // 10**9).values
@@ -218,15 +257,49 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
         highs = ohlcv['high'].values.astype(np.float64)
         lows = ohlcv['low'].values.astype(np.float64)
         closes = ohlcv['close'].values.astype(np.float64)
+
+        # Directional wicks (already in place)
         upper_native, lower_native = v1_compat.directional_wicks_batch(
             opens, highs, lows, closes)
-        # Align to 5s anchor: last-closed-bar lookup
         anchor_ts = v2['timestamp'].values.astype(np.int64)
         last_closed = np.searchsorted(ohlcv_ts, anchor_ts - period, side='right') - 1
         valid = (last_closed >= 0) & (last_closed < len(ohlcv_ts))
         safe_idx = np.clip(last_closed, 0, len(ohlcv_ts) - 1)
         out[f'{tf}_upper_wick'] = np.where(valid, upper_native[safe_idx], 0.0)
         out[f'{tf}_lower_wick'] = np.where(valid, lower_native[safe_idx], 0.0)
+
+        # V2 body (signed close-open) — direct V2 column at this TF
+        body_col_v2 = f'L1_{tf}_body'
+        if body_col_v2 in v2.columns:
+            out[f'{tf}_body'] = v2[body_col_v2].values
+        else:
+            out[f'{tf}_body'] = np.zeros(n)
+
+        # swing_noise_w (V2-only chop detector). D6 finding: high swing_noise
+        # is the cleanest "path is noisy / chop" signal in V2.
+        swing_col_v2 = f'L3_{tf}_swing_noise_w'
+        if swing_col_v2 in v2.columns:
+            out[f'{tf}_swing_noise'] = v2[swing_col_v2].values
+        else:
+            out[f'{tf}_swing_noise'] = np.zeros(n)
+
+        # vwap_dist (V2-only) = close - vwap_w. Cross-domain (price+vol).
+        # MTF_BREAKOUT and FADE_AGAINST gain real-vs-noise discrimination.
+        vwap_col_v2 = f'L2_{tf}_vwap_w'
+        if vwap_col_v2 in v2.columns:
+            # Need close at the TF — derived from L1 body + open. Use raw close
+            # from aligned ohlcv (it's already aligned via last_closed_idx)
+            tf_close = np.where(valid, closes[safe_idx], 0.0)
+            out[f'{tf}_vwap_dist'] = tf_close - v2[vwap_col_v2].values
+        else:
+            out[f'{tf}_vwap_dist'] = np.zeros(n)
+
+        # vol_velocity_w (V2 native — V1 only had vol_rel proxy)
+        vol_vel_col_v2 = f'L2_{tf}_vol_velocity_w'
+        if vol_vel_col_v2 in v2.columns:
+            out[f'{tf}_vol_velocity'] = v2[vol_vel_col_v2].values
+        else:
+            out[f'{tf}_vol_velocity'] = np.zeros(n)
 
         # dmi_gap = abs(dmi_diff)
         out[f'{tf}_dmi_gap'] = np.abs(out[f'{tf}_dmi_diff'].values)
@@ -236,6 +309,26 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
         out['time_of_day'] = v2['L0_time_of_day'].values
     else:
         out['time_of_day'] = (out['timestamp'] % 86400) / 86400.0
+
+    # ── V2-only 4h-TF signals (V1 didn't have 4h cache) ────────────────
+    # Cross-TF Layer 2 finding: macro velocity × micro noise gives lift.
+    # Add 4h confirms for RIDE_AGAINST/FADE_AGAINST.
+    for v2_col, out_col in [
+        ('L3_4h_z_se_w', '4h_z_se'),
+        ('L2_4h_price_velocity_w', '4h_velocity'),
+        ('L1_4h_body', '4h_body'),
+        ('L3_4h_swing_noise_w', '4h_swing_noise'),
+    ]:
+        if v2_col in v2.columns:
+            out[out_col] = v2[v2_col].values
+        else:
+            out[out_col] = np.zeros(n)
+
+    # ── Day-level regime label (broadcast to every bar) ────────────────
+    # From DATA/ATLAS/regime_labels_2d.csv — used by tier engine for regime
+    # gates (RIDE_AGAINST KEEP UP_SMOOTH+DOWN_SMOOTH; FADE_CALM drop FLAT; etc.)
+    regime_label = _lookup_regime_for_day(day)
+    out['regime_2d'] = regime_label  # constant string per day
 
     # Reorder columns to match V1 cache (91D), with V2-extension columns
     # appended after time_of_day:
@@ -249,10 +342,16 @@ def build_one_day(atlas_root: str, day: str, output_dir: str,
         for c in V1_HELPERS:
             cols.append(f'{tf}_{c}')
     cols.append('time_of_day')
-    # NEW: directional wicks (12 cols: 6 TFs × upper/lower)
+    # V2 extension signals (per V1 TF: upper_wick, lower_wick, body,
+    #   swing_noise, vwap_dist, vol_velocity = 6 cols × 6 TFs = 36)
     for tf in V1_TFS:
         for c in V2_EXTENSION_HELPERS:
             cols.append(f'{tf}_{c}')
+    # V2-only 4h signals (4 cols)
+    for c in V2_4H_SIGNALS:
+        cols.append(c)
+    # Regime label (1 col, string)
+    cols.append('regime_2d')
     out = out[cols]
 
     os.makedirs(output_dir, exist_ok=True)

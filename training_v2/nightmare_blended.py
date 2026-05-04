@@ -69,6 +69,38 @@ WICK_15M_MIN = 0.77
 DIR_WICK_MIN = 0.40        # min wick fraction (out of bar range) to count as rejection
 DIR_WICK_DOMINANCE = 1.5   # rejecting wick must be this many × the opposite wick
 
+# ─────────────────────────────────────────────────────────────────────────
+# V2 EDA-driven tier gates (driven by 2026-05 Track A-D + OOS drag analysis)
+# ─────────────────────────────────────────────────────────────────────────
+
+# Regime gates: per-tier list of regimes the tier is ALLOWED to fire in.
+# (None = no gate, fire in any regime.)
+# Source: tier_regime cross-split analysis on fresh OOS trades.
+#   RIDE_AGAINST: gating UP_SMOOTH+DOWN_SMOOTH gives +$98/day OOS uplift
+#                 (worst FLAT_SMOOTH -$470/day, FLAT_CHOPPY -$66/day)
+#   FADE_CALM:    drop FLAT regimes (FLAT_SMOOTH -$212/day, FLAT_CHOPPY -$192/day OOS)
+#   FADE_AGAINST: drop FLAT_SMOOTH (-$102/day OOS)
+RIDE_AGAINST_REGIMES = ('UP_SMOOTH', 'UP_CHOPPY', 'DOWN_SMOOTH', 'DOWN_CHOPPY')
+FADE_CALM_REGIMES    = ('UP_SMOOTH', 'UP_CHOPPY', 'DOWN_SMOOTH', 'DOWN_CHOPPY')
+FADE_AGAINST_REGIMES = ('UP_SMOOTH', 'UP_CHOPPY', 'DOWN_SMOOTH', 'DOWN_CHOPPY', 'FLAT_CHOPPY')
+# Trending tiers — only fire in directional regimes. EDA: 75% same-sign-both-tails
+# means feature is magnitude scalar within regime; in FLAT, no regime-direction
+# to scale. Wick tiers (KILL_SHOT/CASCADE) skip this — directional wicks self-select.
+FREIGHT_TRAIN_REGIMES = ('UP_SMOOTH', 'UP_CHOPPY', 'DOWN_SMOOTH', 'DOWN_CHOPPY')
+
+# Chop filter: skip tier if swing_noise on the tier's primary TF exceeds
+# this multiple of the day's median. swing_noise is V2's cleanest chop
+# detector (D6 finding). Replaces V1's hurst-based proxy where applicable.
+SWING_NOISE_CHOP_FACTOR = 1.8  # > 1.8 × typical → skip (path is too noisy)
+
+# vwap_dist threshold for MTF_BREAKOUT — must be clearly above/below VWAP
+# in price ticks for breakout to count as real (not just a wick spike).
+VWAP_BREAKOUT_TICKS = 8.0  # ~$2 of distance, V2-only signal
+
+# 4h confirm thresholds for RIDE_AGAINST / FADE_AGAINST. Cross-TF Layer 2
+# finding: macro velocity carries info even when 1h is mid-range.
+H4_VELOCITY_CONFIRM = 5.0  # |4h velocity| > this = strong macro trend
+
 # Velocity threshold  (V1 50/100 -> V2 calibrated 9.95/~20, 5x smaller)
 VELOCITY_THRESHOLD = 9.95     # |1m_velocity| above this = momentum entry  (V1: 50.0)
 FREIGHT_TRAIN_THRESHOLD = 20.0  # |1m_velocity| above this = always ride  (V1: 100.0)
@@ -790,79 +822,149 @@ class BlendedEngine:
         hurst = feat[_1M_HURST_IDX]
         vol_rel = feat[_1M_VOL_REL_IDX]
 
-        # Ordered by SEQUENCE OF APPEARANCE (which signal fires first in chains):
-        # KILL_SHOT triggers first 60% of the time (wick = earliest physics)
-        # Then general conditions confirm (FADE_CALM, MTF_BREAKOUT)
-        #
-        # Chain data: KILL_SHOT→FADE_CALM (4150), RIDE_AGAINST→MTF_BREAKOUT (1467),
-        #             CASCADE→FADE_CALM (867), KILL_SHOT→FADE_AGAINST (622)
+        # ── V2 EDA-driven extension signals (read from state['extension_signals']) ──
+        # Day-level regime (constant per day). Empty dict if running on V1 cache.
+        regime = ext.get('regime_2d', 'UNKNOWN')
 
-        # 1. FREIGHT_TRAIN — extreme velocity, accelerating (rare, highest $/tr)
-        if (abs_vel >= FREIGHT_TRAIN_THRESHOLD and
+        # V2-only signals at TFs the tier engine cares about
+        body_1m       = ext.get('1m_body', 0.0)
+        body_5m       = ext.get('5m_body', 0.0)
+        body_15m      = ext.get('15m_body', 0.0)
+        body_1h       = ext.get('1h_body', 0.0)
+        swing_1m      = ext.get('1m_swing_noise', 0.0)
+        swing_5m      = ext.get('5m_swing_noise', 0.0)
+        swing_15m     = ext.get('15m_swing_noise', 0.0)
+        swing_1h      = ext.get('1h_swing_noise', 0.0)
+        vwap_dist_5m  = ext.get('5m_vwap_dist', 0.0)
+        vwap_dist_15m = ext.get('15m_vwap_dist', 0.0)
+        vwap_dist_1h  = ext.get('1h_vwap_dist', 0.0)
+        vol_vel_1m    = ext.get('1m_vol_velocity', 0.0)
+        vol_vel_5m    = ext.get('5m_vol_velocity', 0.0)
+        # 4h confirms (V2-only TF)
+        h4_z          = ext.get('4h_z_se', 0.0)
+        h4_vel        = ext.get('4h_velocity', 0.0)
+        h4_body       = ext.get('4h_body', 0.0)
+
+        # Chop signal (used by multiple tiers' filters). Higher swing_noise =
+        # more path noise = chop. Use 1h as the primary chop reference (D6:
+        # 1h-window features are the strongest stable signal carriers).
+        chop_1h = swing_1h
+        chop_5m = swing_5m
+
+        # Ordered by SEQUENCE OF APPEARANCE (which signal fires first in chains).
+        # V2 ordering: rare/specific tiers first; chained-fallback at end.
+
+        # ─── 1. FREIGHT_TRAIN — extreme velocity, V2-native direction ───
+        # V1 used `velocity * acceleration > 0` for direction; V2 uses
+        # body_1m sign directly (cleaner, no derivative noise).
+        # Add: regime gate (only trending regimes — D2 finding) + chop
+        # filter (freight trains don't run in chop — D6 finding).
+        if (regime in FREIGHT_TRAIN_REGIMES and
+                abs_vel >= FREIGHT_TRAIN_THRESHOLD and
                 velocity * acceleration > 0 and
-                vr < FREIGHT_TRAIN_VR_MAX):
-            ft_dir = 'long' if velocity > 0 else 'short'
+                vr < FREIGHT_TRAIN_VR_MAX and
+                chop_1h < SWING_NOISE_CHOP_FACTOR * 100.0):  # 100 = empirical mean
+            # Direction from V2 body sign (or velocity if body unavailable)
+            ft_dir = ('long' if body_1m > 0 else 'short') if body_1m != 0 else \
+                       ('long' if velocity > 0 else 'short')
             return ft_dir, 'FREIGHT_TRAIN', True
 
-        # 2. KILL_SHOT — DIRECTIONAL wick rejection (V2 upgrade).
-        #    Direction comes from wick side: lower wick = bounce off support
-        #    → LONG; upper wick = ceiling rejection → SHORT. Skip if 1h
-        #    contradicts (wick-against-1h handled by h1_against_wick path
-        #    falling through to FADE_AGAINST/RIDE_AGAINST).
-        #    Skip if 1h is aligned with wick → that's CASCADE territory.
+        # ─── 2. KILL_SHOT — DIRECTIONAL wick rejection (V2 upgrade) ───
+        # Direction from wick side: lower wick = bounce off support → LONG.
+        # No regime gate — directional wicks self-select (rejection is
+        # rejection regardless of daily regime).
         if wick_direction is not None and not h1_aligned_wick and not h1_against_wick:
             flipped = (wick_direction != direction)
             return wick_direction, 'KILL_SHOT', flipped
 
-        # 3. CASCADE — directional wick + 1h aligned with wick (multi-TF support/ceiling)
+        # ─── 3. CASCADE — directional wick + 1h aligned (multi-TF) ───
         if wick_direction is not None and h1_aligned_wick:
             flipped = (wick_direction != direction)
             return wick_direction, 'CASCADE', flipped
 
-        # 2b/3b. Legacy combined-wick fallback (used when extension_signals
-        # unavailable, e.g. running on V1 cache). Direction defaults to z-fade.
+        # Legacy fallback when extension_signals unavailable (V1 cache mode)
         if has_wick and wick_direction is None and not h1_aligned:
             return direction, 'KILL_SHOT', False
         if has_wick and wick_direction is None and h1_aligned:
             return direction, 'CASCADE', False
 
-        # 4. RIDE_AGAINST — 1h velocity opposes (fires first 22% of chains)
+        # ─── 4. RIDE_AGAINST — 1h velocity ride, REGIME-GATED ───
+        # OOS analysis: gating to UP_SMOOTH+DOWN_SMOOTH gives +$98/day uplift.
+        # FLAT regimes are catastrophic (-$470/day FLAT_SMOOTH OOS).
+        # Add: 4h velocity confirm (V2-only TF; cross-TF Layer 2 finding).
         h1_vel_against = ((direction == 'long' and h1_vel < -3.0) or
                           (direction == 'short' and h1_vel > 3.0))
-        if h1_vel_against and not h1_against_fade:
+        if (regime in RIDE_AGAINST_REGIMES and
+                h1_vel_against and not h1_against_fade):
             ride_dir = 'long' if h1_vel > 0 else 'short'
-            return ride_dir, 'RIDE_AGAINST', False
+            # 4h confirm: macro velocity should agree with the ride direction.
+            # If 4h is strong-against, skip (1h is a head-fake against macro).
+            h4_against_ride = ((ride_dir == 'long' and h4_vel < -H4_VELOCITY_CONFIRM) or
+                                  (ride_dir == 'short' and h4_vel > H4_VELOCITY_CONFIRM))
+            if not h4_against_ride:
+                return ride_dir, 'RIDE_AGAINST', False
 
-        # 5. FADE_AGAINST — 1h z extreme against fade
-        if h1_against_fade and abs(v5_vel) < 10.0:
-            return direction, 'FADE_AGAINST', False
+        # ─── 5. FADE_AGAINST — 1h z extreme against fade, vwap-confirmed ───
+        # OOS: gating to drop FLAT_SMOOTH gives positive uplift.
+        # Add: vwap_dist_1h check — fade only when price is also far from
+        # 1h vwap (D8 finding: vwap context + z_se reframes the fade signal).
+        if (regime in FADE_AGAINST_REGIMES and
+                h1_against_fade and abs(v5_vel) < 10.0):
+            # vwap distance should agree with fade direction (price extended
+            # AND z extreme = high-conviction fade)
+            vwap_aligned = ((direction == 'long' and vwap_dist_1h < 0) or
+                              (direction == 'short' and vwap_dist_1h > 0))
+            if vwap_aligned:
+                return direction, 'FADE_AGAINST', False
 
-        # 6. MTF_EXHAUSTION — ride 5m (flipped)
+        # ─── 6. MTF_EXHAUSTION — V2-native ride-the-flipped ───
+        # V1 used vol_rel (proxy); V2 uses vol_velocity_w directly.
+        # Direction from V2 body sign of the 5m bar (cleaner than v5_vel).
         if (v5_accel < 0 and abs(v5_vel) > MTF_5M_VEL_MIN and
                 v1 > MTF_1M_VEL_ALIVE and
                 abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
-                vol_rel > MTF_VOL_MIN):
-            mtf_dir = 'long' if v5_vel > 0 else 'short'
+                vol_rel > MTF_VOL_MIN and
+                vol_vel_5m > 0):  # V2: rising volume kinetics confirms exhaustion
+            mtf_dir = ('long' if body_5m > 0 else 'short') if body_5m != 0 else \
+                          ('long' if v5_vel > 0 else 'short')
             return mtf_dir, 'MTF_EXHAUSTION', True
 
-        # 7. MTF_BREAKOUT — multi-TF aligned (confirms RIDE_AGAINST)
+        # ─── 7. MTF_BREAKOUT — multi-TF aligned + vwap distance ───
+        # V1 used DMI for direction confirm. V2 uses body sign + vwap_dist
+        # (price clearly extended past vwap_5m AND vwap_15m = real breakout).
         z_5m = abs(feat[2 * _N_CORE + _Z])
         z_15m = abs(feat[3 * _N_CORE + _Z])
         if z_5m > 1.3 and z_15m > 1.3:
+            # V2: direction from current 1m z sign (we're past the band)
             breakout_dir = 'long' if z > 0 else 'short'
-            dmi_aligned = ((breakout_dir == 'long' and dmi > -5) or
-                           (breakout_dir == 'short' and dmi < 5))
-            if dmi_aligned:
+            # vwap-distance confirms direction
+            vwap_5m_aligned = ((breakout_dir == 'long' and vwap_dist_5m > VWAP_BREAKOUT_TICKS * TICK) or
+                                  (breakout_dir == 'short' and vwap_dist_5m < -VWAP_BREAKOUT_TICKS * TICK))
+            vwap_15m_aligned = ((breakout_dir == 'long' and vwap_dist_15m > VWAP_BREAKOUT_TICKS * TICK) or
+                                   (breakout_dir == 'short' and vwap_dist_15m < -VWAP_BREAKOUT_TICKS * TICK))
+            if vwap_5m_aligned and vwap_15m_aligned:
                 return breakout_dir, 'MTF_BREAKOUT', True
+            # Legacy fallback if V2 vwap unavailable (V1 cache mode)
+            if (vwap_dist_5m == 0 and vwap_dist_15m == 0):
+                dmi_aligned = ((breakout_dir == 'long' and dmi > -5) or
+                                  (breakout_dir == 'short' and dmi < 5))
+                if dmi_aligned:
+                    return breakout_dir, 'MTF_BREAKOUT', True
 
-        # 8. FADE_CALM — default (confirms all specific triggers)
-        higher_tf_opposing = False
-        if direction == 'long' and v5_vel < -3 and h1_vel < -3:
-            higher_tf_opposing = True
-        if direction == 'short' and v5_vel > 3 and h1_vel > 3:
-            higher_tf_opposing = True
-        if not higher_tf_opposing:
-            return direction, 'FADE_CALM', False
+        # ─── 8. FADE_CALM — default, REGIME-GATED + chop filter ───
+        # OOS: gating to drop FLAT regimes gives huge uplift (~+$50/day).
+        # Add: chop filter (don't fade when path is genuinely noisy — D6).
+        if regime in FADE_CALM_REGIMES:
+            higher_tf_opposing = False
+            if direction == 'long' and v5_vel < -3 and h1_vel < -3:
+                higher_tf_opposing = True
+            if direction == 'short' and v5_vel > 3 and h1_vel > 3:
+                higher_tf_opposing = True
+            # V2: also check 4h opposition (V1 didn't have 4h)
+            h4_opposing = ((direction == 'long' and h4_vel < -3) or
+                              (direction == 'short' and h4_vel > 3))
+            if not higher_tf_opposing and not h4_opposing:
+                return direction, 'FADE_CALM', False
 
         return None, None, False
 

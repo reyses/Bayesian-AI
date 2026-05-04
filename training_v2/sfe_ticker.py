@@ -64,15 +64,22 @@ class FeatureTicker:
         feat_matrix = self._feat_df[feat_cols].values.astype(np.float32)
         timestamps = self._feat_df['timestamp'].values
 
-        # V2 migration: directional-wick extension columns produced by
-        # tools/build_v2_to_v1_compat_cache.py. NOT in FEATURE_NAMES (91D);
-        # passed through `extension_signals` in state dict so engine can use
-        # them for richer tier classification (KILL_SHOT/CASCADE direction
-        # by wick side) without growing feat[] (CNNs still see 91D).
-        EXTENSION_COLS = [c for c in self._feat_df.columns
-                              if c.endswith('_upper_wick') or c.endswith('_lower_wick')]
-        ext_matrix = (self._feat_df[EXTENSION_COLS].values.astype(np.float32)
-                          if EXTENSION_COLS else None)
+        # V2 migration: extension columns produced by
+        # tools/build_v2_to_v1_compat_cache.py. NOT in FEATURE_NAMES (91D),
+        # so CNNs still see 91D unchanged. Tier engine reads via
+        # state['extension_signals'] for V2-native classification.
+        # Signals: upper/lower wick, body, swing_noise, vwap_dist, vol_velocity
+        # per V1 TF + 4h-only signals + regime_2d.
+        EXT_KEYS = ('_upper_wick', '_lower_wick', '_body', '_swing_noise',
+                       '_vwap_dist', '_vol_velocity')
+        EXT_NUMERIC_COLS = [c for c in self._feat_df.columns
+                                 if any(c.endswith(k) for k in EXT_KEYS)
+                                 or c.startswith('4h_')]
+        ext_matrix = (self._feat_df[EXT_NUMERIC_COLS].values.astype(np.float32)
+                          if EXT_NUMERIC_COLS else None)
+        # Regime is a string column, broadcast per day. Stored separately.
+        regime_per_row = (self._feat_df['regime_2d'].values
+                              if 'regime_2d' in self._feat_df.columns else None)
 
         for i in range(self._n):
             ts = timestamps[i]
@@ -96,8 +103,10 @@ class FeatureTicker:
 
             ext_signals = {}
             if ext_matrix is not None:
-                for j, col in enumerate(EXTENSION_COLS):
+                for j, col in enumerate(EXT_NUMERIC_COLS):
                     ext_signals[col] = float(ext_matrix[i, j])
+            if regime_per_row is not None:
+                ext_signals['regime_2d'] = str(regime_per_row[i])
 
             yield {
                 'timestamp': float(ts),
@@ -105,7 +114,7 @@ class FeatureTicker:
                 'features': features,
                 'bar_idx': i,
                 'bar_data': bar_data,  # 1m OHLCV for context (exits, etc.)
-                'extension_signals': ext_signals,  # NEW: directional wicks
+                'extension_signals': ext_signals,  # V2-native signals
             }
 
     def __len__(self) -> int:
