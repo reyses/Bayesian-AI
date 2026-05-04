@@ -165,6 +165,14 @@ def generate_exit_labels(trades: List[Dict], regret_df: pd.DataFrame) -> pd.Data
                 'peak_pnl': peak,
                 'entry_z': entry_z,
             })
+    if not rows:
+        # All trades had empty paths (e.g. core_v2/sim_executor.adapt_trades
+        # sets path=[] — the ledger-based engine doesn't track per-bar paths).
+        # Return an empty DataFrame WITH the expected schema so downstream
+        # code (`exit_df[exit_df['tier'] == tier]`) doesn't KeyError.
+        return pd.DataFrame(columns=['tier', 'trade_idx', 'bar_idx', 'label',
+                                          'features', 'bars_held', 'pnl',
+                                          'peak_pnl', 'entry_z'])
     return pd.DataFrame(rows)
 
 
@@ -208,6 +216,11 @@ def generate_loser_labels(trades: List[Dict]) -> pd.DataFrame:
                 'peak_pnl': peak,
                 'entry_z': entry_z,
             })
+    if not rows:
+        # See generate_exit_labels for the empty-path explanation.
+        return pd.DataFrame(columns=['tier', 'trade_idx', 'bar_idx', 'label',
+                                          'features', 'bars_held', 'pnl',
+                                          'peak_pnl', 'entry_z'])
     return pd.DataFrame(rows)
 
 
