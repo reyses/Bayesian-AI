@@ -3645,3 +3645,89 @@ NEXT DECISION POINT:
   User runs NT8 SA on ZigzagRunner_v1.0.8-RC against MNQ JUN26 (MNQCONT
   load broken — diagnosed as data-series mismatch, not yet fixed).
   Compare to v1.0.4 baseline. If beats: ship v1.0.8-RC live.
+
+
+L3651 (2026-05-04): V1 → V2 FEATURE MIGRATION AUDIT (Phase 0 + 0b)
+=================================================================
+
+TRIGGER: User decision to deprecate V1 features (DATA/ATLAS/FEATURES_5s/,
+79D flat) and rewire pipeline to V2 (DATA/ATLAS/FEATURES_5s_v2/, 184D
+layered). User cited V1 lookahead concerns (resolved 2026-04-17 in fact,
+but V2 also enforces zero-lookahead and has cleaner schema).
+
+PHASE 0 — V2 audit (read-only):
+  - V2 is lookahead-clean. tests/test_core_v2_lookahead.py: 28/28 pass.
+    Tests poison future bars and verify past features unchanged across
+    L0/L1/L2/L3 at every TF.
+  - V2 build (training/build_dataset_v2.py) uses the same corrected
+    `searchsorted(... - period, right) - 1` pattern that fixed V1's
+    lookahead, isolated in `_last_closed_idx` with explicit "Do NOT
+    modify" warning.
+  - V2 covers all V1 dates: 345 daily files in both, 2025-01-01 to
+    2026-03-20.
+  - V2 deliberately dropped 6 V1 concepts per research/feature_spec_v2.md
+    Principle 7 ("L3+ compositions are the model's job, not the feature
+    builder's"): wick_ratio, p_at_center, variance_ratio, dmi_diff/gap,
+    vol_rel, dir_vol.
+
+PHASE 0b — V1 compat shim + parity (built and tested):
+  - core_v2/v1_compat.py: derives V1 concepts from V2 features at trade
+    time. Honors Principle 7 — V2 cache stays clean, shim is runtime-
+    only for the legacy rule-based tier engine.
+  - tools/v1_v2_parity_test.py: sweep V2-derived → V1 cache, 4 days × 4
+    TFs. Result: 4 of 6 concepts derive at machine precision (Pearson
+    1.0000 — wick_ratio, vol_rel, variance_ratio at 1m/5m/15m). 2 of 6
+    drift due to underlying SFE implementation differences:
+      p_at_center: formula-correct but V1 cuda z_se vs V2 numpy z_se_w
+        Pearson 0.87, sign agreement 81%, median abs diff 0.47σ.
+      dir_vol: ~19% sign disagreement (velocity-sign source differs).
+
+CRITICAL FINDING — TIER ENGINE THRESHOLDS:
+  Ran tools/v1_v2_threshold_calibration.py on 41,205 bars × 4 TFs. V2
+  feature distributions are NOT bit-identical to V1, so tier-engine
+  hardcoded thresholds need re-calibration:
+
+  z_se thresholds need ~10-15% downward revision:
+    ROCHE = 2.0 → 1m=1.87, 5m=1.57(!), 15m=1.72, 1h=1.76
+      (5m at literal 2.0 fires on only 0.81% of V2 bars vs 6.83% V1 — 88% drop)
+    H1_Z_MIN = 1.0 → 1h=0.87
+    H1_AGAINST_Z_MIN = 1.5 → 1h=1.40
+    EXHAUST_Z_MIN = 1.4 → 1m=1.32, 5m=1.18, 15m=1.24
+
+  velocity thresholds need 3-5x SMALLER (V2 L2_price_velocity_w is
+  windowed slope; V1 was bar-Δ × scale factor):
+    MTF_1M_VEL_ALIVE = 10.0 → 1m=2.47 (4x smaller)
+    MTF_5M_VEL_MIN = 30.0 → 5m=8.44 (3.5x smaller)
+    VELOCITY_THRESHOLD = 50.0 → 1m=9.95 (5x smaller)
+    FREIGHT_TRAIN_THRESHOLD = 100.0 → 1m calibrated to similar fire rate
+
+  EXACT-match thresholds (no retune): VR_*, WICK_*, vol_rel-based.
+  variance_ratio, wick_ratio, vol_rel reproduce at machine precision via
+  the shim, so any threshold on these stays at literal V1 value.
+
+DELIVERABLES (committed):
+  core_v2/v1_compat.py — runtime shim
+  tools/v1_v2_parity_test.py — formula parity test
+  tools/v1_v2_threshold_calibration.py — bar-firing-rate calibration sweep
+  reports/findings/v1_v2_parity/ — parity numbers
+  reports/findings/v1_v2_threshold_calibration/ — threshold mapping
+  docs/JULES_v1_to_v2_migration.md — 6-phase migration plan
+  docs/daily/2026-05-04.md — morning briefing for user
+
+REMAINING DECISIONS FOR USER:
+  Q1 (threshold policy) — ANSWERED via overnight calibration (re-tune
+    to match V1 bar-firing fraction; full table in reports/).
+  Q2 (CNN strategy: 79D shim vs 184D V2-native) — pending.
+  Q3 (commit policy: end-to-end branch vs phase-by-phase) — pending.
+
+WHAT THIS DOES NOT TOUCH:
+  - DATA/ATLAS/FEATURES_5s/ remains intact (deprecation Phase 5)
+  - training/nightmare_blended.py untouched (Phase 1 awaits approval)
+  - live/engine_v2.py untouched (Phase 2, deferred — not trading live)
+  - 3 CNNs (cnn_flip, cnn_hold, cnn_risk) untouched (Phase 3)
+
+POST-MIGRATION RISK:
+  -$164/day baseline WILL shift due to z_se / velocity SFE drift. Could
+  drift ±$30/day (estimate, untested). Phase 4 is a hard gate: if
+  V2-rewired baseline is worse than -$200/day, abort and investigate.
+
