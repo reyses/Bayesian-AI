@@ -20,17 +20,16 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 ATLAS_1S = 'DATA/ATLAS/1s'
 ATLAS_1M = 'DATA/ATLAS/1m'
-# Features now live INSIDE each atlas folder:
-#   DATA/ATLAS/FEATURES_5s/YYYY_MM_DD.parquet      (Databento IS/OOS)
-#   DATA/ATLAS_NT8/FEATURES_5s/YYYY_MM_DD.parquet  (NT8 live parity)
-FEATURES_DIR = os.path.join(ATLAS_1M, '..', 'FEATURES')  # placeholder (not used)
-# V2 migration: engine reads from the V1-shape compat cache built by
-# tools/build_v2_to_v1_compat_cache.py. The compat cache is generated FROM
-# V2 layered features (DATA/ATLAS/FEATURES_5s_v2/) using core_v2/v1_compat.py
-# to derive V1 concepts (wick_ratio, p_at_center, vol_rel, dir_vol, VR,
-# DMI substitute) inline. See training_v2/MIGRATION_NOTES.md.
-FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s_v2_as_v1'  # V2-derived V1-shape cache
-FEATURES_DIR_1M = 'DATA/ATLAS/FEATURES_1m'
+ATLAS_ROOT = 'DATA/ATLAS'
+# V2-NATIVE migration (2026-05-04): the engine no longer reads any compat
+# cache. The ticker (training_v2.sfe_ticker.V2NativeTicker) builds the V1-shape
+# 91D + V2 extension columns + 185D V2 layered features in MEMORY per day, so
+# we just need a list of day-files to enumerate. We use DATA/ATLAS/5s as the
+# day-list source (raw 5s ATLAS — same YYYY_MM_DD naming).
+FEATURES_DIR = ATLAS_1M  # placeholder, kept for fallback resolution
+FEATURES_DIR_5S = 'DATA/ATLAS/5s'                      # raw 5s — used as day-list source
+FEATURES_DIR_1M = 'DATA/ATLAS/FEATURES_1m'              # legacy 1m features
+LABELS_CSV = 'DATA/ATLAS/regime_labels_2d.csv'
 
 # NT8 dataset (OOS-2: live parity validation)
 NT8_FEATURES_5S = 'DATA/ATLAS_NT8/FEATURES_5s'
@@ -57,6 +56,16 @@ def cmd_nmp(target, fast=False, equity=None, extra_args=None, **kwargs):
         _run_nmp_fast(target, equity)
     else:
         _run_nmp_live(target, equity)
+
+
+def _make_ticker(fpath: str, price_file=None):
+    """Construct the V2-native in-memory ticker. fpath is YYYY_MM_DD.parquet
+    under ATLAS_5s; we parse the day string and let V2NativeTicker build the
+    91D + 185D + extension features in memory (no compat cache).
+    """
+    from training_v2.sfe_ticker import V2NativeTicker
+    day = os.path.basename(fpath).replace('.parquet', '')
+    return V2NativeTicker(day=day, atlas_root=ATLAS_ROOT, labels_csv=LABELS_CSV)
 
 
 def _resolve_days(target: str, source_dir: str) -> list:
@@ -109,7 +118,7 @@ def _run_nmp_fast(target: str, equity: float = None):
             price_file = None
 
         nmp.reset()
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
 
         for state in ft:
             nmp.on_state(state)
@@ -341,7 +350,7 @@ def _run_gated(target: str):
             price_file = None
 
         nmp.reset()
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
 
         for state in ft:
             decision = gate.evaluate(state)
@@ -525,7 +534,7 @@ def _run_ai(target: str):
             price_file = None
 
         ai.reset()
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
 
         for state in ft:
             ai.on_state(state)
@@ -827,7 +836,7 @@ def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
             price_file = None
 
         ai.reset()
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
         for state in ft:
             ai.on_state(state)
         ai.force_close()
@@ -915,7 +924,7 @@ def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
         if not os.path.exists(price_file):
             price_file = None
 
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
         day_trade_list = _run_one_day(engine, ft, ledger)
 
         for t in day_trade_list:
@@ -1113,7 +1122,7 @@ def _run_bayesian_pipeline():
         v_pnl = 0
         for feat_file, price_file, day_name in score_pairs:
             ai_tmp.reset()
-            ft = FeatureTicker(feat_file, price_file=price_file)
+            ft = _make_ticker(feat_file, price_file=price_file)
             for state in ft:
                 ai_tmp.on_state(state)
             ai_tmp.force_close()
@@ -1609,7 +1618,7 @@ def _run_blended_forward_physics_only(target: str):
         if not os.path.exists(price_file):
             price_file = None
 
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
         day_trade_list = _run_one_day(engine, ft, ledger)
 
         all_results.append({
@@ -1764,7 +1773,7 @@ def _run_blended_forward_on_files(feat_files: list, label: str,
         if not os.path.exists(price_file):
             price_file = None
 
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
         day_trade_list = _run_one_day(engine, ft, ledger)
 
         for t in day_trade_list:
@@ -1834,7 +1843,7 @@ def _run_blended_forward(target: str):
         if not os.path.exists(price_file):
             price_file = None
 
-        ft = FeatureTicker(fpath, price_file=price_file)
+        ft = _make_ticker(fpath, price_file=price_file)
         day_trade_list = _run_one_day(engine, ft, ledger)
 
         for t in day_trade_list:

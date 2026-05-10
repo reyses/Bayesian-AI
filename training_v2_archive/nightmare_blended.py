@@ -318,8 +318,12 @@ class BlendedEngine:
         self.direction = None
         self.entry_price = 0.0
         self.entry_79d = None
+        self.entry_v2 = None              # V2-native 185D snapshot at entry
+        self.entry_regime_idx = 0         # regime_2d index at entry
         self.entry_1m = None
         self.entry_tier = None
+        self._latest_v2 = None
+        self._latest_regime_idx = 0
         self.bars_held = 0
         self._entry_ts = 0.0       # timestamp at entry — bars_held derived from this
         self._last_1m_ts = 0.0     # last 1m boundary seen — for cadence-independent counting
@@ -499,6 +503,10 @@ class BlendedEngine:
         # V2: capture optional extension signals (directional wicks etc.)
         # for the tier classifier. Falls back to {} if running on V1 cache.
         self._latest_ext = state.get('extension_signals', {})
+        # V2-native: full 185D V2 layered features + regime int code
+        # for the V2-native CNN. Falls back to None if running on V1 cache.
+        self._latest_v2 = state.get('v2_features', None)
+        self._latest_regime_idx = state.get('regime_idx', 0)
 
         is_1m = (int(ts) % 60) < 5
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
@@ -512,6 +520,9 @@ class BlendedEngine:
             self._approach_buffer.append({
                 'timestamp': ts, 'price': price,
                 'features': feat.copy(),
+                'v2_features': (self._latest_v2.copy()
+                                       if self._latest_v2 is not None else None),
+                'regime_idx': self._latest_regime_idx,
             })
             if len(self._approach_buffer) > APPROACH_BUFFER_SIZE:
                 self._approach_buffer = self._approach_buffer[-APPROACH_BUFFER_SIZE:]
@@ -548,6 +559,9 @@ class BlendedEngine:
                 'bar': self.bars_held, 'timestamp': ts, 'price': price,
                 'pnl': pnl, 'peak_pnl': self.peak_pnl,
                 'features': feat.copy(),
+                'v2_features': (self._latest_v2.copy()
+                                       if self._latest_v2 is not None else None),
+                'regime_idx': self._latest_regime_idx,
             })
 
             # Hard stop — fires every bar, overrides everything.
@@ -648,6 +662,7 @@ class BlendedEngine:
                     exit_reason = 'giveback_stop'
 
                 if exit_reason:
+                    cc_entry_v2 = cc.get('entry_v2', None)
                     self.trades.append({
                         'dir': cc['direction'],
                         'entry_price': cc['entry_price'],
@@ -659,6 +674,10 @@ class BlendedEngine:
                         'cnn_flipped': cc.get('cnn_flipped', False),
                         'entry_79d': cc['entry_79d'].tolist() if hasattr(cc['entry_79d'], 'tolist') else cc['entry_79d'],
                         'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
+                        'entry_v2': (cc_entry_v2.tolist()
+                                          if cc_entry_v2 is not None and hasattr(cc_entry_v2, 'tolist')
+                                          else (cc_entry_v2 or [])),
+                        'entry_regime_idx': int(cc.get('entry_regime_idx', 0)),
                         'approach': [],
                         'path': [],
                     })
@@ -699,6 +718,9 @@ class BlendedEngine:
                     'bars_held': 0,
                     'peak_pnl': 0.0,
                     'entry_79d': feat.copy(),
+                    'entry_v2': (self._latest_v2.copy()
+                                       if self._latest_v2 is not None else None),
+                    'entry_regime_idx': self._latest_regime_idx,
                     'entry_1m': {'z_se': z, 'vr': feat[_1M_OFFSET + _VR]},
                     'entry_abs_z': abs(z),
                     'entry_velocity': abs(feat[_1M_VELOCITY_IDX]),
@@ -1355,6 +1377,9 @@ class BlendedEngine:
         self._reverse_warning = False
         self._reverse_logged = False
         self.entry_79d = feat.copy()
+        self.entry_v2 = (self._latest_v2.copy()
+                              if self._latest_v2 is not None else None)
+        self.entry_regime_idx = self._latest_regime_idx
         self.entry_1m = {
             'z_se': feat[_1M_OFFSET + _Z],
             'vr': feat[_1M_OFFSET + _VR],
@@ -1408,6 +1433,7 @@ class BlendedEngine:
             else:
                 cc_pnl = (cc['entry_price'] - price) / TICK * TV
             self.daily_pnl += cc_pnl
+            cc_entry_v2 = cc.get('entry_v2', None)
             self.trades.append({
                 'dir': cc['direction'],
                 'entry_price': cc['entry_price'],
@@ -1419,6 +1445,10 @@ class BlendedEngine:
                 'cnn_flipped': cc.get('cnn_flipped', False),
                 'entry_79d': cc.get('entry_79d', []),
                 'exit_79d': feat.tolist() if hasattr(feat, 'tolist') else list(feat),
+                'entry_v2': (cc_entry_v2.tolist()
+                                  if cc_entry_v2 is not None and hasattr(cc_entry_v2, 'tolist')
+                                  else (cc_entry_v2 or [])),
+                'entry_regime_idx': int(cc.get('entry_regime_idx', 0)),
                 'approach': [], 'path': [],
             })
         self._chain_contracts = []
@@ -1450,6 +1480,9 @@ class BlendedEngine:
             'exit_reason': exit_reason,
             'entry_79d': self.entry_79d.tolist() if self.entry_79d is not None else [],
             'exit_79d': feat.tolist(),
+            'entry_v2': (self.entry_v2.tolist()
+                              if self.entry_v2 is not None else []),
+            'entry_regime_idx': int(self.entry_regime_idx),
             'approach': self._entry_approach,
             'path': self._trade_path.copy(),
         })
