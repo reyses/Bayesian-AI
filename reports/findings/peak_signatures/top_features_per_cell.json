@@ -1,0 +1,4424 @@
+{
+  "CASCADE|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9876497775316239,
+      "cv_at_mfe": 0.010022197368215208,
+      "coalescence": 0.9900772503868431,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9876497775316239
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9979780822992325,
+      "cv_at_mfe": 0.01912621971661147,
+      "coalescence": 0.9812327272651958,
+      "mean_delta_entry_to_mfe": -0.00015945593778102338,
+      "suggested_exit_threshold": 0.9979780822992325
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9970700412988662,
+      "cv_at_mfe": 0.024265686218541145,
+      "coalescence": 0.976309187601386,
+      "mean_delta_entry_to_mfe": -0.0001244221162127741,
+      "suggested_exit_threshold": 0.9970700412988662
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9928786695003509,
+      "cv_at_mfe": 0.026990423187363336,
+      "coalescence": 0.9737189144338892,
+      "mean_delta_entry_to_mfe": 0.0007884771688261606,
+      "suggested_exit_threshold": 0.9928786695003509
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9939828713734945,
+      "cv_at_mfe": 0.045604503412463165,
+      "coalescence": 0.9563845571976525,
+      "mean_delta_entry_to_mfe": 0.0002757117754157083,
+      "suggested_exit_threshold": 0.9939828713734945
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9661093056201935,
+      "cv_at_mfe": 0.05493174756962987,
+      "coalescence": 0.9479286241065523,
+      "mean_delta_entry_to_mfe": -0.0137989212438673,
+      "suggested_exit_threshold": 0.9661093056201935
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9922011425097783,
+      "cv_at_mfe": 0.05514585611939112,
+      "coalescence": 0.9477362719101166,
+      "mean_delta_entry_to_mfe": -6.63997235401644e-05,
+      "suggested_exit_threshold": 0.9922011425097783
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9568824147184689,
+      "cv_at_mfe": 0.05928216590680143,
+      "coalescence": 0.9440355291396294,
+      "mean_delta_entry_to_mfe": 0.005909481204843482,
+      "suggested_exit_threshold": 0.9568824147184689
+    }
+  ],
+  "CASCADE|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9819955676794052,
+      "cv_at_mfe": 0.010271873438828065,
+      "coalescence": 0.9898325651649946,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9819955676794052
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9886655062437057,
+      "cv_at_mfe": 0.01867802941299335,
+      "coalescence": 0.9816644426661911,
+      "mean_delta_entry_to_mfe": -0.0002973394627074714,
+      "suggested_exit_threshold": 0.9886655062437057
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9932988673448562,
+      "cv_at_mfe": 0.025603507846523238,
+      "coalescence": 0.9750356666580797,
+      "mean_delta_entry_to_mfe": 6.835703218020851e-05,
+      "suggested_exit_threshold": 0.9932988673448562
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.994778377811114,
+      "cv_at_mfe": 0.02816972060700685,
+      "coalescence": 0.9726020713872258,
+      "mean_delta_entry_to_mfe": 7.946793965360719e-05,
+      "suggested_exit_threshold": 0.994778377811114
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.982846948504448,
+      "cv_at_mfe": 0.04335264599292826,
+      "coalescence": 0.9584487122743903,
+      "mean_delta_entry_to_mfe": -0.011519054509111759,
+      "suggested_exit_threshold": 0.982846948504448
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9542124152183533,
+      "cv_at_mfe": 0.05237653802677815,
+      "coalescence": 0.9502302302130519,
+      "mean_delta_entry_to_mfe": 0.006323881611839078,
+      "suggested_exit_threshold": 0.9542124152183533
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993589124083519,
+      "cv_at_mfe": 0.0668472660354177,
+      "coalescence": 0.9373412969563737,
+      "mean_delta_entry_to_mfe": -5.75786509348391e-05,
+      "suggested_exit_threshold": 0.993589124083519
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9871572837233543,
+      "cv_at_mfe": 0.07614909056204769,
+      "coalescence": 0.9292392743441554,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9871572837233543
+    }
+  ],
+  "CASCADE|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9877107908328374,
+      "cv_at_mfe": 0.01214548785137433,
+      "coalescence": 0.9880002549068739,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9877107908328374
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9760646720727284,
+      "cv_at_mfe": 0.01745046254019596,
+      "coalescence": 0.9828488332526494,
+      "mean_delta_entry_to_mfe": -0.000496623580327291,
+      "suggested_exit_threshold": 0.9760646720727284
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974535395701727,
+      "cv_at_mfe": 0.028523902356275367,
+      "coalescence": 0.9722671468393402,
+      "mean_delta_entry_to_mfe": -0.002319163012647343,
+      "suggested_exit_threshold": 0.9974535395701727
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9893541902303695,
+      "cv_at_mfe": 0.03120998160760163,
+      "coalescence": 0.9697346009403953,
+      "mean_delta_entry_to_mfe": -0.0002865398715356153,
+      "suggested_exit_threshold": 0.9893541902303695
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9854469895362854,
+      "cv_at_mfe": 0.03948204660129737,
+      "coalescence": 0.9620175771862648,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9854469895362854
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.967445433139801,
+      "cv_at_mfe": 0.04874423504023427,
+      "coalescence": 0.9535213320735305,
+      "mean_delta_entry_to_mfe": -0.013148966842068883,
+      "suggested_exit_threshold": 0.967445433139801
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9943847556908926,
+      "cv_at_mfe": 0.05342472615258036,
+      "coalescence": 0.9492847236007993,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9943847556908926
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9358722319205602,
+      "cv_at_mfe": 0.0655069622161606,
+      "coalescence": 0.9385203808711753,
+      "mean_delta_entry_to_mfe": 0.010318055124339942,
+      "suggested_exit_threshold": 0.9358722319205602
+    }
+  ],
+  "CASCADE|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9668583999077479,
+      "cv_at_mfe": 0.011635079367596241,
+      "coalescence": 0.9884987387202213,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9668583999077479
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9782949397961298,
+      "cv_at_mfe": 0.01993569736150144,
+      "coalescence": 0.9804539664480088,
+      "mean_delta_entry_to_mfe": -0.0001658960101530724,
+      "suggested_exit_threshold": 0.9782949397961298
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9794875651597976,
+      "cv_at_mfe": 0.0220929490878478,
+      "coalescence": 0.9783845988688559,
+      "mean_delta_entry_to_mfe": -0.00020129072297479688,
+      "suggested_exit_threshold": 0.9794875651597976
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9929069995880127,
+      "cv_at_mfe": 0.028627231526064712,
+      "coalescence": 0.9721694792353557,
+      "mean_delta_entry_to_mfe": -0.001853050952105178,
+      "suggested_exit_threshold": 0.9929069995880127
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.994819755355517,
+      "cv_at_mfe": 0.04659239085074642,
+      "coalescence": 0.9554818176989872,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.994819755355517
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9824370235204696,
+      "cv_at_mfe": 0.052470193486450926,
+      "coalescence": 0.9501456727124631,
+      "mean_delta_entry_to_mfe": -0.0003522794271252819,
+      "suggested_exit_threshold": 0.9824370235204696
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9938667287429174,
+      "cv_at_mfe": 0.05657938504785713,
+      "coalescence": 0.9464504174049408,
+      "mean_delta_entry_to_mfe": -0.01626924878543185,
+      "suggested_exit_threshold": 0.9938667287429174
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9390445093313853,
+      "cv_at_mfe": 0.05939769572253953,
+      "coalescence": 0.943932579840068,
+      "mean_delta_entry_to_mfe": 0.01017995009717253,
+      "suggested_exit_threshold": 0.9390445093313853
+    }
+  ],
+  "FADE_AGAINST|UP_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9721709787845612,
+      "cv_at_mfe": 0.01078539937087375,
+      "coalescence": 0.989329684245947,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9721709787845612
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9772513171037038,
+      "cv_at_mfe": 0.025093171302969435,
+      "coalescence": 0.9755210823704209,
+      "mean_delta_entry_to_mfe": 0.002508095931261778,
+      "suggested_exit_threshold": 0.9772513171037038
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.979720617334048,
+      "cv_at_mfe": 0.02746502240707465,
+      "coalescence": 0.9732691412280571,
+      "mean_delta_entry_to_mfe": -5.1884446293115616e-05,
+      "suggested_exit_threshold": 0.979720617334048
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9879117161035538,
+      "cv_at_mfe": 0.03202339148973698,
+      "coalescence": 0.9689702852146492,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9879117161035538
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9440603375434875,
+      "cv_at_mfe": 0.05868104465998113,
+      "coalescence": 0.9445715544299484,
+      "mean_delta_entry_to_mfe": -0.011907794047147036,
+      "suggested_exit_threshold": 0.9440603375434875
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9689013262589773,
+      "cv_at_mfe": 0.06292720267700044,
+      "coalescence": 0.9407982009318068,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9689013262589773
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 23401.6005859375,
+      "cv_at_mfe": 0.07372907814193476,
+      "coalescence": 0.9313336300163152,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23401.6005859375
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.800229287147522,
+      "cv_at_mfe": 0.07413043600809752,
+      "coalescence": 0.9309856293770093,
+      "mean_delta_entry_to_mfe": 0.015019037295132875,
+      "suggested_exit_threshold": 0.800229287147522
+    }
+  ],
+  "FADE_AGAINST|UP_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9683701058228811,
+      "cv_at_mfe": 0.012316596500306283,
+      "coalescence": 0.9878332563716864,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9683701058228811
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9838735560576122,
+      "cv_at_mfe": 0.019747486350725554,
+      "coalescence": 0.9806349251995765,
+      "mean_delta_entry_to_mfe": -3.9687970789467414e-07,
+      "suggested_exit_threshold": 0.9838735560576122
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9943525850772859,
+      "cv_at_mfe": 0.029412864342824814,
+      "coalescence": 0.9714275337314713,
+      "mean_delta_entry_to_mfe": 0.00671854687900078,
+      "suggested_exit_threshold": 0.9943525850772859
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9918982535600662,
+      "cv_at_mfe": 0.03885942856140262,
+      "coalescence": 0.9625941417163489,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9918982535600662
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.99273721575737,
+      "cv_at_mfe": 0.04437677759653493,
+      "coalescence": 0.9575088430263061,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.99273721575737
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.987938442826271,
+      "cv_at_mfe": 0.05333244045515397,
+      "coalescence": 0.9493678933574773,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.987938442826271
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9506413012742996,
+      "cv_at_mfe": 0.05359667940288561,
+      "coalescence": 0.9491297946826665,
+      "mean_delta_entry_to_mfe": -0.007065319433444884,
+      "suggested_exit_threshold": 0.9506413012742996
+    },
+    {
+      "feature": "L3_1m_z_se_15",
+      "mode_at_mfe": 2.557875676949819,
+      "cv_at_mfe": 0.06702797430375604,
+      "coalescence": 0.9371825519874563,
+      "mean_delta_entry_to_mfe": -0.046015047445529846,
+      "suggested_exit_threshold": 2.557875676949819
+    }
+  ],
+  "FADE_AGAINST|DOWN_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9744645039240519,
+      "cv_at_mfe": 0.011086345717470851,
+      "coalescence": 0.9890352136942331,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9744645039240519
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9926355719566344,
+      "cv_at_mfe": 0.02362373282525277,
+      "coalescence": 0.9769214682429742,
+      "mean_delta_entry_to_mfe": 0.0006779937420861195,
+      "suggested_exit_threshold": 0.9926355719566344
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9978475203116735,
+      "cv_at_mfe": 0.027796359247732955,
+      "coalescence": 0.9729553826517952,
+      "mean_delta_entry_to_mfe": -0.004099334195508795,
+      "suggested_exit_threshold": 0.9978475203116735
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9876111100117365,
+      "cv_at_mfe": 0.03222452431287987,
+      "coalescence": 0.9687814777174272,
+      "mean_delta_entry_to_mfe": -0.00034614841816789013,
+      "suggested_exit_threshold": 0.9876111100117365
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9556912293036779,
+      "cv_at_mfe": 0.07247074251391317,
+      "coalescence": 0.9324263687193566,
+      "mean_delta_entry_to_mfe": -0.010884088479866416,
+      "suggested_exit_threshold": 0.9556912293036779
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9687287012736003,
+      "cv_at_mfe": 0.08440400782081695,
+      "coalescence": 0.9221655331296381,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9687287012736003
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21444.161848958334,
+      "cv_at_mfe": 0.09682975071229753,
+      "coalescence": 0.9117185227247758,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21444.161848958334
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 23512.7841796875,
+      "cv_at_mfe": 0.09719021612104281,
+      "coalescence": 0.9114189912623859,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23512.7841796875
+    }
+  ],
+  "FADE_AGAINST|DOWN_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9684681475162507,
+      "cv_at_mfe": 0.010054602692692904,
+      "coalescence": 0.9900454859906698,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9684681475162507
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.997499140103658,
+      "cv_at_mfe": 0.025959447277960977,
+      "coalescence": 0.9746973943786612,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.997499140103658
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9943710654973984,
+      "cv_at_mfe": 0.026457576502586497,
+      "coalescence": 0.9742243838340261,
+      "mean_delta_entry_to_mfe": -0.0010832677925786665,
+      "suggested_exit_threshold": 0.9943710654973984
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.980919149518013,
+      "cv_at_mfe": 0.02795161768255079,
+      "coalescence": 0.9728084306676166,
+      "mean_delta_entry_to_mfe": 0.00016753663939814413,
+      "suggested_exit_threshold": 0.980919149518013
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.985010987520218,
+      "cv_at_mfe": 0.047284212218142815,
+      "coalescence": 0.9548506397150827,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.985010987520218
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9482262313365937,
+      "cv_at_mfe": 0.051083382787317624,
+      "coalescence": 0.9513993051133088,
+      "mean_delta_entry_to_mfe": -0.014124471814401688,
+      "suggested_exit_threshold": 0.9482262313365937
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.8059839069843292,
+      "cv_at_mfe": 0.07749260777748818,
+      "coalescence": 0.928080613065801,
+      "mean_delta_entry_to_mfe": 0.01861767566973163,
+      "suggested_exit_threshold": 0.8059839069843292
+    },
+    {
+      "feature": "L2_1h_price_mean_12",
+      "mode_at_mfe": 23346.22138671875,
+      "cv_at_mfe": 0.11202656579589054,
+      "coalescence": 0.8992590921461379,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23346.22138671875
+    }
+  ],
+  "FADE_AGAINST|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9831584393978119,
+      "cv_at_mfe": 0.009917260482110085,
+      "coalescence": 0.9901801257685449,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9831584393978119
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9934228837490082,
+      "cv_at_mfe": 0.024313930326616814,
+      "coalescence": 0.9762632044661698,
+      "mean_delta_entry_to_mfe": -0.00010022664719907493,
+      "suggested_exit_threshold": 0.9934228837490082
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9879936724901199,
+      "cv_at_mfe": 0.024480641390709396,
+      "coalescence": 0.9761043396998916,
+      "mean_delta_entry_to_mfe": 0.0007057059985786614,
+      "suggested_exit_threshold": 0.9879936724901199
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9943496187527975,
+      "cv_at_mfe": 0.04337802235543648,
+      "coalescence": 0.9584254015073941,
+      "mean_delta_entry_to_mfe": -0.0003444403722351202,
+      "suggested_exit_threshold": 0.9943496187527975
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9625504742066066,
+      "cv_at_mfe": 0.05158480655255921,
+      "coalescence": 0.950945652475076,
+      "mean_delta_entry_to_mfe": -0.011118633442204953,
+      "suggested_exit_threshold": 0.9625504742066066
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9568553447723388,
+      "cv_at_mfe": 0.05954802564861316,
+      "coalescence": 0.9437986535700822,
+      "mean_delta_entry_to_mfe": 0.009488929242707899,
+      "suggested_exit_threshold": 0.9568553447723388
+    },
+    {
+      "feature": "L2_1h_price_velocity_12",
+      "mode_at_mfe": -12.544097503026325,
+      "cv_at_mfe": 0.06014547557104665,
+      "coalescence": 0.9432667714412974,
+      "mean_delta_entry_to_mfe": 0.037779526140704844,
+      "suggested_exit_threshold": -12.544097503026325
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9906087179978689,
+      "cv_at_mfe": 0.06588187576001599,
+      "coalescence": 0.938190265489748,
+      "mean_delta_entry_to_mfe": 3.869528540525297e-05,
+      "suggested_exit_threshold": 0.9906087179978689
+    }
+  ],
+  "FADE_AGAINST|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9719291696945827,
+      "cv_at_mfe": 0.009730105024775315,
+      "coalescence": 0.9903636575988426,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9719291696945827
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9976224660873413,
+      "cv_at_mfe": 0.027487032534487303,
+      "coalescence": 0.9732482925193854,
+      "mean_delta_entry_to_mfe": 0.0003289021936541447,
+      "suggested_exit_threshold": 0.9976224660873413
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9879195094108582,
+      "cv_at_mfe": 0.027619467770694277,
+      "coalescence": 0.9731228644095157,
+      "mean_delta_entry_to_mfe": -0.0017554204307932805,
+      "suggested_exit_threshold": 0.9879195094108582
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9934684664011002,
+      "cv_at_mfe": 0.04314791858110276,
+      "coalescence": 0.9586368166848351,
+      "mean_delta_entry_to_mfe": 0.00011408157928939802,
+      "suggested_exit_threshold": 0.9934684664011002
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9694934089978535,
+      "cv_at_mfe": 0.04496209535073221,
+      "coalescence": 0.9569725107247636,
+      "mean_delta_entry_to_mfe": -0.012321273713927591,
+      "suggested_exit_threshold": 0.9694934089978535
+    },
+    {
+      "feature": "L2_1h_price_velocity_12",
+      "mode_at_mfe": 12.207291984558106,
+      "cv_at_mfe": 0.04604724160525501,
+      "coalescence": 0.9559797686244157,
+      "mean_delta_entry_to_mfe": -0.016336585569326968,
+      "suggested_exit_threshold": 12.207291984558106
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9554117381572723,
+      "cv_at_mfe": 0.05214490484575162,
+      "coalescence": 0.9504394265413505,
+      "mean_delta_entry_to_mfe": 0.005646975319640097,
+      "suggested_exit_threshold": 0.9554117381572723
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9945445438226064,
+      "cv_at_mfe": 0.062038408879029096,
+      "coalescence": 0.9415855317845707,
+      "mean_delta_entry_to_mfe": -3.7670751389898743e-05,
+      "suggested_exit_threshold": 0.9945445438226064
+    }
+  ],
+  "FADE_AGAINST|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9648328483104706,
+      "cv_at_mfe": 0.012679818666045015,
+      "coalescence": 0.9874789460278298,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9648328483104706
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9978225400050481,
+      "cv_at_mfe": 0.027049991359168066,
+      "coalescence": 0.9736624394267598,
+      "mean_delta_entry_to_mfe": -0.0001020589600438657,
+      "suggested_exit_threshold": 0.9978225400050481
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.992682033777237,
+      "cv_at_mfe": 0.030340152905982052,
+      "coalescence": 0.9705532655207016,
+      "mean_delta_entry_to_mfe": -0.004718777666921201,
+      "suggested_exit_threshold": 0.992682033777237
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9851711541414261,
+      "cv_at_mfe": 0.034706681423603045,
+      "coalescence": 0.9664574685302585,
+      "mean_delta_entry_to_mfe": 0.00010175730871117633,
+      "suggested_exit_threshold": 0.9851711541414261
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9817172388235729,
+      "cv_at_mfe": 0.03507873031819666,
+      "coalescence": 0.9661100848749804,
+      "mean_delta_entry_to_mfe": 3.472566604614258e-05,
+      "suggested_exit_threshold": 0.9817172388235729
+    },
+    {
+      "feature": "L2_1h_price_velocity_12",
+      "mode_at_mfe": -13.28125,
+      "cv_at_mfe": 0.04114646417168901,
+      "coalescence": 0.9604796581579671,
+      "mean_delta_entry_to_mfe": -0.01576086956521739,
+      "suggested_exit_threshold": -13.28125
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9442235171794892,
+      "cv_at_mfe": 0.047296410319754456,
+      "coalescence": 0.9548395183505746,
+      "mean_delta_entry_to_mfe": -0.016811957566634467,
+      "suggested_exit_threshold": 0.9442235171794892
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9748785744110744,
+      "cv_at_mfe": 0.04750822941534902,
+      "coalescence": 0.9546464380123628,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9748785744110744
+    }
+  ],
+  "FADE_AGAINST|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9874941488107045,
+      "cv_at_mfe": 0.010346036363320828,
+      "coalescence": 0.989759908000866,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9874941488107045
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9945234507322311,
+      "cv_at_mfe": 0.024633264055142403,
+      "coalescence": 0.9759589455863922,
+      "mean_delta_entry_to_mfe": 0.0008504812206540789,
+      "suggested_exit_threshold": 0.9945234507322311
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9909525454044341,
+      "cv_at_mfe": 0.02482878994116245,
+      "coalescence": 0.9757727435208099,
+      "mean_delta_entry_to_mfe": 0.00011010192058704517,
+      "suggested_exit_threshold": 0.9909525454044341
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9928688704967499,
+      "cv_at_mfe": 0.025572198165780442,
+      "coalescence": 0.9750654335096877,
+      "mean_delta_entry_to_mfe": -0.00046382567712238855,
+      "suggested_exit_threshold": 0.9928688704967499
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9876204520463943,
+      "cv_at_mfe": 0.036117948576961066,
+      "coalescence": 0.9651410839600195,
+      "mean_delta_entry_to_mfe": -7.265274013791765e-05,
+      "suggested_exit_threshold": 0.9876204520463943
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9778507262468338,
+      "cv_at_mfe": 0.04884907283181223,
+      "coalescence": 0.9534260227737785,
+      "mean_delta_entry_to_mfe": -0.015221470168658666,
+      "suggested_exit_threshold": 0.9778507262468338
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9360377848148347,
+      "cv_at_mfe": 0.05652580336903575,
+      "coalescence": 0.946498416613407,
+      "mean_delta_entry_to_mfe": 0.010930966692311424,
+      "suggested_exit_threshold": 0.9360377848148347
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9769697884718577,
+      "cv_at_mfe": 0.05932451584954258,
+      "coalescence": 0.9439977882490841,
+      "mean_delta_entry_to_mfe": 9.715365512030465e-05,
+      "suggested_exit_threshold": 0.9769697884718577
+    }
+  ],
+  "FADE_AT_BAND|UP_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9813992083072662,
+      "cv_at_mfe": 0.00937894156818574,
+      "coalescence": 0.9907082056282901,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9813992083072662
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9612461159626643,
+      "cv_at_mfe": 0.020791338273454658,
+      "coalescence": 0.9796321368590171,
+      "mean_delta_entry_to_mfe": -0.00027202658875044003,
+      "suggested_exit_threshold": 0.9612461159626643
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9891574730475743,
+      "cv_at_mfe": 0.025560028862133446,
+      "coalescence": 0.9750770036440554,
+      "mean_delta_entry_to_mfe": -0.00024132846399795179,
+      "suggested_exit_threshold": 0.9891574730475743
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.993023693561554,
+      "cv_at_mfe": 0.03547931505292678,
+      "coalescence": 0.965736336267506,
+      "mean_delta_entry_to_mfe": -0.00019138878168061723,
+      "suggested_exit_threshold": 0.993023693561554
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9942900151014328,
+      "cv_at_mfe": 0.0431037602190552,
+      "coalescence": 0.9586773992550816,
+      "mean_delta_entry_to_mfe": -0.0030876331377861113,
+      "suggested_exit_threshold": 0.9942900151014328
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9751312186320623,
+      "cv_at_mfe": 0.06944022987238817,
+      "coalescence": 0.9350686200755004,
+      "mean_delta_entry_to_mfe": 2.6119223167729934e-05,
+      "suggested_exit_threshold": 0.9751312186320623
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21437.4689453125,
+      "cv_at_mfe": 0.0721574482562724,
+      "coalescence": 0.9326988322716713,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21437.4689453125
+    },
+    {
+      "feature": "L2_4h_vwap_18",
+      "mode_at_mfe": 24316.6890625,
+      "cv_at_mfe": 0.07254793477297769,
+      "coalescence": 0.9323592611379802,
+      "mean_delta_entry_to_mfe": 0.012757767078488372,
+      "suggested_exit_threshold": 24316.6890625
+    }
+  ],
+  "FADE_AT_BAND|UP_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9987021386623383,
+      "cv_at_mfe": 0.011595743080767548,
+      "coalescence": 0.9885371768712141,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9987021386623383
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9922960638999938,
+      "cv_at_mfe": 0.02527820663216609,
+      "coalescence": 0.9753450268730475,
+      "mean_delta_entry_to_mfe": 0.00012750406331169296,
+      "suggested_exit_threshold": 0.9922960638999938
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9926373064517975,
+      "cv_at_mfe": 0.02548880661672527,
+      "coalescence": 0.9751447246890801,
+      "mean_delta_entry_to_mfe": 0.0003447782670101671,
+      "suggested_exit_threshold": 0.9926373064517975
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9929955820242564,
+      "cv_at_mfe": 0.0478371168867612,
+      "coalescence": 0.9543468005515107,
+      "mean_delta_entry_to_mfe": -0.0012852572684969945,
+      "suggested_exit_threshold": 0.9929955820242564
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9335215210914612,
+      "cv_at_mfe": 0.06736544164834155,
+      "coalescence": 0.9368862443735216,
+      "mean_delta_entry_to_mfe": 0.00017587996619233167,
+      "suggested_exit_threshold": 0.9335215210914612
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9866921216249466,
+      "cv_at_mfe": 0.06896910294417576,
+      "coalescence": 0.9354807330219184,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9866921216249466
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936175495386124,
+      "cv_at_mfe": 0.07113693831517373,
+      "coalescence": 0.9335874473463055,
+      "mean_delta_entry_to_mfe": -5.755603218382816e-06,
+      "suggested_exit_threshold": 0.9936175495386124
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.983310768008232,
+      "cv_at_mfe": 0.07711545828235161,
+      "coalescence": 0.9284055783533868,
+      "mean_delta_entry_to_mfe": -0.0010325002549874663,
+      "suggested_exit_threshold": 0.983310768008232
+    }
+  ],
+  "FADE_AT_BAND|UP_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9684542536735534,
+      "cv_at_mfe": 0.011108271001786992,
+      "coalescence": 0.9890137670510982,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9684542536735534
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9926688849925995,
+      "cv_at_mfe": 0.025208320863413285,
+      "coalescence": 0.9754115135915175,
+      "mean_delta_entry_to_mfe": 0.0007359593689634161,
+      "suggested_exit_threshold": 0.9926688849925995
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9882096300522486,
+      "cv_at_mfe": 0.030490933791908717,
+      "coalescence": 0.9704112546825512,
+      "mean_delta_entry_to_mfe": -7.25982327764078e-05,
+      "suggested_exit_threshold": 0.9882096300522486
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9963348428408305,
+      "cv_at_mfe": 0.044633206688917765,
+      "coalescence": 0.9572738005999373,
+      "mean_delta_entry_to_mfe": -0.0004997123814758366,
+      "suggested_exit_threshold": 0.9963348428408305
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9927275915940603,
+      "cv_at_mfe": 0.04805600459457147,
+      "coalescence": 0.9541474841192658,
+      "mean_delta_entry_to_mfe": -0.0027951338319398616,
+      "suggested_exit_threshold": 0.9927275915940603
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9816877643267313,
+      "cv_at_mfe": 0.07203764546608445,
+      "coalescence": 0.9328030636137176,
+      "mean_delta_entry_to_mfe": 3.2635212754150806e-05,
+      "suggested_exit_threshold": 0.9816877643267313
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9800845116376877,
+      "cv_at_mfe": 0.07362433956335615,
+      "coalescence": 0.9314244872714983,
+      "mean_delta_entry_to_mfe": -0.00022805497387125365,
+      "suggested_exit_threshold": 0.9800845116376877
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833134641249974,
+      "cv_at_mfe": 0.08179901201098443,
+      "coalescence": 0.9243861280119622,
+      "mean_delta_entry_to_mfe": -0.0004586518709061605,
+      "suggested_exit_threshold": 0.9833134641249974
+    }
+  ],
+  "FADE_AT_BAND|UP_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9645667165517807,
+      "cv_at_mfe": 0.01207680034526485,
+      "coalescence": 0.9880673083889039,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9645667165517807
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9924440175294875,
+      "cv_at_mfe": 0.02516131966766062,
+      "coalescence": 0.9754562338775936,
+      "mean_delta_entry_to_mfe": -0.00035681062982026733,
+      "suggested_exit_threshold": 0.9924440175294875
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9974490175644557,
+      "cv_at_mfe": 0.029550057410322333,
+      "coalescence": 0.9712980858020144,
+      "mean_delta_entry_to_mfe": 2.3123719969055845e-05,
+      "suggested_exit_threshold": 0.9974490175644557
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9926025480031967,
+      "cv_at_mfe": 0.047456838386267755,
+      "coalescence": 0.9546932755154087,
+      "mean_delta_entry_to_mfe": -0.0021047613109334454,
+      "suggested_exit_threshold": 0.9926025480031967
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9926118820905685,
+      "cv_at_mfe": 0.054677868337350354,
+      "coalescence": 0.9481568069466108,
+      "mean_delta_entry_to_mfe": 1.4581606853011735e-05,
+      "suggested_exit_threshold": 0.9926118820905685
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9796558797359467,
+      "cv_at_mfe": 0.05737069162883701,
+      "coalescence": 0.9457421204474092,
+      "mean_delta_entry_to_mfe": -6.732074001849552e-05,
+      "suggested_exit_threshold": 0.9796558797359467
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.992671670516332,
+      "cv_at_mfe": 0.07534139417828918,
+      "coalescence": 0.9299372324117956,
+      "mean_delta_entry_to_mfe": 9.146641907411778e-05,
+      "suggested_exit_threshold": 0.992671670516332
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833333333333334,
+      "cv_at_mfe": 0.07955432993236479,
+      "coalescence": 0.9263081739134434,
+      "mean_delta_entry_to_mfe": -0.0011629407949450314,
+      "suggested_exit_threshold": 0.9833333333333334
+    }
+  ],
+  "FADE_AT_BAND|DOWN_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9636177937189738,
+      "cv_at_mfe": 0.0112698764907122,
+      "coalescence": 0.9888557181888769,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9636177937189738
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974716405073802,
+      "cv_at_mfe": 0.026093803047250425,
+      "coalescence": 0.9745697684073735,
+      "mean_delta_entry_to_mfe": 0.0012800954180777235,
+      "suggested_exit_threshold": 0.9974716405073802
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9924809157848358,
+      "cv_at_mfe": 0.02965784624241297,
+      "coalescence": 0.9711964063104602,
+      "mean_delta_entry_to_mfe": -1.9577324228000902e-05,
+      "suggested_exit_threshold": 0.9924809157848358
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9933695922295253,
+      "cv_at_mfe": 0.041957727003811944,
+      "coalescence": 0.9597318337237511,
+      "mean_delta_entry_to_mfe": -0.0010231090988710076,
+      "suggested_exit_threshold": 0.9933695922295253
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833206146955491,
+      "cv_at_mfe": 0.06584565556428583,
+      "coalescence": 0.9382221476247182,
+      "mean_delta_entry_to_mfe": 0.00036368797195704823,
+      "suggested_exit_threshold": 0.9833206146955491
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9457246452569962,
+      "cv_at_mfe": 0.08353741371374845,
+      "coalescence": 0.9229030648536355,
+      "mean_delta_entry_to_mfe": 0.00031622740813107194,
+      "suggested_exit_threshold": 0.9457246452569962
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 25477.707682291664,
+      "cv_at_mfe": 0.08998291857330269,
+      "coalescence": 0.9174455699809655,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 25477.707682291664
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 25528.997721354168,
+      "cv_at_mfe": 0.09005450510871134,
+      "coalescence": 0.9173853190949106,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 25528.997721354168
+    }
+  ],
+  "FADE_AT_BAND|DOWN_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9950276533762614,
+      "cv_at_mfe": 0.011392401490846546,
+      "coalescence": 0.988735923392292,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9950276533762614
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975266655286152,
+      "cv_at_mfe": 0.021450653109519175,
+      "coalescence": 0.9789998145830945,
+      "mean_delta_entry_to_mfe": 0.0011894884403057383,
+      "suggested_exit_threshold": 0.9975266655286152
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9756866455078125,
+      "cv_at_mfe": 0.02469624255858691,
+      "coalescence": 0.9758989625091996,
+      "mean_delta_entry_to_mfe": -0.0002442706444497513,
+      "suggested_exit_threshold": 0.9756866455078125
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9925298362970352,
+      "cv_at_mfe": 0.03139763926866763,
+      "coalescence": 0.9695581625618895,
+      "mean_delta_entry_to_mfe": -0.00016033341999656945,
+      "suggested_exit_threshold": 0.9925298362970352
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9816249758005142,
+      "cv_at_mfe": 0.049293224347732416,
+      "coalescence": 0.953022450537242,
+      "mean_delta_entry_to_mfe": -0.0027067010692272725,
+      "suggested_exit_threshold": 0.9816249758005142
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9501879488428434,
+      "cv_at_mfe": 0.06980023740478195,
+      "coalescence": 0.9347539522199868,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9501879488428434
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9843969679127137,
+      "cv_at_mfe": 0.070537930214087,
+      "coalescence": 0.9341098262627829,
+      "mean_delta_entry_to_mfe": -0.0007708282915010626,
+      "suggested_exit_threshold": 0.9843969679127137
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9716458370288213,
+      "cv_at_mfe": 0.07518293529911929,
+      "coalescence": 0.9300742851929628,
+      "mean_delta_entry_to_mfe": 0.00011065964294154314,
+      "suggested_exit_threshold": 0.9716458370288213
+    }
+  ],
+  "FADE_AT_BAND|DOWN_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9691585501035054,
+      "cv_at_mfe": 0.010861674220759489,
+      "coalescence": 0.9892550340983771,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9691585501035054
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9976522624492645,
+      "cv_at_mfe": 0.024745261152153794,
+      "coalescence": 0.9758522804737523,
+      "mean_delta_entry_to_mfe": 0.00040755602287302227,
+      "suggested_exit_threshold": 0.9976522624492645
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9771213918924332,
+      "cv_at_mfe": 0.028691818439424463,
+      "coalescence": 0.9721084411044005,
+      "mean_delta_entry_to_mfe": -8.25947424156608e-05,
+      "suggested_exit_threshold": 0.9771213918924332
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9927017052968343,
+      "cv_at_mfe": 0.043879710773896546,
+      "coalescence": 0.9579647824160068,
+      "mean_delta_entry_to_mfe": -0.0020899474392448805,
+      "suggested_exit_threshold": 0.9927017052968343
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9586263298988342,
+      "cv_at_mfe": 0.06260651158425848,
+      "coalescence": 0.9410821306836175,
+      "mean_delta_entry_to_mfe": -0.00034293583374218314,
+      "suggested_exit_threshold": 0.9586263298988342
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833076030015946,
+      "cv_at_mfe": 0.07133600194047097,
+      "coalescence": 0.9334139786105734,
+      "mean_delta_entry_to_mfe": 8.881420163511469e-05,
+      "suggested_exit_threshold": 0.9833076030015946
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936106781164805,
+      "cv_at_mfe": 0.09084770375781534,
+      "coalescence": 0.916718251828502,
+      "mean_delta_entry_to_mfe": -0.00010570799253909523,
+      "suggested_exit_threshold": 0.9936106781164805
+    },
+    {
+      "feature": "L2_1h_vwap_12",
+      "mode_at_mfe": 21691.5486328125,
+      "cv_at_mfe": 0.11981369967110166,
+      "coalescence": 0.8930056850471717,
+      "mean_delta_entry_to_mfe": -0.31778216794380587,
+      "suggested_exit_threshold": 21691.5486328125
+    }
+  ],
+  "FADE_AT_BAND|DOWN_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9876133898893993,
+      "cv_at_mfe": 0.010611858548032364,
+      "coalescence": 0.9894995705242577,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9876133898893993
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9976263632376989,
+      "cv_at_mfe": 0.026249873812305074,
+      "coalescence": 0.9744215570864897,
+      "mean_delta_entry_to_mfe": -0.0005218472742350424,
+      "suggested_exit_threshold": 0.9976263632376989
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9924867510795594,
+      "cv_at_mfe": 0.02847114593993142,
+      "coalescence": 0.9723170202175081,
+      "mean_delta_entry_to_mfe": -0.00037197473964681565,
+      "suggested_exit_threshold": 0.9924867510795594
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9931414862473806,
+      "cv_at_mfe": 0.04423702508270824,
+      "coalescence": 0.9576369885187662,
+      "mean_delta_entry_to_mfe": -0.002475263428076104,
+      "suggested_exit_threshold": 0.9931414862473806
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9967544456322988,
+      "cv_at_mfe": 0.044762733079290774,
+      "coalescence": 0.9571551208116326,
+      "mean_delta_entry_to_mfe": -0.0003703999411357847,
+      "suggested_exit_threshold": 0.9967544456322988
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9857586860656739,
+      "cv_at_mfe": 0.07191408208094993,
+      "coalescence": 0.9329105911722513,
+      "mean_delta_entry_to_mfe": 5.3559257927766446e-05,
+      "suggested_exit_threshold": 0.9857586860656739
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833257138729095,
+      "cv_at_mfe": 0.08665390297330562,
+      "coalescence": 0.9202562078540344,
+      "mean_delta_entry_to_mfe": -0.0017130480798933454,
+      "suggested_exit_threshold": 0.9833257138729095
+    },
+    {
+      "feature": "L2_4h_vwap_18",
+      "mode_at_mfe": 21687.354654947914,
+      "cv_at_mfe": 0.11689988816184443,
+      "coalescence": 0.8953353927233046,
+      "mean_delta_entry_to_mfe": -0.03097870533467539,
+      "suggested_exit_threshold": 21687.354654947914
+    }
+  ],
+  "FADE_AT_BAND|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010471931137126685,
+      "coalescence": 0.9896365937395786,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975544959306717,
+      "cv_at_mfe": 0.025228438730617538,
+      "coalescence": 0.975392373272581,
+      "mean_delta_entry_to_mfe": 0.00012891861481077743,
+      "suggested_exit_threshold": 0.9975544959306717
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9922011425097783,
+      "cv_at_mfe": 0.028549653610875757,
+      "coalescence": 0.9722428047001445,
+      "mean_delta_entry_to_mfe": -1.7569656214438193e-05,
+      "suggested_exit_threshold": 0.9922011425097783
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9923480957746507,
+      "cv_at_mfe": 0.03220040112192251,
+      "coalescence": 0.9688041187671278,
+      "mean_delta_entry_to_mfe": -1.9980917748489656e-05,
+      "suggested_exit_threshold": 0.9923480957746507
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9925782104333242,
+      "cv_at_mfe": 0.04702607111219233,
+      "coalescence": 0.9550860552476602,
+      "mean_delta_entry_to_mfe": -0.001961761828215443,
+      "suggested_exit_threshold": 0.9925782104333242
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936290979385376,
+      "cv_at_mfe": 0.06013341816138798,
+      "coalescence": 0.9432774996701089,
+      "mean_delta_entry_to_mfe": -0.0003076684267998054,
+      "suggested_exit_threshold": 0.9936290979385376
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21411.624218750003,
+      "cv_at_mfe": 0.07841459887923628,
+      "coalescence": 0.9272871500805626,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21411.624218750003
+    },
+    {
+      "feature": "L2_4h_vwap_18",
+      "mode_at_mfe": 21397.5146484375,
+      "cv_at_mfe": 0.07846718820599603,
+      "coalescence": 0.9272419327503841,
+      "mean_delta_entry_to_mfe": 0.002940599173553719,
+      "suggested_exit_threshold": 21397.5146484375
+    }
+  ],
+  "FADE_AT_BAND|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9865294903516769,
+      "cv_at_mfe": 0.01054829968226568,
+      "coalescence": 0.9895618055212381,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9865294903516769
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974630206823349,
+      "cv_at_mfe": 0.024879925390819544,
+      "coalescence": 0.975724058229229,
+      "mean_delta_entry_to_mfe": 0.00017264426696345203,
+      "suggested_exit_threshold": 0.9974630206823349
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.997457355260849,
+      "cv_at_mfe": 0.031194987535199756,
+      "coalescence": 0.9697487013491375,
+      "mean_delta_entry_to_mfe": -0.0001340414760070621,
+      "suggested_exit_threshold": 0.997457355260849
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9876190816362699,
+      "cv_at_mfe": 0.0326327358369328,
+      "coalescence": 0.9683985073255649,
+      "mean_delta_entry_to_mfe": 3.5130887454737685e-05,
+      "suggested_exit_threshold": 0.9876190816362699
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9925832410653432,
+      "cv_at_mfe": 0.046559857154753685,
+      "coalescence": 0.9555115201137808,
+      "mean_delta_entry_to_mfe": -0.0019926445236420594,
+      "suggested_exit_threshold": 0.9925832410653432
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9935956706603368,
+      "cv_at_mfe": 0.0508395187249077,
+      "coalescence": 0.9516200924889116,
+      "mean_delta_entry_to_mfe": -0.00027617008036703877,
+      "suggested_exit_threshold": 0.9935956706603368
+    },
+    {
+      "feature": "L2_5s_vwap_9",
+      "mode_at_mfe": 21899.2552734375,
+      "cv_at_mfe": 0.07661991822415594,
+      "coalescence": 0.9288328992180103,
+      "mean_delta_entry_to_mfe": 3.8576049477771826e-05,
+      "suggested_exit_threshold": 21899.2552734375
+    },
+    {
+      "feature": "L2_5s_price_mean_9",
+      "mode_at_mfe": 21899.217578124997,
+      "cv_at_mfe": 0.07662189556610437,
+      "coalescence": 0.9288311933078275,
+      "mean_delta_entry_to_mfe": 0.06854872455811463,
+      "suggested_exit_threshold": 21899.217578124997
+    }
+  ],
+  "FADE_AT_BAND|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9680878430604934,
+      "cv_at_mfe": 0.011940126850336654,
+      "coalescence": 0.9882007576006494,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9680878430604934
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9950037389993668,
+      "cv_at_mfe": 0.021968317822031035,
+      "coalescence": 0.978503915005067,
+      "mean_delta_entry_to_mfe": 2.520494094932319e-05,
+      "suggested_exit_threshold": 0.9950037389993668
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974619805812835,
+      "cv_at_mfe": 0.025222690398214787,
+      "coalescence": 0.9753978422108294,
+      "mean_delta_entry_to_mfe": 0.000346305127303849,
+      "suggested_exit_threshold": 0.9974619805812835
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9923664838075639,
+      "cv_at_mfe": 0.031017531521955747,
+      "coalescence": 0.9699156119332241,
+      "mean_delta_entry_to_mfe": 0.00013617533214939153,
+      "suggested_exit_threshold": 0.9923664838075639
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.992644938826561,
+      "cv_at_mfe": 0.045309830357958145,
+      "coalescence": 0.9566541621995057,
+      "mean_delta_entry_to_mfe": -0.002447998345463403,
+      "suggested_exit_threshold": 0.992644938826561
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9933970987796783,
+      "cv_at_mfe": 0.05676965196350921,
+      "coalescence": 0.9462800130018595,
+      "mean_delta_entry_to_mfe": -0.0005232950877656387,
+      "suggested_exit_threshold": 0.9933970987796783
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833333333333334,
+      "cv_at_mfe": 0.07657846295646298,
+      "coalescence": 0.9288686653212755,
+      "mean_delta_entry_to_mfe": -0.0009986417113995569,
+      "suggested_exit_threshold": 0.9833333333333334
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.979758968949318,
+      "cv_at_mfe": 0.08099660725410456,
+      "coalescence": 0.925072283566321,
+      "mean_delta_entry_to_mfe": -0.0005227754274308464,
+      "suggested_exit_threshold": 0.979758968949318
+    }
+  ],
+  "FADE_AT_BAND|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9643959909677505,
+      "cv_at_mfe": 0.012082459789665538,
+      "coalescence": 0.9880617832343654,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9643959909677505
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975636541843415,
+      "cv_at_mfe": 0.025600130968614646,
+      "coalescence": 0.9750388770480782,
+      "mean_delta_entry_to_mfe": -0.00013058364970012777,
+      "suggested_exit_threshold": 0.9975636541843415
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9875585983196895,
+      "cv_at_mfe": 0.029763918638525625,
+      "coalescence": 0.9710963667498884,
+      "mean_delta_entry_to_mfe": 6.98474767664735e-05,
+      "suggested_exit_threshold": 0.9875585983196895
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9945853233337403,
+      "cv_at_mfe": 0.04010586051873841,
+      "coalescence": 0.9614405974996275,
+      "mean_delta_entry_to_mfe": -0.00020933419544930386,
+      "suggested_exit_threshold": 0.9945853233337403
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9946697692076365,
+      "cv_at_mfe": 0.04266230148289336,
+      "coalescence": 0.9590832991446816,
+      "mean_delta_entry_to_mfe": 1.1110038200746615e-05,
+      "suggested_exit_threshold": 0.9946697692076365
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9929493318001429,
+      "cv_at_mfe": 0.04463321604617151,
+      "coalescence": 0.9572737920252014,
+      "mean_delta_entry_to_mfe": -0.0025203656487410193,
+      "suggested_exit_threshold": 0.9929493318001429
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9929171184698741,
+      "cv_at_mfe": 0.06930344573412751,
+      "coalescence": 0.9351882330402972,
+      "mean_delta_entry_to_mfe": -0.00014879179021897614,
+      "suggested_exit_threshold": 0.9929171184698741
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9833214352528254,
+      "cv_at_mfe": 0.07233287981541543,
+      "coalescence": 0.9325462445692551,
+      "mean_delta_entry_to_mfe": -7.517462874132242e-05,
+      "suggested_exit_threshold": 0.9833214352528254
+    }
+  ],
+  "FADE_AT_BAND|WARMUP|short": [
+    {
+      "feature": "L3_15m_hurst_12",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L3_1h_hurst_12",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L1_4h_price_velocity_1b",
+      "mode_at_mfe": 50.0,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 50.0
+    },
+    {
+      "feature": "L1_4h_vol_velocity_1b",
+      "mode_at_mfe": -59016.0,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": -59016.0
+    },
+    {
+      "feature": "L3_4h_hurst_18",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L1_1D_bar_range",
+      "mode_at_mfe": 76.25,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 76.25
+    },
+    {
+      "feature": "L1_1D_body",
+      "mode_at_mfe": -5.75,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": -5.75
+    },
+    {
+      "feature": "L3_1D_hurst_5",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    }
+  ],
+  "FADE_CALM|UP_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9721943706274032,
+      "cv_at_mfe": 0.011242881409622025,
+      "coalescence": 0.9888821156456994,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9721943706274032
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9762328128019968,
+      "cv_at_mfe": 0.018447419707269503,
+      "coalescence": 0.9818867235064803,
+      "mean_delta_entry_to_mfe": -0.0026877522468566895,
+      "suggested_exit_threshold": 0.9762328128019968
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927813013394673,
+      "cv_at_mfe": 0.01866227796183331,
+      "coalescence": 0.9816796220243148,
+      "mean_delta_entry_to_mfe": 0.0015091265950884138,
+      "suggested_exit_threshold": 0.9927813013394673
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9845403820276261,
+      "cv_at_mfe": 0.026742972705313995,
+      "coalescence": 0.9739535858376998,
+      "mean_delta_entry_to_mfe": -0.005189892223903111,
+      "suggested_exit_threshold": 0.9845403820276261
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9879664331674576,
+      "cv_at_mfe": 0.02697140372975492,
+      "coalescence": 0.9737369476581333,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9879664331674576
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9834432244300843,
+      "cv_at_mfe": 0.05124733886199679,
+      "coalescence": 0.9512509216741768,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9834432244300843
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9455117473999659,
+      "cv_at_mfe": 0.062066706175360024,
+      "coalescence": 0.9415604445422546,
+      "mean_delta_entry_to_mfe": -0.025339649404798235,
+      "suggested_exit_threshold": 0.9455117473999659
+    },
+    {
+      "feature": "L2_4h_price_mean_18",
+      "mode_at_mfe": 23365.82763671875,
+      "cv_at_mfe": 0.07324414041120103,
+      "coalescence": 0.9317544464923533,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23365.82763671875
+    }
+  ],
+  "FADE_CALM|UP_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.971901426712672,
+      "cv_at_mfe": 0.010696092631580566,
+      "coalescence": 0.9894171030148826,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.971901426712672
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9759268293778102,
+      "cv_at_mfe": 0.017499138724091888,
+      "coalescence": 0.9828018147061675,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9759268293778102
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9951764047145844,
+      "cv_at_mfe": 0.019780511981435336,
+      "coalescence": 0.9806031673001852,
+      "mean_delta_entry_to_mfe": 0.006437097986539205,
+      "suggested_exit_threshold": 0.9951764047145844
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9692623287439346,
+      "cv_at_mfe": 0.024002488308270793,
+      "coalescence": 0.9765601269700773,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9692623287439346
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9974051505327225,
+      "cv_at_mfe": 0.0340107560144494,
+      "coalescence": 0.9671079282138781,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9974051505327225
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.7733903169631958,
+      "cv_at_mfe": 0.048540444007429615,
+      "coalescence": 0.9537066554896898,
+      "mean_delta_entry_to_mfe": 0.0030717204014460244,
+      "suggested_exit_threshold": 0.7733903169631958
+    },
+    {
+      "feature": "L3_1m_z_se_15",
+      "mode_at_mfe": 2.3312511146068573,
+      "cv_at_mfe": 0.04980603844802082,
+      "coalescence": 0.952556913730796,
+      "mean_delta_entry_to_mfe": -0.01385667257838779,
+      "suggested_exit_threshold": 2.3312511146068573
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9471923331419627,
+      "cv_at_mfe": 0.05222512805663503,
+      "coalescence": 0.9503669636239441,
+      "mean_delta_entry_to_mfe": -0.006668812698788113,
+      "suggested_exit_threshold": 0.9471923331419627
+    }
+  ],
+  "FADE_CALM|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010328861165244617,
+      "coalescence": 0.9897767335347305,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9977392236391703,
+      "cv_at_mfe": 0.021114467511510287,
+      "coalescence": 0.9793221346055678,
+      "mean_delta_entry_to_mfe": -2.582252342650231e-05,
+      "suggested_exit_threshold": 0.9977392236391703
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.992327144742012,
+      "cv_at_mfe": 0.02609021575911518,
+      "coalescence": 0.9745731755761716,
+      "mean_delta_entry_to_mfe": -0.00043410411540498124,
+      "suggested_exit_threshold": 0.992327144742012
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927494277556738,
+      "cv_at_mfe": 0.03522670410444016,
+      "coalescence": 0.9659719905168848,
+      "mean_delta_entry_to_mfe": 0.00011176774476436859,
+      "suggested_exit_threshold": 0.9927494277556738
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993700877825419,
+      "cv_at_mfe": 0.04087382661004641,
+      "coalescence": 0.9607312379607377,
+      "mean_delta_entry_to_mfe": -1.7462092914710424e-05,
+      "suggested_exit_threshold": 0.993700877825419
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9879827643434207,
+      "cv_at_mfe": 0.046299484631930975,
+      "coalescence": 0.9557492999738806,
+      "mean_delta_entry_to_mfe": 4.17374274262293e-06,
+      "suggested_exit_threshold": 0.9879827643434207
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.957274521390597,
+      "cv_at_mfe": 0.048772073591293326,
+      "coalescence": 0.9534960218531717,
+      "mean_delta_entry_to_mfe": -0.012682107059245414,
+      "suggested_exit_threshold": 0.957274521390597
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9517342682927846,
+      "cv_at_mfe": 0.05753979231268037,
+      "coalescence": 0.9455908962188084,
+      "mean_delta_entry_to_mfe": 0.006444553024994797,
+      "suggested_exit_threshold": 0.9517342682927846
+    }
+  ],
+  "FADE_CALM|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010373865479749994,
+      "coalescence": 0.9897326466626052,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9977058698733647,
+      "cv_at_mfe": 0.021257659274711623,
+      "coalescence": 0.9791848226726558,
+      "mean_delta_entry_to_mfe": 9.28463387211819e-05,
+      "suggested_exit_threshold": 0.9977058698733647
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975016345580419,
+      "cv_at_mfe": 0.025666168316266252,
+      "coalescence": 0.974976099330253,
+      "mean_delta_entry_to_mfe": -0.0012702706670090485,
+      "suggested_exit_threshold": 0.9975016345580419
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9931357224782308,
+      "cv_at_mfe": 0.036418245020588214,
+      "coalescence": 0.964861439678858,
+      "mean_delta_entry_to_mfe": 0.0001333787473628639,
+      "suggested_exit_threshold": 0.9931357224782308
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993700877825419,
+      "cv_at_mfe": 0.04183876378252054,
+      "coalescence": 0.9598414214972959,
+      "mean_delta_entry_to_mfe": 1.671870539884447e-05,
+      "suggested_exit_threshold": 0.993700877825419
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9635012994209926,
+      "cv_at_mfe": 0.04773193928484119,
+      "coalescence": 0.9544426035943678,
+      "mean_delta_entry_to_mfe": -0.013499593201421281,
+      "suggested_exit_threshold": 0.9635012994209926
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9879827643434207,
+      "cv_at_mfe": 0.04822982574790265,
+      "coalescence": 0.9539892640304419,
+      "mean_delta_entry_to_mfe": -6.524752214127087e-06,
+      "suggested_exit_threshold": 0.9879827643434207
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9540507569909096,
+      "cv_at_mfe": 0.051366022804540695,
+      "coalescence": 0.9511435392713941,
+      "mean_delta_entry_to_mfe": 0.0063882237869368145,
+      "suggested_exit_threshold": 0.9540507569909096
+    }
+  ],
+  "FADE_CALM|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9877589335044226,
+      "cv_at_mfe": 0.012207394845329393,
+      "coalescence": 0.9879398284309168,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9877589335044226
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9978210628032684,
+      "cv_at_mfe": 0.02171949261876493,
+      "coalescence": 0.9787422156710588,
+      "mean_delta_entry_to_mfe": 0.0005080058889568976,
+      "suggested_exit_threshold": 0.9978210628032684
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.993011724948883,
+      "cv_at_mfe": 0.02763569914710952,
+      "coalescence": 0.973107494056458,
+      "mean_delta_entry_to_mfe": -0.00187151589483585,
+      "suggested_exit_threshold": 0.993011724948883
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.994819755355517,
+      "cv_at_mfe": 0.034632472998769134,
+      "coalescence": 0.9665267871417271,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.994819755355517
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9943847556908926,
+      "cv_at_mfe": 0.037923996992421515,
+      "coalescence": 0.9634616820669786,
+      "mean_delta_entry_to_mfe": 0.00012284213641904434,
+      "suggested_exit_threshold": 0.9943847556908926
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9823273807764052,
+      "cv_at_mfe": 0.03811070702953461,
+      "coalescence": 0.9632883980759768,
+      "mean_delta_entry_to_mfe": -2.2419162516324027e-05,
+      "suggested_exit_threshold": 0.9823273807764052
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9564897805452347,
+      "cv_at_mfe": 0.05276360503099007,
+      "coalescence": 0.9498808614024637,
+      "mean_delta_entry_to_mfe": -0.01574806312345109,
+      "suggested_exit_threshold": 0.9564897805452347
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9184871658682823,
+      "cv_at_mfe": 0.06374961670262512,
+      "coalescence": 0.9400708440203871,
+      "mean_delta_entry_to_mfe": 0.00859604444143907,
+      "suggested_exit_threshold": 0.9184871658682823
+    }
+  ],
+  "FADE_CALM|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9680878430604934,
+      "cv_at_mfe": 0.012490717984143078,
+      "coalescence": 0.9876633753156651,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9680878430604934
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9977015852928162,
+      "cv_at_mfe": 0.02265940026140774,
+      "coalescence": 0.9778426715134915,
+      "mean_delta_entry_to_mfe": 0.00010144861085711516,
+      "suggested_exit_threshold": 0.9977015852928162
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9897617638111115,
+      "cv_at_mfe": 0.02696035570893132,
+      "coalescence": 0.9737474231025014,
+      "mean_delta_entry_to_mfe": 0.00035037176981498637,
+      "suggested_exit_threshold": 0.9897617638111115
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975449611743291,
+      "cv_at_mfe": 0.027490521804660398,
+      "coalescence": 0.9732449874511965,
+      "mean_delta_entry_to_mfe": -0.001729874994511689,
+      "suggested_exit_threshold": 0.9975449611743291
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9945432990789413,
+      "cv_at_mfe": 0.03559168517699059,
+      "coalescence": 0.9656315460171856,
+      "mean_delta_entry_to_mfe": 5.4857628271889754e-05,
+      "suggested_exit_threshold": 0.9945432990789413
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9885845363140107,
+      "cv_at_mfe": 0.05096070506162825,
+      "coalescence": 0.9515103611236921,
+      "mean_delta_entry_to_mfe": 1.2432559255207556e-06,
+      "suggested_exit_threshold": 0.9885845363140107
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9631732751925786,
+      "cv_at_mfe": 0.051821288893387496,
+      "coalescence": 0.9507318501340581,
+      "mean_delta_entry_to_mfe": -0.01807135979185827,
+      "suggested_exit_threshold": 0.9631732751925786
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9351674169301987,
+      "cv_at_mfe": 0.05881544345159152,
+      "coalescence": 0.9444516569763458,
+      "mean_delta_entry_to_mfe": 0.011812411813227454,
+      "suggested_exit_threshold": 0.9351674169301987
+    }
+  ],
+  "FADE_MOMENTUM|DOWN_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9739194144805272,
+      "cv_at_mfe": 0.01024328830881955,
+      "coalescence": 0.9898605727676082,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9739194144805272
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9977054466803869,
+      "cv_at_mfe": 0.027154968531198056,
+      "coalescence": 0.9735629292919364,
+      "mean_delta_entry_to_mfe": 0.0012250661849975586,
+      "suggested_exit_threshold": 0.9977054466803869
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9830150961875916,
+      "cv_at_mfe": 0.030209678392595547,
+      "coalescence": 0.9706761846387127,
+      "mean_delta_entry_to_mfe": 0.0017778502570258248,
+      "suggested_exit_threshold": 0.9830150961875916
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.988521118958791,
+      "cv_at_mfe": 0.03271956439798146,
+      "coalescence": 0.9683170867232915,
+      "mean_delta_entry_to_mfe": -0.0009076780743069118,
+      "suggested_exit_threshold": 0.988521118958791
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9928179581960043,
+      "cv_at_mfe": 0.08849587939534925,
+      "coalescence": 0.9186989302664995,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9928179581960043
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9633327076832454,
+      "cv_at_mfe": 0.08951725061857922,
+      "coalescence": 0.9178376931914062,
+      "mean_delta_entry_to_mfe": -0.017673308319515652,
+      "suggested_exit_threshold": 0.9633327076832454
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 19679.485546875003,
+      "cv_at_mfe": 0.10868704343579881,
+      "coalescence": 0.9019677878628583,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 19679.485546875003
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21481.256770833334,
+      "cv_at_mfe": 0.10880303896511212,
+      "coalescence": 0.901873430048801,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21481.256770833334
+    }
+  ],
+  "FADE_MOMENTUM|DOWN_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9780800739924114,
+      "cv_at_mfe": 0.00949101338937607,
+      "coalescence": 0.9905982190396031,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9780800739924114
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9494955152273178,
+      "cv_at_mfe": 0.028910620542330123,
+      "coalescence": 0.9719017182201,
+      "mean_delta_entry_to_mfe": -0.003389898935953776,
+      "suggested_exit_threshold": 0.9494955152273178
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9879826108614604,
+      "cv_at_mfe": 0.030742822887759442,
+      "coalescence": 0.9701741091908557,
+      "mean_delta_entry_to_mfe": -0.0005165444480048285,
+      "suggested_exit_threshold": 0.9879826108614604
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9974530130624771,
+      "cv_at_mfe": 0.033891161487046254,
+      "coalescence": 0.96721979764456,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9974530130624771
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9614433586597443,
+      "cv_at_mfe": 0.04332359509280891,
+      "coalescence": 0.9584753998696302,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9614433586597443
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9936921238899231,
+      "cv_at_mfe": 0.05545398463487341,
+      "coalescence": 0.9474595904301244,
+      "mean_delta_entry_to_mfe": -0.01514293220308092,
+      "suggested_exit_threshold": 0.9936921238899231
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.7498782068490981,
+      "cv_at_mfe": 0.09479188883501974,
+      "coalescence": 0.9134156091201143,
+      "mean_delta_entry_to_mfe": 0.029328889316982694,
+      "suggested_exit_threshold": 0.7498782068490981
+    },
+    {
+      "feature": "L2_1h_price_mean_12",
+      "mode_at_mfe": 21693.287792968753,
+      "cv_at_mfe": 0.10862899890301154,
+      "coalescence": 0.9020150122263625,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21693.287792968753
+    }
+  ],
+  "FADE_MOMENTUM|DOWN_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9735792726278305,
+      "cv_at_mfe": 0.009068322829927694,
+      "coalescence": 0.9910131726219532,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9735792726278305
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9981970061858495,
+      "cv_at_mfe": 0.02321596855110792,
+      "coalescence": 0.977310783583663,
+      "mean_delta_entry_to_mfe": 0.0034918290812794755,
+      "suggested_exit_threshold": 0.9981970061858495
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9960000028212865,
+      "cv_at_mfe": 0.026732291753598522,
+      "coalescence": 0.9739637177399559,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9960000028212865
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9110089838504791,
+      "cv_at_mfe": 0.04446525867259837,
+      "coalescence": 0.95742772839653,
+      "mean_delta_entry_to_mfe": -0.018905894058506664,
+      "suggested_exit_threshold": 0.9110089838504791
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9863018572330474,
+      "cv_at_mfe": 0.06077290141079396,
+      "coalescence": 0.9427088481144569,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9863018572330474
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9935907502969106,
+      "cv_at_mfe": 0.07743014147631878,
+      "coalescence": 0.9281344205108071,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9935907502969106
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.795053917169571,
+      "cv_at_mfe": 0.084087920826119,
+      "coalescence": 0.9224344084914805,
+      "mean_delta_entry_to_mfe": 0.018582617364278655,
+      "suggested_exit_threshold": 0.795053917169571
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 24566.37373046875,
+      "cv_at_mfe": 0.10504628845230815,
+      "coalescence": 0.9049394676494207,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 24566.37373046875
+    }
+  ],
+  "FADE_MOMENTUM|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9840706040461858,
+      "cv_at_mfe": 0.01042673774209279,
+      "coalescence": 0.9896808572530529,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9840706040461858
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9924227058887483,
+      "cv_at_mfe": 0.025921458586817367,
+      "coalescence": 0.9747334863016478,
+      "mean_delta_entry_to_mfe": -0.0009151790121648961,
+      "suggested_exit_threshold": 0.9924227058887483
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9771013706922531,
+      "cv_at_mfe": 0.03256678022134925,
+      "coalescence": 0.9684603641670828,
+      "mean_delta_entry_to_mfe": 0.0004053278649280644,
+      "suggested_exit_threshold": 0.9771013706922531
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9663913796345394,
+      "cv_at_mfe": 0.04825665089574926,
+      "coalescence": 0.95396485120842,
+      "mean_delta_entry_to_mfe": -0.014119744348679079,
+      "suggested_exit_threshold": 0.9663913796345394
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9864264212548732,
+      "cv_at_mfe": 0.056028110360782535,
+      "coalescence": 0.9469444896295034,
+      "mean_delta_entry_to_mfe": -1.2645442572108866e-05,
+      "suggested_exit_threshold": 0.9864264212548732
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9571236396829287,
+      "cv_at_mfe": 0.05930888117228732,
+      "coalescence": 0.9440117210131828,
+      "mean_delta_entry_to_mfe": 0.007012462324162356,
+      "suggested_exit_threshold": 0.9571236396829287
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9938655932744345,
+      "cv_at_mfe": 0.06372414211833344,
+      "coalescence": 0.9400933572952183,
+      "mean_delta_entry_to_mfe": -3.6617965223701196e-05,
+      "suggested_exit_threshold": 0.9938655932744345
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927474349737168,
+      "cv_at_mfe": 0.07751649341980835,
+      "coalescence": 0.928060040014991,
+      "mean_delta_entry_to_mfe": -0.0004857679367575689,
+      "suggested_exit_threshold": 0.9927474349737168
+    }
+  ],
+  "FADE_MOMENTUM|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9840706040461858,
+      "cv_at_mfe": 0.010426503184544989,
+      "coalescence": 0.9896810869947652,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9840706040461858
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975150605042775,
+      "cv_at_mfe": 0.025671587132882874,
+      "coalescence": 0.9749709483474684,
+      "mean_delta_entry_to_mfe": -0.0011461402755966307,
+      "suggested_exit_threshold": 0.9975150605042775
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9873986790577571,
+      "cv_at_mfe": 0.03300772480600259,
+      "coalescence": 0.9680469719505714,
+      "mean_delta_entry_to_mfe": 0.0013116354437612621,
+      "suggested_exit_threshold": 0.9873986790577571
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9573922087748845,
+      "cv_at_mfe": 0.046075996285842524,
+      "coalescence": 0.9559534905213022,
+      "mean_delta_entry_to_mfe": -0.014305303673043635,
+      "suggested_exit_threshold": 0.9573922087748845
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9522307942310969,
+      "cv_at_mfe": 0.0536905066721022,
+      "coalescence": 0.9490452781607814,
+      "mean_delta_entry_to_mfe": 0.0063292817670210465,
+      "suggested_exit_threshold": 0.9522307942310969
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9861518862346808,
+      "cv_at_mfe": 0.058807456483706805,
+      "coalescence": 0.9444587813170432,
+      "mean_delta_entry_to_mfe": 1.4059815042347507e-05,
+      "suggested_exit_threshold": 0.9861518862346808
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9938655932744345,
+      "cv_at_mfe": 0.06717308461459838,
+      "coalescence": 0.9370551173159906,
+      "mean_delta_entry_to_mfe": -8.11473076565759e-05,
+      "suggested_exit_threshold": 0.9938655932744345
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927474349737168,
+      "cv_at_mfe": 0.08448814348519468,
+      "coalescence": 0.9220939906141554,
+      "mean_delta_entry_to_mfe": -0.001042783354507615,
+      "suggested_exit_threshold": 0.9927474349737168
+    }
+  ],
+  "FADE_MOMENTUM|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9646127045154571,
+      "cv_at_mfe": 0.011372420871895578,
+      "coalescence": 0.9887554568058209,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9646127045154571
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975606779257457,
+      "cv_at_mfe": 0.027132541255699454,
+      "coalescence": 0.9735841868834871,
+      "mean_delta_entry_to_mfe": -0.0020326694073653866,
+      "suggested_exit_threshold": 0.9975606779257457
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9878844072421391,
+      "cv_at_mfe": 0.029041774680221944,
+      "coalescence": 0.9717778467358659,
+      "mean_delta_entry_to_mfe": -0.00011660511747178641,
+      "suggested_exit_threshold": 0.9878844072421391
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9885845363140107,
+      "cv_at_mfe": 0.04959871169702623,
+      "coalescence": 0.9527450718600508,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9885845363140107
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9558324704567591,
+      "cv_at_mfe": 0.04992306899107114,
+      "coalescence": 0.9524507361867521,
+      "mean_delta_entry_to_mfe": -0.01849064556072784,
+      "suggested_exit_threshold": 0.9558324704567591
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9928495983282725,
+      "cv_at_mfe": 0.05432996781584219,
+      "coalescence": 0.948469673181734,
+      "mean_delta_entry_to_mfe": -0.0005573349085178866,
+      "suggested_exit_threshold": 0.9928495983282725
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9942399551471075,
+      "cv_at_mfe": 0.05906272735623512,
+      "coalescence": 0.9442311339728904,
+      "mean_delta_entry_to_mfe": -0.00010638463985928237,
+      "suggested_exit_threshold": 0.9942399551471075
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.934882433215777,
+      "cv_at_mfe": 0.06465694316252517,
+      "coalescence": 0.9392696928548043,
+      "mean_delta_entry_to_mfe": 0.011152903763596757,
+      "suggested_exit_threshold": 0.934882433215777
+    }
+  ],
+  "FADE_MOMENTUM|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9643995136022567,
+      "cv_at_mfe": 0.01160892976135326,
+      "coalescence": 0.9885242909390964,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9643995136022567
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9877013216416042,
+      "cv_at_mfe": 0.02732918538747266,
+      "coalescence": 0.9733978302415647,
+      "mean_delta_entry_to_mfe": -0.0012352960703541356,
+      "suggested_exit_threshold": 0.9877013216416042
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9830928087234496,
+      "cv_at_mfe": 0.02828090651166514,
+      "coalescence": 0.9724969059207711,
+      "mean_delta_entry_to_mfe": 0.0007718186839362503,
+      "suggested_exit_threshold": 0.9830928087234496
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.988738332192103,
+      "cv_at_mfe": 0.042272381110826145,
+      "coalescence": 0.9594420979804019,
+      "mean_delta_entry_to_mfe": 6.116442691138928e-05,
+      "suggested_exit_threshold": 0.988738332192103
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9535884459813436,
+      "cv_at_mfe": 0.04794691656290756,
+      "coalescence": 0.9542468079202279,
+      "mean_delta_entry_to_mfe": -0.01752370786489607,
+      "suggested_exit_threshold": 0.9535884459813436
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9942399551471075,
+      "cv_at_mfe": 0.058877131984180375,
+      "coalescence": 0.944396634693722,
+      "mean_delta_entry_to_mfe": -0.00045070457635758976,
+      "suggested_exit_threshold": 0.9942399551471075
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9364273538192114,
+      "cv_at_mfe": 0.06026081755749097,
+      "coalescence": 0.943164156819156,
+      "mean_delta_entry_to_mfe": 0.01117661921065093,
+      "suggested_exit_threshold": 0.9364273538192114
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9932530611753464,
+      "cv_at_mfe": 0.06065345183102719,
+      "coalescence": 0.9428150149077252,
+      "mean_delta_entry_to_mfe": -0.0005470030812968996,
+      "suggested_exit_threshold": 0.9932530611753464
+    }
+  ],
+  "KILL_SHOT|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010505848033705977,
+      "coalescence": 0.9896033773043978,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9974745641152064,
+      "cv_at_mfe": 0.019809270844731698,
+      "coalescence": 0.980575514058307,
+      "mean_delta_entry_to_mfe": -0.0001718601845528257,
+      "suggested_exit_threshold": 0.9974745641152064
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9924189388751983,
+      "cv_at_mfe": 0.025945113652059367,
+      "coalescence": 0.9747110120153479,
+      "mean_delta_entry_to_mfe": 0.00042300762486627183,
+      "suggested_exit_threshold": 0.9924189388751983
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9930039743582407,
+      "cv_at_mfe": 0.028870714905535916,
+      "coalescence": 0.9719394142652932,
+      "mean_delta_entry_to_mfe": -7.192391811060736e-05,
+      "suggested_exit_threshold": 0.9930039743582407
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993700877825419,
+      "cv_at_mfe": 0.048299810849404406,
+      "coalescence": 0.9539255751555764,
+      "mean_delta_entry_to_mfe": -2.536991494983411e-05,
+      "suggested_exit_threshold": 0.993700877825419
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9864264212548732,
+      "cv_at_mfe": 0.04896261689314786,
+      "coalescence": 0.9533228199893653,
+      "mean_delta_entry_to_mfe": -2.7128788949574052e-05,
+      "suggested_exit_threshold": 0.9864264212548732
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9662196735541025,
+      "cv_at_mfe": 0.050009986119473104,
+      "coalescence": 0.9523718947623581,
+      "mean_delta_entry_to_mfe": -0.012735576460751004,
+      "suggested_exit_threshold": 0.9662196735541025
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9570750122268994,
+      "cv_at_mfe": 0.056196661963995156,
+      "coalescence": 0.9467933728748039,
+      "mean_delta_entry_to_mfe": 0.006519228402281146,
+      "suggested_exit_threshold": 0.9570750122268994
+    }
+  ],
+  "KILL_SHOT|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010604389636446854,
+      "coalescence": 0.9895068834598455,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9925900727510453,
+      "cv_at_mfe": 0.019848057509710325,
+      "coalescence": 0.9805382209991399,
+      "mean_delta_entry_to_mfe": -0.00010387136192551694,
+      "suggested_exit_threshold": 0.9925900727510453
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9927820920944214,
+      "cv_at_mfe": 0.026076530733501333,
+      "coalescence": 0.9745861736893443,
+      "mean_delta_entry_to_mfe": -0.0008341389675945089,
+      "suggested_exit_threshold": 0.9927820920944214
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9948110242684682,
+      "cv_at_mfe": 0.02649268187325767,
+      "coalescence": 0.9741910660045712,
+      "mean_delta_entry_to_mfe": -8.465603390630917e-05,
+      "suggested_exit_threshold": 0.9948110242684682
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9573922087748845,
+      "cv_at_mfe": 0.045824992273158775,
+      "coalescence": 0.9561829248567146,
+      "mean_delta_entry_to_mfe": -0.012426060656696512,
+      "suggested_exit_threshold": 0.9573922087748845
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9879827643434207,
+      "cv_at_mfe": 0.04652428919009145,
+      "coalescence": 0.9555439948497547,
+      "mean_delta_entry_to_mfe": 5.009010520414655e-07,
+      "suggested_exit_threshold": 0.9879827643434207
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936739752689997,
+      "cv_at_mfe": 0.04897512899756946,
+      "coalescence": 0.9533114488192189,
+      "mean_delta_entry_to_mfe": 3.2122562663271344e-05,
+      "suggested_exit_threshold": 0.9936739752689997
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9538979902863503,
+      "cv_at_mfe": 0.052191793198446114,
+      "coalescence": 0.9503970725339019,
+      "mean_delta_entry_to_mfe": 0.005917953897037439,
+      "suggested_exit_threshold": 0.9538979902863503
+    }
+  ],
+  "KILL_SHOT|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9680878430604934,
+      "cv_at_mfe": 0.0120308127246339,
+      "coalescence": 0.9881122070856282,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9680878430604934
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.997862500945727,
+      "cv_at_mfe": 0.02012568980415638,
+      "coalescence": 0.9802713626317752,
+      "mean_delta_entry_to_mfe": -2.9498306480613916e-05,
+      "suggested_exit_threshold": 0.997862500945727
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.98940509557724,
+      "cv_at_mfe": 0.026848403555758644,
+      "coalescence": 0.9738535859209712,
+      "mean_delta_entry_to_mfe": -0.00019025119575294289,
+      "suggested_exit_threshold": 0.98940509557724
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9929197698831558,
+      "cv_at_mfe": 0.027796831735393112,
+      "coalescence": 0.9729549353752538,
+      "mean_delta_entry_to_mfe": -0.003528615139626168,
+      "suggested_exit_threshold": 0.9929197698831558
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.994819755355517,
+      "cv_at_mfe": 0.045744340544323345,
+      "coalescence": 0.9562566692729957,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.994819755355517
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9945853233337403,
+      "cv_at_mfe": 0.0481744801668445,
+      "coalescence": 0.9540396364552052,
+      "mean_delta_entry_to_mfe": -1.0587009223731788e-05,
+      "suggested_exit_threshold": 0.9945853233337403
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9546177665392558,
+      "cv_at_mfe": 0.04978506388828769,
+      "coalescence": 0.9525759456855964,
+      "mean_delta_entry_to_mfe": -0.01455348962062114,
+      "suggested_exit_threshold": 0.9546177665392558
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9357750991980235,
+      "cv_at_mfe": 0.06450793705226503,
+      "coalescence": 0.9394011685522099,
+      "mean_delta_entry_to_mfe": 0.009820883982890362,
+      "suggested_exit_threshold": 0.9357750991980235
+    }
+  ],
+  "KILL_SHOT|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9643995136022567,
+      "cv_at_mfe": 0.012109796807959997,
+      "coalescence": 0.9880350957513182,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9643995136022567
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9980222990115484,
+      "cv_at_mfe": 0.020476875040107374,
+      "coalescence": 0.9799340136548389,
+      "mean_delta_entry_to_mfe": -0.00026933065786653634,
+      "suggested_exit_threshold": 0.9980222990115484
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9924282133579254,
+      "cv_at_mfe": 0.027289175440065414,
+      "coalescence": 0.9734357412766708,
+      "mean_delta_entry_to_mfe": -0.0023183918425015043,
+      "suggested_exit_threshold": 0.9924282133579254
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9870962679386139,
+      "cv_at_mfe": 0.028315012038934818,
+      "coalescence": 0.9724646516802355,
+      "mean_delta_entry_to_mfe": 4.938738990803154e-05,
+      "suggested_exit_threshold": 0.9870962679386139
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.994819755355517,
+      "cv_at_mfe": 0.0364238346399506,
+      "coalescence": 0.9648562360083083,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.994819755355517
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9589069585005442,
+      "cv_at_mfe": 0.04791914302559189,
+      "coalescence": 0.9542720988117099,
+      "mean_delta_entry_to_mfe": -0.014182559309565291,
+      "suggested_exit_threshold": 0.9589069585005442
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9941979308923086,
+      "cv_at_mfe": 0.04803963253528027,
+      "coalescence": 0.9541623894326695,
+      "mean_delta_entry_to_mfe": -7.63230633978941e-05,
+      "suggested_exit_threshold": 0.9941979308923086
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9364300270875295,
+      "cv_at_mfe": 0.0581207960792336,
+      "coalescence": 0.9450716815182211,
+      "mean_delta_entry_to_mfe": 0.00914274923959557,
+      "suggested_exit_threshold": 0.9364300270875295
+    }
+  ],
+  "NMP_FADE_RAW|UP_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.989482370018959,
+      "cv_at_mfe": 0.010365116381517263,
+      "coalescence": 0.989741217097203,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.989482370018959
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.976320148507754,
+      "cv_at_mfe": 0.02747855410222515,
+      "coalescence": 0.9732563234604591,
+      "mean_delta_entry_to_mfe": -0.00018868314755427374,
+      "suggested_exit_threshold": 0.976320148507754
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9971278578042984,
+      "cv_at_mfe": 0.028291864908959814,
+      "coalescence": 0.972486542124434,
+      "mean_delta_entry_to_mfe": -0.003242822436543254,
+      "suggested_exit_threshold": 0.9971278578042984
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9960361252228419,
+      "cv_at_mfe": 0.03140853940279788,
+      "coalescence": 0.9695479160750561,
+      "mean_delta_entry_to_mfe": 0.00032247777109022265,
+      "suggested_exit_threshold": 0.9960361252228419
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936335305372874,
+      "cv_at_mfe": 0.05661181359132459,
+      "coalescence": 0.9464213698322128,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9936335305372874
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.985061451792717,
+      "cv_at_mfe": 0.06275796050682511,
+      "coalescence": 0.9409480212438059,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.985061451792717
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9599151601394017,
+      "cv_at_mfe": 0.07250104849806137,
+      "coalescence": 0.9324000208674926,
+      "mean_delta_entry_to_mfe": -0.01944274755267354,
+      "suggested_exit_threshold": 0.9599151601394017
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.8057182103395462,
+      "cv_at_mfe": 0.08141284505855831,
+      "coalescence": 0.9247162215331834,
+      "mean_delta_entry_to_mfe": 0.02140229011510874,
+      "suggested_exit_threshold": 0.8057182103395462
+    }
+  ],
+  "NMP_FADE_RAW|UP_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9721709787845612,
+      "cv_at_mfe": 0.01078539937087375,
+      "coalescence": 0.989329684245947,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9721709787845612
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9772513171037038,
+      "cv_at_mfe": 0.025093171302969435,
+      "coalescence": 0.9755210823704209,
+      "mean_delta_entry_to_mfe": 0.002508095931261778,
+      "suggested_exit_threshold": 0.9772513171037038
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.979720617334048,
+      "cv_at_mfe": 0.02746502240707465,
+      "coalescence": 0.9732691412280571,
+      "mean_delta_entry_to_mfe": -5.1884446293115616e-05,
+      "suggested_exit_threshold": 0.979720617334048
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9879117161035538,
+      "cv_at_mfe": 0.03202339148973698,
+      "coalescence": 0.9689702852146492,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9879117161035538
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9440603375434875,
+      "cv_at_mfe": 0.05868104465998113,
+      "coalescence": 0.9445715544299484,
+      "mean_delta_entry_to_mfe": -0.011907794047147036,
+      "suggested_exit_threshold": 0.9440603375434875
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9689013262589773,
+      "cv_at_mfe": 0.06292720267700044,
+      "coalescence": 0.9407982009318068,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9689013262589773
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 23401.6005859375,
+      "cv_at_mfe": 0.07372907814193476,
+      "coalescence": 0.9313336300163152,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23401.6005859375
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.800229287147522,
+      "cv_at_mfe": 0.07413043600809752,
+      "coalescence": 0.9309856293770093,
+      "mean_delta_entry_to_mfe": 0.015019037295132875,
+      "suggested_exit_threshold": 0.800229287147522
+    }
+  ],
+  "NMP_FADE_RAW|UP_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9877185602982839,
+      "cv_at_mfe": 0.009672442202889755,
+      "coalescence": 0.9904202176878408,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9877185602982839
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9866079986095428,
+      "cv_at_mfe": 0.020080959220982676,
+      "coalescence": 0.9803143475628462,
+      "mean_delta_entry_to_mfe": 0.001235361397266388,
+      "suggested_exit_threshold": 0.9866079986095428
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9637525608142217,
+      "cv_at_mfe": 0.028385147255846406,
+      "coalescence": 0.9723983302057699,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9637525608142217
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9900513797998428,
+      "cv_at_mfe": 0.029440593131849872,
+      "coalescence": 0.9714013675696592,
+      "mean_delta_entry_to_mfe": -0.006852579116821289,
+      "suggested_exit_threshold": 0.9900513797998428
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9973571171363195,
+      "cv_at_mfe": 0.04012908377926728,
+      "coalescence": 0.961419131139512,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9973571171363195
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9817888935407002,
+      "cv_at_mfe": 0.0459924758130643,
+      "coalescence": 0.9560298215555387,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9817888935407002
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.935262942314148,
+      "cv_at_mfe": 0.0954367335317952,
+      "coalescence": 0.9128779137941652,
+      "mean_delta_entry_to_mfe": -0.005268952250480652,
+      "suggested_exit_threshold": 0.935262942314148
+    },
+    {
+      "feature": "L3_1m_z_low_15",
+      "mode_at_mfe": -2.6050442457199097,
+      "cv_at_mfe": 0.11583551500719343,
+      "coalescence": 0.8961894352265292,
+      "mean_delta_entry_to_mfe": 0.06960488557815551,
+      "suggested_exit_threshold": -2.6050442457199097
+    }
+  ],
+  "NMP_FADE_RAW|UP_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9683701058228811,
+      "cv_at_mfe": 0.012316596500306283,
+      "coalescence": 0.9878332563716864,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9683701058228811
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9838735560576122,
+      "cv_at_mfe": 0.019747486350725554,
+      "coalescence": 0.9806349251995765,
+      "mean_delta_entry_to_mfe": -3.9687970789467414e-07,
+      "suggested_exit_threshold": 0.9838735560576122
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9943525850772859,
+      "cv_at_mfe": 0.029412864342824814,
+      "coalescence": 0.9714275337314713,
+      "mean_delta_entry_to_mfe": 0.00671854687900078,
+      "suggested_exit_threshold": 0.9943525850772859
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9918982535600662,
+      "cv_at_mfe": 0.03885942856140262,
+      "coalescence": 0.9625941417163489,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9918982535600662
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.99273721575737,
+      "cv_at_mfe": 0.04437677759653493,
+      "coalescence": 0.9575088430263061,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.99273721575737
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.987938442826271,
+      "cv_at_mfe": 0.05333244045515397,
+      "coalescence": 0.9493678933574773,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.987938442826271
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9506413012742996,
+      "cv_at_mfe": 0.05359667940288561,
+      "coalescence": 0.9491297946826665,
+      "mean_delta_entry_to_mfe": -0.007065319433444884,
+      "suggested_exit_threshold": 0.9506413012742996
+    },
+    {
+      "feature": "L3_1m_z_se_15",
+      "mode_at_mfe": 2.557875676949819,
+      "cv_at_mfe": 0.06702797430375604,
+      "coalescence": 0.9371825519874563,
+      "mean_delta_entry_to_mfe": -0.046015047445529846,
+      "suggested_exit_threshold": 2.557875676949819
+    }
+  ],
+  "NMP_FADE_RAW|DOWN_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9744645039240519,
+      "cv_at_mfe": 0.011086345717470851,
+      "coalescence": 0.9890352136942331,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9744645039240519
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9926355719566344,
+      "cv_at_mfe": 0.02362373282525277,
+      "coalescence": 0.9769214682429742,
+      "mean_delta_entry_to_mfe": 0.0006779937420861195,
+      "suggested_exit_threshold": 0.9926355719566344
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9978475203116735,
+      "cv_at_mfe": 0.027796359247732955,
+      "coalescence": 0.9729553826517952,
+      "mean_delta_entry_to_mfe": -0.004099334195508795,
+      "suggested_exit_threshold": 0.9978475203116735
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9876111100117365,
+      "cv_at_mfe": 0.03222452431287987,
+      "coalescence": 0.9687814777174272,
+      "mean_delta_entry_to_mfe": -0.00034614841816789013,
+      "suggested_exit_threshold": 0.9876111100117365
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9556912293036779,
+      "cv_at_mfe": 0.07247074251391317,
+      "coalescence": 0.9324263687193566,
+      "mean_delta_entry_to_mfe": -0.010884088479866416,
+      "suggested_exit_threshold": 0.9556912293036779
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9687287012736003,
+      "cv_at_mfe": 0.08440400782081695,
+      "coalescence": 0.9221655331296381,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9687287012736003
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21444.161848958334,
+      "cv_at_mfe": 0.09682975071229753,
+      "coalescence": 0.9117185227247758,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21444.161848958334
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 23512.7841796875,
+      "cv_at_mfe": 0.09719021612104281,
+      "coalescence": 0.9114189912623859,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23512.7841796875
+    }
+  ],
+  "NMP_FADE_RAW|DOWN_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9738380144039789,
+      "cv_at_mfe": 0.010774409589214655,
+      "coalescence": 0.9893404408669256,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9738380144039789
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.998154987891515,
+      "cv_at_mfe": 0.02319188754328693,
+      "coalescence": 0.9773337847713285,
+      "mean_delta_entry_to_mfe": -0.0003264272978546423,
+      "suggested_exit_threshold": 0.998154987891515
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9980692972739538,
+      "cv_at_mfe": 0.025320179141965764,
+      "coalescence": 0.9753051001462247,
+      "mean_delta_entry_to_mfe": -0.0012576180860536907,
+      "suggested_exit_threshold": 0.9980692972739538
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9579984456300735,
+      "cv_at_mfe": 0.045813213196879816,
+      "coalescence": 0.9561936944200233,
+      "mean_delta_entry_to_mfe": -0.009705443447882977,
+      "suggested_exit_threshold": 0.9579984456300735
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9817083150148391,
+      "cv_at_mfe": 0.0482368584907553,
+      "coalescence": 0.9539828636056488,
+      "mean_delta_entry_to_mfe": 2.4645153535615413e-05,
+      "suggested_exit_threshold": 0.9817083150148391
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9812992572784424,
+      "cv_at_mfe": 0.06480996632376551,
+      "coalescence": 0.9391347110062084,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9812992572784424
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21446.385481770834,
+      "cv_at_mfe": 0.09278752378454416,
+      "coalescence": 0.9150909744437764,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21446.385481770834
+    },
+    {
+      "feature": "L2_1h_vwap_12",
+      "mode_at_mfe": 21317.932291666664,
+      "cv_at_mfe": 0.0928415661502081,
+      "coalescence": 0.9150457220644852,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21317.932291666664
+    }
+  ],
+  "NMP_FADE_RAW|DOWN_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9684681475162507,
+      "cv_at_mfe": 0.010054602692692904,
+      "coalescence": 0.9900454859906698,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9684681475162507
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.997499140103658,
+      "cv_at_mfe": 0.025959447277960977,
+      "coalescence": 0.9746973943786612,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.997499140103658
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9943710654973984,
+      "cv_at_mfe": 0.026457576502586497,
+      "coalescence": 0.9742243838340261,
+      "mean_delta_entry_to_mfe": -0.0010832677925786665,
+      "suggested_exit_threshold": 0.9943710654973984
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.980919149518013,
+      "cv_at_mfe": 0.02795161768255079,
+      "coalescence": 0.9728084306676166,
+      "mean_delta_entry_to_mfe": 0.00016753663939814413,
+      "suggested_exit_threshold": 0.980919149518013
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.985010987520218,
+      "cv_at_mfe": 0.047284212218142815,
+      "coalescence": 0.9548506397150827,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.985010987520218
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9482262313365937,
+      "cv_at_mfe": 0.051083382787317624,
+      "coalescence": 0.9513993051133088,
+      "mean_delta_entry_to_mfe": -0.014124471814401688,
+      "suggested_exit_threshold": 0.9482262313365937
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.8059839069843292,
+      "cv_at_mfe": 0.07749260777748818,
+      "coalescence": 0.928080613065801,
+      "mean_delta_entry_to_mfe": 0.01861767566973163,
+      "suggested_exit_threshold": 0.8059839069843292
+    },
+    {
+      "feature": "L2_1h_price_mean_12",
+      "mode_at_mfe": 23346.22138671875,
+      "cv_at_mfe": 0.11202656579589054,
+      "coalescence": 0.8992590921461379,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 23346.22138671875
+    }
+  ],
+  "NMP_FADE_RAW|DOWN_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.968722727894783,
+      "cv_at_mfe": 0.00981579253246906,
+      "coalescence": 0.9902796206941342,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.968722727894783
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9979569802681605,
+      "cv_at_mfe": 0.024856002912299665,
+      "coalescence": 0.9757468338560078,
+      "mean_delta_entry_to_mfe": 0.003120180663712528,
+      "suggested_exit_threshold": 0.9979569802681605
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9971923559904099,
+      "cv_at_mfe": 0.0248611678398857,
+      "coalescence": 0.9757419164468042,
+      "mean_delta_entry_to_mfe": 0.0002059575614579227,
+      "suggested_exit_threshold": 0.9971923559904099
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9773504436016083,
+      "cv_at_mfe": 0.04603014401258145,
+      "coalescence": 0.955995394323906,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9773504436016083
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9589596569538117,
+      "cv_at_mfe": 0.052587984224470405,
+      "coalescence": 0.9500393458669241,
+      "mean_delta_entry_to_mfe": -0.023100522680020115,
+      "suggested_exit_threshold": 0.9589596569538117
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9936106781164805,
+      "cv_at_mfe": 0.05524764272029511,
+      "coalescence": 0.9476448555925,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9936106781164805
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.7941154032945633,
+      "cv_at_mfe": 0.08892623841348336,
+      "coalescence": 0.918335847483072,
+      "mean_delta_entry_to_mfe": 0.022145238491373325,
+      "suggested_exit_threshold": 0.7941154032945633
+    },
+    {
+      "feature": "L2_4h_vwap_18",
+      "mode_at_mfe": 21857.85,
+      "cv_at_mfe": 0.10650270471416025,
+      "coalescence": 0.9037483557334162,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21857.85
+    }
+  ],
+  "NMP_FADE_RAW|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.010372200293218321,
+      "coalescence": 0.9897342778332497,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974423815806707,
+      "cv_at_mfe": 0.02609786539675063,
+      "coalescence": 0.9745659100590178,
+      "mean_delta_entry_to_mfe": -0.0005326224063222733,
+      "suggested_exit_threshold": 0.9974423815806707
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9974609206120173,
+      "cv_at_mfe": 0.026280515611584416,
+      "coalescence": 0.9743924636473068,
+      "mean_delta_entry_to_mfe": 0.0001573103988499556,
+      "suggested_exit_threshold": 0.9974609206120173
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927494277556738,
+      "cv_at_mfe": 0.047980076485291484,
+      "coalescence": 0.9542166138823871,
+      "mean_delta_entry_to_mfe": -7.11161352674381e-05,
+      "suggested_exit_threshold": 0.9927494277556738
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993700877825419,
+      "cv_at_mfe": 0.048091038365197285,
+      "coalescence": 0.9541155905309435,
+      "mean_delta_entry_to_mfe": -9.96916696303844e-06,
+      "suggested_exit_threshold": 0.993700877825419
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9643758535385132,
+      "cv_at_mfe": 0.04911077250334713,
+      "coalescence": 0.9531881915708854,
+      "mean_delta_entry_to_mfe": -0.013048755180714433,
+      "suggested_exit_threshold": 0.9643758535385132
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9864264212548732,
+      "cv_at_mfe": 0.05099119411402665,
+      "coalescence": 0.9514827579911251,
+      "mean_delta_entry_to_mfe": 5.336479449972501e-06,
+      "suggested_exit_threshold": 0.9864264212548732
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9517808135598897,
+      "cv_at_mfe": 0.05766082629512193,
+      "coalescence": 0.9454826870187658,
+      "mean_delta_entry_to_mfe": 0.006585761872896401,
+      "suggested_exit_threshold": 0.9517808135598897
+    }
+  ],
+  "NMP_FADE_RAW|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9988239218791326,
+      "cv_at_mfe": 0.01039564059672253,
+      "coalescence": 0.9897113168554617,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9988239218791326
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974571684996287,
+      "cv_at_mfe": 0.026049455603069527,
+      "coalescence": 0.9746118908198643,
+      "mean_delta_entry_to_mfe": -0.0011021886815579154,
+      "suggested_exit_threshold": 0.9974571684996287
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9974797358115515,
+      "cv_at_mfe": 0.026089928566928357,
+      "coalescence": 0.9745734483493408,
+      "mean_delta_entry_to_mfe": 0.0003660094394731012,
+      "suggested_exit_threshold": 0.9974797358115515
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9635012994209926,
+      "cv_at_mfe": 0.04792464508966955,
+      "coalescence": 0.9542670884645826,
+      "mean_delta_entry_to_mfe": -0.013875259239338132,
+      "suggested_exit_threshold": 0.9635012994209926
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.993700877825419,
+      "cv_at_mfe": 0.04866941638079468,
+      "coalescence": 0.9535893622713207,
+      "mean_delta_entry_to_mfe": -2.0525531500917518e-05,
+      "suggested_exit_threshold": 0.993700877825419
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9927566369374593,
+      "cv_at_mfe": 0.049691652863751816,
+      "coalescence": 0.9526607144791673,
+      "mean_delta_entry_to_mfe": -0.00010046330497370372,
+      "suggested_exit_threshold": 0.9927566369374593
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9864264212548732,
+      "cv_at_mfe": 0.05334531888557679,
+      "coalescence": 0.9493562861778174,
+      "mean_delta_entry_to_mfe": 2.6278654706079238e-06,
+      "suggested_exit_threshold": 0.9864264212548732
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9499647229909898,
+      "cv_at_mfe": 0.05429230807168202,
+      "coalescence": 0.9485035528989266,
+      "mean_delta_entry_to_mfe": 0.006223872305278948,
+      "suggested_exit_threshold": 0.9499647229909898
+    }
+  ],
+  "NMP_FADE_RAW|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9877589335044226,
+      "cv_at_mfe": 0.011847135757197315,
+      "coalescence": 0.9882915755369196,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9877589335044226
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9927705615758895,
+      "cv_at_mfe": 0.025613536176621897,
+      "coalescence": 0.975026132872518,
+      "mean_delta_entry_to_mfe": 0.0001269866636066597,
+      "suggested_exit_threshold": 0.9927705615758895
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975579490264257,
+      "cv_at_mfe": 0.027530470475414195,
+      "coalescence": 0.9732071493094735,
+      "mean_delta_entry_to_mfe": -0.0019183627993451778,
+      "suggested_exit_threshold": 0.9975579490264257
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9929019967714945,
+      "cv_at_mfe": 0.04389318808705857,
+      "coalescence": 0.9579524144922402,
+      "mean_delta_entry_to_mfe": -0.00016526303821595722,
+      "suggested_exit_threshold": 0.9929019967714945
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9885845363140107,
+      "cv_at_mfe": 0.045746895740389724,
+      "coalescence": 0.9562543327388977,
+      "mean_delta_entry_to_mfe": -1.4767954829268869e-06,
+      "suggested_exit_threshold": 0.9885845363140107
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9942399551471075,
+      "cv_at_mfe": 0.04669514864111858,
+      "coalescence": 0.9553880146461545,
+      "mean_delta_entry_to_mfe": -9.763366459620642e-06,
+      "suggested_exit_threshold": 0.9942399551471075
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9548262635866801,
+      "cv_at_mfe": 0.049476754060351624,
+      "coalescence": 0.9528557884975255,
+      "mean_delta_entry_to_mfe": -0.01576174938901826,
+      "suggested_exit_threshold": 0.9548262635866801
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9184871658682823,
+      "cv_at_mfe": 0.06359523464799316,
+      "coalescence": 0.9402072963696189,
+      "mean_delta_entry_to_mfe": 0.009783411043950321,
+      "suggested_exit_threshold": 0.9184871658682823
+    }
+  ],
+  "NMP_FADE_RAW|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9643995136022567,
+      "cv_at_mfe": 0.011983672309273266,
+      "coalescence": 0.9881582355158682,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9643995136022567
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9927617102861404,
+      "cv_at_mfe": 0.025271726085365383,
+      "coalescence": 0.9753511918427161,
+      "mean_delta_entry_to_mfe": 0.0004887258305269129,
+      "suggested_exit_threshold": 0.9927617102861404
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9974428464968998,
+      "cv_at_mfe": 0.026706204057600588,
+      "coalescence": 0.9739884652960544,
+      "mean_delta_entry_to_mfe": -0.0008951711978308215,
+      "suggested_exit_threshold": 0.9974428464968998
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9932530611753464,
+      "cv_at_mfe": 0.044890531199491025,
+      "coalescence": 0.9570380534045433,
+      "mean_delta_entry_to_mfe": -5.115770916054152e-05,
+      "suggested_exit_threshold": 0.9932530611753464
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9942399551471075,
+      "cv_at_mfe": 0.0480691823501344,
+      "coalescence": 0.9541354872754233,
+      "mean_delta_entry_to_mfe": -0.00012145817819224224,
+      "suggested_exit_threshold": 0.9942399551471075
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9631732751925786,
+      "cv_at_mfe": 0.04865676437771533,
+      "coalescence": 0.9536008672898908,
+      "mean_delta_entry_to_mfe": -0.015863051579009354,
+      "suggested_exit_threshold": 0.9631732751925786
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.988738332192103,
+      "cv_at_mfe": 0.04883171200356763,
+      "coalescence": 0.9534418043955925,
+      "mean_delta_entry_to_mfe": 1.8966052657217746e-05,
+      "suggested_exit_threshold": 0.988738332192103
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9165964573621749,
+      "cv_at_mfe": 0.061655141570062647,
+      "coalescence": 0.9419254528557344,
+      "mean_delta_entry_to_mfe": 0.010484679940059714,
+      "suggested_exit_threshold": 0.9165964573621749
+    }
+  ],
+  "NMP_FADE_RAW|WARMUP|long": [
+    {
+      "feature": "L3_15m_hurst_12",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L3_1h_hurst_12",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L1_1D_bar_range",
+      "mode_at_mfe": 76.25,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 76.25
+    },
+    {
+      "feature": "L1_1D_body",
+      "mode_at_mfe": -5.75,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": -5.75
+    },
+    {
+      "feature": "L3_1D_hurst_5",
+      "mode_at_mfe": 0.5,
+      "cv_at_mfe": 0.0,
+      "coalescence": 1.0,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.5
+    },
+    {
+      "feature": "L2_5m_price_mean_9",
+      "mode_at_mfe": 21373.06298828125,
+      "cv_at_mfe": 0.0024363788383954207,
+      "coalescence": 0.9975695426763954,
+      "mean_delta_entry_to_mfe": 0.007924107142857142,
+      "suggested_exit_threshold": 21373.06298828125
+    },
+    {
+      "feature": "L2_5m_vwap_9",
+      "mode_at_mfe": 21386.62607421875,
+      "cv_at_mfe": 0.002526868351843942,
+      "coalescence": 0.9974795006182745,
+      "mean_delta_entry_to_mfe": 0.010770089285714286,
+      "suggested_exit_threshold": 21386.62607421875
+    },
+    {
+      "feature": "L2_15s_price_mean_12",
+      "mode_at_mfe": 21306.030924479164,
+      "cv_at_mfe": 0.0026907463871665327,
+      "coalescence": 0.9973164742999158,
+      "mean_delta_entry_to_mfe": -1.0505208333333333,
+      "suggested_exit_threshold": 21306.030924479164
+    }
+  ],
+  "NMP_RIDE_RAW|UP_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9721709787845612,
+      "cv_at_mfe": 0.010716463066164939,
+      "coalescence": 0.9893971618571891,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9721709787845612
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9836291799942652,
+      "cv_at_mfe": 0.025946498038970648,
+      "coalescence": 0.9747096967643383,
+      "mean_delta_entry_to_mfe": 0.0056660623894524325,
+      "suggested_exit_threshold": 0.9836291799942652
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9817951172590256,
+      "cv_at_mfe": 0.027825284869386145,
+      "coalescence": 0.9729280012089584,
+      "mean_delta_entry_to_mfe": -0.002347120304697568,
+      "suggested_exit_threshold": 0.9817951172590256
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9950205524762472,
+      "cv_at_mfe": 0.04426651332291325,
+      "coalescence": 0.9576099465431916,
+      "mean_delta_entry_to_mfe": -0.0029023996333486027,
+      "suggested_exit_threshold": 0.9950205524762472
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9759652018547058,
+      "cv_at_mfe": 0.048182053036962214,
+      "coalescence": 0.9540327437420234,
+      "mean_delta_entry_to_mfe": 0.015170622117740592,
+      "suggested_exit_threshold": 0.9759652018547058
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9933903137842814,
+      "cv_at_mfe": 0.05897195922398544,
+      "coalescence": 0.9443120672740002,
+      "mean_delta_entry_to_mfe": 0.0016072509215050137,
+      "suggested_exit_threshold": 0.9933903137842814
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21433.3955078125,
+      "cv_at_mfe": 0.07773292982942896,
+      "coalescence": 0.9278736617598465,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21433.3955078125
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21492.1544921875,
+      "cv_at_mfe": 0.07852381227806934,
+      "coalescence": 0.9271932511974765,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21492.1544921875
+    }
+  ],
+  "NMP_RIDE_RAW|UP_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9683701058228811,
+      "cv_at_mfe": 0.012627001306819834,
+      "coalescence": 0.9875304516959112,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9683701058228811
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9834992378950119,
+      "cv_at_mfe": 0.030719366932781714,
+      "coalescence": 0.9701961873247842,
+      "mean_delta_entry_to_mfe": -0.008383688254234118,
+      "suggested_exit_threshold": 0.9834992378950119
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9758421033620834,
+      "cv_at_mfe": 0.034865316447540234,
+      "coalescence": 0.9663093197796743,
+      "mean_delta_entry_to_mfe": 0.0023884299473884776,
+      "suggested_exit_threshold": 0.9758421033620834
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9927142828702926,
+      "cv_at_mfe": 0.03551162278321868,
+      "coalescence": 0.9657062055104978,
+      "mean_delta_entry_to_mfe": -0.004895016168936705,
+      "suggested_exit_threshold": 0.9927142828702926
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9830397566159567,
+      "cv_at_mfe": 0.038448266049298775,
+      "coalescence": 0.9629752705971839,
+      "mean_delta_entry_to_mfe": 0.00020971206518319936,
+      "suggested_exit_threshold": 0.9830397566159567
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.99273721575737,
+      "cv_at_mfe": 0.04491885192605691,
+      "coalescence": 0.9570121145357271,
+      "mean_delta_entry_to_mfe": 4.9289819356557485e-05,
+      "suggested_exit_threshold": 0.99273721575737
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.995327424009641,
+      "cv_at_mfe": 0.055270703304351125,
+      "coalescence": 0.9476241469309411,
+      "mean_delta_entry_to_mfe": -0.006742527851691613,
+      "suggested_exit_threshold": 0.995327424009641
+    },
+    {
+      "feature": "L2_5s_vwap_9",
+      "mode_at_mfe": 21386.1873046875,
+      "cv_at_mfe": 0.11489173436298851,
+      "coalescence": 0.8969480795113852,
+      "mean_delta_entry_to_mfe": 31.97020232371795,
+      "suggested_exit_threshold": 21386.1873046875
+    }
+  ],
+  "NMP_RIDE_RAW|DOWN_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9744645039240519,
+      "cv_at_mfe": 0.011295466126145723,
+      "coalescence": 0.9888306963647192,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9744645039240519
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9722684303919473,
+      "cv_at_mfe": 0.029244645414568875,
+      "coalescence": 0.9715863030768651,
+      "mean_delta_entry_to_mfe": -0.003740615389320288,
+      "suggested_exit_threshold": 0.9722684303919473
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9975276708602905,
+      "cv_at_mfe": 0.03230650839754331,
+      "coalescence": 0.9687045386861961,
+      "mean_delta_entry_to_mfe": -0.0029315365834182566,
+      "suggested_exit_threshold": 0.9975276708602905
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9969442288080852,
+      "cv_at_mfe": 0.03352139893601899,
+      "coalescence": 0.9675658394973453,
+      "mean_delta_entry_to_mfe": 0.003471187661203106,
+      "suggested_exit_threshold": 0.9969442288080852
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9799150675535202,
+      "cv_at_mfe": 0.05227482605104412,
+      "coalescence": 0.950322078646298,
+      "mean_delta_entry_to_mfe": 0.020625239677643507,
+      "suggested_exit_threshold": 0.9799150675535202
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9928179581960043,
+      "cv_at_mfe": 0.0786874950201956,
+      "coalescence": 0.9270525565713336,
+      "mean_delta_entry_to_mfe": 0.009075851252909457,
+      "suggested_exit_threshold": 0.9928179581960043
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21444.161848958334,
+      "cv_at_mfe": 0.09696067094532199,
+      "coalescence": 0.9116097108005116,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21444.161848958334
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 25528.997721354168,
+      "cv_at_mfe": 0.09739760832509593,
+      "coalescence": 0.911246746314903,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 25528.997721354168
+    }
+  ],
+  "RIDE_AGAINST|UP_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9721709787845612,
+      "cv_at_mfe": 0.010657646908540295,
+      "coalescence": 0.9894547407411991,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9721709787845612
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9836291799942652,
+      "cv_at_mfe": 0.026132600842054682,
+      "coalescence": 0.9745329201892524,
+      "mean_delta_entry_to_mfe": 0.005602827731599199,
+      "suggested_exit_threshold": 0.9836291799942652
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9817951172590256,
+      "cv_at_mfe": 0.02818895332208383,
+      "coalescence": 0.9725838784486012,
+      "mean_delta_entry_to_mfe": -0.00199821781604848,
+      "suggested_exit_threshold": 0.9817951172590256
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9950205524762472,
+      "cv_at_mfe": 0.043589666856481114,
+      "coalescence": 0.9582310286879492,
+      "mean_delta_entry_to_mfe": -0.0033958357699373936,
+      "suggested_exit_threshold": 0.9950205524762472
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.985498297214508,
+      "cv_at_mfe": 0.049082672323892594,
+      "coalescence": 0.953213723170962,
+      "mean_delta_entry_to_mfe": 0.012499560701086166,
+      "suggested_exit_threshold": 0.985498297214508
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9933903137842814,
+      "cv_at_mfe": 0.05965772591637761,
+      "coalescence": 0.943700947525498,
+      "mean_delta_entry_to_mfe": 0.0016585461636807056,
+      "suggested_exit_threshold": 0.9933903137842814
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21433.3955078125,
+      "cv_at_mfe": 0.07835276359148549,
+      "coalescence": 0.9273403229101678,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21433.3955078125
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21492.1544921875,
+      "cv_at_mfe": 0.07913211593308485,
+      "coalescence": 0.9266705950414029,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21492.1544921875
+    }
+  ],
+  "RIDE_AGAINST|UP_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9683701058228811,
+      "cv_at_mfe": 0.012782150092843088,
+      "coalescence": 0.9873791712347306,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9683701058228811
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9834992378950119,
+      "cv_at_mfe": 0.029759632413184064,
+      "coalescence": 0.9711004087978822,
+      "mean_delta_entry_to_mfe": -0.0066131208394024825,
+      "suggested_exit_threshold": 0.9834992378950119
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9918982535600662,
+      "cv_at_mfe": 0.035730513808759606,
+      "coalescence": 0.96550211340461,
+      "mean_delta_entry_to_mfe": 0.002517534268868936,
+      "suggested_exit_threshold": 0.9918982535600662
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9927142828702926,
+      "cv_at_mfe": 0.036501101235643714,
+      "coalescence": 0.9647843102220252,
+      "mean_delta_entry_to_mfe": -0.006952524185180664,
+      "suggested_exit_threshold": 0.9927142828702926
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.961357335249583,
+      "cv_at_mfe": 0.039367123838005114,
+      "coalescence": 0.9621239474146184,
+      "mean_delta_entry_to_mfe": -0.002093804849160684,
+      "suggested_exit_threshold": 0.961357335249583
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.99273721575737,
+      "cv_at_mfe": 0.045267768051672576,
+      "coalescence": 0.9566926586322952,
+      "mean_delta_entry_to_mfe": 5.0658981005350746e-05,
+      "suggested_exit_threshold": 0.99273721575737
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.995327424009641,
+      "cv_at_mfe": 0.05617981563005422,
+      "coalescence": 0.9468084744674461,
+      "mean_delta_entry_to_mfe": -0.004992277235598178,
+      "suggested_exit_threshold": 0.995327424009641
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21098.958658854164,
+      "cv_at_mfe": 0.1146343081090678,
+      "coalescence": 0.8971552308455853,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21098.958658854164
+    }
+  ],
+  "RIDE_AGAINST|DOWN_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9744645039240519,
+      "cv_at_mfe": 0.011285560994389498,
+      "coalescence": 0.988840381560187,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9744645039240519
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9719996809959413,
+      "cv_at_mfe": 0.028467066790907262,
+      "coalescence": 0.972320876661873,
+      "mean_delta_entry_to_mfe": -0.0033238273720408596,
+      "suggested_exit_threshold": 0.9719996809959413
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9970121850570043,
+      "cv_at_mfe": 0.032225939272691954,
+      "coalescence": 0.9687801497263299,
+      "mean_delta_entry_to_mfe": -0.0024991964184960655,
+      "suggested_exit_threshold": 0.9970121850570043
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9969442288080852,
+      "cv_at_mfe": 0.034075288422419754,
+      "coalescence": 0.9670475749648704,
+      "mean_delta_entry_to_mfe": 0.002951832704765852,
+      "suggested_exit_threshold": 0.9969442288080852
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9844817608594895,
+      "cv_at_mfe": 0.06063935344531414,
+      "coalescence": 0.9428275471315135,
+      "mean_delta_entry_to_mfe": 0.01709852662197379,
+      "suggested_exit_threshold": 0.9844817608594895
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9928179581960043,
+      "cv_at_mfe": 0.07858681086939856,
+      "coalescence": 0.9271390952703628,
+      "mean_delta_entry_to_mfe": 0.008652331524117048,
+      "suggested_exit_threshold": 0.9928179581960043
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 21444.161848958334,
+      "cv_at_mfe": 0.09743644314274771,
+      "coalescence": 0.91121450016393,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21444.161848958334
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 25528.997721354168,
+      "cv_at_mfe": 0.09784734369404693,
+      "coalescence": 0.9108734522553843,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 25528.997721354168
+    }
+  ],
+  "RIDE_AGAINST|DOWN_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9830093443393707,
+      "cv_at_mfe": 0.00965523311111337,
+      "coalescence": 0.9904370989279558,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9830093443393707
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9682054072618484,
+      "cv_at_mfe": 0.026981631949210917,
+      "coalescence": 0.9737272497288976,
+      "mean_delta_entry_to_mfe": -0.003335815261710774,
+      "suggested_exit_threshold": 0.9682054072618484
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9840415130058925,
+      "cv_at_mfe": 0.030191398000413237,
+      "coalescence": 0.9706934089538951,
+      "mean_delta_entry_to_mfe": 0.0019438171928579156,
+      "suggested_exit_threshold": 0.9840415130058925
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9834325313568115,
+      "cv_at_mfe": 0.03275183229583411,
+      "coalescence": 0.9682868320620397,
+      "mean_delta_entry_to_mfe": -0.0014460310339927673,
+      "suggested_exit_threshold": 0.9834325313568115
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9879719167947769,
+      "cv_at_mfe": 0.04232105204852676,
+      "coalescence": 0.9593972970560741,
+      "mean_delta_entry_to_mfe": 0.0059665854681621895,
+      "suggested_exit_threshold": 0.9879719167947769
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9876751899719238,
+      "cv_at_mfe": 0.04290755670420669,
+      "coalescence": 0.9588577564441061,
+      "mean_delta_entry_to_mfe": 0.000988243655724959,
+      "suggested_exit_threshold": 0.9876751899719238
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9862867414951324,
+      "cv_at_mfe": 0.10919530557416662,
+      "coalescence": 0.9015544827629409,
+      "mean_delta_entry_to_mfe": -0.001077424396168102,
+      "suggested_exit_threshold": 0.9862867414951324
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9912912170092265,
+      "cv_at_mfe": 0.11156359114957974,
+      "coalescence": 0.899633640362221,
+      "mean_delta_entry_to_mfe": 0.1281630207191814,
+      "suggested_exit_threshold": 0.9912912170092265
+    }
+  ],
+  "RIDE_AGAINST|FLAT_SMOOTH|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9824035356442133,
+      "cv_at_mfe": 0.00968655362928098,
+      "coalescence": 0.9904063755286598,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9824035356442133
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9828860292832057,
+      "cv_at_mfe": 0.02908881339373028,
+      "coalescence": 0.971733427654508,
+      "mean_delta_entry_to_mfe": 0.002972728497273213,
+      "suggested_exit_threshold": 0.9828860292832057
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9750025262435278,
+      "cv_at_mfe": 0.029369337962341407,
+      "coalescence": 0.9714686100710181,
+      "mean_delta_entry_to_mfe": 0.0026180160206717416,
+      "suggested_exit_threshold": 0.9750025262435278
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9949422210454941,
+      "cv_at_mfe": 0.04781241385332526,
+      "coalescence": 0.9543693000567769,
+      "mean_delta_entry_to_mfe": 0.005272711450989182,
+      "suggested_exit_threshold": 0.9949422210454941
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.977598284681638,
+      "cv_at_mfe": 0.04792145154608436,
+      "coalescence": 0.9542699965962316,
+      "mean_delta_entry_to_mfe": -0.0004842317587620503,
+      "suggested_exit_threshold": 0.977598284681638
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9950280328591665,
+      "cv_at_mfe": 0.05161963203674127,
+      "coalescence": 0.9509141609150391,
+      "mean_delta_entry_to_mfe": -0.005895187323157852,
+      "suggested_exit_threshold": 0.9950280328591665
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9903893520434698,
+      "cv_at_mfe": 0.07582362871789144,
+      "coalescence": 0.9295203909880154,
+      "mean_delta_entry_to_mfe": -0.0009740102622244093,
+      "suggested_exit_threshold": 0.9903893520434698
+    },
+    {
+      "feature": "L2_1D_vwap_5",
+      "mode_at_mfe": 21588.39697265625,
+      "cv_at_mfe": 0.08127880947361704,
+      "coalescence": 0.9248308495815388,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 21588.39697265625
+    }
+  ],
+  "RIDE_AGAINST|FLAT_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9831584393978119,
+      "cv_at_mfe": 0.010047386928131317,
+      "coalescence": 0.9900525588619278,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9831584393978119
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9945804238319397,
+      "cv_at_mfe": 0.02420812417027596,
+      "coalescence": 0.9763640576568484,
+      "mean_delta_entry_to_mfe": 0.001033464582954965,
+      "suggested_exit_threshold": 0.9945804238319397
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9791146993637085,
+      "cv_at_mfe": 0.027590585021078876,
+      "coalescence": 0.9731502162210712,
+      "mean_delta_entry_to_mfe": -0.002609600381153386,
+      "suggested_exit_threshold": 0.9791146993637085
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9969421615203222,
+      "cv_at_mfe": 0.03606312140465881,
+      "coalescence": 0.9651921580262739,
+      "mean_delta_entry_to_mfe": 0.00860194462101634,
+      "suggested_exit_threshold": 0.9969421615203222
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9943496187527975,
+      "cv_at_mfe": 0.04893519272408702,
+      "coalescence": 0.953347744394959,
+      "mean_delta_entry_to_mfe": 0.0032169237369444313,
+      "suggested_exit_threshold": 0.9943496187527975
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9906087179978689,
+      "cv_at_mfe": 0.05564499858526871,
+      "coalescence": 0.9472881521156811,
+      "mean_delta_entry_to_mfe": 0.0004597560661595042,
+      "suggested_exit_threshold": 0.9906087179978689
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9819398045539857,
+      "cv_at_mfe": 0.07612719662894789,
+      "coalescence": 0.9292581798253755,
+      "mean_delta_entry_to_mfe": 0.018106108031621795,
+      "suggested_exit_threshold": 0.9819398045539857
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 19947.4849609375,
+      "cv_at_mfe": 0.08967084587711434,
+      "coalescence": 0.9177083187859953,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 19947.4849609375
+    }
+  ],
+  "RIDE_AGAINST|FLAT_CHOPPY|long": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9874941488107045,
+      "cv_at_mfe": 0.010513275579173899,
+      "coalescence": 0.989596103452329,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9874941488107045
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9852297276258468,
+      "cv_at_mfe": 0.021881780040056382,
+      "coalescence": 0.9785867793442813,
+      "mean_delta_entry_to_mfe": 0.002054915799723043,
+      "suggested_exit_threshold": 0.9852297276258468
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.982058267792066,
+      "cv_at_mfe": 0.026331921027594508,
+      "coalescence": 0.9743436596990668,
+      "mean_delta_entry_to_mfe": -0.0002876734733581543,
+      "suggested_exit_threshold": 0.982058267792066
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9825125306844711,
+      "cv_at_mfe": 0.02923832631437074,
+      "coalescence": 0.9715922682173418,
+      "mean_delta_entry_to_mfe": -0.0008894406355820693,
+      "suggested_exit_threshold": 0.9825125306844711
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9899700611829758,
+      "cv_at_mfe": 0.03552008166626946,
+      "coalescence": 0.9656983169180904,
+      "mean_delta_entry_to_mfe": 0.007545566404020631,
+      "suggested_exit_threshold": 0.9899700611829758
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9862646967172624,
+      "cv_at_mfe": 0.045562162717554,
+      "coalescence": 0.9564232865895492,
+      "mean_delta_entry_to_mfe": 0.0005533904224247128,
+      "suggested_exit_threshold": 0.9862646967172624
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9769697884718577,
+      "cv_at_mfe": 0.05013059695837188,
+      "coalescence": 0.9522625118213187,
+      "mean_delta_entry_to_mfe": 0.0034630306355364912,
+      "suggested_exit_threshold": 0.9769697884718577
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9934860666592916,
+      "cv_at_mfe": 0.07336183573829311,
+      "coalescence": 0.9316522785740445,
+      "mean_delta_entry_to_mfe": 0.051311290883398676,
+      "suggested_exit_threshold": 0.9934860666592916
+    }
+  ],
+  "RIDE_AGAINST|FLAT_CHOPPY|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9648328483104706,
+      "cv_at_mfe": 0.013306735371355486,
+      "coalescence": 0.9868680085635878,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9648328483104706
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9873862892389298,
+      "cv_at_mfe": 0.024891533988329054,
+      "coalescence": 0.9757130065349797,
+      "mean_delta_entry_to_mfe": 0.005231647655881685,
+      "suggested_exit_threshold": 0.9873862892389298
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9938889086246491,
+      "cv_at_mfe": 0.02919160379335576,
+      "coalescence": 0.9716363758839828,
+      "mean_delta_entry_to_mfe": -0.0005048112622622786,
+      "suggested_exit_threshold": 0.9938889086246491
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9683926333983739,
+      "cv_at_mfe": 0.03131764539225678,
+      "coalescence": 0.9696333660805878,
+      "mean_delta_entry_to_mfe": 0.002193846579255729,
+      "suggested_exit_threshold": 0.9683926333983739
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9970437328020731,
+      "cv_at_mfe": 0.03729496922567205,
+      "coalescence": 0.9640459364673172,
+      "mean_delta_entry_to_mfe": 0.01498951480306428,
+      "suggested_exit_threshold": 0.9970437328020731
+    },
+    {
+      "feature": "L3_4h_reversion_prob_18",
+      "mode_at_mfe": 0.9748785744110744,
+      "cv_at_mfe": 0.043466260340081206,
+      "coalescence": 0.9583443547796984,
+      "mean_delta_entry_to_mfe": 0.002732757864327266,
+      "suggested_exit_threshold": 0.9748785744110744
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9951594124237697,
+      "cv_at_mfe": 0.04797416625536772,
+      "coalescence": 0.9542219953505252,
+      "mean_delta_entry_to_mfe": 0.0008172135928581501,
+      "suggested_exit_threshold": 0.9951594124237697
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9951043983300527,
+      "cv_at_mfe": 0.05783567214753439,
+      "coalescence": 0.9453264115870464,
+      "mean_delta_entry_to_mfe": 0.05046054720878601,
+      "suggested_exit_threshold": 0.9951043983300527
+    }
+  ],
+  "RIDE_MOMENTUM|DOWN_SMOOTH|short": [
+    {
+      "feature": "L3_1D_reversion_prob_5",
+      "mode_at_mfe": 0.9739194144805272,
+      "cv_at_mfe": 0.010247936244029438,
+      "coalescence": 0.9898560186303077,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 0.9739194144805272
+    },
+    {
+      "feature": "L3_5s_reversion_prob_9",
+      "mode_at_mfe": 0.9795160154501596,
+      "cv_at_mfe": 0.02453678920358014,
+      "coalescence": 0.9760508461363757,
+      "mean_delta_entry_to_mfe": -0.0006741238267798172,
+      "suggested_exit_threshold": 0.9795160154501596
+    },
+    {
+      "feature": "L3_5m_reversion_prob_9",
+      "mode_at_mfe": 0.9346183508634567,
+      "cv_at_mfe": 0.030219149970634386,
+      "coalescence": 0.9706672604838537,
+      "mean_delta_entry_to_mfe": -0.001976849217163889,
+      "suggested_exit_threshold": 0.9346183508634567
+    },
+    {
+      "feature": "L3_15m_reversion_prob_12",
+      "mode_at_mfe": 0.9964680592219035,
+      "cv_at_mfe": 0.050320973983809185,
+      "coalescence": 0.952089908484885,
+      "mean_delta_entry_to_mfe": -0.01390291828858225,
+      "suggested_exit_threshold": 0.9964680592219035
+    },
+    {
+      "feature": "L3_15s_reversion_prob_12",
+      "mode_at_mfe": 0.9941180417935054,
+      "cv_at_mfe": 0.06618223189610303,
+      "coalescence": 0.9379259662033532,
+      "mean_delta_entry_to_mfe": 0.021948825371892827,
+      "suggested_exit_threshold": 0.9941180417935054
+    },
+    {
+      "feature": "L3_1h_reversion_prob_12",
+      "mode_at_mfe": 0.9928179581960043,
+      "cv_at_mfe": 0.07014468976762321,
+      "coalescence": 0.9344530786927001,
+      "mean_delta_entry_to_mfe": 0.01160485493509393,
+      "suggested_exit_threshold": 0.9928179581960043
+    },
+    {
+      "feature": "L3_1m_reversion_prob_15",
+      "mode_at_mfe": 0.9915914098421732,
+      "cv_at_mfe": 0.1045598957538628,
+      "coalescence": 0.9053379575378295,
+      "mean_delta_entry_to_mfe": 0.19849056946603874,
+      "suggested_exit_threshold": 0.9915914098421732
+    },
+    {
+      "feature": "L2_1D_price_mean_5",
+      "mode_at_mfe": 19679.485546875003,
+      "cv_at_mfe": 0.10881249747120147,
+      "coalescence": 0.9018657367955689,
+      "mean_delta_entry_to_mfe": 0.0,
+      "suggested_exit_threshold": 19679.485546875003
+    }
+  ]
+}

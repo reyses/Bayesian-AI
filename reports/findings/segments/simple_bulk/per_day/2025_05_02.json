@@ -1,0 +1,228 @@
+{
+  "day": "2025_05_02",
+  "date_iso": "2025-05-02",
+  "threshold": 0.85,
+  "n_phrases": 5,
+  "n_motifs": 14,
+  "phrases": [
+    {
+      "start_i": 0,
+      "end_i": 721,
+      "shape": "NOISE",
+      "r": -2.0,
+      "skew": "NONE",
+      "mean_sigma": 58.189543747404755,
+      "motifs": [
+        {
+          "start_i": 0,
+          "end_i": 721,
+          "shape": "NOISE",
+          "r": -2.0,
+          "skew": "NONE",
+          "mean_sigma": 39.06925787661696,
+          "start_ts": 1746144000,
+          "end_ts": 1746147665,
+          "length_min": 61.1
+        }
+      ],
+      "start_ts": 1746144000,
+      "end_ts": 1746147665,
+      "length_min": 61.1
+    },
+    {
+      "start_i": 1070,
+      "end_i": 3973,
+      "shape": "GENTLE_LINEAR_UP",
+      "r": 0.9666156543923724,
+      "skew": "NONE",
+      "mean_sigma": 30.859936013492838,
+      "motifs": [
+        {
+          "start_i": 1070,
+          "end_i": 2038,
+          "shape": "NOISE",
+          "r": 0.5442737706232285,
+          "skew": "NONE",
+          "mean_sigma": 13.95755463907975,
+          "start_ts": 1746149460,
+          "end_ts": 1746154800,
+          "length_min": 89.0
+        },
+        {
+          "start_i": 2038,
+          "end_i": 3405,
+          "shape": "GENTLE_CONCAVE_UP",
+          "r": 0.9501137453702204,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 7.533463542927669,
+          "start_ts": 1746154800,
+          "end_ts": 1746163865,
+          "length_min": 151.1
+        },
+        {
+          "start_i": 3405,
+          "end_i": 3973,
+          "shape": "STEEP_LINEAR_DOWN",
+          "r": 0.9920126971487936,
+          "skew": "NONE",
+          "mean_sigma": 11.781569204260059,
+          "start_ts": 1746163865,
+          "end_ts": 1746167045,
+          "length_min": 53.0
+        }
+      ],
+      "start_ts": 1746149460,
+      "end_ts": 1746167045,
+      "length_min": 293.1
+    },
+    {
+      "start_i": 3973,
+      "end_i": 6885,
+      "shape": "GENTLE_CONVEX_DOWN",
+      "r": 0.9809102182251058,
+      "skew": "BACK_SKEWED",
+      "mean_sigma": 21.144698235720465,
+      "motifs": [
+        {
+          "start_i": 3973,
+          "end_i": 4704,
+          "shape": "NOISE",
+          "r": 0.354571313044134,
+          "skew": "NONE",
+          "mean_sigma": 15.3704646934479,
+          "start_ts": 1746167045,
+          "end_ts": 1746170930,
+          "length_min": 64.8
+        },
+        {
+          "start_i": 4704,
+          "end_i": 5320,
+          "shape": "GENTLE_CONCAVE_DOWN",
+          "r": 0.8967788221104392,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 12.413519732823618,
+          "start_ts": 1746170930,
+          "end_ts": 1746174095,
+          "length_min": 52.8
+        },
+        {
+          "start_i": 5320,
+          "end_i": 6524,
+          "shape": "NOISE",
+          "r": 0.6592114440042314,
+          "skew": "NONE",
+          "mean_sigma": 17.046720006169405,
+          "start_ts": 1746174095,
+          "end_ts": 1746180785,
+          "length_min": 111.5
+        },
+        {
+          "start_i": 6524,
+          "end_i": 6885,
+          "shape": "STEEP_LINEAR_UP",
+          "r": 0.9801991002940245,
+          "skew": "NONE",
+          "mean_sigma": 10.834079096998405,
+          "start_ts": 1746180785,
+          "end_ts": 1746182700,
+          "length_min": 31.9
+        }
+      ],
+      "start_ts": 1746167045,
+      "end_ts": 1746182700,
+      "length_min": 260.9
+    },
+    {
+      "start_i": 6885,
+      "end_i": 13307,
+      "shape": "STEEP_LINEAR_UP",
+      "r": 0.9781997543820378,
+      "skew": "NONE",
+      "mean_sigma": 44.225042058557456,
+      "motifs": [
+        {
+          "start_i": 6885,
+          "end_i": 8147,
+          "shape": "NOISE",
+          "r": 0.6044346288010826,
+          "skew": "NONE",
+          "mean_sigma": 9.138641669386596,
+          "start_ts": 1746182700,
+          "end_ts": 1746189300,
+          "length_min": 110.0
+        },
+        {
+          "start_i": 8147,
+          "end_i": 11747,
+          "shape": "STEEP_CONCAVE_UP",
+          "r": 0.9791193607958837,
+          "skew": "FRONT_SKEWED",
+          "mean_sigma": 24.828247535349547,
+          "start_ts": 1746189300,
+          "end_ts": 1746207300,
+          "length_min": 300.0
+        },
+        {
+          "start_i": 11747,
+          "end_i": 12347,
+          "shape": "GENTLE_CONVEX_UP",
+          "r": 0.9010568890784028,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 12.419634211070784,
+          "start_ts": 1746207300,
+          "end_ts": 1746210300,
+          "length_min": 50.0
+        },
+        {
+          "start_i": 12347,
+          "end_i": 13007,
+          "shape": "NOISE",
+          "r": 0.7311353186680939,
+          "skew": "NONE",
+          "mean_sigma": 17.28824947432967,
+          "start_ts": 1746210300,
+          "end_ts": 1746213600,
+          "length_min": 55.0
+        },
+        {
+          "start_i": 13007,
+          "end_i": 13307,
+          "shape": "STEEP_CONVEX_DOWN",
+          "r": 0.9542219432967475,
+          "skew": "FRONT_SKEWED",
+          "mean_sigma": 16.204729116049858,
+          "start_ts": 1746213600,
+          "end_ts": 1746215100,
+          "length_min": 25.0
+        }
+      ],
+      "start_ts": 1746182700,
+      "end_ts": 1746215100,
+      "length_min": 540.0
+    },
+    {
+      "start_i": 13307,
+      "end_i": 14148,
+      "shape": "GENTLE_LINEAR_DOWN",
+      "r": 0.9552348230646962,
+      "skew": "NONE",
+      "mean_sigma": 23.057909084204944,
+      "motifs": [
+        {
+          "start_i": 13307,
+          "end_i": 14148,
+          "shape": "GENTLE_CONVEX_DOWN",
+          "r": 0.958457274790732,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 15.697826067563598,
+          "start_ts": 1746215100,
+          "end_ts": 1746219595,
+          "length_min": 74.9
+        }
+      ],
+      "start_ts": 1746215100,
+      "end_ts": 1746219595,
+      "length_min": 74.9
+    }
+  ]
+}

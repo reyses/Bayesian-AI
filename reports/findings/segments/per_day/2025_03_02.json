@@ -1,0 +1,78 @@
+{
+  "theme": {
+    "day": "2025_03_02",
+    "date_iso": "2025-03-02",
+    "dow": "Sun",
+    "n_5s_bars": 703,
+    "session_range_pts": 83.75,
+    "session_net_pts": -10.25,
+    "session_efficiency": -0.12238805970149254,
+    "n_motifs": 1,
+    "n_melodies": 2,
+    "min_motif_min": 30.0,
+    "min_melody_min": 5.0,
+    "motif_tf": "15m",
+    "melody_tf": "5m"
+  },
+  "motifs": [
+    {
+      "level": "motif",
+      "parent_motif_idx": -1,
+      "seg_idx": 0,
+      "start_ts": 1740956400,
+      "end_ts": 1740959995,
+      "start_iso": "2025-03-02T23:00:00+00:00",
+      "end_iso": "2025-03-02T23:59:55+00:00",
+      "length_min": 59.92,
+      "slope_pts_per_min": NaN,
+      "mean_sigma": 23.372,
+      "sigma_rank_mid": NaN,
+      "r2adj": 0.421,
+      "shape_class": "FLATLINE",
+      "shape_pearson_r": 0.0,
+      "peak_abs_z": 2.454,
+      "tod_start_hour_utc": 23,
+      "net_move_pts": -10.25,
+      "melodies": [
+        {
+          "level": "melody",
+          "parent_motif_idx": 0,
+          "seg_idx": 0,
+          "start_ts": 1740956400,
+          "end_ts": 1740957300,
+          "start_iso": "2025-03-02T23:00:00+00:00",
+          "end_iso": "2025-03-02T23:15:00+00:00",
+          "length_min": 15.0,
+          "slope_pts_per_min": NaN,
+          "mean_sigma": 32.058,
+          "sigma_rank_mid": NaN,
+          "r2adj": 0.806,
+          "shape_class": "FLATLINE",
+          "shape_pearson_r": 0.0,
+          "peak_abs_z": 0.715,
+          "tod_start_hour_utc": 23,
+          "net_move_pts": 49.5
+        },
+        {
+          "level": "melody",
+          "parent_motif_idx": 0,
+          "seg_idx": 1,
+          "start_ts": 1740957300,
+          "end_ts": 1740959995,
+          "start_iso": "2025-03-02T23:15:00+00:00",
+          "end_iso": "2025-03-02T23:59:55+00:00",
+          "length_min": 44.92,
+          "slope_pts_per_min": -0.5448,
+          "mean_sigma": 20.024,
+          "sigma_rank_mid": 0.045,
+          "r2adj": 0.824,
+          "shape_class": "LINEAR_DOWN",
+          "shape_pearson_r": 0.974,
+          "peak_abs_z": 2.525,
+          "tod_start_hour_utc": 23,
+          "net_move_pts": -59.75
+        }
+      ]
+    }
+  ]
+}

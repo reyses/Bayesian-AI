@@ -1,0 +1,59 @@
+{
+  "theme": {
+    "day": "2025_09_07",
+    "date_iso": "2025-09-07",
+    "dow": "Sun",
+    "n_5s_bars": 1290,
+    "session_range_pts": 132.0,
+    "session_net_pts": 96.25,
+    "session_efficiency": 0.7291666666666666,
+    "n_motifs": 1,
+    "n_melodies": 1,
+    "min_motif_min": 30.0,
+    "min_melody_min": 5.0,
+    "motif_tf": "15m",
+    "melody_tf": "5m"
+  },
+  "motifs": [
+    {
+      "level": "motif",
+      "parent_motif_idx": -1,
+      "seg_idx": 0,
+      "start_ts": 1757282400,
+      "end_ts": 1757289595,
+      "start_iso": "2025-09-07T22:00:00+00:00",
+      "end_iso": "2025-09-07T23:59:55+00:00",
+      "length_min": 119.92,
+      "slope_pts_per_min": NaN,
+      "mean_sigma": 32.134,
+      "sigma_rank_mid": 0.767,
+      "r2adj": 0.925,
+      "shape_class": "NOISE",
+      "shape_pearson_r": -999.0,
+      "peak_abs_z": 2.28,
+      "tod_start_hour_utc": 22,
+      "net_move_pts": 96.25,
+      "melodies": [
+        {
+          "level": "melody",
+          "parent_motif_idx": 0,
+          "seg_idx": 0,
+          "start_ts": 1757282400,
+          "end_ts": 1757289595,
+          "start_iso": "2025-09-07T22:00:00+00:00",
+          "end_iso": "2025-09-07T23:59:55+00:00",
+          "length_min": 119.92,
+          "slope_pts_per_min": NaN,
+          "mean_sigma": 15.766,
+          "sigma_rank_mid": 0.751,
+          "r2adj": 0.925,
+          "shape_class": "NOISE",
+          "shape_pearson_r": -999.0,
+          "peak_abs_z": 8.839,
+          "tod_start_hour_utc": 22,
+          "net_move_pts": 96.25
+        }
+      ]
+    }
+  ]
+}

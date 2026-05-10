@@ -1,0 +1,13 @@
+side,anchor,axis,bin,IS,OOS,sign_match
+above,high,z_close,3,0.0145,0.0417,1
+above,high,z_close,4,0.0049,0.0208,1
+above,low,z_close,1,0.1698,0.1667,1
+above,low,z_close,2,0.0774,0.0777,1
+above,low,z_close,3,0.0874,0.0708,1
+above,low,z_close,4,0.1343,0.1656,1
+below,high,z_close,0,0.1384,0.1611,1
+below,high,z_close,1,0.085,0.134,1
+below,high,z_close,2,0.087,0.0952,1
+below,high,z_close,3,0.1528,,-1
+below,low,z_close,0,0.0049,0.0183,1
+below,low,z_close,1,0.0141,,-1

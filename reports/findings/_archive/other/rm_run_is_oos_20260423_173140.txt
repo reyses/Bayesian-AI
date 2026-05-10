@@ -1,0 +1,90 @@
+[LOG] Writing output to reports\findings\rm_run_is_oos_20260423_173140.txt
+============================================================
+ISOLATED PIPELINE V2 — 1 per-tier engines, no CNN
+  Isolation: ON (1 engine per tier, no cross-tier interference)
+  Tiers active: all 1
+  Max chains: 1  [chaining OFF]
+  Regret phase: SKIPPED [default]
+  Started: 2026-04-23 17:31:40
+============================================================
+
+========================================
+PHASE 1: forward pass [IS]
+========================================
+ISO FORWARD [ISOLATED (parallel per-tier)] — 277 day(s), tiers: ['RM_PIVOT_TPSL'], max_chains=1
+
+============================================================
+RESULTS: 277 days | 21831 trades | $-4635.50
+  $/day: $-16.73
+  Winning days: 112/277
+============================================================
+
+Tier                   N      WR      Total    $/tr                 Mode
+---------------------------------------------------------------------------
+RM_PIVOT_TPSL     21,831     -2% $   -4,636 $ -0.21       NOISE_WIN(27%)
+
+====================================================================================================
+PnL MODE BUCKETS per tier (which bucket is most populated)
+====================================================================================================
+  Buckets: BIG_LOSS<-$50 · MED_LOSS<-$25 · REAL_LOSS<-$10 · MARG_LOSS<-$5 · NOISE_LOSS<$0
+           NOISE_WIN<$5 · MARG_WIN<$10 · REAL_WIN<$25 · STRONG_WIN<$50 · BIG_WIN>=$50
+
+  Tier               MODE           BL   ML   RL   mL   nL   nW   mW   RW   SW   BW
+  ---------------------------------------------------------------------------------
+  RM_PIVOT_TPSL      NOISE_WIN(27%)   5%   5%   6%   4%  19%  27%   9%  14%   7%   4%
+  ---------------------------------------------------------------------------------
+  ALL                NOISE_WIN(27%)   5%   5%   6%   4%  19%  27%   9%  14%   7%   4%
+
+====================================================================================================
+MAE-cut lift (risk-management layer, post-physics; NOT applied to engine total)
+====================================================================================================
+  Global best T=$-20   save $          +0   ->  $+0.00/day
+  Adaptive mix (per-tier T)    save $          +0   ->  $+0.00/day
+
+  Large run (21,831 trades) — stripped path features
+  Wrote: training_RM_physics/output/trades/rm_is.pkl
+  Done in 115s
+
+========================================
+PHASE 1: forward pass [OOS]
+========================================
+ISO FORWARD [ISOLATED (parallel per-tier)] — 68 day(s), tiers: ['RM_PIVOT_TPSL'], max_chains=1
+
+============================================================
+RESULTS: 68 days | 5664 trades | $-4270.00
+  $/day: $-62.79
+  Winning days: 23/68
+============================================================
+
+Tier                   N      WR      Total    $/tr                 Mode
+---------------------------------------------------------------------------
+RM_PIVOT_TPSL      5,664     -7% $   -4,270 $ -0.75       NOISE_WIN(23%)
+
+====================================================================================================
+PnL MODE BUCKETS per tier (which bucket is most populated)
+====================================================================================================
+  Buckets: BIG_LOSS<-$50 · MED_LOSS<-$25 · REAL_LOSS<-$10 · MARG_LOSS<-$5 · NOISE_LOSS<$0
+           NOISE_WIN<$5 · MARG_WIN<$10 · REAL_WIN<$25 · STRONG_WIN<$50 · BIG_WIN>=$50
+
+  Tier               MODE           BL   ML   RL   mL   nL   nW   mW   RW   SW   BW
+  ---------------------------------------------------------------------------------
+  RM_PIVOT_TPSL      NOISE_WIN(23%)   7%   6%   7%   4%  17%  23%   8%  16%   9%   4%
+  ---------------------------------------------------------------------------------
+  ALL                NOISE_WIN(23%)   7%   6%   7%   4%  17%  23%   8%  16%   9%   4%
+
+====================================================================================================
+MAE-cut lift (risk-management layer, post-physics; NOT applied to engine total)
+====================================================================================================
+  Global best T=$-20   save $          +0   ->  $+0.00/day
+  Adaptive mix (per-tier T)    save $          +0   ->  $+0.00/day
+
+  Wrote: training_RM_physics/output/trades/rm_oos.pkl
+  Done in 33s
+
+(Phase 2 regret skipped — default; pass --regret to enable)
+
+========================================
+SUMMARY
+========================================
+ISO V2 PIPELINE COMPLETE — 148s (2.5 min)
+  Finished: 2026-04-23 17:34:08

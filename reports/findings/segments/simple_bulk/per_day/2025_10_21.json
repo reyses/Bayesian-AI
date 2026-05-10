@@ -1,0 +1,265 @@
+{
+  "day": "2025_10_21",
+  "date_iso": "2025-10-21",
+  "threshold": 0.85,
+  "n_phrases": 7,
+  "n_motifs": 15,
+  "phrases": [
+    {
+      "start_i": 0,
+      "end_i": 721,
+      "shape": "NOISE",
+      "r": -2.0,
+      "skew": "NONE",
+      "mean_sigma": 8.525557092110093,
+      "motifs": [
+        {
+          "start_i": 0,
+          "end_i": 721,
+          "shape": "NOISE",
+          "r": -2.0,
+          "skew": "NONE",
+          "mean_sigma": 7.081916121079975,
+          "start_ts": 1761004800,
+          "end_ts": 1761009330,
+          "length_min": 75.5
+        }
+      ],
+      "start_ts": 1761004800,
+      "end_ts": 1761009330,
+      "length_min": 75.5
+    },
+    {
+      "start_i": 1031,
+      "end_i": 2479,
+      "shape": "GENTLE_CONCAVE_UP",
+      "r": 0.8870695474786919,
+      "skew": "SYMMETRIC",
+      "mean_sigma": 9.212755470315777,
+      "motifs": [
+        {
+          "start_i": 1031,
+          "end_i": 2120,
+          "shape": "NOISE",
+          "r": 0.695193114997396,
+          "skew": "NONE",
+          "mean_sigma": 5.776067640622394,
+          "start_ts": 1761011275,
+          "end_ts": 1761018600,
+          "length_min": 122.1
+        },
+        {
+          "start_i": 2120,
+          "end_i": 2479,
+          "shape": "STEEP_LINEAR_DOWN",
+          "r": 0.9899265324619912,
+          "skew": "NONE",
+          "mean_sigma": 9.392612781783761,
+          "start_ts": 1761018600,
+          "end_ts": 1761021000,
+          "length_min": 40.0
+        }
+      ],
+      "start_ts": 1761011275,
+      "end_ts": 1761021000,
+      "length_min": 162.1
+    },
+    {
+      "start_i": 2479,
+      "end_i": 5856,
+      "shape": "GENTLE_LINEAR_DOWN",
+      "r": 0.9729562327909891,
+      "skew": "NONE",
+      "mean_sigma": 15.097439429160001,
+      "motifs": [
+        {
+          "start_i": 2479,
+          "end_i": 5550,
+          "shape": "GENTLE_CONVEX_DOWN",
+          "r": 0.9728842195444661,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 6.290128829015931,
+          "start_ts": 1761021000,
+          "end_ts": 1761039000,
+          "length_min": 300.0
+        },
+        {
+          "start_i": 5550,
+          "end_i": 5856,
+          "shape": "GENTLE_LINEAR_UP",
+          "r": 0.9782281406031753,
+          "skew": "NONE",
+          "mean_sigma": 6.475633632987561,
+          "start_ts": 1761039000,
+          "end_ts": 1761040830,
+          "length_min": 30.5
+        }
+      ],
+      "start_ts": 1761021000,
+      "end_ts": 1761040830,
+      "length_min": 330.5
+    },
+    {
+      "start_i": 5856,
+      "end_i": 8523,
+      "shape": "GENTLE_LINEAR_UP",
+      "r": 0.9436882997646443,
+      "skew": "NONE",
+      "mean_sigma": 10.943604741454957,
+      "motifs": [
+        {
+          "start_i": 5856,
+          "end_i": 6705,
+          "shape": "NOISE",
+          "r": 0.5847392607012077,
+          "skew": "NONE",
+          "mean_sigma": 5.596836267564219,
+          "start_ts": 1761040830,
+          "end_ts": 1761045775,
+          "length_min": 82.4
+        },
+        {
+          "start_i": 6705,
+          "end_i": 7923,
+          "shape": "GENTLE_CONCAVE_UP",
+          "r": 0.9317845176909212,
+          "skew": "FRONT_SKEWED",
+          "mean_sigma": 6.685007972049255,
+          "start_ts": 1761045775,
+          "end_ts": 1761052200,
+          "length_min": 107.1
+        },
+        {
+          "start_i": 7923,
+          "end_i": 8523,
+          "shape": "STEEP_CONCAVE_DOWN",
+          "r": 0.9789363488358359,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 11.257260377263252,
+          "start_ts": 1761052200,
+          "end_ts": 1761055200,
+          "length_min": 50.0
+        }
+      ],
+      "start_ts": 1761040830,
+      "end_ts": 1761055200,
+      "length_min": 239.5
+    },
+    {
+      "start_i": 8523,
+      "end_i": 10143,
+      "shape": "GENTLE_CONVEX_DOWN",
+      "r": 0.9483161826732098,
+      "skew": "FRONT_SKEWED",
+      "mean_sigma": 29.20412481674627,
+      "motifs": [
+        {
+          "start_i": 8523,
+          "end_i": 9363,
+          "shape": "NOISE",
+          "r": 0.49233921726322316,
+          "skew": "NONE",
+          "mean_sigma": 20.460858554822998,
+          "start_ts": 1761055200,
+          "end_ts": 1761059400,
+          "length_min": 70.0
+        },
+        {
+          "start_i": 9363,
+          "end_i": 10143,
+          "shape": "STEEP_LINEAR_UP",
+          "r": 0.9557269365998612,
+          "skew": "NONE",
+          "mean_sigma": 16.64577257600995,
+          "start_ts": 1761059400,
+          "end_ts": 1761063300,
+          "length_min": 65.0
+        }
+      ],
+      "start_ts": 1761055200,
+      "end_ts": 1761063300,
+      "length_min": 135.0
+    },
+    {
+      "start_i": 10143,
+      "end_i": 12483,
+      "shape": "GENTLE_CONCAVE_UP",
+      "r": 0.9653748984714638,
+      "skew": "SYMMETRIC",
+      "mean_sigma": 26.806000662785813,
+      "motifs": [
+        {
+          "start_i": 10143,
+          "end_i": 11703,
+          "shape": "NOISE",
+          "r": 0.6778939623626314,
+          "skew": "NONE",
+          "mean_sigma": 15.183696416835229,
+          "start_ts": 1761063300,
+          "end_ts": 1761071100,
+          "length_min": 130.0
+        },
+        {
+          "start_i": 11703,
+          "end_i": 12483,
+          "shape": "FLATLINE",
+          "r": 0.0,
+          "skew": "NONE",
+          "mean_sigma": 6.626570969316927,
+          "start_ts": 1761071100,
+          "end_ts": 1761075000,
+          "length_min": 65.0
+        }
+      ],
+      "start_ts": 1761063300,
+      "end_ts": 1761075000,
+      "length_min": 195.0
+    },
+    {
+      "start_i": 12483,
+      "end_i": 14607,
+      "shape": "GENTLE_LINEAR_DOWN",
+      "r": 0.9791034237276783,
+      "skew": "NONE",
+      "mean_sigma": 19.563483931112323,
+      "motifs": [
+        {
+          "start_i": 12483,
+          "end_i": 13975,
+          "shape": "GENTLE_CONVEX_DOWN",
+          "r": 0.8645380322001922,
+          "skew": "FRONT_SKEWED",
+          "mean_sigma": 13.284496406204763,
+          "start_ts": 1761075000,
+          "end_ts": 1761086775,
+          "length_min": 196.2
+        },
+        {
+          "start_i": 13975,
+          "end_i": 14306,
+          "shape": "GENTLE_CONCAVE_DOWN",
+          "r": 0.9177085308551021,
+          "skew": "BACK_SKEWED",
+          "mean_sigma": 6.3074832508998275,
+          "start_ts": 1761086775,
+          "end_ts": 1761089100,
+          "length_min": 38.8
+        },
+        {
+          "start_i": 14306,
+          "end_i": 14607,
+          "shape": "GENTLE_LINEAR_DOWN",
+          "r": 0.9755555115713795,
+          "skew": "NONE",
+          "mean_sigma": 6.809191034543039,
+          "start_ts": 1761089100,
+          "end_ts": 1761091195,
+          "length_min": 34.9
+        }
+      ],
+      "start_ts": 1761075000,
+      "end_ts": 1761091195,
+      "length_min": 269.9
+    }
+  ]
+}

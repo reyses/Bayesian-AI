@@ -1,0 +1,2 @@
+feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
+L1_15s_body,IS,2025_12_19,above_+3sigma,1766127812,1.47,6.250562104900548,6.250562104900548,55.0,55.0,0.0,7,Fri

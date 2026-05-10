@@ -1,0 +1,33 @@
+{
+  "day": "2026_02_15",
+  "date_iso": "2026-02-15",
+  "threshold": 0.85,
+  "n_phrases": 1,
+  "n_motifs": 1,
+  "phrases": [
+    {
+      "start_i": 0,
+      "end_i": 718,
+      "shape": "NOISE",
+      "r": -2.0,
+      "skew": "NONE",
+      "mean_sigma": 11.653500068303412,
+      "motifs": [
+        {
+          "start_i": 0,
+          "end_i": 718,
+          "shape": "NOISE",
+          "r": -2.0,
+          "skew": "NONE",
+          "mean_sigma": 17.1013704172353,
+          "start_ts": 1771196400,
+          "end_ts": 1771199995,
+          "length_min": 59.9
+        }
+      ],
+      "start_ts": 1771196400,
+      "end_ts": 1771199995,
+      "length_min": 59.9
+    }
+  ]
+}

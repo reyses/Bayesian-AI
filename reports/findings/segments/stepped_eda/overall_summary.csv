@@ -1,0 +1,6 @@
+level,n,unique_shapes,noise_pct,flat_pct,mean_length_min,median_length_min
+phrase,2047,14,21.3,17.0,194.75,150.0
+motif,6276,14,15.47,16.52,62.96,50.0
+sub_motif,21048,14,7.36,15.43,18.72,15.75
+measure,70782,14,14.79,12.76,5.55,4.5
+note,203801,14,31.57,6.92,1.92,1.5

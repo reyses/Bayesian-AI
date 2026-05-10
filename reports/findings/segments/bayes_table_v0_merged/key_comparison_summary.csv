@@ -1,0 +1,8 @@
+key_label,n_cells,n_with_oos,n_sign_stable,sign_match_pct,mean_edge_when_stable,max_edge_when_stable,n_axes,key_cols
+LOC_4axis,65,52,28,53.8,0.0647,0.1897,4,"side,anchor,sigma_rank_q,slope_q"
+LOC_3axis,20,18,11,61.1,0.0443,0.1082,3,"side,anchor,sigma_rank_q"
+CHORD_3,146,48,26,54.2,0.1523,0.3125,3,"motif_shape,sub_motif_shape,measure_shape"
+CHORD_2,81,59,33,55.9,0.0861,0.25,2,"sub_motif_shape,measure_shape"
+MIX_4axis,101,74,39,52.7,0.0751,0.1852,4,"side,anchor,sigma_rank_q,measure_shape"
+MIX_5axis,124,43,24,55.8,0.1311,0.3,5,"side,anchor,sigma_rank_q,sub_motif_shape,measure_shape"
+FULL_6axis,50,10,8,80.0,0.1922,0.3462,6,"side,anchor,sigma_rank_q,slope_q,motif_shape,measure_shape"

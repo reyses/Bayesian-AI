@@ -1,0 +1,8 @@
+trade_id,day,time,dir,pnl,exit,held,peak,strategy,strategy_id,half_life,equity_after
+0,2026_01_01,23:01,long,-20.5,hard_stop,1,0.0,long_30.0,"('long', 30)",30.0,79.5
+0,2026_01_02,00:02,short,5.5,envelope_decay,2,9.0,short_20.001837621329717,"('short', 30)",20.001837621329717,85.0
+1,2026_01_02,00:04,short,-13.0,hard_stop,1,0.0,short_1,"('short', 1)",1.0,72.0
+2,2026_01_02,00:06,short,-14.0,hard_stop,1,0.0,short_30.0,"('short', 30)",30.0,58.0
+0,2026_01_04,23:03,long,10.5,envelope_decay,3,19.0,long_30.0,"('long', 30)",30.0,68.5
+1,2026_01_04,23:05,long,-14.5,hard_stop,1,0.0,long_30.0,"('long', 30)",30.0,54.0
+2,2026_01_04,23:07,long,-26.0,hard_stop,1,0.0,long_30.0,"('long', 30)",30.0,28.0

@@ -1,4 +1,4 @@
-# 9-tier regime analysis - 2026-05-04 01:03 UTC
+# 9-tier regime analysis - 2026-05-04 19:22 UTC
 
 ## Per-tier baseline + per-regime $/day
 

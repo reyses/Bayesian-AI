@@ -1,0 +1,14 @@
+feature,n_above_is,n_below_is,P_above
+L1_5m_bar_range,1850,0,1.0
+L1_5m_vol_velocity_1b,1447,287,0.834
+L2_5m_vol_velocity_9,1408,573,0.711
+L2_5m_vol_sigma_9,1732,828,0.677
+L2_15m_vol_velocity_12,1472,1024,0.59
+L3_15m_hurst_12,1482,1171,0.559
+L2_15m_price_velocity_12,1254,1271,0.497
+L2_1h_price_velocity_12,1771,1793,0.497
+L3_15m_swing_noise_12,1589,1709,0.482
+L2_15m_vol_sigma_12,1513,1866,0.448
+L2_1h_vol_sigma_12,1633,2013,0.448
+L1_5m_body,544,693,0.44
+L1_5m_vol_accel_1b,725,1303,0.357
