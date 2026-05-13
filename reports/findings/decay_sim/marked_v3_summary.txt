@@ -1,0 +1,21 @@
+=== marked_v3 ===
+n_trades       : 33  (LONG 13 / SHORT 20)
+n_days_active  : 4
+
+Total PnL      : $402
+$/day          : $100.5
+Mean per trade : $12.18
+Median per tr  : $-10.00
+
+Win rate (cnt) : 48.5% (16 W / 17 L)
+PF-WR (CLAUDE) : +0.693
+Total wins     : $982
+Total losses   : $580
+
+Mean duration  : 52 min
+Median duration: 27 min
+
+Exit reasons   : {'hard_stop': 16, 'time_stop': 6, 'crossed_15m_mean': 11}
+
+ORACLE PnL     : $3308
+CAPTURE RATIO  : 12% (sim $402 / oracle $3308)

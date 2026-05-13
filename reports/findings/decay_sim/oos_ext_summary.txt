@@ -1,0 +1,18 @@
+=== oos_ext ===
+n_trades       : 382  (LONG 215 / SHORT 167)
+n_days_active  : 45
+
+Total PnL      : $-1334
+$/day          : $-29.6
+Mean per trade : $-3.49
+Median per tr  : $-34.00
+
+Win rate (cnt) : 25.7% (98 W / 284 L)
+PF-WR (CLAUDE) : -0.109
+Total wins     : $10874
+Total losses   : $12207
+
+Mean duration  : 48 min
+Median duration: 22 min
+
+Exit reasons   : {'hard_stop': 281, 'time_stop': 54, 'crossed_15m_mean': 40, 'target_2sigma': 5, 'back_in_band': 2}

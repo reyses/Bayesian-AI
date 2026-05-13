@@ -1,0 +1,12 @@
+{
+  "overlays": {
+    "15s": true,
+    "1m": true,
+    "15m": true,
+    "1h_hl": true,
+    "loaded": true
+  },
+  "fwd_mins": 60,
+  "tf": "1m",
+  "window_geometry": "1467x980+59+4"
+}

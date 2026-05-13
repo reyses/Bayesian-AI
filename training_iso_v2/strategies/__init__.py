@@ -29,6 +29,9 @@ from training_iso_v2.strategies.filtered_nmp import FilteredRegimeAwareReversion
 from training_iso_v2.strategies.compression_bounce import CompressionBounceLong
 from training_iso_v2.strategies.cat_harvest import CatHarvestRide
 
+# 2026-05-10 CRM cusp — fade at confirmed |z| local-max (validation: cusp_research/)
+from training_iso_v2.strategies.crm_cusp import CrmCuspFade
+
 __all__ = [
     'EntrySignal', 'Strategy',
     # 9 legacy tiers ported V2-native
@@ -43,6 +46,8 @@ __all__ = [
     'RegimeAwareReversion', 'FilteredRegimeAwareReversion',
     # 2026-05-10 priority shift — trend tiers
     'CompressionBounceLong', 'CatHarvestRide',
+    # 2026-05-10 CRM cusp — confirmed |z| local-max fade
+    'CrmCuspFade',
     # Helpers
     'NMPBaseStrategy', 'NMPSeed', 'evaluate_nmp_seed',
 ]

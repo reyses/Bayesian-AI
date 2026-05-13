@@ -33,6 +33,7 @@ from training_iso_v2.strategies import (
     NMPFadeRaw, NMPRideRaw,
     FadeAtBand,
     MAAlignTrendFollow, CompressionBounceLong, CatHarvestRide,
+    CrmCuspFade,
 )
 from training_iso_v2.strategies._nmp_base import NMPBaseStrategy
 
@@ -44,6 +45,8 @@ ALL_ISO_TIERS = {
     'MA_ALIGN':                MAAlignTrendFollow,    # 7-of-8 vwap → 70.5% IS
     'COMPRESSION_BOUNCE_LONG': CompressionBounceLong, # 15m vol-sigma crush → LONG bounce (P_oos=0.64)
     'CAT_HARVEST':             CatHarvestRide,        # Tue/Wed/Thu UTC 1 → SHORT (96% crash bias)
+    # ── 2026-05-10 CRM cusp — |z| local-max fade (cusp_research validation) ─
+    'CRM_CUSP_FADE':           CrmCuspFade,           # cusp at z in [1.5,1.8) → OOS +$0.28-0.82/t
     # ── Fade tiers (retuned 2026-05-10 — secondary edge) ─────────────────
     'FADE_CALM': FadeCalm,
     'FADE_MOMENTUM': FadeMomentum,

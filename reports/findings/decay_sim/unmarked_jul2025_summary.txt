@@ -1,0 +1,18 @@
+=== unmarked_jul2025 ===
+n_trades       : 207  (LONG 110 / SHORT 97)
+n_days_active  : 26
+
+Total PnL      : $148
+$/day          : $5.7
+Mean per trade : $0.71
+Median per tr  : $-30.50
+
+Win rate (cnt) : 36.7% (76 W / 131 L)
+PF-WR (CLAUDE) : +0.033
+Total wins     : $4692
+Total losses   : $4544
+
+Mean duration  : 75 min
+Median duration: 57 min
+
+Exit reasons   : {'hard_stop': 119, 'time_stop': 51, 'target_2sigma': 5, 'crossed_15m_mean': 28, 'back_in_band': 3, 'eod_force_close': 1}

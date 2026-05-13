@@ -36,6 +36,7 @@ class FadeMomentum(NMPBaseStrategy):
         if retune:
             kwargs.setdefault('z_band_lo', self.RETUNE_Z_LO)
             kwargs.setdefault('z_band_hi', self.RETUNE_Z_HI)
+            kwargs.setdefault('z_threshold', self.RETUNE_Z_LO)
         super().__init__(**kwargs)
         self.momentum_velocity = momentum_velocity
         self._vel_col = price_velocity_w('1m')

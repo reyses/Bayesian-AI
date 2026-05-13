@@ -1,0 +1,21 @@
+=== marked_days ===
+n_trades       : 118  (LONG 80 / SHORT 38)
+n_days_active  : 4
+
+Total PnL      : $-3580
+$/day          : $-894.9
+Mean per trade : $-30.33
+Median per tr  : $2.25
+
+Win rate (cnt) : 50.8% (60 W / 56 L)
+PF-WR (CLAUDE) : -0.721
+Total wins     : $1383
+Total losses   : $4962
+
+Mean duration  : 1165 min
+Median duration: 9 min
+
+Exit reasons   : {'slope_rolled_over': 79, 'crossed_15m_mean': 34, 'time_stop': 3, 'back_in_band': 1, 'eod_force_close': 1}
+
+ORACLE PnL     : $3308
+CAPTURE RATIO  : -108% (sim $-3580 / oracle $3308)

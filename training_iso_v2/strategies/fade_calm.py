@@ -38,6 +38,10 @@ class FadeCalm(NMPBaseStrategy):
             kwargs.setdefault('z_band_lo', self.RETUNE_Z_LO)
             kwargs.setdefault('z_band_hi', self.RETUNE_Z_HI)
             kwargs.setdefault('veto_cells', self.RETUNE_VETO)
+            # Lower seed threshold to retune floor — otherwise the seed gates
+            # at |z|>=1.8 and the retune ceiling at <=1.8 intersect at exactly
+            # 1.8, firing ~0 trades. See docs/RETUNE_RESULTS_2026-05-10.md.
+            kwargs.setdefault('z_threshold', self.RETUNE_Z_LO)
         super().__init__(**kwargs)
         self.calm_velocity = calm_velocity
         self._vel_col = price_velocity_w('1m')
