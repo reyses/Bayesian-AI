@@ -125,3 +125,15 @@ reports/findings/entry_outcome_overlay/per_day/*.png
 # via tools/databento_to_nt8_ticks.py)
 examples/nt8_import_ticks/
 
+# V2 training pipeline outputs (regenerable; mirror nn_v2/output/ pattern).
+# 460M+ of pickles, logs, summary CSVs, calibration JSONs — rebuild via
+# `python training_v2/run.py ...` or `python training_iso_v2/run_iso.py ...`.
+# Strategy config JSONs (tier_thresholds, seed_thresholds_per_regime,
+# mfe_targets_per_cell) live here too — if any need version-tracking,
+# move them to a dedicated configs/ dir or carve out with `!path` here.
+training_v2/output/
+training_iso_v2/output/
+
+# Claude Code harness runtime locks (auto-managed; not portable)
+.claude/*.lock
+
