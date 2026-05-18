@@ -1,0 +1,32 @@
+====================================================================================================
+C13 CANDIDATE  --  leg-phase regressor (B5 retarget)
+====================================================================================================
+Target: leg_phase = (bar_ts - entry_ts) / (exit_ts - entry_ts) in [0, 1]
+Folds: 4 expanding-window, day-based
+IS days: 275
+Quality bar: Pearson > 0.25 to be considered useful informational signal
+
+K=  5  Pearson 0.324 (folds: [0.2623617380570911, 0.33737036387924507, 0.33995413698518767, 0.3570847355239595])   MAE 0.036   val_legs avg 3582
+K= 10  Pearson 0.360 (folds: [0.31828284123262185, 0.3666721253222011, 0.38576316287961904, 0.37045105489151925])   MAE 0.068   val_legs avg 3576
+K= 30  Pearson 0.468 (folds: [0.41880126110126065, 0.47517187880405815, 0.488097278830654, 0.48985877557923063])   MAE 0.157   val_legs avg 3456
+K= 60  Pearson 0.479 (folds: [0.41613382582035385, 0.4934751540832232, 0.49690406347253, 0.5104786896203255])   MAE 0.188   val_legs avg 2790
+K=120  Pearson 0.454 (folds: [0.3996443083561378, 0.43196863936861796, 0.4886098545904777, 0.49424889660417687])   MAE 0.193   val_legs avg 1755
+
+--- C13 qualified K horizons (Pearson > 0.25) ---
+     K   Pearson
+     5     0.324
+    10     0.360
+    30     0.468
+    60     0.479
+   120     0.454
+
+NOTE: a positive Pearson does not automatically mean +$/day operational
+value. Need to define a sizing/cut rule that uses leg_phase prediction
+and walk-forward validate that rule. Pearson alone is necessary not sufficient.
+
+--- Training C13 candidate models on FULL IS ---
+  K=  5  trained on 17,735 rows  -> c13_leg_phase_K5.pkl
+  K= 10  trained on 17,708 rows  -> c13_leg_phase_K10.pkl
+  K= 30  trained on 17,085 rows  -> c13_leg_phase_K30.pkl
+  K= 60  trained on 13,785 rows  -> c13_leg_phase_K60.pkl
+  K=120  trained on 8,663 rows  -> c13_leg_phase_K120.pkl

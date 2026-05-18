@@ -1,0 +1,39 @@
+====================================================================================================
+B9 + C13 COMBINED RULE EVALUATION
+====================================================================================================
+Combined rule: B9 sizing; if C13 phase > 0.7, cap at 1.0 (no pyramid)
+Folds: 4 expanding-window, both models retrained per fold
+
+   K  fold  B9-alone $/day  Combined $/day  Incremental   95% CI on incremental    sig
+    5     1  $       +102     $       +102     $       +0    [$   +0, $   +0]    False  (capped 0)
+    5     2  $        +26     $        +26     $       +0    [$   +0, $   +0]    False  (capped 0)
+    5     3  $         +1     $         +1     $       +0    [$   +0, $   +0]    False  (capped 0)
+    5     4  $        +62     $        +62     $       +0    [$   +0, $   +0]    False  (capped 0)
+   10     1  $         -2     $         -2     $       +0    [$   +0, $   +0]    False  (capped 0)
+   10     2  $        +29     $        +29     $       +0    [$   +0, $   +0]    False  (capped 0)
+   10     3  $         +4     $         +4     $       +0    [$   +0, $   +0]    False  (capped 0)
+   10     4  $        +20     $        +20     $       +0    [$   +0, $   +0]    False  (capped 0)
+   30     1  $         -1     $         -1     $       +0    [$   +0, $   +0]    False  (capped 0)
+   30     2  $         -6     $         -6     $       +0    [$   +0, $   +0]    False  (capped 0)
+   30     3  $         +1     $         +1     $       +0    [$   +0, $   +0]    False  (capped 0)
+   30     4  $         -0     $         -0     $       +0    [$   +0, $   +0]    False  (capped 0)
+   60     1  $        +30     $        +30     $       +0    [$   +0, $   +0]    False  (capped 2)
+   60     2  $        +15     $        +15     $       +0    [$   +0, $   +0]    False  (capped 0)
+   60     3  $        +14     $        +12     $       -2    [$   -5, $   +0]    False  (capped 3)
+   60     4  $         +3     $         +3     $       +0    [$   +0, $   +0]    False  (capped 0)
+  120     1  $        -13     $        -13     $       -0    [$   -2, $   +2]    False  (capped 11)
+  120     2  $        +22     $        +19     $       -3    [$   -7, $   +0]    False  (capped 3)
+  120     3  $        +15     $        +12     $       -3    [$   -8, $   +0]    False  (capped 4)
+  120     4  $        +13     $        +10     $       -3    [$   -6, $   -0]    False  (capped 11)
+
+=== Aggregate by K ===
+   K    B9-alone    Combined  Incremental     sig
+    5  $    +48    $    +48    $       +0    0/4
+   10  $    +13    $    +13    $       +0    0/4
+   30  $     -2    $     -2    $       +0    0/4
+   60  $    +15    $    +15    $       -1    0/4
+  120  $     +9    $     +7    $       -2    0/4
+
+--- C13 phase-gated pyramid: NO K horizon shows incremental + sig ---
+C13 stays as failed candidate. The leg-phase signal is learnable but the
+pyramid-gating action does not produce measurable $/day improvement.
