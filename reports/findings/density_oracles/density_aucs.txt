@@ -1,0 +1,135 @@
+Density-based Oracle Surfaces
+============================================================
+KDE bandwidth: 0.5
+GMM components: 4
+
+surface         n_pos  n_neg KDE_AUC_tr KDE_AUC_te GMM_AUC_tr GMM_AUC_te
+--------------------------------------------------------------------------------
+entry_short       449   2718      1.000      0.887      0.933      0.867
+entry_long        457   2718      0.999      0.877      0.916      0.861
+exit_short        403   2718      0.999      0.800      0.881      0.768
+exit_long         404   2718      0.999      0.785      0.844      0.733
+
+
+GMM ORACLE COMPONENT CENTERS (in original feature units):
+============================================================
+
+entry_short:
+  Component 0 (weight=0.50):
+      fan_width              +2.291
+      z_15s                  -2.131
+      z_1m                   -1.564
+      slope_1m_10m           +0.855
+      z_1h_low               +0.798
+      dist_15m_to_Ml         +0.770
+  Component 1 (weight=0.20):
+      slope_15s_3m           -3.473
+      slope_1m_10m           +2.511
+      fan_width              +2.076
+      z_1h_high              -2.059
+      z_15s                  -1.568
+      dist_15m_to_Mh         -1.358
+  Component 2 (weight=0.28):
+      fan_width              +3.486
+      slope_1m_10m           +3.090
+      z_15s                  -2.831
+      z_1h_low               +2.090
+      z_1m                   -1.886
+      dist_1m_15m            +1.490
+  Component 3 (weight=0.02):
+      z_15s                  -15.988
+      z_1m                   -10.372
+      slope_1m_10m           +2.316
+      z_1h_high              -1.837
+      z_15m                  -1.634
+      fan_width              +1.551
+
+entry_long:
+  Component 0 (weight=0.19):
+      z_15s                  +2.862
+      slope_15s_3m           +2.740
+      slope_1m_10m           -2.565
+      z_1h_low               +2.254
+      fan_width              +2.128
+      z_1m                   +2.116
+  Component 1 (weight=0.00):
+      z_15s                  +176.820
+      z_1m                   +82.637
+      z_15m                  +10.452
+      z_1h_low               +4.207
+      z_1h_high              +2.381
+      slope_15m_5m           +2.263
+  Component 2 (weight=0.32):
+      fan_width              +3.583
+      slope_1m_10m           -2.971
+      z_1h_high              -2.477
+      z_15s                  +2.441
+      dist_1m_15m            -1.517
+      slope_15s_3m           +1.517
+  Component 3 (weight=0.48):
+      fan_width              +2.101
+      z_15s                  +1.979
+      z_1m                   +1.680
+      slope_1m_10m           -1.060
+      slope_15s_3m           +0.847
+      z_1h_low               +0.687
+
+exit_short:
+  Component 0 (weight=0.35):
+      slope_15s_3m           -3.524
+      slope_15s_10m          -2.557
+      fan_width              +2.209
+      z_1m                   -1.977
+      z_15s                  -1.907
+      z_1h_low               +1.315
+  Component 1 (weight=0.00):
+      z_15s                  -111.637
+      z_1m                   -77.214
+      z_15m                  -10.373
+      z_1h_high              -5.160
+      z_1h_low               -5.044
+      fan_width              +2.638
+  Component 2 (weight=0.13):
+      slope_15s_3m           -4.009
+      z_15s                  -3.339
+      slope_15s_10m          -2.900
+      z_1m                   -2.486
+      fan_width              +1.938
+      z_1h_high              -1.857
+  Component 3 (weight=0.52):
+      slope_15s_3m           -4.374
+      fan_width              +3.740
+      slope_15s_10m          -3.174
+      slope_1m_10m           -2.539
+      z_15m                  -2.100
+      z_1h_high              -2.000
+
+exit_long:
+  Component 0 (weight=0.50):
+      slope_15s_3m           +3.459
+      fan_width              +3.421
+      slope_15s_10m          +2.702
+      z_15s                  +2.196
+      z_1m                   +2.034
+      z_15m                  +1.951
+  Component 1 (weight=0.36):
+      slope_15s_3m           +3.322
+      fan_width              +2.321
+      z_15s                  +1.818
+      slope_15s_10m          +1.760
+      z_1m                   +1.722
+      z_1h_high              -1.329
+  Component 2 (weight=0.14):
+      slope_15s_3m           +5.658
+      slope_15s_10m          +3.655
+      fan_width              +2.739
+      slope_1m_10m           +2.688
+      z_1h_low               +2.445
+      z_15s                  +2.075
+  Component 3 (weight=0.00):
+      z_15s                  +92.455
+      z_1m                   +38.784
+      z_15m                  +9.721
+      z_1h_high              +3.577
+      z_1h_low               +3.480
+      slope_15s_3m           -2.213

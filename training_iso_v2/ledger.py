@@ -60,6 +60,7 @@ class ClosedTrade:
     cnn_filtered: bool = False
     cnn_generated: bool = False
     extras: Dict[str, Any] = field(default_factory=dict)
+    trough_pnl: float = 0.0  # MAE — max adverse excursion ($, sign-negative)
 
 
 class Ledger:
@@ -111,6 +112,7 @@ class Ledger:
             entry_regime_idx=p.entry_regime_idx,
             cnn_filtered=p.cnn_filtered, cnn_generated=p.cnn_generated,
             extras=dict(p.extras),
+            trough_pnl=p.trough_pnl,
         )
         self.closed.append(trade)
         self.position = None

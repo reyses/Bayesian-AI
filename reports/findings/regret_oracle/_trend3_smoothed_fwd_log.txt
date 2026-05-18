@@ -1,0 +1,7 @@
+Loaded 34844 rows. Days: 32
+Wrote: reports\findings\regret_oracle\trend3_smoothed_E5_A10_M0.05_F15.parquet
+
+Regime distribution: {'SHORT': 19093, 'LONG': 15721, 'NEUTRAL': 30}
+Regime flips: 2491  (77.8 per day)
+
+ADX stats:  median=38.6  p90=66.9

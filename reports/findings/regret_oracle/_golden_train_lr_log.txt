@@ -1,0 +1,27 @@
+Loading IS: reports/findings/regret_oracle/golden_entry_dataset_IS_thr200.parquet
+  270255 rows, 2777 positives (1.03%)
+Loading OOS: reports/findings/regret_oracle/golden_entry_dataset_OOS_thr200.parquet
+  71040 rows, 823 positives (1.16%)
+V2 features: 184
+
+Fitting lr...
+  Fit in 4.8s
+
+=== Headline ===
+  IS  AUC: 0.8829    PR-AUC: 0.0835
+  OOS AUC: 0.8357   PR-AUC: 0.0732
+
+=== OOS threshold sweep ===
+  T=0.30  fires=31872  TP= 746 FP=31126  precision=0.023  recall=0.906  fires/day=569.14
+  T=0.40  fires=22691  TP= 672 FP=22019  precision=0.030  recall=0.817  fires/day=405.20
+  T=0.50  fires=16443  TP= 610 FP=15833  precision=0.037  recall=0.741  fires/day=293.62
+  T=0.60  fires=11918  TP= 536 FP=11382  precision=0.045  recall=0.651  fires/day=212.82
+  T=0.70  fires= 8473  TP= 466 FP= 8007  precision=0.055  recall=0.566  fires/day=151.30
+  T=0.80  fires= 5681  TP= 385 FP= 5296  precision=0.068  recall=0.468  fires/day=101.45
+  T=0.85  fires= 4530  TP= 348 FP= 4182  precision=0.077  recall=0.423  fires/day=80.89
+  T=0.90  fires= 3375  TP= 290 FP= 3085  precision=0.086  recall=0.352  fires/day=60.27
+  T=0.95  fires= 2188  TP= 210 FP= 1978  precision=0.096  recall=0.255  fires/day=39.07
+  T=0.98  fires= 1297  TP= 137 FP= 1160  precision=0.106  recall=0.166  fires/day=23.16
+
+Wrote: reports\findings\regret_oracle\golden_entry_summary_lr.csv
+Wrote: training_iso_v2\output\golden_entry_clf_lr.pkl

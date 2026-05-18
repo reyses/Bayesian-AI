@@ -84,7 +84,14 @@ class Engine:
             for rule in self.exits:
                 reason = rule.evaluate(state, self.ledger.position)
                 if reason is not None:
-                    self.ledger.close(state.price, state.timestamp, reason)
+                    # Honor tick-exact exits via extras['_force_exit_price']
+                    exit_price = state.price
+                    pos = self.ledger.position
+                    if pos is not None and pos.extras:
+                        forced = pos.extras.pop('_force_exit_price', None)
+                        if forced is not None:
+                            exit_price = float(forced)
+                    self.ledger.close(exit_price, state.timestamp, reason)
                     break
 
         # 3. Entry check (only if flat after exits)

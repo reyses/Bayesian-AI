@@ -266,11 +266,22 @@ class V2Ticker:
     def __iter__(self) -> Iterator[BarState]:
         ts_arr = self._feats['timestamp'].values.astype(np.int64)
 
-        # Pre-compute boundary flags vectorized
-        is_1m = (ts_arr % 60) == 0
-        is_5m = (ts_arr % 300) == 0
-        is_15m = (ts_arr % 900) == 0
-        is_1h = (ts_arr % 3600) == 0
+        # Pre-compute boundary flags. ATLAS uses ts%60==0 (bar start), NT8 uses
+        # ts%60==59 (bar end). Detect from the actual 1m parquet's timestamps,
+        # which are the SOURCE OF TRUTH for what counts as a 1m close.
+        if self._ts1m is not None and len(self._ts1m) > 0:
+            ts1m_set = set(int(t) for t in self._ts1m)
+            is_1m = np.array([int(t) in ts1m_set for t in ts_arr], dtype=bool)
+            # 5m/15m/1h boundaries: derive offset from the 1m mod
+            mod = int(self._ts1m[0]) % 60   # 0 for ATLAS, 59 for NT8
+            is_5m = ((ts_arr - mod) % 300) == 0
+            is_15m = ((ts_arr - mod) % 900) == 0
+            is_1h = ((ts_arr - mod) % 3600) == 0
+        else:
+            is_1m = (ts_arr % 60) == 0
+            is_5m = (ts_arr % 300) == 0
+            is_15m = (ts_arr % 900) == 0
+            is_1h = (ts_arr % 3600) == 0
 
         for i in range(self._n):
             ts = int(ts_arr[i])

@@ -1,0 +1,26 @@
+Loading IS: reports/findings/regret_oracle/zz_pivot_IS_extended_atr4.parquet
+  Label column: is_pivot
+  343691 rows, 42730 positives (12.43%)
+Loading OOS: reports/findings/regret_oracle/zz_pivot_OOS_NT8_atr4.parquet
+  34844 rows, 3684 positives (10.57%)
+V2 features: 184
+
+Fitting gbm...
+  Fit in 14.3s
+
+=== Headline ===
+  IS  AUC: 0.8126    PR-AUC: 0.3696
+  OOS AUC: 0.6979   PR-AUC: 0.1961
+
+=== OOS threshold sweep ===
+  T=0.30  fires=23824  TP=3297 FP=20527  precision=0.138  recall=0.895  fires/day=744.50
+  T=0.40  fires=18438  TP=2891 FP=15547  precision=0.157  recall=0.785  fires/day=576.19
+  T=0.50  fires=12990  TP=2318 FP=10672  precision=0.178  recall=0.629  fires/day=405.94
+  T=0.60  fires= 7731  TP=1590 FP= 6141  precision=0.206  recall=0.432  fires/day=241.59
+  T=0.70  fires= 3169  TP= 749 FP= 2420  precision=0.236  recall=0.203  fires/day=99.03
+  T=0.80  fires=  469  TP= 126 FP=  343  precision=0.269  recall=0.034  fires/day=14.66
+  T=0.85  fires=   60  TP=  20 FP=   40  precision=0.333  recall=0.005  fires/day=1.88
+  T=0.90  fires=    2  TP=   0 FP=    2  precision=0.000  recall=0.000  fires/day=0.06
+
+Wrote: reports\findings\regret_oracle\zz_pivot_NT8_summary_gbm.csv
+Wrote: training_iso_v2\output\zz_pivot_clf_NT8_atr4_gbm.pkl

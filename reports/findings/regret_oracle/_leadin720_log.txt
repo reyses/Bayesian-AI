@@ -1,0 +1,48 @@
+Processing 7925 trades, lookback=720 bars (3600s)
+Date keys (with ±1 padding): 328
+
+--- Loading V2 layers ---
+  Loaded 24 layers, 184 features (24.2s)
+  Using forward signatures' feature_means/stds for z-score parity
+
+--- Building lead-in trajectories ---
+  396/7925 (1s)
+  792/7925 (2s)
+  1188/7925 (2s)
+  1584/7925 (3s)
+  1980/7925 (4s)
+  2376/7925 (5s)
+  2772/7925 (6s)
+  3168/7925 (6s)
+  3564/7925 (7s)
+  3960/7925 (8s)
+  4356/7925 (9s)
+  4752/7925 (10s)
+  5148/7925 (11s)
+  5544/7925 (12s)
+  5940/7925 (13s)
+  6336/7925 (13s)
+  6732/7925 (15s)
+  7128/7925 (16s)
+  7524/7925 (17s)
+  7920/7925 (18s)
+  Built 7925 lead-in trajectories, skipped 0
+  X shape: (5706000, 184), memory 4005 MB
+
+--- Per-trade PCA on lead-in ---
+  ...792/7925 (21.5s)
+  ...1584/7925 (42.8s)
+  ...2376/7925 (64.8s)
+  ...3168/7925 (86.8s)
+  ...3960/7925 (108.9s)
+  ...4752/7925 (131.3s)
+  ...5544/7925 (153.9s)
+  ...6336/7925 (176.0s)
+  ...7128/7925 (197.9s)
+  Done. 0 SVD failures. 233 PCA-unstable total.
+
+Saved: reports\findings\regret_oracle\leadin_signatures_IS_full_720bar.npz
+  7925 lead-in signatures
+  centroid norms median: 10.33
+  direction norms median: 0.9706
+  magnitudes p25/p50/p75: 59.41 / 76.71 / 117.81

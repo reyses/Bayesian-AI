@@ -34,6 +34,7 @@ from training_iso_v2.strategies import (
     FadeAtBand,
     MAAlignTrendFollow, CompressionBounceLong, CatHarvestRide,
     CrmCuspFade,
+    DirectionClassifierStrategy,
 )
 from training_iso_v2.strategies._nmp_base import NMPBaseStrategy
 
@@ -62,6 +63,8 @@ ALL_ISO_TIERS = {
     'NMP_RIDE_RAW': NMPRideRaw,
     # Band-fade: 5s price hits 15m ±2σ → fade to 5m mean (chart-validated framework)
     'FADE_AT_BAND': FadeAtBand,
+    # 2026-05-16 direction classifier — LR on V2 entry, AUC 0.864 IS
+    'DIRECTION_CLF': DirectionClassifierStrategy,
 }
 
 

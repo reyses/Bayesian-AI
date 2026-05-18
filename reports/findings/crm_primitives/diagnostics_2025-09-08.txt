@@ -1,0 +1,30 @@
+CRM Primitives Diagnostic — 2025-09-08
+======================================================================
+
+series_mode                         n   NOISE%  matched%  mean_corr  top shapes
+----------------------------------------------------------------------------------------------------
+close_fixed                      1366    42.4%     57.6%      0.743  NOISE:579, EXPONENTIAL_UP:106, EXPONENTIAL_DOWN:104, LOGARITHMIC_DOWN:99
+close_inflection                   97     3.1%     96.9%      0.961  EXPONENTIAL_DOWN:21, LINEAR_DOWN:17, LOGARITHMIC_UP:16, LOGARITHMIC_DOWN:14
+M_15s_fixed                      1366    11.9%     88.1%      0.877  EXPONENTIAL_UP:171, LOGARITHMIC_DOWN:170, NOISE:163, EXPONENTIAL_DOWN:158
+M_15s_inflection                  141     0.0%    100.0%      0.988  LINEAR_DOWN:40, LINEAR_UP:36, LOGARITHMIC_DOWN:19, LOGARITHMIC_UP:19
+M_1m_fixed                       1366     4.5%     95.5%      0.933  LOGARITHMIC_UP:242, LOGARITHMIC_DOWN:198, EXPONENTIAL_UP:192, EXPONENTIAL_DOWN:183
+M_1m_inflection                    82     0.0%    100.0%      0.985  LINEAR_DOWN:22, LINEAR_UP:22, LOGARITHMIC_UP:16, EXPONENTIAL_DOWN:8
+M_5m_fixed                       1366     7.0%     93.0%      0.903  LINEAR_UP:229, LOGARITHMIC_UP:226, LOGARITHMIC_DOWN:213, LINEAR_DOWN:184
+M_5m_inflection                     1   100.0%      0.0%      0.721  NOISE:1
+M_15m_fixed                      1366    33.4%     66.6%      0.791  NOISE:456, EXPONENTIAL_UP:204, EXPONENTIAL_DOWN:160, STEP_UP:153
+M_15m_inflection                    1     0.0%    100.0%      0.798  STEP_UP:1
+
+======================================================================
+HYPOTHESIS: CRM-based classification produces less NOISE than raw
+======================================================================
+
+Baseline (raw close):  42.4% NOISE
+
+  M_15s_fixed                   11.9% NOISE  (Δ +30.5pp) ✓ improvement
+  M_15s_inflection               0.0% NOISE  (Δ +42.4pp) ✓ improvement
+  M_1m_fixed                     4.5% NOISE  (Δ +37.9pp) ✓ improvement
+  M_1m_inflection                0.0% NOISE  (Δ +42.4pp) ✓ improvement
+  M_5m_fixed                     7.0% NOISE  (Δ +35.4pp) ✓ improvement
+  M_5m_inflection              100.0% NOISE  (Δ -57.6pp) ✗ worse
+  M_15m_fixed                   33.4% NOISE  (Δ  +9.0pp) ✓ improvement
+  M_15m_inflection               0.0% NOISE  (Δ +42.4pp) ✓ improvement

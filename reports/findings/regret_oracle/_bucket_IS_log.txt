@@ -1,0 +1,72 @@
+Loading 7925 trades from reports/findings/regret_oracle/daisy_chain_IS_full_daisy.csv
+Date range: 2025-01-02 to 2025-12-19
+
+--- Computing MAE per trade ---
+  396/7925 (1s)
+  792/7925 (2s)
+  1188/7925 (2s)
+  1584/7925 (3s)
+  1980/7925 (4s)
+  2376/7925 (5s)
+  2772/7925 (6s)
+  3168/7925 (6s)
+  3564/7925 (7s)
+  3960/7925 (8s)
+  4356/7925 (9s)
+  4752/7925 (10s)
+  5148/7925 (10s)
+  5544/7925 (11s)
+  5940/7925 (12s)
+  6336/7925 (13s)
+  6732/7925 (13s)
+  7128/7925 (14s)
+  7524/7925 (15s)
+  7920/7925 (16s)
+
+MAE stats: median $0, mean $11; 0 NaN
+MFE stats: median $96, mean $132
+MAE/MFE ratio percentiles: p25=0.000 p50=0.000 p75=0.061 p90=0.438
+
+--- Bucket boundaries ---
+Duration (min):   18.17 | 36.92 | 52.67
+Speed ($/min):    1.93 | 3.43 | 6.67
+Trajectory (MAE/MFE): 0.25 | 0.50 | 0.75
+
+--- Bucket distributions ---
+  bucket_direction: {0: 3920, 1: 4005}
+  bucket_duration: {0: 1972, 1: 1985, 2: 1984, 3: 1984}
+  bucket_speed: {0: 1979, 1: 1981, 2: 1983, 3: 1982}
+  bucket_trajectory: {0: 6656, 1: 612, 2: 413, 3: 244}
+
+--- Cross-tabs (top-level dependence) ---
+
+Direction x Duration:
+bucket_duration      0     1     2     3
+bucket_direction                        
+0                 1016  1013   967   924
+1                  956   972  1017  1060
+
+Direction x Speed:
+bucket_speed         0     1     2     3
+bucket_direction                        
+0                  929   968  1022  1001
+1                 1050  1013   961   981
+
+Duration x Speed:
+bucket_speed       0    1    2     3
+bucket_duration                     
+0                 52  213  479  1228
+1                324  581  660   420
+2                734  620  432   198
+3                869  567  412   136
+
+Trajectory x Duration:
+bucket_duration       0     1     2     3
+bucket_trajectory                        
+0                  1890  1743  1556  1467
+1                    52   122   195   243
+2                    19    76   149   169
+3                    11    44    84   105
+
+Wrote: reports\findings\regret_oracle\daisy_IS_buckets.csv
+Wrote: reports/findings/regret_oracle/bucket_boundaries_IS.json

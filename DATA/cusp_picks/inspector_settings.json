@@ -1,0 +1,14 @@
+{
+  "t_timing": 0.23,
+  "t_dir": 0.95,
+  "zigzag_atr_mult": 4.0,
+  "zigzag_min_bars": 3,
+  "day_idx": 3,
+  "signal_source": "raw",
+  "color_mode": "direction",
+  "b1_overlay": true,
+  "b1_K": 10,
+  "b2_overlay": true,
+  "b2_K": 10,
+  "window_geometry": "1785x988+54+13"
+}

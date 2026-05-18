@@ -1,0 +1,319 @@
+OOS days: 32   cache: reports/findings/regret_oracle/zz_timing_cache_OOS_NT8_atr4_gbm.parquet
+  atlas_root: DATA/ATLAS_NT8
+Grid: 75 combos
+
+[1/75] T_timing=0.8 T_dir=0.5 TP=30 SL=15
+  n=449 /day=14.03  $/t=-1.38  $/day=-22.2 CI [-54,+11]  DayWR=0.393  MAE=$-1.0
+  TP%=40  SL%=60
+
+[2/75] T_timing=0.8 T_dir=0.5 TP=30 SL=20
+  n=439 /day=13.72  $/t=-1.49  $/day=-23.3 CI [-52,+7]  DayWR=0.464  MAE=$-2.5
+  TP%=45  SL%=54
+
+[3/75] T_timing=0.8 T_dir=0.5 TP=40 SL=20
+  n=431 /day=13.47  $/t=-2.67  $/day=-41.1 CI [-75,-9]  DayWR=0.250  MAE=$-2.9
+  TP%=35  SL%=62
+
+[4/75] T_timing=0.8 T_dir=0.5 TP=60 SL=30
+  n=403 /day=12.59  $/t=-2.98  $/day=-42.9 CI [-90,+5]  DayWR=0.393  MAE=$-7.5
+  TP%=28  SL%=57
+
+[5/75] T_timing=0.8 T_dir=0.5 TP=40 SL=15
+  n=441 /day=13.78  $/t=-2.44  $/day=-38.5 CI [-72,-4]  DayWR=0.250  MAE=$-1.1
+  TP%=30  SL%=68
+
+[6/75] T_timing=0.8 T_dir=0.55 TP=30 SL=15
+  n=447 /day=13.97  $/t=-1.40  $/day=-22.4 CI [-54,+10]  DayWR=0.393  MAE=$-1.0
+  TP%=40  SL%=60
+
+[7/75] T_timing=0.8 T_dir=0.55 TP=30 SL=20
+  n=437 /day=13.66  $/t=-1.50  $/day=-23.3 CI [-51,+7]  DayWR=0.464  MAE=$-2.5
+  TP%=45  SL%=54
+
+[8/75] T_timing=0.8 T_dir=0.55 TP=40 SL=20
+  n=429 /day=13.41  $/t=-2.71  $/day=-41.5 CI [-74,-10]  DayWR=0.250  MAE=$-2.9
+  TP%=34  SL%=62
+
+[9/75] T_timing=0.8 T_dir=0.55 TP=60 SL=30
+  n=402 /day=12.56  $/t=-3.13  $/day=-44.9 CI [-92,+2]  DayWR=0.393  MAE=$-7.5
+  TP%=28  SL%=57
+
+[10/75] T_timing=0.8 T_dir=0.55 TP=40 SL=15
+  n=439 /day=13.72  $/t=-2.49  $/day=-39.1 CI [-72,-6]  DayWR=0.250  MAE=$-1.2
+  TP%=30  SL%=69
+
+[11/75] T_timing=0.8 T_dir=0.6 TP=30 SL=15
+  n=446 /day=13.94  $/t=-1.36  $/day=-21.7 CI [-52,+10]  DayWR=0.393  MAE=$-1.0
+  TP%=40  SL%=60
+
+[12/75] T_timing=0.8 T_dir=0.6 TP=30 SL=20
+  n=436 /day=13.62  $/t=-1.44  $/day=-22.5 CI [-51,+8]  DayWR=0.500  MAE=$-2.5
+  TP%=45  SL%=54
+
+[13/75] T_timing=0.8 T_dir=0.6 TP=40 SL=20
+  n=428 /day=13.38  $/t=-2.66  $/day=-40.6 CI [-74,-9]  DayWR=0.250  MAE=$-2.9
+  TP%=35  SL%=62
+
+[14/75] T_timing=0.8 T_dir=0.6 TP=60 SL=30
+  n=402 /day=12.56  $/t=-3.13  $/day=-44.9 CI [-92,+2]  DayWR=0.393  MAE=$-7.5
+  TP%=28  SL%=57
+
+[15/75] T_timing=0.8 T_dir=0.6 TP=40 SL=15
+  n=438 /day=13.69  $/t=-2.45  $/day=-38.4 CI [-71,-5]  DayWR=0.250  MAE=$-1.2
+  TP%=30  SL%=68
+
+[16/75] T_timing=0.85 T_dir=0.5 TP=30 SL=15
+  n=57 /day=1.78  $/t=-1.14  $/day=-4.6 CI [-29,+18]  DayWR=0.500  MAE=$-1.1
+  TP%=40  SL%=60
+
+[17/75] T_timing=0.85 T_dir=0.5 TP=30 SL=20
+  n=57 /day=1.78  $/t=-2.35  $/day=-9.6 CI [-39,+14]  DayWR=0.571  MAE=$-1.6
+  TP%=44  SL%=56
+
+[18/75] T_timing=0.85 T_dir=0.5 TP=40 SL=20
+  n=57 /day=1.78  $/t=-1.96  $/day=-8.0 CI [-36,+17]  DayWR=0.357  MAE=$-1.7
+  TP%=37  SL%=61
+
+[19/75] T_timing=0.85 T_dir=0.5 TP=60 SL=30
+  n=55 /day=1.72  $/t=-4.27  $/day=-16.8 CI [-51,+20]  DayWR=0.286  MAE=$-5.1
+  TP%=29  SL%=62
+
+[20/75] T_timing=0.85 T_dir=0.5 TP=40 SL=15
+  n=57 /day=1.78  $/t=-0.83  $/day=-3.4 CI [-30,+23]  DayWR=0.429  MAE=$-1.2
+  TP%=33  SL%=65
+
+[21/75] T_timing=0.85 T_dir=0.55 TP=30 SL=15
+  n=57 /day=1.78  $/t=-1.14  $/day=-4.6 CI [-29,+18]  DayWR=0.500  MAE=$-1.1
+  TP%=40  SL%=60
+
+[22/75] T_timing=0.85 T_dir=0.55 TP=30 SL=20
+  n=57 /day=1.78  $/t=-2.35  $/day=-9.6 CI [-39,+14]  DayWR=0.571  MAE=$-1.6
+  TP%=44  SL%=56
+
+[23/75] T_timing=0.85 T_dir=0.55 TP=40 SL=20
+  n=57 /day=1.78  $/t=-1.96  $/day=-8.0 CI [-36,+17]  DayWR=0.357  MAE=$-1.7
+  TP%=37  SL%=61
+
+[24/75] T_timing=0.85 T_dir=0.55 TP=60 SL=30
+  n=55 /day=1.72  $/t=-4.27  $/day=-16.8 CI [-51,+20]  DayWR=0.286  MAE=$-5.1
+  TP%=29  SL%=62
+
+[25/75] T_timing=0.85 T_dir=0.55 TP=40 SL=15
+  n=57 /day=1.78  $/t=-0.83  $/day=-3.4 CI [-30,+23]  DayWR=0.429  MAE=$-1.2
+  TP%=33  SL%=65
+
+[26/75] T_timing=0.85 T_dir=0.6 TP=30 SL=15
+  n=57 /day=1.78  $/t=-1.14  $/day=-4.6 CI [-29,+18]  DayWR=0.500  MAE=$-1.1
+  TP%=40  SL%=60
+
+[27/75] T_timing=0.85 T_dir=0.6 TP=30 SL=20
+  n=57 /day=1.78  $/t=-2.35  $/day=-9.6 CI [-39,+14]  DayWR=0.571  MAE=$-1.6
+  TP%=44  SL%=56
+
+[28/75] T_timing=0.85 T_dir=0.6 TP=40 SL=20
+  n=57 /day=1.78  $/t=-1.96  $/day=-8.0 CI [-36,+17]  DayWR=0.357  MAE=$-1.7
+  TP%=37  SL%=61
+
+[29/75] T_timing=0.85 T_dir=0.6 TP=60 SL=30
+  n=55 /day=1.72  $/t=-4.27  $/day=-16.8 CI [-51,+20]  DayWR=0.286  MAE=$-5.1
+  TP%=29  SL%=62
+
+[30/75] T_timing=0.85 T_dir=0.6 TP=40 SL=15
+  n=57 /day=1.78  $/t=-0.83  $/day=-3.4 CI [-30,+23]  DayWR=0.429  MAE=$-1.2
+  TP%=33  SL%=65
+
+[31/75] T_timing=0.88 T_dir=0.5 TP=30 SL=15
+  n=11 /day=0.34  $/t=+1.18  $/day=+1.9 CI [-16,+22]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[32/75] T_timing=0.88 T_dir=0.5 TP=30 SL=20
+  n=11 /day=0.34  $/t=-1.55  $/day=-2.4 CI [-21,+19]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[33/75] T_timing=0.88 T_dir=0.5 TP=40 SL=20
+  n=11 /day=0.34  $/t=+3.00  $/day=+4.7 CI [-19,+32]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[34/75] T_timing=0.88 T_dir=0.5 TP=60 SL=30
+  n=11 /day=0.34  $/t=-2.32  $/day=-3.6 CI [-26,+21]  DayWR=0.429  MAE=$-0.4
+  TP%=27  SL%=55
+
+[35/75] T_timing=0.88 T_dir=0.5 TP=40 SL=15
+  n=11 /day=0.34  $/t=+5.73  $/day=+9.0 CI [-12,+35]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[36/75] T_timing=0.88 T_dir=0.55 TP=30 SL=15
+  n=11 /day=0.34  $/t=+1.18  $/day=+1.9 CI [-16,+22]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[37/75] T_timing=0.88 T_dir=0.55 TP=30 SL=20
+  n=11 /day=0.34  $/t=-1.55  $/day=-2.4 CI [-21,+19]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[38/75] T_timing=0.88 T_dir=0.55 TP=40 SL=20
+  n=11 /day=0.34  $/t=+3.00  $/day=+4.7 CI [-19,+32]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[39/75] T_timing=0.88 T_dir=0.55 TP=60 SL=30
+  n=11 /day=0.34  $/t=-2.32  $/day=-3.6 CI [-26,+21]  DayWR=0.429  MAE=$-0.4
+  TP%=27  SL%=55
+
+[40/75] T_timing=0.88 T_dir=0.55 TP=40 SL=15
+  n=11 /day=0.34  $/t=+5.73  $/day=+9.0 CI [-12,+35]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[41/75] T_timing=0.88 T_dir=0.6 TP=30 SL=15
+  n=11 /day=0.34  $/t=+1.18  $/day=+1.9 CI [-16,+22]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[42/75] T_timing=0.88 T_dir=0.6 TP=30 SL=20
+  n=11 /day=0.34  $/t=-1.55  $/day=-2.4 CI [-21,+19]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[43/75] T_timing=0.88 T_dir=0.6 TP=40 SL=20
+  n=11 /day=0.34  $/t=+3.00  $/day=+4.7 CI [-19,+32]  DayWR=0.429  MAE=$-0.2
+  TP%=45  SL%=55
+
+[44/75] T_timing=0.88 T_dir=0.6 TP=60 SL=30
+  n=11 /day=0.34  $/t=-2.32  $/day=-3.6 CI [-26,+21]  DayWR=0.429  MAE=$-0.4
+  TP%=27  SL%=55
+
+[45/75] T_timing=0.88 T_dir=0.6 TP=40 SL=15
+  n=11 /day=0.34  $/t=+5.73  $/day=+9.0 CI [-12,+35]  DayWR=0.429  MAE=$0.0
+  TP%=45  SL%=55
+
+[46/75] T_timing=0.91 T_dir=0.5 TP=30 SL=15
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[47/75] T_timing=0.91 T_dir=0.5 TP=30 SL=20
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[48/75] T_timing=0.91 T_dir=0.5 TP=40 SL=20
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[49/75] T_timing=0.91 T_dir=0.5 TP=60 SL=30
+  n=1 /day=0.03  $/t=+56.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[50/75] T_timing=0.91 T_dir=0.5 TP=40 SL=15
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[51/75] T_timing=0.91 T_dir=0.55 TP=30 SL=15
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[52/75] T_timing=0.91 T_dir=0.55 TP=30 SL=20
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[53/75] T_timing=0.91 T_dir=0.55 TP=40 SL=20
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[54/75] T_timing=0.91 T_dir=0.55 TP=60 SL=30
+  n=1 /day=0.03  $/t=+56.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[55/75] T_timing=0.91 T_dir=0.55 TP=40 SL=15
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[56/75] T_timing=0.91 T_dir=0.6 TP=30 SL=15
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[57/75] T_timing=0.91 T_dir=0.6 TP=30 SL=20
+  n=1 /day=0.03  $/t=+26.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[58/75] T_timing=0.91 T_dir=0.6 TP=40 SL=20
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[59/75] T_timing=0.91 T_dir=0.6 TP=60 SL=30
+  n=1 /day=0.03  $/t=+56.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[60/75] T_timing=0.91 T_dir=0.6 TP=40 SL=15
+  n=1 /day=0.03  $/t=+36.00  $/day=+nan CI [+nan,+nan]  DayWR=1.000  MAE=$0.0
+  TP%=100  SL%=0
+
+[61/75] T_timing=0.94 T_dir=0.5 TP=30 SL=15
+  (no trades)
+
+[62/75] T_timing=0.94 T_dir=0.5 TP=30 SL=20
+  (no trades)
+
+[63/75] T_timing=0.94 T_dir=0.5 TP=40 SL=20
+  (no trades)
+
+[64/75] T_timing=0.94 T_dir=0.5 TP=60 SL=30
+  (no trades)
+
+[65/75] T_timing=0.94 T_dir=0.5 TP=40 SL=15
+  (no trades)
+
+[66/75] T_timing=0.94 T_dir=0.55 TP=30 SL=15
+  (no trades)
+
+[67/75] T_timing=0.94 T_dir=0.55 TP=30 SL=20
+  (no trades)
+
+[68/75] T_timing=0.94 T_dir=0.55 TP=40 SL=20
+  (no trades)
+
+[69/75] T_timing=0.94 T_dir=0.55 TP=60 SL=30
+  (no trades)
+
+[70/75] T_timing=0.94 T_dir=0.55 TP=40 SL=15
+  (no trades)
+
+[71/75] T_timing=0.94 T_dir=0.6 TP=30 SL=15
+  (no trades)
+
+[72/75] T_timing=0.94 T_dir=0.6 TP=30 SL=20
+  (no trades)
+
+[73/75] T_timing=0.94 T_dir=0.6 TP=40 SL=20
+  (no trades)
+
+[74/75] T_timing=0.94 T_dir=0.6 TP=60 SL=30
+  (no trades)
+
+[75/75] T_timing=0.94 T_dir=0.6 TP=40 SL=15
+  (no trades)
+
+Wrote: reports\findings\regret_oracle\golden_combined_kpi_ZIGZAG_OOS.csv
+
+=== TOP 10 BY $/day NET ===
+ t_timing  t_dir  tp_usd  sl_usd  n_trades  trades_per_day  mean_per_trade_net  mean_per_day_net  pnl_day_ci_lo  pnl_day_ci_hi  day_wr_active  mean_mae    tp_pct    sl_pct
+     0.88   0.60      40      15        11         0.34375            5.727273          9.000000     -12.428571      35.142857       0.428571  0.000000 45.454545 54.545455
+     0.88   0.55      40      15        11         0.34375            5.727273          9.000000     -12.428571      35.142857       0.428571  0.000000 45.454545 54.545455
+     0.88   0.50      40      15        11         0.34375            5.727273          9.000000     -12.428571      35.142857       0.428571  0.000000 45.454545 54.545455
+     0.88   0.60      40      20        11         0.34375            3.000000          4.714286     -19.357143      32.285714       0.428571 -0.181818 45.454545 54.545455
+     0.88   0.55      40      20        11         0.34375            3.000000          4.714286     -19.357143      32.285714       0.428571 -0.181818 45.454545 54.545455
+     0.88   0.50      40      20        11         0.34375            3.000000          4.714286     -19.357143      32.285714       0.428571 -0.181818 45.454545 54.545455
+     0.88   0.50      30      15        11         0.34375            1.181818          1.857143     -15.785714      22.285714       0.428571  0.000000 45.454545 54.545455
+     0.88   0.60      30      15        11         0.34375            1.181818          1.857143     -15.785714      22.285714       0.428571  0.000000 45.454545 54.545455
+     0.88   0.55      30      15        11         0.34375            1.181818          1.857143     -15.785714      22.285714       0.428571  0.000000 45.454545 54.545455
+     0.88   0.55      30      20        11         0.34375           -1.545455         -2.428571     -20.785714      19.428571       0.428571 -0.181818 45.454545 54.545455
+
+=== POSITIVE PNL configs (CI lower bound > 0) ===
+(none with CI > 0)
+
+=== Top by DayWR (descending) ===
+ t_timing  t_dir  tp_usd  sl_usd  n_trades  trades_per_day  mean_per_trade_net  mean_per_day_net  pnl_day_ci_lo  pnl_day_ci_hi  day_wr_active  mean_mae  tp_pct  sl_pct
+     0.91   0.60      40      15         1         0.03125                36.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.55      40      20         1         0.03125                36.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.50      30      15         1         0.03125                26.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.50      30      20         1         0.03125                26.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.50      60      30         1         0.03125                56.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.50      40      15         1         0.03125                36.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.55      30      15         1         0.03125                26.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.55      30      20         1         0.03125                26.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.50      40      20         1         0.03125                36.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0
+     0.91   0.55      60      30         1         0.03125                56.0               NaN            NaN            NaN            1.0       0.0   100.0     0.0

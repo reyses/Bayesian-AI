@@ -30,12 +30,17 @@ Keys:
     D               delete last pick
     1 / 2 / 3 / 4   toggle 15s / 1m / 15m / 1h HL overlays
     5               toggle loaded trades overlay (from --load-trades)
+    P               screenshot → examples/ (no dialog)
     Q               save + quit
     Arrows          pan (left/right), zoom (up/down)
 
 Load trades for visual inspection:
     python tools/cusp_marker.py --date 2025-09-08 --load-trades reports/findings/decay_sim/v6_v6_OOS_trades.csv
     python tools/cusp_marker.py --date 2026-02-12 --load-trades training_iso_v2/output/oos_FADE_CALM.pkl
+
+Visualize regret/oracle entries (where the oracle WANTS to trade):
+    python tools/cusp_marker.py --date 2025-07-08 --days 1 --load-trades reports/findings/regret_oracle/oracle_entries_jul2025.csv
+    python tools/cusp_marker.py --date 2025-07-01 --days 31 --load-trades reports/findings/regret_oracle/oracle_entries_jul2025.csv
 """
 
 import argparse
@@ -60,6 +65,9 @@ TICK_SIZE = 0.25
 TICK_VALUE = 0.50
 PICKS_DIR = 'DATA/cusp_picks'
 SETTINGS_PATH = 'DATA/cusp_picks/marker_settings.json'
+# Screenshots (P key + toolbar Save button) auto-direct here
+EXAMPLES_DIR = str(Path(__file__).resolve().parent.parent / 'examples')
+matplotlib.rcParams['savefig.directory'] = EXAMPLES_DIR
 
 
 # ── Trade-loading from CSV / JSON / pickle ─────────────────────────────────
@@ -110,6 +118,13 @@ def load_trades(path: str) -> list:
                 return None
             if isinstance(v, (int, float)):
                 return float(v)
+            # Numeric string = epoch seconds (e.g. CSV oracle_ts column)
+            try:
+                fv = float(v)
+                if fv > 1e8:    # plausible epoch-seconds (≈ year 1973+)
+                    return fv
+            except (TypeError, ValueError):
+                pass
             try:
                 return datetime.strptime(str(v), '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc).timestamp()
             except Exception:
@@ -119,9 +134,19 @@ def load_trades(path: str) -> list:
             except Exception:
                 return None
         # Accept also single-bar pick format (timestamp, price + forward MFE/MAE)
+        # and the regret/oracle schema (oracle_ts/oracle_utc + time_to_mfe_min).
         ets = _to_ts(r.get('entry_ts') or r.get('entry_utc')
-                          or r.get('ts_start') or r.get('timestamp'))
+                          or r.get('ts_start') or r.get('timestamp')
+                          or r.get('oracle_ts') or r.get('oracle_utc'))
         xts = _to_ts(r.get('exit_ts') or r.get('exit_utc') or r.get('ts_end'))
+        # Oracle/regret rows have no exit_ts — derive it from forward-MFE timing
+        if xts is None and ets is not None:
+            ttm = r.get('time_to_mfe_min') or r.get('time_to_mfe_mins')
+            if ttm is not None:
+                try:
+                    xts = ets + float(ttm) * 60.0
+                except (TypeError, ValueError):
+                    pass
         epx = r.get('entry_price') or r.get('entry_px') or r.get('price')
         xpx = r.get('exit_price') or r.get('exit_px')
         # PnL: prefer explicit dollar fields; else compute from entry/exit + direction
@@ -656,6 +681,8 @@ class CuspMarker:
             self._flip_last()
         elif event.key in ('d', 'D'):
             self._delete_last()
+        elif event.key in ('p', 'P'):
+            self._screenshot()
         elif event.key == 'left':
             self._pan(-1)
         elif event.key == 'right':
@@ -756,6 +783,17 @@ class CuspMarker:
                           'picks': self.picks}, f, indent=2)
         print(f"\n  Saved {len(self.picks)} picks @ {self.tf} → {canonical_path}")
         print(f"  Snapshot:                                 {snap_path}")
+
+    # ── Screenshot (auto-direct to examples/) ─────────────────────────────
+
+    def _screenshot(self):
+        """Save the current figure straight to examples/ — no file dialog."""
+        os.makedirs(EXAMPLES_DIR, exist_ok=True)
+        date_key = self.date_str.split()[0].replace(':', '_to_')
+        ts_tag = datetime.now().strftime('%Y%m%d_%H%M%S')
+        path = os.path.join(EXAMPLES_DIR, f'cusp_{date_key}_{self.tf}_{ts_tag}.png')
+        self.fig.savefig(path, dpi=130, bbox_inches='tight')
+        print(f'  [screenshot] saved -> {path}')
 
     # ── Pan / zoom ─────────────────────────────────────────────────────────
 
@@ -1039,7 +1077,7 @@ class CuspMarker:
 
         print(f"\n  Cusp Marker ready -- {len(self.df)} bars loaded, fwd window {self.fwd_mins}m")
         print(f"  Click = mark + snap to H/L; auto-direction from local trend")
-        print(f"  L/S=flip last, D=del last, 1/2/3/4=toggle (15s/1m/15m/1h), Q=save+quit")
+        print(f"  L/S=flip last, D=del last, 1/2/3/4=toggle (15s/1m/15m/1h), P=screenshot, Q=save+quit")
         print(f"  Arrow keys / bottom buttons: pan left/right + zoom in/out\n")
         if self._settings:
             saved_geom = self._settings.get('window_geometry', '?')

@@ -1,0 +1,30 @@
+Loading IS: reports/findings/regret_oracle/daisy_with_v2_features_IS_full.parquet
+  IS: 7925 trades, 184 V2 features
+Loading OOS: reports/findings/regret_oracle/daisy_with_v2_features_OOS_2026.parquet
+  OOS: 2085 trades
+
+dir: n_classes=2
+  Train acc: 0.8254
+  IS test:   0.8278   (baseline 0.5054)
+  OOS:       0.8096   (baseline 0.5012)
+  IS-OOS delta: -0.0182
+
+dur: n_classes=4
+  Train acc: 0.4057
+  IS test:   0.3331   (baseline 0.2524)
+  OOS:       0.3300   (baseline 0.2609)
+  IS-OOS delta: -0.0031
+
+spd: n_classes=4
+  Train acc: 0.5153
+  IS test:   0.4688   (baseline 0.2543)
+  OOS:       0.4427   (baseline 0.2916)
+  IS-OOS delta: -0.0261
+
+traj: n_classes=4
+  Train acc: 0.3844
+  IS test:   0.3464   (baseline 0.8580)
+  OOS:       0.3022   (baseline 0.8355)
+  IS-OOS delta: -0.0442
+
+Wrote: reports\findings\regret_oracle\scenario_lr_baseline_summary.json

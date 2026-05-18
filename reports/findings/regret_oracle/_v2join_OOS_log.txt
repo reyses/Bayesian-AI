@@ -1,0 +1,32 @@
+Loaded 2085 trades from reports/findings/regret_oracle/daisy_OOS_buckets.csv
+Unique session dates: 56
+  L1_5s: joined (6 feature columns)
+  L1_15s: joined (6 feature columns)
+  L1_1m: joined (6 feature columns)
+  L1_5m: joined (6 feature columns)
+  L1_15m: joined (6 feature columns)
+  L1_1h: joined (6 feature columns)
+  L1_4h: joined (6 feature columns)
+  L1_1D: joined (6 feature columns)
+  L2_5s: joined (9 feature columns)
+  L2_15s: joined (9 feature columns)
+  L2_1m: joined (9 feature columns)
+  L2_5m: joined (9 feature columns)
+  L2_15m: joined (9 feature columns)
+  L2_1h: joined (9 feature columns)
+  L2_4h: joined (9 feature columns)
+  L2_1D: joined (9 feature columns)
+  L3_5s: joined (8 feature columns)
+  L3_15s: joined (8 feature columns)
+  L3_1m: joined (8 feature columns)
+  L3_5m: joined (8 feature columns)
+  L3_15m: joined (8 feature columns)
+  L3_1h: joined (8 feature columns)
+  L3_4h: joined (8 feature columns)
+  L3_1D: joined (8 feature columns)
+
+Wrote: reports\findings\regret_oracle\daisy_with_v2_features_OOS_2026.parquet
+  rows: 2085
+  cols: 263
+  V2 feature columns: 184
+  V2 NaN rate: 0.00% (0 of 383,640)

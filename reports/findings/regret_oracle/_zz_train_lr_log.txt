@@ -1,0 +1,28 @@
+Loading IS: reports/findings/regret_oracle/zigzag_pivot_dataset_IS_atr4.parquet
+  Label column: is_pivot
+  282669 rows, 35053 positives (12.40%)
+Loading OOS: reports/findings/regret_oracle/zigzag_pivot_dataset_OOS_atr4.parquet
+  61168 rows, 7693 positives (12.58%)
+V2 features: 184
+
+Fitting lr...
+  Fit in 10.9s
+
+=== Headline ===
+  IS  AUC: 0.7166    PR-AUC: 0.2563
+  OOS AUC: 0.6866   PR-AUC: 0.2333
+
+=== OOS threshold sweep ===
+  T=0.30  fires=53863  TP=7412 FP=46451  precision=0.138  recall=0.963  fires/day=792.10
+  T=0.40  fires=38876  TP=6409 FP=32467  precision=0.165  recall=0.833  fires/day=571.71
+  T=0.50  fires=24917  TP=5008 FP=19909  precision=0.201  recall=0.651  fires/day=366.43
+  T=0.60  fires=14948  TP=3538 FP=11410  precision=0.237  recall=0.460  fires/day=219.82
+  T=0.70  fires= 8360  TP=2233 FP= 6127  precision=0.267  recall=0.290  fires/day=122.94
+  T=0.80  fires= 4090  TP=1254 FP= 2836  precision=0.307  recall=0.163  fires/day=60.15
+  T=0.85  fires= 2599  TP= 829 FP= 1770  precision=0.319  recall=0.108  fires/day=38.22
+  T=0.90  fires= 1508  TP= 516 FP=  992  precision=0.342  recall=0.067  fires/day=22.18
+  T=0.95  fires=  636  TP= 230 FP=  406  precision=0.362  recall=0.030  fires/day=9.35
+  T=0.98  fires=  229  TP=  87 FP=  142  precision=0.380  recall=0.011  fires/day=3.37
+
+Wrote: reports\findings\regret_oracle\zz_pivot_summary_atr4_lr.csv
+Wrote: training_iso_v2\output\zz_pivot_clf_atr4_lr.pkl

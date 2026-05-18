@@ -1,0 +1,56 @@
+Device: cuda; PyTorch 2.5.1+cu121
+
+Loading IS: reports/findings/regret_oracle/scenario_seq_IS_K60_F30.npz
+  X: (7925, 60, 30)  features: ['L2_15s_price_velocity_12', 'L2_5s_price_velocity_9', 'L2_1m_price_velocity_15', 'L1_1m_body', 'L1_15s_body'] ...
+  Train: 6340    Val (test): 1585
+  Class weights — dir: [1.016351342201233, 0.9841663837432861]
+  Class weights — dur: [1.0082696676254272, 0.9987397789955139, 1.0, 0.993107795715332]
+  Class weights — spd: [1.0018963813781738, 0.9924859404563904, 1.003164529800415, 1.0025300979614258]
+  Class weights — traj: [0.2992824912071228, 3.0836575031280518, 4.803030490875244, 7.925000190734863]
+
+Model: ScenarioLSTM(n_feat=30, hidden=64, layers=1, dropout=0.3)
+  Params: 25,486
+
+--- Loading best checkpoint for evaluation ---
+  Loaded epoch 6, val_loss 4.3636
+
+=== IS test (validation) set ===
+  dir accuracy: 0.8391    baseline (most-common): 0.5054
+  dur accuracy: 0.3041    baseline (most-common): 0.2524
+  spd accuracy: 0.4347    baseline (most-common): 0.2543
+  traj accuracy: 0.4580    baseline (most-common): 0.8580
+
+Loading OOS: reports/findings/regret_oracle/scenario_seq_OOS_K60_F30.npz
+  X: (2085, 60, 30)
+
+=== OOS (2026) set ===
+  dir accuracy: 0.8269    baseline (most-common): 0.5012    IS-OOS delta: -0.0123
+  dur accuracy: 0.3271    baseline (most-common): 0.2609    IS-OOS delta: +0.0230
+  spd accuracy: 0.4000    baseline (most-common): 0.2916    IS-OOS delta: -0.0347
+  traj accuracy: 0.4590    baseline (most-common): 0.8355    IS-OOS delta: +0.0009
+
+=== OOS confusion matrices ===
+
+  dir:
+[[855 185]
+ [176 869]]
+
+  dur:
+[[239 108  82  93]
+ [123 155 121 136]
+ [ 76 136 113 159]
+ [112 148 109 175]]
+
+  spd:
+[[234  72  15  29]
+ [202 139 123  86]
+ [116 115 171 206]
+ [102  82 103 290]]
+
+  traj:
+[[890 141 385 326]
+ [ 64  19  50  33]
+ [ 44   4  32  25]
+ [ 33   4  19  16]]
+
+Saved summary: reports\findings\regret_oracle\scenario_lstm_K60_F30_summary.json

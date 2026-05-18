@@ -1,0 +1,87 @@
+Logistic Oracle Surfaces — Model Metrics
+============================================================
+
+entry_short:
+  n_pos:     2943
+  n_neg:     17817
+  AUC train: 0.896
+  AUC test:  0.902
+  intercept: -1.175
+
+  Top 10 features by |coef|:
+    slope_1m_10m              +2.1087
+    z_1m                      -2.0615
+    slope_15s_10m             -1.3155
+    z_15m                     +0.8518
+    slope_15s_3m              +0.4813
+    fan_width                 -0.4236
+    dist_15s_1m               +0.3582
+    z_1h_low                  -0.2577
+    dist_15s_15m              -0.2178
+    z_15s                     -0.2049
+
+------------------------------------------------------------
+
+entry_long:
+  n_pos:     2996
+  n_neg:     17817
+  AUC train: 0.889
+  AUC test:  0.889
+  intercept: -1.095
+
+  Top 10 features by |coef|:
+    slope_1m_10m              -2.2445
+    z_1m                      +1.9395
+    slope_15s_10m             +1.3797
+    slope_15s_3m              -0.5750
+    fan_width                 -0.4828
+    z_1h_low                  +0.3628
+    dist_15m_to_Ml            -0.3556
+    dist_15s_1m               -0.3259
+    z_15m                     -0.2801
+    dist_15m_to_Mh            +0.1953
+
+------------------------------------------------------------
+
+exit_short:
+  n_pos:     2581
+  n_neg:     17817
+  AUC train: 0.875
+  AUC test:  0.880
+  intercept: -1.197
+
+  Top 10 features by |coef|:
+    z_1m                      -1.1249
+    z_15m                     -0.8252
+    dist_15s_1m               -0.6318
+    slope_1m_10m              -0.4557
+    dist_15s_15m              +0.3266
+    fan_width                 -0.2604
+    slope_15s_3m              -0.2472
+    slope_15s_10m             +0.2301
+    z_15s                     -0.2115
+    z_1h_low                  +0.2001
+
+------------------------------------------------------------
+
+exit_long:
+  n_pos:     2676
+  n_neg:     17817
+  AUC train: 0.865
+  AUC test:  0.856
+  intercept: -1.128
+
+  Top 10 features by |coef|:
+    z_1m                      +1.4089
+    z_15m                     +1.1415
+    dist_15s_15m              -0.8933
+    dist_15s_1m               +0.6898
+    slope_1m_10m              +0.3053
+    dist_1m_15m               +0.2791
+    dist_15m_to_Ml            +0.2686
+    z_1h_low                  -0.2543
+    fan_width                 -0.2273
+    z_15s                     +0.1871
+
+------------------------------------------------------------
+

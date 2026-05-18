@@ -32,6 +32,18 @@ from training_iso_v2.strategies.cat_harvest import CatHarvestRide
 # 2026-05-10 CRM cusp — fade at confirmed |z| local-max (validation: cusp_research/)
 from training_iso_v2.strategies.crm_cusp import CrmCuspFade
 
+# 2026-05-16 direction classifier — LR on V2 entry features, AUC 0.864 IS
+from training_iso_v2.strategies.direction_classifier import DirectionClassifierStrategy
+
+# 2026-05-16 entry-timing + direction combined (gold-moment finder)
+from training_iso_v2.strategies.golden_combined import GoldenCombinedStrategy
+
+# 2026-05-17 trend-3 (3-class direction classifier: LONG/SHORT/NEUTRAL)
+from training_iso_v2.strategies.trend3 import Trend3Strategy
+
+# 2026-05-17 DMI-smoothed trend3 (regime confirmation from EMA + state machine)
+from training_iso_v2.strategies.trend3_smoothed import Trend3SmoothedStrategy
+
 __all__ = [
     'EntrySignal', 'Strategy',
     # 9 legacy tiers ported V2-native
@@ -48,6 +60,11 @@ __all__ = [
     'CompressionBounceLong', 'CatHarvestRide',
     # 2026-05-10 CRM cusp — confirmed |z| local-max fade
     'CrmCuspFade',
+    # 2026-05-16 direction classifier (LR on V2 entry features)
+    'DirectionClassifierStrategy',
+    'GoldenCombinedStrategy',
+    'Trend3Strategy',
+    'Trend3SmoothedStrategy',
     # Helpers
     'NMPBaseStrategy', 'NMPSeed', 'evaluate_nmp_seed',
 ]

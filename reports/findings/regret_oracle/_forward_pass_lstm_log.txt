@@ -1,0 +1,54 @@
+Loading IS: reports/findings/regret_oracle/daisy_with_v2_features_IS_full.parquet
+  IS: 7925 trades x 184 features, LONG rate 0.505
+  Train acc: 0.8251
+
+Loading OOS: reports/findings/regret_oracle/daisy_with_v2_features_OOS_2026.parquet
+  Loading P(LONG) from reports/findings/regret_oracle/scenario_lstm_OOS_proba.npz (LSTM)
+  OOS: 2085 trades across 56 days
+  OOS dir acc at threshold 0.5: 0.8269
+
+=== Framing A: oracle-exit ===
+  T=0.50  fires=2085 cov=100.00%  dir_acc=0.827  $/day mean=$ 3511.3 [3141, 3903]  mode=$  3124  DayWR(active)=1.000  TradeWR_PF=+4.227
+  T=0.55  fires=2059 cov=98.75%  dir_acc=0.830  $/day mean=$ 3501.4 [3130, 3894]  mode=$  3124  DayWR(active)=1.000  TradeWR_PF=+4.229
+  T=0.60  fires=2034 cov=97.55%  dir_acc=0.833  $/day mean=$ 3501.8 [3136, 3888]  mode=$  2900  DayWR(active)=1.000  TradeWR_PF=+4.300
+  T=0.65  fires=1990 cov=95.44%  dir_acc=0.838  $/day mean=$ 3490.6 [3125, 3877]  mode=$  5850  DayWR(active)=1.000  TradeWR_PF=+4.409
+  T=0.70  fires=1934 cov=92.76%  dir_acc=0.843  $/day mean=$ 3464.6 [3102, 3850]  mode=$  2177  DayWR(active)=1.000  TradeWR_PF=+4.586
+  T=0.75  fires=1839 cov=88.20%  dir_acc=0.847  $/day mean=$ 3350.1 [2992, 3719]  mode=$  1212  DayWR(active)=1.000  TradeWR_PF=+4.694
+  T=0.80  fires=1594 cov=76.45%  dir_acc=0.859  $/day mean=$ 3030.4 [2690, 3381]  mode=$  2652  DayWR(active)=1.000  TradeWR_PF=+4.914
+  T=0.85  fires= 974 cov=46.71%  dir_acc=0.877  $/day mean=$ 2114.0 [1844, 2403]  mode=$  1256  DayWR(active)=1.000  TradeWR_PF=+6.197
+  T=0.90  fires= 314 cov=15.06%  dir_acc=0.917  $/day mean=$  819.3 [658, 983]  mode=$   200  DayWR(active)=0.982  TradeWR_PF=+9.343
+
+=== Framing B: fixed R/R = 4 ticks ($2) ===
+  T=0.50  fires=2085 cov=100.00%  dir_acc=0.827  $/day mean=$   48.7 [45, 52]  mode=$    56  DayWR(active)=1.000  TradeWR_PF=+3.782
+  T=0.55  fires=2059 cov=98.75%  dir_acc=0.830  $/day mean=$   48.5 [45, 52]  mode=$    56  DayWR(active)=1.000  TradeWR_PF=+3.872
+  T=0.60  fires=2034 cov=97.55%  dir_acc=0.833  $/day mean=$   48.4 [45, 52]  mode=$    56  DayWR(active)=1.000  TradeWR_PF=+3.985
+  T=0.65  fires=1990 cov=95.44%  dir_acc=0.838  $/day mean=$   48.0 [45, 51]  mode=$    54  DayWR(active)=1.000  TradeWR_PF=+4.164
+  T=0.70  fires=1934 cov=92.76%  dir_acc=0.843  $/day mean=$   47.4 [44, 51]  mode=$    52  DayWR(active)=1.000  TradeWR_PF=+4.386
+  T=0.75  fires=1839 cov=88.20%  dir_acc=0.847  $/day mean=$   45.5 [42, 49]  mode=$    52  DayWR(active)=1.000  TradeWR_PF=+4.520
+  T=0.80  fires=1594 cov=76.45%  dir_acc=0.859  $/day mean=$   40.8 [38, 44]  mode=$    50  DayWR(active)=1.000  TradeWR_PF=+5.083
+  T=0.85  fires= 974 cov=46.71%  dir_acc=0.877  $/day mean=$   26.2 [24, 29]  mode=$    14  DayWR(active)=1.000  TradeWR_PF=+6.117
+  T=0.90  fires= 314 cov=15.06%  dir_acc=0.917  $/day mean=$    9.4 [8, 11]  mode=$    12  DayWR(active)=0.982  TradeWR_PF=+10.077
+
+=== Framing B: fixed R/R = 8 ticks ($4) ===
+  T=0.50  fires=2085 cov=100.00%  dir_acc=0.827  $/day mean=$   97.3 [91, 104]  mode=$    98  DayWR(active)=1.000  TradeWR_PF=+3.799
+  T=0.55  fires=2059 cov=98.75%  dir_acc=0.830  $/day mean=$   97.0 [90, 103]  mode=$    98  DayWR(active)=1.000  TradeWR_PF=+3.892
+  T=0.60  fires=2034 cov=97.55%  dir_acc=0.833  $/day mean=$   96.7 [90, 103]  mode=$    98  DayWR(active)=1.000  TradeWR_PF=+3.999
+  T=0.65  fires=1990 cov=95.44%  dir_acc=0.838  $/day mean=$   96.0 [89, 103]  mode=$    94  DayWR(active)=1.000  TradeWR_PF=+4.175
+  T=0.70  fires=1934 cov=92.76%  dir_acc=0.843  $/day mean=$   94.8 [88, 101]  mode=$    90  DayWR(active)=1.000  TradeWR_PF=+4.399
+  T=0.75  fires=1839 cov=88.20%  dir_acc=0.847  $/day mean=$   91.0 [85, 97]  mode=$    90  DayWR(active)=1.000  TradeWR_PF=+4.527
+  T=0.80  fires=1594 cov=76.45%  dir_acc=0.859  $/day mean=$   81.7 [76, 88]  mode=$    86  DayWR(active)=1.000  TradeWR_PF=+5.083
+  T=0.85  fires= 974 cov=46.71%  dir_acc=0.877  $/day mean=$   52.4 [47, 58]  mode=$    42  DayWR(active)=1.000  TradeWR_PF=+6.116
+  T=0.90  fires= 314 cov=15.06%  dir_acc=0.917  $/day mean=$   18.7 [16, 22]  mode=$    12  DayWR(active)=0.982  TradeWR_PF=+10.077
+
+=== Framing B: fixed R/R = 16 ticks ($8) ===
+  T=0.50  fires=2085 cov=100.00%  dir_acc=0.827  $/day mean=$  194.5 [181, 207]  mode=$   184  DayWR(active)=1.000  TradeWR_PF=+3.884
+  T=0.55  fires=2059 cov=98.75%  dir_acc=0.830  $/day mean=$  193.7 [181, 206]  mode=$   184  DayWR(active)=1.000  TradeWR_PF=+3.970
+  T=0.60  fires=2034 cov=97.55%  dir_acc=0.833  $/day mean=$  193.3 [180, 206]  mode=$   184  DayWR(active)=1.000  TradeWR_PF=+4.073
+  T=0.65  fires=1990 cov=95.44%  dir_acc=0.838  $/day mean=$  191.9 [179, 205]  mode=$   176  DayWR(active)=1.000  TradeWR_PF=+4.241
+  T=0.70  fires=1934 cov=92.76%  dir_acc=0.843  $/day mean=$  189.6 [177, 202]  mode=$   168  DayWR(active)=1.000  TradeWR_PF=+4.473
+  T=0.75  fires=1839 cov=88.20%  dir_acc=0.847  $/day mean=$  181.8 [169, 194]  mode=$   168  DayWR(active)=1.000  TradeWR_PF=+4.587
+  T=0.80  fires=1594 cov=76.45%  dir_acc=0.859  $/day mean=$  163.2 [152, 175]  mode=$   160  DayWR(active)=1.000  TradeWR_PF=+5.118
+  T=0.85  fires= 974 cov=46.71%  dir_acc=0.877  $/day mean=$  104.9 [95, 115]  mode=$    96  DayWR(active)=1.000  TradeWR_PF=+6.183
+  T=0.90  fires= 314 cov=15.06%  dir_acc=0.917  $/day mean=$   37.4 [32, 44]  mode=$    13  DayWR(active)=1.000  TradeWR_PF=+10.104
+
+Wrote: reports/findings/regret_oracle/forward_pass_OOS_2026_LSTM.csv

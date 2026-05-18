@@ -1,0 +1,48 @@
+Loading reports/findings/regret_oracle/daisy_with_v2_features_IS_full.parquet
+  7925 trades x 184 V2 entry features
+Loading lead-in signatures: reports/findings/regret_oracle/leadin_signatures_IS_full_240bar.npz
+  Added 368 lead-in features (233 trades without stable lead-in)
+Full feature matrix: (7925, 552)
+  LONG: 4005    SHORT: 3920    base rate LONG: 0.505
+  Train: 6340    Test: 1585
+
+Fitting lr...
+  Fit in 0.2s
+
+=== Headline metrics ===
+  Train  AUC: 0.8889    Brier: 0.1300
+  Test   AUC: 0.8421    Brier: 0.1558
+  (AUC: 0.5=chance, 1.0=perfect.  Brier: lower better, 0.25=random)
+
+=== Threshold sweep (test set) ===
+  Fire LONG  if P(LONG) > T        (high confidence LONG)
+  Fire SHORT if P(LONG) < 1-T      (high confidence SHORT)
+  Skip if  1-T <= P(LONG) <= T     (uncertain — selector abstains)
+
+ threshold  coverage  n_fired  long_acc  short_acc  overall_acc
+      0.50    1.0000     1585    0.8051     0.8100       0.8076
+      0.55    0.9464     1500    0.8243     0.8146       0.8193
+      0.60    0.8883     1408    0.8355     0.8252       0.8303
+      0.65    0.8271     1311    0.8400     0.8366       0.8383
+      0.70    0.7565     1199    0.8521     0.8411       0.8465
+      0.75    0.6770     1073    0.8566     0.8396       0.8481
+      0.80    0.5950      943    0.8613     0.8435       0.8526
+      0.85    0.4707      746    0.8718     0.8455       0.8592
+      0.90    0.3243      514    0.8473     0.8577       0.8521
+
+=== Reliability (calibration) — predicted P-bin vs actual LONG rate ===
+     p_bin   n  mean_pred_P  actual_long_rate   delta
+[0.0, 0.1) 239       0.0463            0.1423 -0.0959
+[0.1, 0.2) 221       0.1475            0.1719 -0.0244
+[0.2, 0.3) 144       0.2474            0.1667  0.0808
+[0.3, 0.4) 111       0.3503            0.2613  0.0891
+[0.4, 0.5)  85       0.4448            0.3176  0.1272
+[0.5, 0.6)  92       0.5471            0.5761 -0.0290
+[0.6, 0.7)  98       0.6524            0.7347 -0.0823
+[0.7, 0.8) 112       0.7485            0.8125 -0.0640
+[0.8, 0.9) 208       0.8536            0.8798 -0.0262
+[0.9, 1.0) 275       0.9533            0.8473  0.1060
+
+Wrote: reports\findings\regret_oracle\direction_classifier_v2_lr_with_leadin240_summary.csv
+Wrote: reports\findings\regret_oracle\direction_classifier_v2_lr_with_leadin240_reliability.csv
+Wrote: reports\findings\regret_oracle\direction_classifier_v2_lr_with_leadin240.npz
