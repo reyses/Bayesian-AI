@@ -3731,3 +3731,61 @@ POST-MIGRATION RISK:
   drift ±$30/day (estimate, untested). Phase 4 is a hard gate: if
   V2-rewired baseline is worse than -$200/day, abort and investigate.
 
+
+================================================================================
+2026-05-17 sleep-run -- L5 During-Trade Paradigm
+================================================================================
+
+Pipeline:
+  tools/build_is_hardened_legs.py
+    -> reports/findings/regret_oracle/is_hardened_legs.csv
+    17,767 legs / 275 days / $690/day flat IS baseline, zero TM.
+  tools/build_trade_trajectory_dataset.py
+    -> reports/findings/regret_oracle/trade_trajectory_IS.parquet
+    74,976 rows = 17,748 legs x 5 K horizons {5, 10, 30, 60, 120} in 5s units.
+  tools/build_oos_trajectory_and_b9_test.py
+    -> reports/findings/regret_oracle/trade_trajectory_OOS.parquet (7,776 rows)
+    -> reports/findings/regret_oracle/b9_OOS_singleshot_results.txt
+
+Models:
+  C9 = old LSTM leg-sizer (FAILED, archived).
+  C10 = old LSTM direct-trade (FAILED, archived).
+  B9 v1 (binary cut, target exit_pnl<-$50): walk-forward 0/15 ops significant.
+    AUC 0.86-0.93 but $/day delta strictly negative across folds.
+  B9 v2 (cut-saves target): 0/30 ops significant. KILLED.
+  B9 (continuous remaining-amplitude regressor):
+    IS walk-forward K=5: +$48/day CI [+$24, +$74], 3/4 folds sig.
+    OOS sealed K=5: +$67/day CI [+$32, +$106], significant. 14.1% lift.
+    Production models saved: b9_remaining_amplitude_K{5,10,30,60,120}.pkl.
+
+Architectural insight (saved as memory project_during_trade_b_stack.md):
+  Each pre-entry B has a during-trade analog. The trajectory dataset enables
+  retargeting B1-B8 as time-varying state estimators. Data processing inequality
+  guarantees during-trade predictions are at least as informative as entry-only.
+  Critical: BINARY actions (cut/hold) fail because Type 1 cost > Type 2 savings.
+  CONTINUOUS actions (sizing) survive because marginal predictions don't act.
+
+Naming convention (saved as project_b_c_naming_convention.md):
+  B-prefix = production candidates (active in stack). Contiguous numbering.
+  C-prefix = failed candidates (research artifacts only).
+  Renames go: git mv b{N}_* c{N}_*, update internal references.
+
+Anti-doom-cascade slippage stress (per CLAUDE.md):
+  B9 K=5 OOS: $S=$0 -> +$67  $S=$2 -> +$61  $S=$5 -> +$53  $S=$10 -> +$38.
+  Robust across realistic friction range.
+
+Deployment spec:
+  docs/L5_HYBRID_PIPELINE_SPEC.md
+  - NT8 ZigzagRunnerNative_v1.0.1-RC adds T+25s timer + SIZE_QUERY message
+  - Python live/L5_during_trade.py applies B9 K=5 on the trajectory snapshot
+  - IPC extension: SIZE_QUERY / SIZE_ACTION / REDUCE_POSITION
+  - 30-day NT8 sim parity check required before live exposure
+  - 0.25x position size at live launch, scale up over 4 weeks
+
+Open items (post-wake):
+  1. NT8 strategy update (T+25s timer)
+  2. Python sidecar code
+  3. Sim parity check (raw zigzag NT8 vs Python sim)
+  4. Deployment of ZigzagRunnerNative_v1.0.0-RC to NT8 strategies folder (gated)
+  5. B11/B12 retargets if user wants to expand paradigm
+

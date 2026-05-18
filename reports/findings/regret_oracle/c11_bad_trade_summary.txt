@@ -1,0 +1,35 @@
+====================================================================================================
+B9 BAD-TRADE DETECTOR  --  walk-forward CV summary
+====================================================================================================
+Target: exit_pnl_usd < $-50.0
+Folds: 4  (expanding window)
+IS days: 275
+Trajectory rows: 74,976  legs: 17,748
+
+K=  5  rec=0.30   AUC 0.861 (avg 4 folds)   mean delta $-45/day   avg per-fold CI [$-111, $+5]   sig 0/4 folds
+K=  5  rec=0.50   AUC 0.861 (avg 4 folds)   mean delta $-81/day   avg per-fold CI [$-182, $-2]   sig 0/4 folds
+K=  5  rec=0.70   AUC 0.861 (avg 4 folds)   mean delta $-161/day   avg per-fold CI [$-330, $-36]   sig 0/4 folds
+K= 10  rec=0.30   AUC 0.871 (avg 4 folds)   mean delta $-65/day   avg per-fold CI [$-139, $-7]   sig 0/4 folds
+K= 10  rec=0.50   AUC 0.871 (avg 4 folds)   mean delta $-99/day   avg per-fold CI [$-198, $-24]   sig 0/4 folds
+K= 10  rec=0.70   AUC 0.871 (avg 4 folds)   mean delta $-151/day   avg per-fold CI [$-289, $-46]   sig 0/4 folds
+K= 30  rec=0.30   AUC 0.904 (avg 4 folds)   mean delta $-36/day   avg per-fold CI [$-79, $+1]   sig 0/4 folds
+K= 30  rec=0.50   AUC 0.904 (avg 4 folds)   mean delta $-51/day   avg per-fold CI [$-109, $-2]   sig 0/4 folds
+K= 30  rec=0.70   AUC 0.904 (avg 4 folds)   mean delta $-71/day   avg per-fold CI [$-147, $-3]   sig 0/4 folds
+K= 60  rec=0.30   AUC 0.920 (avg 4 folds)   mean delta $-17/day   avg per-fold CI [$-45, $+6]   sig 0/4 folds
+K= 60  rec=0.50   AUC 0.920 (avg 4 folds)   mean delta $-10/day   avg per-fold CI [$-44, $+20]   sig 0/4 folds
+K= 60  rec=0.70   AUC 0.920 (avg 4 folds)   mean delta $-18/day   avg per-fold CI [$-59, $+20]   sig 1/4 folds
+K=120  rec=0.30   AUC 0.930 (avg 4 folds)   mean delta $-2/day   avg per-fold CI [$-18, $+13]   sig 1/4 folds
+K=120  rec=0.50   AUC 0.930 (avg 4 folds)   mean delta $-15/day   avg per-fold CI [$-49, $+13]   sig 0/4 folds
+K=120  rec=0.70   AUC 0.930 (avg 4 folds)   mean delta $-2/day   avg per-fold CI [$-37, $+28]   sig 1/4 folds
+
+--- Best operating points (sig in >= half of folds) ---
+  NONE qualified. The classifier does not improve $/day with significance
+  in at least half of folds at any (K, recall) operating point.
+  KILL THE PARADIGM? Or weaken target threshold and retry.
+
+--- Training production models on FULL IS ---
+  K=  5  trained on 17,735 rows (1140 pos)  -> b9_bad_trade_K5.pkl
+  K= 10  trained on 17,708 rows (1134 pos)  -> b9_bad_trade_K10.pkl
+  K= 30  trained on 17,085 rows (1022 pos)  -> b9_bad_trade_K30.pkl
+  K= 60  trained on 13,785 rows (705 pos)  -> b9_bad_trade_K60.pkl
+  K=120  trained on 8,663 rows (348 pos)  -> b9_bad_trade_K120.pkl

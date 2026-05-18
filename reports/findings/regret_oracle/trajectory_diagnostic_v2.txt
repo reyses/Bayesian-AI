@@ -1,0 +1,213 @@
+====================================================================================================
+TRAJECTORY DIAGNOSTIC v2 -- honest delta accounting + V2 vs trajectory ablation
+====================================================================================================
+Source: reports/findings/regret_oracle/trade_trajectory_IS.parquet
+Total rows: 74,976   Legs: 17,748   Days: 275
+V2 cols: 185   Trajectory cols: 5
+Split: first 80% of days = train, last 20% = val (day-based)
+
+HONEST DELTA: when we cut at K, we realize pnl_usd_so_far at K, not zero.
+  delta_per_leg_if_cut = pnl_usd_so_far_at_K - exit_pnl_usd
+
+================ K=5 (25s)  train 14,313  val 3,422 ================
+
+Target: exit_pnl_usd < $-50
+  all (V2+traj)       AUC 0.864  Brier 0.0642  P(pos) val 8.4%
+    rec 0.30:  cuts   231  prec  37.7%  saved/leg $-1.47  total delta $-338  $/day $-6
+    rec 0.50:  cuts   432  prec  33.6%  saved/leg $+0.05  total delta $+20  $/day $+0
+    rec 0.70:  cuts   725  prec  28.0%  saved/leg $-7.20  total delta $-5,220  $/day $-95
+    rec 0.90:  cuts  1252  prec  20.8%  saved/leg $-10.61  total delta $-13,288  $/day $-242
+  traj only           AUC 0.652  Brier 0.0763  P(pos) val 8.4%
+    rec 0.30:  cuts   506  prec  17.2%  saved/leg $-30.65  total delta $-15,508  $/day $-282
+    rec 0.50:  cuts  1089  prec  13.3%  saved/leg $-25.31  total delta $-27,564  $/day $-501
+    rec 0.70:  cuts  1688  prec  12.0%  saved/leg $-19.68  total delta $-33,218  $/day $-604
+    rec 0.90:  cuts  2746  prec   9.5%  saved/leg $-12.62  total delta $-34,658  $/day $-630
+  v2 only             AUC 0.846  Brier 0.0667  P(pos) val 8.4%
+    rec 0.30:  cuts   281  prec  31.0%  saved/leg $-5.50  total delta $-1,545  $/day $-28
+    rec 0.50:  cuts   475  prec  30.5%  saved/leg $-5.31  total delta $-2,524  $/day $-46
+    rec 0.70:  cuts   802  prec  25.3%  saved/leg $-6.90  total delta $-5,532  $/day $-101
+    rec 0.90:  cuts  1367  prec  19.1%  saved/leg $-10.30  total delta $-14,080  $/day $-256
+
+Target: exit_pnl_usd < $-100
+  all (V2+traj)       AUC 0.813  Brier 0.0046  P(pos) val 0.5%
+    rec 0.30:  cuts    27  prec  18.5%  saved/leg $-5.37  total delta $-145  $/day $-3
+    rec 0.50:  cuts   225  prec   3.6%  saved/leg $-12.28  total delta $-2,764  $/day $-50
+    rec 0.70:  cuts  1165  prec   1.0%  saved/leg $-12.42  total delta $-14,467  $/day $-263
+    rec 0.90:  cuts  1903  prec   0.8%  saved/leg $-13.51  total delta $-25,713  $/day $-468
+  traj only           AUC 0.583  Brier 0.0047  P(pos) val 0.5%
+    rec 0.30:  cuts   602  prec   0.8%  saved/leg $-30.74  total delta $-18,506  $/day $-336
+    rec 0.50:  cuts   951  prec   0.8%  saved/leg $-25.21  total delta $-23,978  $/day $-436
+    rec 0.70:  cuts  3422  prec   0.5%  saved/leg $-10.35  total delta $-35,424  $/day $-644
+    rec 0.90:  cuts  3422  prec   0.5%  saved/leg $-10.35  total delta $-35,424  $/day $-644
+  v2 only             AUC 0.861  Brier 0.0045  P(pos) val 0.5%
+    rec 0.30:  cuts    61  prec   8.2%  saved/leg $-8.39  total delta $-512  $/day $-9
+    rec 0.50:  cuts   230  prec   3.5%  saved/leg $-6.01  total delta $-1,382  $/day $-25
+    rec 0.70:  cuts  1038  prec   1.2%  saved/leg $-10.30  total delta $-10,696  $/day $-194
+    rec 0.90:  cuts  1324  prec   1.1%  saved/leg $-12.16  total delta $-16,104  $/day $-293
+
+================ K=10 (50s)  train 14,291  val 3,417 ================
+
+Target: exit_pnl_usd < $-50
+  all (V2+traj)       AUC 0.878  Brier 0.0615  P(pos) val 8.4%
+    rec 0.30:  cuts   193  prec  45.1%  saved/leg $-8.39  total delta $-1,618  $/day $-29
+    rec 0.50:  cuts   368  prec  39.1%  saved/leg $-8.50  total delta $-3,129  $/day $-57
+    rec 0.70:  cuts   657  prec  30.6%  saved/leg $-10.61  total delta $-6,968  $/day $-127
+    rec 0.90:  cuts  1198  prec  21.6%  saved/leg $-8.63  total delta $-10,340  $/day $-188
+  traj only           AUC 0.712  Brier 0.0733  P(pos) val 8.4%
+    rec 0.30:  cuts   373  prec  23.3%  saved/leg $-32.59  total delta $-12,154  $/day $-221
+    rec 0.50:  cuts   770  prec  18.7%  saved/leg $-22.08  total delta $-17,004  $/day $-309
+    rec 0.70:  cuts  1443  prec  13.9%  saved/leg $-18.20  total delta $-26,262  $/day $-477
+    rec 0.90:  cuts  2456  prec  10.5%  saved/leg $-11.05  total delta $-27,142  $/day $-494
+  v2 only             AUC 0.850  Brier 0.0658  P(pos) val 8.4%
+    rec 0.30:  cuts   271  prec  32.1%  saved/leg $-1.01  total delta $-275  $/day $-5
+    rec 0.50:  cuts   492  prec  29.3%  saved/leg $-1.46  total delta $-717  $/day $-13
+    rec 0.70:  cuts   750  prec  26.8%  saved/leg $-3.99  total delta $-2,992  $/day $-54
+    rec 0.90:  cuts  1326  prec  19.5%  saved/leg $-7.87  total delta $-10,431  $/day $-190
+
+Target: exit_pnl_usd < $-100
+  all (V2+traj)       AUC 0.807  Brier 0.0046  P(pos) val 0.5%
+    rec 0.30:  cuts    56  prec   8.9%  saved/leg $-33.31  total delta $-1,866  $/day $-34
+    rec 0.50:  cuts   316  prec   2.5%  saved/leg $-17.96  total delta $-5,675  $/day $-103
+    rec 0.70:  cuts  1036  prec   1.2%  saved/leg $-11.35  total delta $-11,763  $/day $-214
+    rec 0.90:  cuts  1854  prec   0.8%  saved/leg $-11.51  total delta $-21,346  $/day $-388
+  traj only           AUC 0.617  Brier 0.0050  P(pos) val 0.5%
+    rec 0.30:  cuts   201  prec   2.5%  saved/leg $-37.22  total delta $-7,481  $/day $-136
+    rec 0.50:  cuts   981  prec   0.8%  saved/leg $-21.01  total delta $-20,612  $/day $-375
+    rec 0.70:  cuts  2299  prec   0.5%  saved/leg $-13.34  total delta $-30,666  $/day $-558
+    rec 0.90:  cuts  3095  prec   0.5%  saved/leg $-9.37  total delta $-29,000  $/day $-527
+  v2 only             AUC 0.834  Brier 0.0047  P(pos) val 0.5%
+    rec 0.30:  cuts    49  prec  10.2%  saved/leg $-15.32  total delta $-750  $/day $-14
+    rec 0.50:  cuts   148  prec   5.4%  saved/leg $-7.68  total delta $-1,137  $/day $-21
+    rec 0.70:  cuts  1107  prec   1.1%  saved/leg $-10.62  total delta $-11,754  $/day $-214
+    rec 0.90:  cuts  1453  prec   1.0%  saved/leg $-11.08  total delta $-16,106  $/day $-293
+
+================ K=30 (150s)  train 13,777  val 3,308 ================
+
+Target: exit_pnl_usd < $-50
+  all (V2+traj)       AUC 0.923  Brier 0.0520  P(pos) val 7.9%
+    rec 0.30:  cuts   150  prec  52.0%  saved/leg $-3.64  total delta $-546  $/day $-10
+    rec 0.50:  cuts   283  prec  45.9%  saved/leg $-0.31  total delta $-88  $/day $-2
+    rec 0.70:  cuts   443  prec  41.1%  saved/leg $-0.92  total delta $-406  $/day $-7
+    rec 0.90:  cuts   710  prec  33.0%  saved/leg $+0.06  total delta $+40  $/day $+1
+  traj only           AUC 0.819  Brier 0.0617  P(pos) val 7.9%
+    rec 0.30:  cuts   173  prec  45.1%  saved/leg $-8.07  total delta $-1,396  $/day $-25
+    rec 0.50:  cuts   401  prec  32.4%  saved/leg $-10.29  total delta $-4,127  $/day $-75
+    rec 0.70:  cuts   856  prec  21.3%  saved/leg $-8.79  total delta $-7,525  $/day $-137
+    rec 0.90:  cuts  1677  prec  14.0%  saved/leg $-3.94  total delta $-6,610  $/day $-120
+  v2 only             AUC 0.887  Brier 0.0582  P(pos) val 7.9%
+    rec 0.30:  cuts   197  prec  39.6%  saved/leg $-0.01  total delta $-2  $/day $-0
+    rec 0.50:  cuts   332  prec  39.2%  saved/leg $+3.46  total delta $+1,150  $/day $+21
+    rec 0.70:  cuts   571  prec  31.9%  saved/leg $+2.75  total delta $+1,568  $/day $+29
+    rec 0.90:  cuts  1087  prec  21.5%  saved/leg $-1.81  total delta $-1,972  $/day $-36
+
+Target: exit_pnl_usd < $-100
+  all (V2+traj)       AUC 0.792  Brier 0.0040  P(pos) val 0.5%
+    rec 0.30:  cuts    18  prec  27.8%  saved/leg $-34.17  total delta $-615  $/day $-11
+    rec 0.50:  cuts   288  prec   2.8%  saved/leg $+0.39  total delta $+112  $/day $+2
+    rec 0.70:  cuts  1072  prec   1.0%  saved/leg $-3.46  total delta $-3,711  $/day $-67
+    rec 0.90:  cuts  1805  prec   0.8%  saved/leg $-4.26  total delta $-7,692  $/day $-140
+  traj only           AUC 0.702  Brier 0.0049  P(pos) val 0.5%
+    rec 0.30:  cuts    55  prec   9.1%  saved/leg $-22.84  total delta $-1,256  $/day $-23
+    rec 0.50:  cuts   641  prec   1.2%  saved/leg $-9.78  total delta $-6,267  $/day $-114
+    rec 0.70:  cuts  1663  prec   0.7%  saved/leg $-7.42  total delta $-12,346  $/day $-224
+    rec 0.90:  cuts  2885  prec   0.5%  saved/leg $-3.76  total delta $-10,857  $/day $-197
+  v2 only             AUC 0.792  Brier 0.0044  P(pos) val 0.5%
+    rec 0.30:  cuts    73  prec   6.8%  saved/leg $+14.23  total delta $+1,038  $/day $+19
+    rec 0.50:  cuts   423  prec   1.9%  saved/leg $-4.72  total delta $-1,998  $/day $-36
+    rec 0.70:  cuts  1087  prec   1.0%  saved/leg $-2.90  total delta $-3,152  $/day $-57
+    rec 0.90:  cuts  1624  prec   0.9%  saved/leg $-3.58  total delta $-5,811  $/day $-106
+
+================ K=60 (300s)  train 11,069  val 2,716 ================
+
+Target: exit_pnl_usd < $-50
+  all (V2+traj)       AUC 0.941  Brier 0.0414  P(pos) val 6.8%
+    rec 0.30:  cuts    80  prec  70.0%  saved/leg $+5.06  total delta $+405  $/day $+7
+    rec 0.50:  cuts   176  prec  52.8%  saved/leg $+8.05  total delta $+1,417  $/day $+26
+    rec 0.70:  cuts   283  prec  45.9%  saved/leg $+4.39  total delta $+1,242  $/day $+23
+    rec 0.90:  cuts   540  prec  30.9%  saved/leg $+0.62  total delta $+336  $/day $+6
+  traj only           AUC 0.883  Brier 0.0487  P(pos) val 6.8%
+    rec 0.30:  cuts   101  prec  55.4%  saved/leg $-9.00  total delta $-909  $/day $-17
+    rec 0.50:  cuts   216  prec  43.1%  saved/leg $-6.68  total delta $-1,442  $/day $-26
+    rec 0.70:  cuts   411  prec  31.6%  saved/leg $-3.84  total delta $-1,578  $/day $-29
+    rec 0.90:  cuts  1080  prec  15.5%  saved/leg $-0.88  total delta $-948  $/day $-17
+  v2 only             AUC 0.897  Brier 0.0505  P(pos) val 6.8%
+    rec 0.30:  cuts   124  prec  45.2%  saved/leg $+11.02  total delta $+1,366  $/day $+25
+    rec 0.50:  cuts   234  prec  39.7%  saved/leg $+10.10  total delta $+2,364  $/day $+43
+    rec 0.70:  cuts   390  prec  33.3%  saved/leg $+7.43  total delta $+2,897  $/day $+53
+    rec 0.90:  cuts   907  prec  18.4%  saved/leg $+1.02  total delta $+928  $/day $+17
+
+Target: exit_pnl_usd < $-100
+  all (V2+traj)       AUC 0.800  Brier 0.0045  P(pos) val 0.4%
+    rec 0.30:  cuts    19  prec  21.1%  saved/leg $-19.95  total delta $-379  $/day $-7
+    rec 0.50:  cuts   120  prec   5.0%  saved/leg $+6.72  total delta $+806  $/day $+15
+    rec 0.70:  cuts   977  prec   0.9%  saved/leg $-0.93  total delta $-912  $/day $-17
+    rec 0.90:  cuts  1223  prec   0.9%  saved/leg $-1.03  total delta $-1,256  $/day $-23
+  traj only           AUC 0.692  Brier 0.0048  P(pos) val 0.4%
+    rec 0.30:  cuts    73  prec   5.5%  saved/leg $-17.59  total delta $-1,284  $/day $-23
+    rec 0.50:  cuts   278  prec   2.2%  saved/leg $-4.82  total delta $-1,340  $/day $-24
+    rec 0.70:  cuts  1657  prec   0.5%  saved/leg $-3.30  total delta $-5,476  $/day $-100
+    rec 0.90:  cuts  2716  prec   0.4%  saved/leg $-1.73  total delta $-4,706  $/day $-86
+  v2 only             AUC 0.739  Brier 0.0045  P(pos) val 0.4%
+    rec 0.30:  cuts   171  prec   2.3%  saved/leg $+4.99  total delta $+852  $/day $+16
+    rec 0.50:  cuts   355  prec   1.7%  saved/leg $-0.17  total delta $-62  $/day $-1
+    rec 0.70:  cuts  1141  prec   0.8%  saved/leg $-1.73  total delta $-1,969  $/day $-36
+    rec 0.90:  cuts  1720  prec   0.6%  saved/leg $-1.62  total delta $-2,786  $/day $-51
+
+================ K=120 (600s)  train 6,798  val 1,865 ================
+
+Target: exit_pnl_usd < $-50
+  all (V2+traj)       AUC 0.952  Brier 0.0390  P(pos) val 5.7%
+    rec 0.30:  cuts    54  prec  61.1%  saved/leg $-6.28  total delta $-339  $/day $-6
+    rec 0.50:  cuts   117  prec  46.2%  saved/leg $+5.43  total delta $+635  $/day $+12
+    rec 0.70:  cuts   168  prec  44.6%  saved/leg $+6.72  total delta $+1,130  $/day $+21
+    rec 0.90:  cuts   233  prec  41.6%  saved/leg $+8.89  total delta $+2,072  $/day $+38
+  traj only           AUC 0.904  Brier 0.0445  P(pos) val 5.7%
+    rec 0.30:  cuts    67  prec  49.3%  saved/leg $-1.97  total delta $-132  $/day $-2
+    rec 0.50:  cuts   160  prec  33.8%  saved/leg $-1.25  total delta $-200  $/day $-4
+    rec 0.70:  cuts   282  prec  26.6%  saved/leg $+1.45  total delta $+409  $/day $+7
+    rec 0.90:  cuts   534  prec  18.2%  saved/leg $+3.32  total delta $+1,772  $/day $+32
+  v2 only             AUC 0.924  Brier 0.0445  P(pos) val 5.7%
+    rec 0.30:  cuts    68  prec  48.5%  saved/leg $+5.84  total delta $+397  $/day $+7
+    rec 0.50:  cuts   129  prec  41.9%  saved/leg $+7.07  total delta $+912  $/day $+17
+    rec 0.70:  cuts   195  prec  38.5%  saved/leg $+6.77  total delta $+1,320  $/day $+24
+    rec 0.90:  cuts   435  prec  22.3%  saved/leg $+7.13  total delta $+3,104  $/day $+56
+
+Target: exit_pnl_usd < $-100
+  all (V2+traj)       AUC 0.843  Brier 0.0041  P(pos) val 0.4%
+    rec 0.30:  cuts    20  prec  15.0%  saved/leg $+19.40  total delta $+388  $/day $+7
+    rec 0.50:  cuts    55  prec   7.3%  saved/leg $-1.86  total delta $-102  $/day $-2
+    rec 0.70:  cuts   230  prec   2.6%  saved/leg $+7.19  total delta $+1,654  $/day $+30
+    rec 0.90:  cuts  1168  prec   0.7%  saved/leg $-0.10  total delta $-113  $/day $-2
+  traj only           AUC 0.842  Brier 0.0043  P(pos) val 0.4%
+    rec 0.30:  cuts    50  prec   6.0%  saved/leg $-7.79  total delta $-390  $/day $-7
+    rec 0.50:  cuts   116  prec   3.4%  saved/leg $+2.59  total delta $+300  $/day $+5
+    rec 0.70:  cuts   303  prec   2.0%  saved/leg $+2.10  total delta $+638  $/day $+12
+    rec 0.90:  cuts  1240  prec   0.6%  saved/leg $+4.53  total delta $+5,618  $/day $+102
+  v2 only             AUC 0.786  Brier 0.0041  P(pos) val 0.4%
+    rec 0.30:  cuts    44  prec   6.8%  saved/leg $-3.43  total delta $-151  $/day $-3
+    rec 0.50:  cuts   111  prec   3.6%  saved/leg $+5.44  total delta $+604  $/day $+11
+    rec 0.70:  cuts   157  prec   3.8%  saved/leg $+6.71  total delta $+1,054  $/day $+19
+    rec 0.90:  cuts  1607  prec   0.5%  saved/leg $+2.18  total delta $+3,498  $/day $+64
+
+====================================================================================================
+SUMMARY: V2-only vs traj-only vs all-features AUCs
+====================================================================================================
+features    all (V2+traj)  traj only   v2 only
+K   target                                    
+5   -100.0       0.812940   0.582960  0.860981
+    -50.0        0.864409   0.652120  0.846328
+10  -100.0       0.806950   0.616969  0.833689
+    -50.0        0.877696   0.711839  0.849829
+30  -100.0       0.792135   0.702237  0.791659
+    -50.0        0.923329   0.819066  0.886537
+60  -100.0       0.799695   0.692493  0.738536
+    -50.0        0.940705   0.883355  0.896977
+120 -100.0       0.843026   0.842118  0.785810
+    -50.0        0.952176   0.904054  0.923548
+
+Interpretation:
+  - If v2-only AUC ~ all AUC: V2 carries the signal -> classifier is genuinely new
+  - If traj-only AUC ~ all AUC: signal is just MAE/pnl_so_far ->
+    not really a "V2-based bad-trade detector", just a smart trailing stop
+  - If neither v2 nor traj alone reaches all AUC: signal needs both ->
+    classifier path requires the full feature set

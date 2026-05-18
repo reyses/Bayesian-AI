@@ -1,0 +1,23 @@
+==============================================================================
+B9 LSTM LEG-AMPLITUDE REGRESSOR -- sequence input (60 bars x 184 features)
+==============================================================================
+TRAIN window:    2025_01_01 to 2025_11_03 (237 days, 14,662 legs)
+Train/Val split: 11,730 / 2,932
+Best val MAE:    1.064
+
+HOLDOUT obs.   (40 days, 2,259 legs):
+  MAE              1.087
+  Baseline (median): 1.111
+  Lift over baseline: 2.2% MAE reduction
+  Pearson(pred, truth): +0.2991
+
+OOS NT8    (32 days, 1,720 legs):
+  MAE              1.077
+  Baseline (median): 1.051
+  Lift over baseline: -2.4% MAE reduction
+  Pearson(pred, truth): +0.1272
+
+--- Comparison to B7 GBM baseline ---
+  B7 GBM     OOS Pearson: 0.2234   MAE: 1.029
+  B9 LSTM    OOS Pearson: +0.1272   MAE: 1.077
+  --> LSTM does NOT beat GBM Pearson (delta -9.62pp)

@@ -1,0 +1,36 @@
+====================================================================================================
+B10 SEALED OOS TEST  --  single-shot, no retuning after this
+====================================================================================================
+Legs: 1,826   Days: 31   (2026-03-20 to 2026-04-26)
+OOS rows: 7,776
+V2 features: 185
+
+Baseline (flat sizing, no action): R-trigger entries/exits with $6 friction
+  Total: $+14,731  mean $+475/day
+
+K=  5   delta $+67/day   CI [$+32, $+106]   sig True   (cut 0 / half 2 / full 1730 / pyr 88)   worst day $-86   best $+450
+K= 10   delta $+33/day   CI [$-2, $+75]   sig False   (cut 0 / half 12 / full 1688 / pyr 115)   worst day $-175   best $+412
+K= 30   delta $+16/day   CI [$-2, $+38]   sig False   (cut 0 / half 18 / full 1699 / pyr 26)   worst day $-36   best $+226
+K= 60   delta $+1/day   CI [$-6, $+8]   sig False   (cut 0 / half 4 / full 1423 / pyr 13)   worst day $-52   best $+49
+K=120   delta $+4/day   CI [$-27, $+35]   sig False   (cut 0 / half 162 / full 776 / pyr 20)   worst day $-220   best $+252
+
+=== Anti-doom-cascade: report under multiple slippage assumptions ===
+Assume cuts and pyramids incur extra slippage. Current friction = $6/leg.
+Add slippage factor per ACTION (= non-1.0 size_factor) of $S.
+
+   K    S=$0 delta    S=$2 delta    S=$5 delta   S=$10 delta  CI bounds vs slippage
+  K=  5  $      +67  $      +61  $      +53  $      +38  
+  K= 10  $      +33  $      +24  $      +12  $       -8  
+  K= 30  $      +16  $      +13  $       +9  $       +2  
+  K= 60  $       +1  $       -0  $       -2  $       -5  
+  K=120  $       +4  $       -8  $      -25  $      -55  
+
+=== Headline ===
+B10 PASSES OOS single-shot test:
+  Best K=5: $+67/day  CI [$+32, $+106]  sig=YES
+  Baseline: $+475/day
+  Lift: +14.1%
+
+=== Verdict ===
+Per CLAUDE.md OOS-only rule, this is the honest result.
+Do NOT retune based on these numbers — that becomes IS by definition.
