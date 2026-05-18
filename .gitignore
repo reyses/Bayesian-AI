@@ -44,6 +44,11 @@ reports/is/shards/
 reports/oos/*.csv
 reports/training/*.csv
 reports/findings/*.csv
+# Recursive — regenerable diagnostic outputs in any findings subdirectory
+reports/findings/**/*.csv
+reports/findings/**/*.png
+reports/findings/**/*.npz
+reports/findings/**/*.pt
 reports/findings/peak_seed_audit/*.pkl
 DATA/regime_seeds/peak_seeds.json
 DATA/regime_seeds/auto_seeds_*.json
