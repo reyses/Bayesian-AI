@@ -1,0 +1,41 @@
+==============================================================================
+OOS FORWARD PASS — realistic R-trigger entries + B7 sizing
+==============================================================================
+Days: 32   Legs: 1,827
+Friction per leg: $6.00  (commission $4.0, slippage $2.0)
+Realistic P&L = leg_amplitude - 2*R - friction
+
+  Mean leg amp:       $118.36
+  Mean 2*R cost:      $96.60
+  Mean per-leg P&L:   $+15.76
+  Median per-leg P&L: $-4.50
+  Positive legs:      847/1827 (46.4%)
+
+scheme              n_taken   n_skip     total_$    per_leg   per_unit  mean_size      $/day
+flat                   1827        0  $   28,792  $ +15.76  $ +15.76      1.000  $   +900
+gbm_ev                 1827        0  $   51,617  $ +28.25  $ +21.35      1.324  $  +1613
+gbm_quantile           1827        0  $   47,394  $ +25.94  $ +21.79      1.190  $  +1481
+hand_aggressive        1528      299  $   41,985  $ +22.98  $ +21.85      1.052  $  +1312
+
+--- Per-day P&L (32 days, bootstrap CI 4000 resamples) ---
+  flat                mean $+899.76/day  95% CI [$+599.12, $+1232.80]  pos days 28/32  median $+634.17
+  gbm_ev              mean $+1613.04/day  95% CI [$+1107.32, $+2190.95]  pos days 29/32  median $+1218.37
+  gbm_quantile        mean $+1481.06/day  95% CI [$+990.13, $+2042.69]  pos days 27/32  median $+1210.55
+  hand_aggressive     mean $+1312.02/day  95% CI [$+861.64, $+1862.23]  pos days 30/32  median $+841.70
+
+--- Paired delta vs flat (realistic R-trigger baseline) ---
+  gbm_ev              delta $+713.28/day  CI [$+478.82, $+955.09]  wins 30/32
+  gbm_quantile        delta $+581.30/day  CI [$+371.08, $+813.47]  wins 28/32
+  hand_aggressive     delta $+412.27/day  CI [$+217.83, $+647.44]  wins 24/32
+
+--- IMPORTANT CAVEATS ---
+  1. B7 sizing model was TRAINED on features at the actual pivot bar.
+     In this forward pass it is applied to legs with R-trigger entries.
+     The size DECISION uses pivot-time features (peek). For a fully
+     honest live test, retrain B7 on R-trigger-time features.
+  2. R-trigger detection is itself imperfect: in live trading, the
+     pivot price + R threshold may be slipped, and the R-trigger
+     bar arrives 5-30s after the actual pivot. We use 5s closes here.
+  3. Friction assumed $6/leg (commission $4 + slippage $2). Real
+     deployment may have higher slippage on stop-out entries.
+  4. No partial fills, no overnight risk, no position limits modeled.

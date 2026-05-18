@@ -1,0 +1,55 @@
+
+========================================================================
+DIRECTIONAL SIGNAL ACCURACY (truth = zigzag leg_direction @ ATRx4)
+========================================================================
+Bars evaluated:         32,970
+Days:                   32
+
+--- RAW (argmax of p_long/p_short/p_neutral) ---
+  Coverage (non-NEUTRAL):   66.0%   (21,771 / 32,970)
+  Accuracy ON SIGNAL bars:  65.86%   (14,338 correct / 7,433 wrong)
+  LONG :  prec=70.2%  rec=38.7%   tp=6571 fp=2789 fn=10390
+  SHORT:  prec=62.6%  rec=48.5%   tp=7767 fp=4644 fn=8242
+
+--- SMOOTHED (DMI windowed-EMA + state machine, regime_dir) ---
+  Coverage (non-NEUTRAL):   99.9%   (32,940 / 32,970)
+  Accuracy ON SIGNAL bars:  61.48%   (20,253 correct / 12,687 wrong)
+  LONG :  prec=64.5%  rec=55.7%   tp=9443 fp=5194 fn=7518
+  SHORT:  prec=59.1%  rec=67.5%   tp=10810 fp=7493 fn=5199
+
+========================================================================
+FLIP LAG AT ZIGZAG PIVOTS (bars from truth-flip -> predicted catch-up)
+========================================================================
+  RAW     : n=1,391  median=3.0  mean=4.5  p25=2.0  p75=5.0  p90=8.0
+  SMOOTHED: n=1,540  median=4.0  mean=4.8  p25=2.0  p75=6.0  p90=10.0
+
+========================================================================
+ACCURACY vs DIRECTIONAL STRENGTH (P_pred - P_neutral)
+========================================================================
+RAW:
+  strength 0.00-0.05:  n= 1,695  acc=64.66%
+  strength 0.05-0.10:  n= 1,740  acc=63.28%
+  strength 0.10-0.15:  n= 1,809  acc=65.67%
+  strength 0.15-0.20:  n= 1,823  acc=66.04%
+  strength 0.20-0.30:  n= 3,760  acc=64.10%
+  strength 0.30-0.50:  n= 6,797  acc=64.23%
+  strength 0.50-1.01:  n= 4,147  acc=71.69%
+SMOOTHED:
+  strength -1.00-0.00:  n=12,580  acc=57.77%
+  strength 0.00-0.05:  n= 1,915  acc=61.04%
+  strength 0.05-0.10:  n= 1,877  acc=62.87%
+  strength 0.10-0.15:  n= 1,883  acc=61.87%
+  strength 0.15-0.20:  n= 1,888  acc=62.87%
+  strength 0.20-0.30:  n= 3,766  acc=61.47%
+  strength 0.30-0.50:  n= 5,979  acc=63.56%
+  strength 0.50-1.01:  n= 3,052  acc=71.10%
+
+========================================================================
+PER-DAY ACCURACY (signal bars only)
+========================================================================
+  Days: 32
+  RAW       acc mean=66.19%  median=67.20%
+  SMOOTHED  acc mean=60.68%  median=61.56%
+  RAW       cov mean=66.4%
+  SMOOTHED  cov mean=99.9%
+  Smoothed beats raw on 3/32 days (0 ties)

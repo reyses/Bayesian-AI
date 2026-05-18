@@ -1,0 +1,40 @@
+==============================================================================
+HARDENED OOS FORWARD PASS — features at R-trigger bar (no pivot peek)
+==============================================================================
+Days: 31   Legs: 1,826
+Friction per leg: $6.00
+
+  Mean per-leg P&L (NET):   $+8.07
+  Median per-leg P&L:       $-11.00
+  Positive legs:            770/1826 (42.2%)
+  B7 hardened pred amp_R:   median 2.11   mean 2.25
+
+scheme              n_taken   n_skip     total_$    per_leg   per_unit  mean_size      $/day
+flat                   1826        0  $   14,731  $  +8.07  $  +8.07      1.000  $   +475
+gbm_ev                 1826        0  $   28,747  $ +15.74  $ +12.56      1.254  $   +927
+gbm_quantile           1826        0  $   29,135  $ +15.96  $ +13.40      1.191  $   +940
+hand_aggressive        1233      593  $   26,561  $ +14.55  $ +18.21      0.799  $   +857
+
+--- Per-day P&L (bootstrap CI 4000 resamples) ---
+  flat                mean $+475.19/day  95% CI [$+236.84, $+740.98]  pos 24/31  median $+321.00
+  gbm_ev              mean $+927.31/day  95% CI [$+537.11, $+1371.32]  pos 26/31  median $+626.84
+  gbm_quantile        mean $+939.83/day  95% CI [$+537.24, $+1422.22]  pos 26/31  median $+740.10
+  hand_aggressive     mean $+856.79/day  95% CI [$+499.73, $+1307.62]  pos 26/31  median $+532.40
+
+--- Paired delta vs flat ---
+  gbm_ev              delta $+452.11/day  CI [$+278.24, $+653.61]  wins 27/31
+  gbm_quantile        delta $+464.64/day  CI [$+275.79, $+687.78]  wins 26/31
+  hand_aggressive     delta $+381.60/day  CI [$+215.20, $+568.52]  wins 25/31
+
+==============================================================================
+COMPARISON: peeky vs hardened forward pass
+==============================================================================
+  Peeky (B7 features at pivot bar):
+    flat:            $899/day  CI [$599, $1,233]
+    gbm_ev:        $1,613/day  CI [$1,107, $2,191]   delta vs flat +$713
+    hand_aggressive: $1,312/day
+
+  Hardened (B7 features at R-trigger bar):
+    flat:            $+475/day
+    gbm_ev:          $+927/day   delta vs flat +452
+    hand_aggressive: $+857/day

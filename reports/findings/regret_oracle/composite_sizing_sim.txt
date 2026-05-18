@@ -1,0 +1,29 @@
+==============================================================================
+COMPOSITE SIZING SIMULATOR — variable position size by entry signal
+==============================================================================
+Total legs: 1,827   Days: 32
+Baseline (flat 1.0x) per-leg P&L: $+70.06
+
+scheme        n_taken  n_skipped     total_pnl     per_leg    per_unit  mean_size    per_day
+flat             1827          0  $   128,002  $  +70.06  $  +70.06       1.00  $  +4000
+zone             1827          0  $   140,296  $  +76.79  $  +72.45       1.06  $  +4384
+b6               1827          0  $   132,362  $  +72.45  $  +71.96       1.01  $  +4136
+combo            1827          0  $   136,329  $  +74.62  $  +72.21       1.03  $  +4260
+aggressive       1528        299  $   148,039  $  +81.03  $  +77.06       1.05  $  +4626
+
+Interpretation:
+  per_leg     = total $ / total legs   (raw effect, easy to interpret)
+  per_unit    = total $ / total capital units used (capital efficiency)
+  per_day     = total $ / number of days (daily rate)
+
+The right metric depends on the constraint:
+  - If capital is unconstrained:  maximize per_day (total $)
+  - If capital is constrained:    maximize per_unit_capital
+  - If selectivity matters:       balance per_leg with n_skipped
+
+--- PER-DAY P&L by scheme (32 days, bootstrap CI on mean) ---
+  flat          mean $+4000.07/day  95% CI [$+3193.02, $+4819.95]  positive days 32/32  median $+3936.25
+  zone          mean $+4384.26/day  95% CI [$+3441.69, $+5347.94]  positive days 32/32  median $+4242.02
+  b6            mean $+4136.31/day  95% CI [$+3235.15, $+5082.70]  positive days 32/32  median $+4008.52
+  combo         mean $+4260.29/day  95% CI [$+3339.09, $+5211.15]  positive days 32/32  median $+4106.95
+  aggressive    mean $+4626.21/day  95% CI [$+3502.15, $+5855.91]  positive days 31/32  median $+4065.20

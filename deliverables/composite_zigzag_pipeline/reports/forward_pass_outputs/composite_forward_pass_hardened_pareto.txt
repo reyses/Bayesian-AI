@@ -1,0 +1,54 @@
+==============================================================================
+HARDENED FORWARD PASS — Pareto-approximated mode
+==============================================================================
+Legs: 1,826   Days: 31
+
+=== PER-LEG P&L modes ===
+scheme               hist_mode    kde_mode    GPD_mode    GPD_xi   GPD_scale      mean
+flat                $  -27.00  $  -25.87  $ -286.00   +5.884       4.31  $ +8.07
+gbm_ev              $  -29.00  $  -21.44  $+3613.97   -0.066     261.99  $+15.74
+gbm_quantile        $  -17.00  $  -14.74  $+4373.31   -0.084     393.21  $+15.96
+hand_aggressive     $  -33.00  $  -16.33  $ -228.80   +5.592       0.90  $+21.54
+
+--- Per-leg GPD interpretation ---
+  flat                xi=+5.884 (heavy right tail)   loc=$-286.00  scale=4.31
+  gbm_ev              xi=-0.066 (roughly exponential)   loc=$-341.83  scale=261.99
+  gbm_quantile        xi=-0.084 (roughly exponential)   loc=$-312.00  scale=393.21
+  hand_aggressive     xi=+5.592 (heavy right tail)   loc=$-228.80  scale=0.90
+
+=== PER-DAY P&L modes ($25 bin histogram, KDE, GPD fit) ===
+scheme               hist_mode    kde_mode    GPD_mode    GPD_xi   GPD_scale        mean
+flat                $ +487.50  $ +210.88  $ -571.00   +6.627       6.37  $ +475.19
+gbm_ev              $ -162.50  $ +468.35  $+7084.62   -0.248    1906.79  $ +927.31
+gbm_quantile        $ +187.50  $ +501.49  $ -686.90   +6.281       0.44  $ +939.83
+hand_aggressive     $ +512.50  $ +476.79  $+7199.41   -0.236    1855.23  $ +856.79
+
+--- Per-day GPD interpretation ---
+  flat                xi=+6.627 (heavy right tail)  loc=$-571  scale=$6
+  gbm_ev              xi=-0.248 (bounded upper tail)  loc=$-619  scale=$1907
+  gbm_quantile        xi=+6.281 (heavy right tail)  loc=$-687  scale=$0
+  hand_aggressive     xi=-0.236 (bounded upper tail)  loc=$-656  scale=$1855
+
+=== POT (Peaks-Over-Threshold p80) per-day analysis ===
+  Classical EVT: fits GPD to excesses above the 80th percentile.
+  scheme               threshold   n_excess        xi      scale  expected_excess
+  flat                $ +886.50          6   -1.250    2387.90  $    +1061.50
+  gbm_ev              $+1261.11          6   -1.786    5917.50  $    +2124.29
+  gbm_quantile        $+1205.50          6   -1.720    6247.95  $    +2296.93
+  hand_aggressive     $+1057.40          6   -1.292    4816.58  $    +2101.86
+
+Interpretation:
+  - xi > 0.5 means VERY heavy tail (a few days can dominate total P&L)
+  - xi ~ 0   means well-behaved exponential decay
+  - For trading: high xi means the mean is fragile, mode is more trustworthy
+  - For gbm_ev: if GPD xi > 0.3, the strategy is "lottery-like" — most days
+    near the mode, occasional big winners drive the mean. Median > mode is
+    expected.
+
+==============================================================================
+HONEST SYNTHESIS
+==============================================================================
+For trading planning purposes, the appropriate "typical day" estimate
+depends on the GPD xi:
+  - Low xi (xi < 0.2): mean is a reasonable expectation
+  - High xi (xi > 0.3): mode/median is more honest; mean is right-tail driven

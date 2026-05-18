@@ -1,0 +1,36 @@
+==============================================================================
+B3 TIME-TO-PIVOT REGRESSOR — target = sec-to-next-zigzag-pivot
+==============================================================================
+IS rows: 282,669   OOS rows: 34,844   features: 184
+
+Overall MAE:  IS 10.10 min   OOS 15.38 min
+Baseline (predict 11.5min always): MAE 16.80 min
+Lift over baseline:  1.42 min   (8.5% reduction)
+
+--- MAE BY ACTUAL TTN BUCKET (the key test) ---
+  Tests user hypothesis: "predicting 10s out should be easier
+  than 5min out".  If true, MAE shrinks for small actual TTN.
+
+  bucket                 n  actual_mean   pred_mean    MAE_sec   MAE_min
+  [0, 30s)              38         0.0s     1119.4s    1119.4s    18.66m
+  [30s, 1m)          1,821        30.0s      679.3s     649.3s    10.82m
+  [1m, 2m)           1,816        90.0s      685.1s     595.1s     9.92m
+  [2m, 5m)           4,991       206.1s      710.1s     506.4s     8.44m
+  [5m, 10m)          5,766       439.8s      792.4s     416.3s     6.94m
+  [10m, 20m)         6,697       866.5s      881.6s     412.0s     6.87m
+  [20m+)            13,715      2706.1s     1132.9s    1615.4s    26.92m
+
+--- CALIBRATION: PREDICTED bucket → actual TTN distribution ---
+  pred_bucket            n   actual_med   actual_p25   actual_p75   % w/ pivot<30s
+  [0, 30s)               -
+  [30s, 1m)              -
+  [1m, 2m)               8       210.0s       150.0s       285.0s            0.00%
+  [2m, 5m)           2,172       330.0s       150.0s       810.0s            0.00%
+  [5m, 10m)          9,505       450.0s       210.0s       990.0s            0.04%
+  [10m, 20m)        13,972       930.0s       330.0s      2490.0s            0.16%
+  [20m+)             9,187      1710.0s       645.0s      3600.0s            0.12%
+
+--- HEADLINE: when B3 predicts pivot < 30s, what actually happens? ---
+  No predictions below 30s — model conservative.
+
+--- When B3 predicts pivot < 60s ---

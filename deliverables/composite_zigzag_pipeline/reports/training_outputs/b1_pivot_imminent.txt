@@ -1,0 +1,37 @@
+========================================================================
+B1 PIVOT-IMMINENT CLASSIFIER
+truth = zigzag (ATR x4) pivots from build_zigzag_pivot_dataset.py
+========================================================================
+IS rows: 282,669   OOS rows: 34,844   features: 184
+
+--- K=1 min --- (positives IS 6.10%, OOS 5.23%) ---
+IS  AUC = 0.7762
+OOS AUC = 0.6862  (base rate 5.23%)
+  thr=0.30:  prec=5.7%  rec=96.8%  cov=88.40%  lift=1.10x  (tp=1765 fp=29037 fn=58)
+  thr=0.50:  prec=8.0%  rec=73.6%  cov=47.88%  lift=1.54x  (tp=1341 fp=15343 fn=482)
+  thr=0.70:  prec=13.6%  rec=11.7%  cov=4.48%  lift=2.61x  (tp=213 fp=1349 fn=1610)
+  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=1823)
+
+--- K=3 min --- (positives IS 18.18%, OOS 15.67%) ---
+IS  AUC = 0.7649
+OOS AUC = 0.6978  (base rate 15.67%)
+  thr=0.30:  prec=16.7%  rec=98.1%  cov=92.24%  lift=1.06x  (tp=5356 fp=26784 fn=105)
+  thr=0.50:  prec=22.4%  rec=77.9%  cov=54.42%  lift=1.43x  (tp=4253 fp=14710 fn=1208)
+  thr=0.70:  prec=34.3%  rec=18.1%  cov=8.27%  lift=2.19x  (tp=988 fp=1892 fn=4473)
+  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=5461)
+
+--- K=5 min --- (positives IS 28.45%, OOS 24.77%) ---
+IS  AUC = 0.7808
+OOS AUC = 0.7099  (base rate 24.77%)
+  thr=0.30:  prec=26.1%  rec=98.0%  cov=92.86%  lift=1.05x  (tp=8456 fp=23900 fn=176)
+  thr=0.50:  prec=33.7%  rec=80.0%  cov=58.75%  lift=1.36x  (tp=6902 fp=13570 fn=1730)
+  thr=0.70:  prec=47.1%  rec=37.8%  cov=19.90%  lift=1.90x  (tp=3264 fp=3669 fn=5368)
+  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=8632)
+
+--- K=10 min --- (positives IS 46.37%, OOS 41.34%) ---
+IS  AUC = 0.8134
+OOS AUC = 0.7157  (base rate 41.34%)
+  thr=0.30:  prec=43.0%  rec=97.7%  cov=93.86%  lift=1.04x  (tp=14073 fp=18632 fn=331)
+  thr=0.50:  prec=52.2%  rec=79.0%  cov=62.49%  lift=1.26x  (tp=11374 fp=10400 fn=3030)
+  thr=0.70:  prec=64.5%  rec=49.2%  cov=31.53%  lift=1.56x  (tp=7089 fp=3896 fn=7315)
+  thr=0.85:  prec=78.1%  rec=7.3%  cov=3.88%  lift=1.89x  (tp=1055 fp=296 fn=13349)

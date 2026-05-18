@@ -1,0 +1,304 @@
+==============================================================================
+B1 PIVOT-IMMINENT -- top-30 features by PERMUTATION IMPORTANCE on OOS
+  (higher = larger AUC drop when this feature is shuffled)
+==============================================================================
+
+--- K=1 min (target horizon = 60s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0355  L2_15s_price_velocity_12                  15s     180    3.00x (matched)
+     2      0.0233  L2_5s_vol_mean_9                           5s      45    0.75x (matched)
+     3      0.0077  L2_1m_price_sigma_15                       1m     900   15.00x (wide)
+     4      0.0050  L2_1m_price_velocity_15                    1m     900   15.00x (wide)
+     5      0.0048  L2_1m_vol_mean_15                          1m     900   15.00x (wide)
+     6      0.0038  L2_5s_price_velocity_9                     5s      45    0.75x (matched)
+     7      0.0030  L3_1D_z_low_5                              1D  432000  7200.00x (wide)
+     8      0.0024  L3_1D_reversion_prob_5                     1D  432000  7200.00x (wide)
+     9      0.0019  L1_5s_bar_range                         ?      ?       ?
+    10      0.0018  L1_1D_vol_velocity_1b                      1D   86400  1440.00x (wide)
+    11      0.0018  L2_5m_vol_sigma_9                          5m    2700   45.00x (wide)
+    12      0.0017  L2_1D_vol_velocity_5                       1D  432000  7200.00x (wide)
+    13      0.0017  L3_1m_swing_noise_15                       1m     900   15.00x (wide)
+    14      0.0017  L3_15s_swing_noise_12                     15s     180    3.00x (matched)
+    15      0.0017  L2_15s_price_sigma_12                     15s     180    3.00x (matched)
+    16      0.0016  L1_15s_price_velocity_1b                  15s      15    0.25x (matched)
+    17      0.0016  L2_5s_vol_velocity_9                       5s      45    0.75x (matched)
+    18      0.0015  L3_1m_z_high_15                            1m     900   15.00x (wide)
+    19      0.0014  L1_5m_bar_range                         ?      ?       ?
+    20      0.0012  L2_1m_vol_sigma_15                         1m     900   15.00x (wide)
+    21      0.0011  L3_1m_z_low_15                             1m     900   15.00x (wide)
+    22      0.0011  L1_5m_body                              ?      ?       ?
+    23      0.0010  L1_15s_body                             ?      ?       ?
+    24      0.0010  L1_1m_body                              ?      ?       ?
+    25      0.0009  L1_5m_price_velocity_1b                    5m     300    5.00x (wide)
+    26      0.0009  L1_1D_price_velocity_1b                    1D   86400  1440.00x (wide)
+    27      0.0008  L3_5s_SE_high_9                            5s      45    0.75x (matched)
+    28      0.0008  L3_1h_SE_high_12                           1h   43200  720.00x (wide)
+    29      0.0008  L3_5s_hurst_9                              5s      45    0.75x (matched)
+    30      0.0008  L3_15s_z_se_12                            15s     180    3.00x (matched)
+
+--- K=3 min (target horizon = 180s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0181  L2_1m_vol_mean_15                          1m     900    5.00x (wide)
+     2      0.0163  L2_15s_vol_mean_12                        15s     180    1.00x (matched)
+     3      0.0080  L2_15s_price_velocity_12                  15s     180    1.00x (matched)
+     4      0.0072  L3_1D_z_low_5                              1D  432000  2400.00x (wide)
+     5      0.0055  L2_5s_vol_mean_9                           5s      45    0.25x (matched)
+     6      0.0048  L2_1D_vol_velocity_5                       1D  432000  2400.00x (wide)
+     7      0.0045  L1_1D_vol_velocity_1b                      1D   86400  480.00x (wide)
+     8      0.0040  L2_1m_price_velocity_15                    1m     900    5.00x (wide)
+     9      0.0040  L3_15s_swing_noise_12                     15s     180    1.00x (matched)
+    10      0.0033  L2_5m_vol_sigma_9                          5m    2700   15.00x (wide)
+    11      0.0032  L2_1D_price_velocity_5                     1D  432000  2400.00x (wide)
+    12      0.0022  L2_1D_vol_accel_5                          1D  432000  2400.00x (wide)
+    13      0.0015  L2_1h_vol_mean_12                          1h   43200  240.00x (wide)
+    14      0.0012  L3_1h_swing_noise_12                       1h   43200  240.00x (wide)
+    15      0.0012  L2_1m_vol_sigma_15                         1m     900    5.00x (wide)
+    16      0.0011  L3_1D_z_high_5                             1D  432000  2400.00x (wide)
+    17      0.0011  L1_5s_bar_range                         ?      ?       ?
+    18      0.0010  L2_1m_price_sigma_15                       1m     900    5.00x (wide)
+    19      0.0010  L2_15s_price_sigma_12                     15s     180    1.00x (matched)
+    20      0.0009  L1_5m_bar_range                         ?      ?       ?
+    21      0.0009  L3_1h_SE_high_12                           1h   43200  240.00x (wide)
+    22      0.0008  L3_1h_hurst_12                             1h   43200  240.00x (wide)
+    23      0.0008  L2_5s_price_velocity_9                     5s      45    0.25x (matched)
+    24      0.0008  L2_15m_price_accel_12                     15m   10800   60.00x (wide)
+    25      0.0007  L3_1m_z_se_15                              1m     900    5.00x (wide)
+    26      0.0007  L3_1m_SE_high_15                           1m     900    5.00x (wide)
+    27      0.0007  L3_1m_hurst_15                             1m     900    5.00x (wide)
+    28      0.0007  L3_5m_swing_noise_9                        5m    2700   15.00x (wide)
+    29      0.0006  L1_1h_bar_range                         ?      ?       ?
+    30      0.0006  L2_4h_vol_sigma_18                         4h  259200  1440.00x (wide)
+
+--- K=5 min (target horizon = 300s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0240  L2_15s_vol_mean_12                        15s     180    0.60x (matched)
+     2      0.0141  L2_1m_vol_mean_15                          1m     900    3.00x (matched)
+     3      0.0050  L2_5s_vol_mean_9                           5s      45    0.15x (narrow)
+     4      0.0044  L2_5m_vol_sigma_9                          5m    2700    9.00x (wide)
+     5      0.0033  L3_1D_z_low_5                              1D  432000  1440.00x (wide)
+     6      0.0029  L2_1h_vol_mean_12                          1h   43200  144.00x (wide)
+     7      0.0028  L2_1D_vol_velocity_5                       1D  432000  1440.00x (wide)
+     8      0.0023  L2_1m_price_velocity_15                    1m     900    3.00x (matched)
+     9      0.0022  L1_1D_vol_velocity_1b                      1D   86400  288.00x (wide)
+    10      0.0021  L2_1D_price_velocity_5                     1D  432000  1440.00x (wide)
+    11      0.0018  L2_15s_price_velocity_12                  15s     180    0.60x (matched)
+    12      0.0018  L3_5s_swing_noise_9                        5s      45    0.15x (narrow)
+    13      0.0018  L3_15s_swing_noise_12                     15s     180    0.60x (matched)
+    14      0.0015  L1_15s_bar_range                        ?      ?       ?
+    15      0.0014  L1_5s_bar_range                         ?      ?       ?
+    16      0.0014  L3_1h_SE_high_12                           1h   43200  144.00x (wide)
+    17      0.0012  L2_1m_vol_sigma_15                         1m     900    3.00x (matched)
+    18      0.0011  L2_1D_vol_sigma_5                          1D  432000  1440.00x (wide)
+    19      0.0010  L3_1h_swing_noise_12                       1h   43200  144.00x (wide)
+    20      0.0010  L2_1h_vwap_12                              1h   43200  144.00x (wide)
+    21      0.0010  L3_1D_reversion_prob_5                     1D  432000  1440.00x (wide)
+    22      0.0010  L2_4h_vol_sigma_18                         4h  259200  864.00x (wide)
+    23      0.0006  L2_4h_vwap_18                              4h  259200  864.00x (wide)
+    24      0.0006  L2_15m_vol_velocity_12                    15m   10800   36.00x (wide)
+    25      0.0006  L3_1h_reversion_prob_12                    1h   43200  144.00x (wide)
+    26      0.0005  L3_1m_SE_high_15                           1m     900    3.00x (matched)
+    27      0.0005  L3_1h_z_high_12                            1h   43200  144.00x (wide)
+    28      0.0005  L2_5m_price_sigma_9                        5m    2700    9.00x (wide)
+    29      0.0005  L3_4h_z_low_18                             4h  259200  864.00x (wide)
+    30      0.0005  L1_5m_bar_range                         ?      ?       ?
+
+--- K=10 min (target horizon = 600s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0382  L2_1m_vol_mean_15                          1m     900    1.50x (matched)
+     2      0.0209  L2_15s_vol_mean_12                        15s     180    0.30x (matched)
+     3      0.0061  L3_1D_z_low_5                              1D  432000  720.00x (wide)
+     4      0.0041  L2_1D_price_velocity_5                     1D  432000  720.00x (wide)
+     5      0.0034  L1_1D_vol_velocity_1b                      1D   86400  144.00x (wide)
+     6      0.0032  L2_4h_vol_sigma_18                         4h  259200  432.00x (wide)
+     7      0.0027  L2_1D_vol_velocity_5                       1D  432000  720.00x (wide)
+     8      0.0027  L2_5s_vol_mean_9                           5s      45    0.07x (narrow)
+     9      0.0022  L3_1D_SE_low_5                             1D  432000  720.00x (wide)
+    10      0.0020  L2_1h_vol_mean_12                          1h   43200   72.00x (wide)
+    11      0.0018  L3_15s_swing_noise_12                     15s     180    0.30x (matched)
+    12      0.0016  L1_5s_bar_range                         ?      ?       ?
+    13      0.0015  L1_1h_price_accel_1b                       1h    3600    6.00x (wide)
+    14      0.0014  L2_15m_vol_velocity_12                    15m   10800   18.00x (wide)
+    15      0.0013  L3_1h_SE_high_12                           1h   43200   72.00x (wide)
+    16      0.0012  L3_5m_swing_noise_9                        5m    2700    4.50x (wide)
+    17      0.0012  L2_5m_vol_sigma_9                          5m    2700    4.50x (wide)
+    18      0.0012  L1_15s_bar_range                        ?      ?       ?
+    19      0.0012  L2_1D_vol_sigma_5                          1D  432000  720.00x (wide)
+    20      0.0011  L1_4h_price_velocity_1b                    4h   14400   24.00x (wide)
+    21      0.0010  L1_5m_bar_range                         ?      ?       ?
+    22      0.0009  L1_1h_vol_velocity_1b                      1h    3600    6.00x (wide)
+    23      0.0008  L2_1D_vol_accel_5                          1D  432000  720.00x (wide)
+    24      0.0007  L2_1D_price_sigma_5                        1D  432000  720.00x (wide)
+    25      0.0007  L1_1D_price_accel_1b                       1D   86400  144.00x (wide)
+    26      0.0007  L2_4h_vol_velocity_18                      4h  259200  432.00x (wide)
+    27      0.0007  L2_5m_price_sigma_9                        5m    2700    4.50x (wide)
+    28      0.0006  L1_4h_bar_range                         ?      ?       ?
+    29      0.0006  L3_1m_hurst_15                             1m     900    1.50x (matched)
+    30      0.0006  L2_15s_price_velocity_12                  15s     180    0.30x (matched)
+
+--- Cross-K aggregation: features ranked high across multiple Ks ---
+  feature                                      #K     sum_imp
+  L2_1m_vol_mean_15                             4      0.0753
+  L2_15s_vol_mean_12                            3      0.0611
+  L2_15s_price_velocity_12                      4      0.0458
+  L2_5s_vol_mean_9                              4      0.0365
+  L3_1D_z_low_5                                 4      0.0196
+  L1_1D_vol_velocity_1b                         4      0.0120
+  L2_1D_vol_velocity_5                          4      0.0120
+  L2_1m_price_velocity_15                       3      0.0113
+  L2_5m_vol_sigma_9                             4      0.0107
+  L2_1D_price_velocity_5                        3      0.0094
+  L3_15s_swing_noise_12                         4      0.0092
+  L2_1m_price_sigma_15                          2      0.0087
+  L2_1h_vol_mean_12                             3      0.0064
+  L2_4h_vol_sigma_18                            3      0.0048
+  L2_5s_price_velocity_9                        2      0.0046
+  L3_1h_SE_high_12                              4      0.0044
+  L2_1m_vol_sigma_15                            3      0.0036
+  L3_1D_reversion_prob_5                        2      0.0034
+  L2_1D_vol_accel_5                             2      0.0030
+  L2_15s_price_sigma_12                         2      0.0026
+  L2_1D_vol_sigma_5                             2      0.0023
+  L3_1h_swing_noise_12                          2      0.0022
+  L3_1D_SE_low_5                                1      0.0022
+  L2_15m_vol_velocity_12                        2      0.0020
+  L3_5m_swing_noise_9                           2      0.0019
+
+--- LEAKAGE NAME-PATTERN AUDIT ---
+  No features with name patterns suggesting forward-looking data.
+  V2 features are constructed with backward rolling windows by design.
+
+==============================================================================
+B2 FAKEOUT -- top-30 features by PERMUTATION IMPORTANCE on OOS
+  (higher = larger AUC drop when this feature is shuffled)
+==============================================================================
+
+--- K=3 min (target horizon = 180s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0414  L2_1m_vol_mean_15                          1m     900    5.00x (wide)
+     2      0.0188  L3_15s_SE_high_12                         15s     180    1.00x (matched)
+     3      0.0185  L3_15s_SE_low_12                          15s     180    1.00x (matched)
+     4      0.0163  L2_5s_vol_velocity_9                       5s      45    0.25x (matched)
+     5      0.0109  L2_5s_price_sigma_9                        5s      45    0.25x (matched)
+     6      0.0076  L2_15s_vol_mean_12                        15s     180    1.00x (matched)
+     7      0.0071  L1_4h_vol_accel_1b                         4h   14400   80.00x (wide)
+     8      0.0060  L2_5m_vol_sigma_9                          5m    2700   15.00x (wide)
+     9      0.0047  L2_5s_vol_mean_9                           5s      45    0.25x (matched)
+    10      0.0045  L3_15s_reversion_prob_12                  15s     180    1.00x (matched)
+    11      0.0033  L1_1m_bar_range                         ?      ?       ?
+    12      0.0029  L3_1m_hurst_15                             1m     900    5.00x (wide)
+    13      0.0029  L2_1h_vol_velocity_12                      1h   43200  240.00x (wide)
+    14      0.0029  L2_5m_vol_velocity_9                       5m    2700   15.00x (wide)
+    15      0.0028  L3_5m_hurst_9                              5m    2700   15.00x (wide)
+    16      0.0026  L1_1m_price_velocity_1b                    1m      60    0.33x (matched)
+    17      0.0026  L1_15s_vol_velocity_1b                    15s      15    0.08x (narrow)
+    18      0.0025  L2_4h_price_mean_18                        4h  259200  1440.00x (wide)
+    19      0.0017  L2_1h_vol_accel_12                         1h   43200  240.00x (wide)
+    20      0.0016  L2_1m_price_accel_15                       1m     900    5.00x (wide)
+    21      0.0014  L3_1m_z_se_15                              1m     900    5.00x (wide)
+    22      0.0014  L3_5m_reversion_prob_9                     5m    2700   15.00x (wide)
+    23      0.0013  L1_4h_vol_velocity_1b                      4h   14400   80.00x (wide)
+    24      0.0013  L3_1m_z_low_15                             1m     900    5.00x (wide)
+    25      0.0012  L2_1D_vol_sigma_5                          1D  432000  2400.00x (wide)
+    26      0.0012  L1_1D_bar_range                         ?      ?       ?
+    27      0.0012  L3_1D_z_high_5                             1D  432000  2400.00x (wide)
+    28      0.0011  L3_5s_SE_high_9                            5s      45    0.25x (matched)
+    29      0.0011  L3_1D_reversion_prob_5                     1D  432000  2400.00x (wide)
+    30      0.0011  L1_1D_vol_accel_1b                         1D   86400  480.00x (wide)
+
+--- K=5 min (target horizon = 300s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0263  L2_1m_vol_mean_15                          1m     900    3.00x (matched)
+     2      0.0136  L2_15s_vol_mean_12                        15s     180    0.60x (matched)
+     3      0.0097  L3_15s_SE_high_12                         15s     180    0.60x (matched)
+     4      0.0061  L2_5m_vol_sigma_9                          5m    2700    9.00x (wide)
+     5      0.0035  L2_15s_vol_sigma_12                       15s     180    0.60x (matched)
+     6      0.0031  L1_1m_bar_range                         ?      ?       ?
+     7      0.0026  L3_4h_z_high_18                            4h  259200  864.00x (wide)
+     8      0.0025  L3_1D_z_low_5                              1D  432000  1440.00x (wide)
+     9      0.0020  L2_5s_vol_velocity_9                       5s      45    0.15x (narrow)
+    10      0.0017  L1_5m_price_accel_1b                       5m     300    1.00x (matched)
+    11      0.0017  L3_15m_swing_noise_12                     15m   10800   36.00x (wide)
+    12      0.0016  L2_1h_vol_velocity_12                      1h   43200  144.00x (wide)
+    13      0.0016  L2_5s_vol_mean_9                           5s      45    0.15x (narrow)
+    14      0.0015  L3_15s_SE_low_12                          15s     180    0.60x (matched)
+    15      0.0015  L3_5m_hurst_9                              5m    2700    9.00x (wide)
+    16      0.0015  L3_5s_SE_low_9                             5s      45    0.15x (narrow)
+    17      0.0014  L1_15s_bar_range                        ?      ?       ?
+    18      0.0014  L3_5s_SE_high_9                            5s      45    0.15x (narrow)
+    19      0.0013  L2_1m_price_sigma_15                       1m     900    3.00x (matched)
+    20      0.0013  L3_1D_z_se_5                               1D  432000  1440.00x (wide)
+    21      0.0012  L1_4h_body                              ?      ?       ?
+    22      0.0012  L3_4h_SE_low_18                            4h  259200  864.00x (wide)
+    23      0.0011  L3_1D_SE_high_5                            1D  432000  1440.00x (wide)
+    24      0.0011  L3_5m_reversion_prob_9                     5m    2700    9.00x (wide)
+    25      0.0011  L1_1D_bar_range                         ?      ?       ?
+    26      0.0010  L1_1m_price_accel_1b                       1m      60    0.20x (narrow)
+    27      0.0009  L2_1D_vol_sigma_5                          1D  432000  1440.00x (wide)
+    28      0.0009  L2_5m_vol_velocity_9                       5m    2700    9.00x (wide)
+    29      0.0009  L3_1h_reversion_prob_12                    1h   43200  144.00x (wide)
+    30      0.0009  L2_4h_price_accel_18                       4h  259200  864.00x (wide)
+
+--- K=10 min (target horizon = 600s) ---
+  rank         imp  feature                                    TF   win_s       ratio
+     1      0.0563  L2_1m_vol_mean_15                          1m     900    1.50x (matched)
+     2      0.0098  L2_15s_vol_mean_12                        15s     180    0.30x (matched)
+     3      0.0094  L3_1D_z_low_5                              1D  432000  720.00x (wide)
+     4      0.0065  L2_5m_vol_sigma_9                          5m    2700    4.50x (wide)
+     5      0.0052  L2_1h_vol_mean_12                          1h   43200   72.00x (wide)
+     6      0.0037  L3_15s_swing_noise_12                     15s     180    0.30x (matched)
+     7      0.0029  L3_1h_swing_noise_12                       1h   43200   72.00x (wide)
+     8      0.0024  L2_1h_vol_velocity_12                      1h   43200   72.00x (wide)
+     9      0.0019  L1_15s_bar_range                        ?      ?       ?
+    10      0.0018  L3_15s_SE_high_12                         15s     180    0.30x (matched)
+    11      0.0014  L3_15s_SE_low_12                          15s     180    0.30x (matched)
+    12      0.0014  L1_1h_vol_accel_1b                         1h    3600    6.00x (wide)
+    13      0.0013  L2_1D_price_velocity_5                     1D  432000  720.00x (wide)
+    14      0.0013  L1_1h_vol_velocity_1b                      1h    3600    6.00x (wide)
+    15      0.0012  L1_15m_vol_velocity_1b                    15m     900    1.50x (matched)
+    16      0.0012  L2_15s_vol_accel_12                       15s     180    0.30x (matched)
+    17      0.0012  L1_5s_body                              ?      ?       ?
+    18      0.0011  L1_15m_price_accel_1b                     15m     900    1.50x (matched)
+    19      0.0011  L2_5s_price_sigma_9                        5s      45    0.07x (narrow)
+    20      0.0010  L2_15m_vol_velocity_12                    15m   10800   18.00x (wide)
+    21      0.0009  L3_15m_z_high_12                          15m   10800   18.00x (wide)
+    22      0.0009  L3_15m_reversion_prob_12                  15m   10800   18.00x (wide)
+    23      0.0008  L2_15m_vol_accel_12                       15m   10800   18.00x (wide)
+    24      0.0008  L1_15s_vol_accel_1b                       15s      15    0.03x (narrow)
+    25      0.0007  L2_15s_price_accel_12                     15s     180    0.30x (matched)
+    26      0.0007  L1_1D_bar_range                         ?      ?       ?
+    27      0.0007  L1_15s_price_velocity_1b                  15s      15    0.03x (narrow)
+    28      0.0007  L2_15m_price_accel_12                     15m   10800   18.00x (wide)
+    29      0.0006  L2_1h_vwap_12                              1h   43200   72.00x (wide)
+    30      0.0006  L2_1m_price_sigma_15                       1m     900    1.50x (matched)
+
+--- Cross-K aggregation: features ranked high across multiple Ks ---
+  feature                                      #K     sum_imp
+  L2_1m_vol_mean_15                             3      0.1240
+  L2_15s_vol_mean_12                            3      0.0310
+  L3_15s_SE_high_12                             3      0.0303
+  L3_15s_SE_low_12                              3      0.0215
+  L2_5m_vol_sigma_9                             3      0.0186
+  L2_5s_vol_velocity_9                          2      0.0183
+  L2_5s_price_sigma_9                           2      0.0120
+  L3_1D_z_low_5                                 2      0.0120
+  L1_4h_vol_accel_1b                            1      0.0071
+  L2_1h_vol_velocity_12                         3      0.0070
+  L2_5s_vol_mean_9                              2      0.0063
+  L2_1h_vol_mean_12                             1      0.0052
+  L3_15s_reversion_prob_12                      1      0.0045
+  L3_5m_hurst_9                                 2      0.0042
+  L2_5m_vol_velocity_9                          2      0.0037
+  L3_15s_swing_noise_12                         1      0.0037
+  L2_15s_vol_sigma_12                           1      0.0035
+  L3_1h_swing_noise_12                          1      0.0029
+  L3_1m_hurst_15                                1      0.0029
+  L3_4h_z_high_18                               1      0.0026
+  L1_1m_price_velocity_1b                       1      0.0026
+  L1_15s_vol_velocity_1b                        1      0.0026
+  L2_4h_price_mean_18                           1      0.0025
+  L3_5s_SE_high_9                               2      0.0025
+  L3_5m_reversion_prob_9                        2      0.0025
+
+--- LEAKAGE NAME-PATTERN AUDIT ---
+  No features with name patterns suggesting forward-looking data.
+  V2 features are constructed with backward rolling windows by design.

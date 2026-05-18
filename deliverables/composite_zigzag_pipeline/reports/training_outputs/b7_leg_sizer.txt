@@ -1,0 +1,18 @@
+==============================================================================
+B7 LEG-AMPLITUDE REGRESSOR — predicts leg_amp / R at entry
+==============================================================================
+IS legs:  17,789   OOS legs: 1,827   features: 184
+
+IS  MAE (amp_R units): 0.974
+OOS MAE (amp_R units): 1.029
+Baseline (always-median predictor): 1.036
+OOS lift over baseline: 0.7% MAE reduction
+OOS Pearson(pred, truth): 0.2234
+
+--- CALIBRATION: predicted amp_R bucket -> actual amp_R distribution ---
+  pred bucket       n   %legs   actual_mean   actual_median   actual_p25   actual_p75
+  1.5-2.0         546   29.9%         2.17            1.78         1.30         2.54
+  2.0-2.5         730   40.0%         2.39            1.92         1.40         2.92
+  2.5-3.0         370   20.3%         2.79            2.31         1.70         3.52
+  3.0-4.0         179    9.8%         3.25            2.76         1.91         4.24
+  >=4.0             2    0.1%         3.62            3.62         3.35         3.89

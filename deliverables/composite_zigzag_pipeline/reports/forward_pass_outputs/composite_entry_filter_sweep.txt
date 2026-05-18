@@ -1,0 +1,48 @@
+==============================================================================
+COMPOSITE ENTRY FILTER SWEEP
+==============================================================================
+Baseline (all legs taken): $+70.06/leg, $+4000/day
+
+Top 20 filters by per-leg P&L improvement:
+skip_zones         b6_thr  p_early   n_kept   keep%      $/leg    d/leg     $/day     d/day    %cap
+CLEAR|WATCH          0.70     0.50       14    0.8%  $+138.36  $+68.30  $   +61  $ -3940    1.5%
+CLEAR                0.70     0.50       15    0.8%  $+129.90  $+59.84  $   +61  $ -3939    1.5%
+none                 0.70     0.50       15    0.8%  $+129.90  $+59.84  $   +61  $ -3939    1.5%
+CLEAR|WATCH          0.50     0.50       54    3.0%  $+119.29  $+49.23  $  +201  $ -3799    5.0%
+CLEAR|WATCH          0.40     0.50       65    3.6%  $+116.85  $+46.79  $  +237  $ -3763    5.9%
+CLEAR|WATCH          0.00     0.50       80    4.4%  $+116.28  $+46.21  $  +291  $ -3709    7.3%
+CLEAR|WATCH          0.30     0.50       72    3.9%  $+111.14  $+41.08  $  +250  $ -3750    6.3%
+CLEAR|WATCH          0.60     0.50       35    1.9%  $+110.10  $+40.04  $  +120  $ -3880    3.0%
+CLEAR                0.00     0.50      100    5.5%  $+106.34  $+36.28  $  +332  $ -3668    8.3%
+CLEAR                0.40     0.50       82    4.5%  $+103.70  $+33.64  $  +266  $ -3734    6.6%
+CLEAR                0.50     0.50       67    3.7%  $+103.68  $+33.62  $  +217  $ -3783    5.4%
+CLEAR|WATCH          0.70     0.40       69    3.8%  $+103.36  $+33.30  $  +223  $ -3777    5.6%
+none                 0.50     0.50       69    3.8%  $+102.25  $+32.18  $  +220  $ -3780    5.5%
+CLEAR                0.70     0.40       73    4.0%  $+101.82  $+31.76  $  +232  $ -3768    5.8%
+none                 0.00     0.50      110    6.0%  $+100.83  $+30.77  $  +347  $ -3653    8.7%
+none                 0.70     0.40       74    4.1%  $+100.62  $+30.56  $  +233  $ -3767    5.8%
+CLEAR                0.30     0.50       91    5.0%  $+100.62  $+30.56  $  +286  $ -3714    7.2%
+none                 0.40     0.50       90    4.9%  $ +98.89  $+28.83  $  +278  $ -3722    7.0%
+none                 0.30     0.50       99    5.4%  $ +96.49  $+26.43  $  +299  $ -3702    7.5%
+CLEAR                0.60     0.50       44    2.4%  $ +96.07  $+26.01  $  +132  $ -3868    3.3%
+
+Top 5 by per-DAY improvement (preserves coverage):
+skip_zones         b6_thr  p_early   n_kept   keep%      $/leg     $/day     d/day
+none                 0.00     0.00     1827  100.0%  $ +70.06  $ +4000  $    +0
+none                 0.30     0.00     1717   94.0%  $ +70.32  $ +3773  $  -227
+none                 0.00     0.20     1661   90.9%  $ +71.78  $ +3726  $  -274
+none                 0.30     0.20     1560   85.4%  $ +71.97  $ +3508  $  -492
+none                 0.40     0.00     1574   86.2%  $ +70.73  $ +3479  $  -521
+
+Sweet-spot filter recommendations:
+  (high per-leg improvement WITHOUT cutting most of the day):
+  zones=CLEAR|WATCH      b6>=0.00  early>=0.00  keep 951/1827 (52%)  $+82.08/leg  (+$12.02 vs base)  $+2439/day
+  zones=CLEAR|WATCH      b6>=0.30  early>=0.00  keep 917/1827 (50%)  $+81.20/leg  (+$11.13 vs base)  $+2327/day
+  zones=CLEAR            b6>=0.00  early>=0.20  keep 1221/1827 (67%)  $+77.33/leg  (+$7.27 vs base)  $+2951/day
+  zones=CLEAR            b6>=0.00  early>=0.00  keep 1290/1827 (71%)  $+76.71/leg  (+$6.65 vs base)  $+3092/day
+  zones=CLEAR            b6>=0.50  early>=0.20  keep 951/1827 (52%)  $+76.53/leg  (+$6.47 vs base)  $+2274/day
+
+Note: these P&L numbers assume oracle-optimal entry timing (entering
+at the pivot). Realistic deployment subtracts ~$32/leg for R-trigger
+confirmation lag. The RELATIVE improvements should hold under that
+adjustment.

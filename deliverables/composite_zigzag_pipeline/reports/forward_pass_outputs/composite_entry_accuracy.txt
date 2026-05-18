@@ -1,0 +1,55 @@
+==============================================================================
+PURE ENTRY ACCURACY — no exit logic, just leg trajectories from entry
+==============================================================================
+Legs: 1,827   Days: 32
+
+--- Aggregate trajectory (all legs) ---
+  Final amplitude:    mean $118.36   median $94.50   p25 $63.50   p75 $144.25
+  Time to MFE:        mean 17.9m   median 9.8m
+  Max intra-leg DD:   mean $37.97   median $32.00
+  Whipsaw ratio:      mean 0.37   (DD / final amp; 0 = clean ride, 1 = pure whipsaw)
+  MAE from entry:     mean $-2.77   (should be ~0 since entries are at pivot extremes)
+
+--- Favorable move at fixed time-after-entry ($/contract) ---
+  timepoint          mean     median        p25        p75
+  t =   1.0m   $ +33.12   $ +25.00   $ +16.00   $ +41.00
+  t =   2.0m   $ +46.38   $ +37.00   $ +23.25   $ +57.25
+  t =   3.0m   $ +55.89   $ +46.00   $ +29.00   $ +70.00
+  t =   5.0m   $ +67.90   $ +56.00   $ +37.00   $ +85.50
+  t =  10.0m   $ +84.93   $ +70.00   $ +47.00   $+105.50
+  t =  15.0m   $ +95.21   $ +79.50   $ +52.50   $+116.75
+
+--- Hit rate at favorable R-multiple thresholds ---
+  R = $47.00 (= 4×ATR, the indicator threshold)
+  threshold     hit %   time median    time p75
+  0.5R           99.9%         0.8m        1.9m
+  1.0R           97.1%         3.0m        6.6m
+  1.5R           72.2%         5.2m       12.5m
+  2.0R           51.6%         7.3m       16.6m
+  3.0R           26.2%        10.3m       21.4m
+  4.0R           12.6%        11.9m       27.5m
+
+--- BY ENTRY ZONE ---
+  zone              n   %legs    med_amp   hit_1R   hit_2R   hit_3R   med_t_1R   whipsaw
+  AT_PIVOT         18    1.0%  $ 107.25   100.0%    72.2%    50.0%       0.8m     0.37
+  CLEAR           537   29.4%  $  77.00    96.1%    41.5%    17.9%       7.1m     0.32
+  IMMINENT         71    3.9%  $  90.50   100.0%    57.7%    33.8%       2.2m     0.29
+  NEAR_3m          79    4.3%  $  91.50    96.2%    58.2%    30.4%       1.5m     0.35
+  NEAR_5m         152    8.3%  $ 106.00   100.0%    59.2%    25.0%       2.5m     0.29
+  NEAR_PIVOT      603   33.0%  $ 109.00    97.5%    58.2%    33.5%       1.8m     0.35
+  WATCH           339   18.6%  $  91.00    95.9%    48.1%    22.1%       3.6m     0.32
+  WIDE_ZONE        28    1.5%  $ 101.75   100.0%    53.6%    35.7%       1.6m     0.37
+
+Reading the table:
+  hit_1R%   = % of legs that reach favorable move >= 1R = 4×ATR
+  hit_2R%   = % of legs that reach >= 2R = 8×ATR — "big winners"
+  hit_3R%   = % of legs that reach >= 3R = 12×ATR — "monster legs"
+  med_t_1R  = median time (minutes) from entry to first reach 1R favorable
+  whipsaw   = median (max intra-leg DD) / (final amplitude)
+
+--- BY B6 DIRECTIONAL MATCH at entry ---
+  bucket            n    med_amp   hit_1R   hit_2R   hit_3R   med_t_1R   whipsaw
+  <0.30           110  $  86.75    95.5%    51.8%    24.5%       4.3m     0.35
+  0.30-0.50       462  $  88.50    97.2%    48.5%    25.1%       3.6m     0.33
+  0.50-0.70       887  $  95.50    96.7%    50.3%    25.3%       3.2m     0.31
+  >=0.70          368  $ 105.00    98.4%    58.4%    30.2%       2.2m     0.34

@@ -1,0 +1,37 @@
+==============================================================================
+B1 TRAJECTORY BRIDGE — K=10min, traj_window=10 bars
+==============================================================================
+Bars: 34,844   Days: 32
+
+--- STATUS DISTRIBUTION + actual time-to-next-pivot per status ---
+  status            n      %    ttn median     ttn p25     ttn p75  % w/ piv<10m
+  CLEAR         1,246    3.6         31.5m       14.5m       55.5m         17.0%
+  WATCH        18,821   54.0         15.5m        5.5m       35.5m         38.1%
+  BUILDING     11,563   33.2          8.5m        3.5m       19.5m         55.3%
+  IMMINENT      1,255    3.6          4.5m        2.5m        8.5m         79.2%
+  PASSING       1,959    5.6         28.5m       12.5m       65.5m         19.2%
+
+Interpretation:
+  - IMMINENT bars should have low median TTN (1-3 min)
+  - BUILDING bars should have moderate TTN (3-7 min)
+  - CLEAR bars should have high TTN (no pivot soon)
+  - PASSING bars: recent peak that didn't materialize — high TTN
+
+--- BRIDGE VALIDATION: status -> pivot-arrival precision ---
+  status=IMMINENT   -> pivot within 3 min          precision=35.96%  on n=1,243
+  status=IMMINENT   -> pivot within 5 min          precision=54.14%  on n=1,243
+  status=BUILDING   -> pivot within 7 min          precision=44.54%  on n=11,209
+  status=WATCH      -> pivot within 10 min         precision=38.08%  on n=17,668
+
+--- COMPOSITE: zigzag direction + B1 status ---
+  Suggested rules:
+    RIDE_CONFIDENT:  zz_dir != NEUTRAL  AND status in (CLEAR, WATCH)
+    RIDE_CAREFUL  :  zz_dir != NEUTRAL  AND status == BUILDING
+    PREPARE_FLIP  :  zz_dir != NEUTRAL  AND status == IMMINENT
+    HOLD          :  zz_dir == NEUTRAL  OR status == PASSING
+
+--- COMPOSITE ACTION DISTRIBUTION + accuracy vs leg_direction ---
+  RIDE_CONFIDENT  n=18,196  acc=65.14%  (predict same as zz)
+  RIDE_CAREFUL    n=11,056  acc=63.71%  (predict same as zz)
+  PREPARE_FLIP    n= 1,243  acc=40.14%  (predict opposite zz)
+  HOLD            n= 2,475  acc=42.87%  (predict same as zz)
