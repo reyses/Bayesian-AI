@@ -3789,3 +3789,49 @@ Open items (post-wake):
   4. Deployment of ZigzagRunnerNative_v1.0.0-RC to NT8 strategies folder (gated)
   5. B11/B12 retargets if user wants to expand paradigm
 
+
+================================================================================
+2026-05-18 -- DRS Canonical (Path A)
+================================================================================
+
+Pipeline:
+  tools/sourcing/drs_a_step1_predict_b_models_is.py
+    -> DATA/CROSS_DAY/predictions_IS/b{1,2,4,5,6,8}_proba_IS.parquet
+  tools/sourcing/drs_a_step2_build_cloud_is.py
+    -> DATA/CROSS_DAY/predictions_IS/pivot_probability_cloud_IS.parquet
+  tools/sourcing/drs_a_step3_forward_pass_is.py
+    -> DATA/CROSS_DAY/predictions_IS/composite_forward_pass_hardened_IS.csv
+    17,767 legs / 275 IS days / $1456/day gbm_ev
+  tools/sourcing/drs_a_step4_aggregate_day_pnl.py
+    -> DATA/CROSS_DAY/cross_day_features_with_target.parquet
+    240 days with target (217 IS + 23 OOS)
+
+Models:
+  DRS canonical GBM (HistGradientBoosting, 15 cross-day features).
+    Walk-forward IS: Pearson +0.191 CI [+0.098, +0.405].
+    Sealed OOS: Pearson +0.139 CI [-0.047, +0.451] (crosses zero).
+    -> Production model saved as research artifact only.
+
+Rank-based sizing rule grid on (IS WF, sealed OOS):
+  rank_0.7_1.3:  IS +$249 [+113, +424] sig, OOS -$20 [-68, +34] not sig.
+  rank_0.5_1.5:  IS +$415 [+189, +706] sig, OOS -$34 [-113, +57] not sig.
+  rank_0.3_1.7:  IS +$582 [+264, +988] sig, OOS -$47 [-158, +79] not sig.
+  rank_0.0_2.0:  IS +$831 [+378, +1412] sig, OOS -$67 [-226, +113] not sig.
+
+Verdict: DO NOT DEPLOY DRS v1. Classic IS-OOS gap. The clamp(pred/IS_mean)
+naive rule actively destroys value (-$333/day OOS, strictly negative CI)
+because baseline drift makes most OOS predictions undersize 1.0x.
+
+Anti-predictive on the 2 OOS negative days: DRS predicted HIGHER values
+for the 2 losing days than for the 21 winning days. Even a "veto bad days"
+rule would veto the wrong days.
+
+Feature importance:
+  Useful:        overnight_gap_pct, prior_day_range_pct, days_since_fomc.
+  Useless/hurt:  dxy_*, vix_chg_prior, dow, is_fomc/cpi/nfp/opex (sparse).
+
+Next research directions:
+  - Phase 2: LLM news headline intensity (replace binary event flags).
+  - Wait for 60-90 more OOS days, then re-run sealed test.
+  - DRS-as-VETO rejected (anti-predictive on tails).
+
