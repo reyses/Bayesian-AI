@@ -179,3 +179,94 @@ If 30-day sim confirms the lift:
 - Trajectory build: [tools/build_trade_trajectory_dataset.py](tools/build_trade_trajectory_dataset.py)
 - B9 trainer: [tools/train_b9_remaining_amplitude.py](tools/train_b9_remaining_amplitude.py)
 - OOS test: [tools/build_oos_trajectory_and_b9_test.py](tools/build_oos_trajectory_and_b9_test.py)
+
+---
+
+## v1.0.0-RC implementation status (2026-05-18)
+
+### Components built
+
+| File | Purpose | Status |
+|---|---|---|
+| `live/L5_sidecar.py` | Python TCP server loading B7+B9+B10, handles JSON messages | **DONE**, offline-replay verified |
+| `docs/nt8/ZigzagRunnerHybrid_v1.0.0-RC.cs` | NT8 strategy with IPC hooks (DAY_OPEN, ENTRY_QUERY, SIZE_QUERY, POSITION_CLOSED) | **DONE** (skeleton — pivot detection logic delegated to ZigzagRunnerNative_v1.0.0-RC) |
+
+### Sidecar protocol implementation
+
+Messages and responses verified in `live/L5_sidecar.py`:
+- `DAY_OPEN`: returns b10_mult (1.3 boost / 0.7 cap / 1.0 hold)
+- `ENTRY_QUERY`: returns contracts = round(b7_size × b10_mult)
+- `SIZE_QUERY`: returns action ∈ {HOLD, REDUCE_50, CUT, PYRAMID}
+- `POSITION_CLOSED`: logged for monitoring
+
+### Forward-pass-validated $/day expectation
+
+| Scenario | OOS Δ/day | CI |
+|---|---|---|
+| Full stack B7+B9+B10 vs flat | +$672 | [+$426, +$939] |
+| At 30% live-vs-sim gap | +$470 | +$224 floor |
+| At 50% gap | +$336 | +$114 floor |
+
+Even pessimistic 50% gap keeps CI lower bound positive.
+
+### Pre-deployment validation steps
+
+1. **Sidecar smoke test**:
+   ```
+   python -m live.L5_sidecar --offline-replay
+   ```
+   Should write `reports/findings/regret_oracle/l5_offline_replay.csv` with
+   2,926 rows of B9 decisions. Run completed 2026-05-18.
+
+2. **TCP server test** (with manual client):
+   ```
+   python -m live.L5_sidecar --port 5200
+   ```
+   Then from another shell, send DAY_OPEN with a real date, expect b10_mult
+   response.
+
+3. **NT8 compile**: copy `ZigzagRunnerHybrid_v1.0.0-RC.cs` to
+   `Documents\NinjaTrader 8\bin\Custom\Strategies\` (gated by user approval),
+   F5 compile.
+
+4. **NT8 sim parity check**: apply ZigzagRunnerHybrid on MNQ 06-26 SIM
+   account. Verify:
+   - Output window shows "L5 sidecar connected" on State.Configure
+   - "DAY_OPEN ... b10_mult=X" at session start
+   - "ENTRY_QUERY pos_... contracts=N" at each R-trigger fire
+   - "SIZE_QUERY pos_...: action=HOLD/REDUCE/CUT/PYRAMID" T+25s after fill
+
+5. **30-day sim run**: NT8 Strategy Analyzer with Playback over 30 days,
+   compare to backtested forward_pass_full_stack OOS results. Per-day P&L
+   should match within ±20%.
+
+6. **GO/NO-GO**: if 30-day sim CI on delta vs flat > 0, promote to live
+   at 0.25× position size. Ramp to 1.0× over 4 weeks if metrics hold.
+
+### Known gaps / TODOs
+
+1. **V2 feature computation in NT8**: the hybrid strategy currently sends
+   EMPTY `v2_features` in IPC messages. For full functionality, V2 features
+   (~184 cols) must be computed in NT8 (C# port of core_v2/features.py) OR
+   pre-computed by a separate Python data feed.
+   - Workaround: sidecar can READ V2 features from `DATA/ATLAS_NT8/FEATURES_5s_v2/`
+     parquet by timestamp lookup, but that requires historical data parity.
+   - For LIVE: V2 computation must be streaming, not lookup.
+
+2. **Pivot detection logic in hybrid file**: the v1.0.0-RC skeleton omits
+   the 300-line pivot state machine from ZigzagRunnerNative. Production
+   build should either inherit (C# inheritance) or copy that logic
+   verbatim into the hybrid file.
+
+3. **Friction modeling**: forward-pass-stack approximates mid-trade-action
+   friction by 0 extra cost. Real friction for B9 CUT/REDUCE/PYRAMID adds
+   ~$6/action. Slippage stress test showed +$38/day floor at $10/action;
+   production should monitor actual friction vs assumption.
+
+4. **No persistent state**: sidecar restarts lose `_day_cache` and
+   `_positions`. Production should serialize to disk or use a small DB.
+
+5. **Position ID handling**: simple timestamp-based ID may collide on
+   simultaneous rapid pivots. Production should use NT8's internal
+   order tag or a UUID.
+
