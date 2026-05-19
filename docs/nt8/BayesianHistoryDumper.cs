@@ -1,18 +1,25 @@
 // ============================================================================
 // BayesianHistoryDumper — Dump NT8 chart bars to CSV for ATLAS pipeline
 // ============================================================================
-// Version: 2.0.0 (2026-04-27)
+// Version: 2.1.0 (2026-05-18)
 //
-// CHANGELOG 2.0.0 (BREAKING):
+// CHANGELOG 2.1.0 (BREAKING -- path reorganization):
+//   - Output structure now CONTRACT-FIRST instead of TF-first. New layout:
+//       {OutputDirectory}\{ContractLabel}\1s\YYYY_MM_DD.csv
+//       {OutputDirectory}\{ContractLabel}\1m\YYYY_MM_DD.csv
+//       {OutputDirectory}\{ContractLabel}\1h\YYYY_MM_DD.csv
+//       {OutputDirectory}\{ContractLabel}\1D\YYYY_MM_DD.csv
+//   - Default OutputDirectory changed from DATA\ATLAS_NT8 to DATA\RAW_NT8 to
+//     cleanly separate raw CSV from the parquet-pipeline ATLAS_NT8 dir.
+//   - Multi-contract friendly: each contract gets its own subfolder, easier
+//     to extend to rollover contracts (MNQ_03-26, MNQ_06-26, MNQ_09-26, ...).
+//   - For UPGRADING existing CSV layout (DATA\ATLAS_NT8\{tf}\MNQ_06-26\), see
+//     the one-shot mv done 2026-05-18 (commit log).
+//
+// CHANGELOG 2.0.0 (2026-04-27):
 //   - Now dumps 1s, 1m, 1h, 1D simultaneously from ONE chart via AddDataSeries.
 //     Previous v1.0.0 required opening 4 separate charts and running once per
 //     timeframe. New version: open any chart, add indicator once, done.
-//   - OutputDirectory now points to the BASE directory (e.g. DATA\ATLAS_NT8),
-//     not a single-TF folder. Output structure becomes:
-//       {OutputDirectory}\1s\{ContractLabel}\YYYY_MM_DD.csv
-//       {OutputDirectory}\1m\{ContractLabel}\YYYY_MM_DD.csv
-//       {OutputDirectory}\1h\{ContractLabel}\YYYY_MM_DD.csv
-//       {OutputDirectory}\1D\{ContractLabel}\YYYY_MM_DD.csv
 //   - Each TF maintains independent writer + day-rotation + bar counter state.
 //   - Per-TF "COMPLETE" progress logging.
 //   - Primary chart timeframe is IGNORED — pick whatever's convenient (1s gives
@@ -34,19 +41,21 @@
 //      Set "load N days" high enough to cover desired range.
 //   4. Add this indicator to the chart.
 //   5. Wait for "COMPLETE — all timeframes" in Output window.
-//   6. For rollover: switch chart to MNQ 03-25, set ContractLabel accordingly,
-//      remove + re-add indicator.
+//   6. For rollover: switch chart to MNQ 09-26, set ContractLabel accordingly,
+//      remove + re-add indicator. CSVs go to a new contract subfolder.
 //
 // OUTPUT:
-//   {OutputDirectory}\{tf}\{ContractLabel}\YYYY_MM_DD.csv
+//   {OutputDirectory}\{ContractLabel}\{tf}\YYYY_MM_DD.csv
 //   Format: timestamp,open,high,low,close,volume (header + data rows, UTF-8)
 //   Timestamps: UTC unix epoch seconds (bar OPEN time, Databento convention)
 //
 // PYTHON CONSUMER:
-//   python tools/atlas_nt8_rebuild.py
-//   - Converts CSVs to parquet
-//   - Aggregates missing TFs (5s/15s/30s/5m/15m/30m) from 1s
-//   - Validates 1m re-aggregation parity against NT8-native 1m
+//   python tools/sourcing/convert_nt8_csv_to_parquet.py
+//   - Reads DATA/RAW_NT8/{contract}/{tf}/*.csv
+//   - Converts to DATA/ATLAS_NT8/{tf}/*.parquet (parquet stays flat, no contract subdir)
+//   - 1m: shift ts +59 (bar-close convention)
+//   - 1s: no shift, then rebin to 5s/15s/30s/5m/15m/30m/4h with NT8 alignment
+//   - Validates rebin against existing parquet (byte-identical for boring TFs)
 // ============================================================================
 
 #region Using declarations
@@ -83,12 +92,14 @@ namespace NinjaTrader.NinjaScript.Indicators
         // ── Properties (visible in NT8 UI) ──
         [NinjaScriptProperty]
         [Display(Name = "Output Directory", GroupName = "Settings", Order = 0,
-                 Description = "BASE directory for CSV output (TF subfolders are auto-created)")]
+                 Description = "BASE directory for CSV output. v2.1.0 layout: {OutputDirectory}/{ContractLabel}/{TF}/. " +
+                               "Default: DATA/RAW_NT8")]
         public string OutputDirectory { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "Contract Label", GroupName = "Settings", Order = 1,
-                 Description = "Subdirectory name (e.g. MNQ_06-26)")]
+                 Description = "Contract subdir name (e.g. MNQ_06-26, MNQ_09-26). " +
+                               "Each contract gets its own subfolder; TFs nested inside.")]
         public string ContractLabel { get; set; }
 
         [NinjaScriptProperty]
@@ -110,7 +121,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Calculate                = Calculate.OnBarClose;
 
                 // Defaults — user can override in UI
-                OutputDirectory = @"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\DATA\ATLAS_NT8";
+                OutputDirectory = @"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI\DATA\RAW_NT8";
                 ContractLabel   = "MNQ_06-26";
                 StartDate       = "";   // empty = dump all available history
             }
@@ -209,8 +220,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private string TfFolder(int bip)
         {
-            // {OutputDirectory}/{TF}/{ContractLabel}/
-            return Path.Combine(Path.Combine(OutputDirectory, TF_LABELS[bip]), ContractLabel);
+            // v2.1.0: contract-first hierarchy
+            // {OutputDirectory}/{ContractLabel}/{TF}/
+            return Path.Combine(Path.Combine(OutputDirectory, ContractLabel), TF_LABELS[bip]);
         }
 
         private void CloseWriter(int bip)

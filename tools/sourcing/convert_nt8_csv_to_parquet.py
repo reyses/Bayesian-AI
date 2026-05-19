@@ -26,8 +26,11 @@ import numpy as np
 from tqdm import tqdm
 
 
-CSV_BASE_1M = Path('DATA/ATLAS_NT8/1m/MNQ_06-26')
-CSV_BASE_1S = Path('DATA/ATLAS_NT8/1s/MNQ_06-26')
+# 2026-05-18 path reorg: raw CSVs moved to DATA/RAW_NT8/{contract}/{tf}/
+# Parquet stays at DATA/ATLAS_NT8/{tf}/ (flat, no contract subdir)
+CONTRACT = 'MNQ_06-26'
+CSV_BASE_1M = Path(f'DATA/RAW_NT8/{CONTRACT}/1m')
+CSV_BASE_1S = Path(f'DATA/RAW_NT8/{CONTRACT}/1s')
 OUT_1M  = Path('DATA/ATLAS_NT8/1m')
 OUT_1S  = Path('DATA/ATLAS_NT8/1s')
 OUT_5S  = Path('DATA/ATLAS_NT8/5s')
