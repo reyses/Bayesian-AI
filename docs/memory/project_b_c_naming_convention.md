@@ -37,16 +37,19 @@ demoted).
   B6  directional-pivot 3-class (HGB)          ACTIVE
   B7  leg-sizer (HGB regressor)                ACTIVE -- production entry sizer
   B8  hour-risk (HGB regressor)                ACTIVE
-  B9  during-trade remaining-amplitude         ACTIVE -- FIRST L5 model (validated 2026-05-17 OOS +$67/day CI [+$32,+$106])
+  B9  during-trade remaining-amplitude         ACTIVE -- L5 trade-level (validated 2026-05-17 OOS +$67/day, cross-sample confirmed 2026-05-18 +$66/day CI [+$41,+$94])
+  B10 vol-regime sizer (day-level)             ACTIVE -- INVERTED action (boost high-vol, cap low-vol) -- validated 2026-05-18 LATE OOS +$69/day CI [+$7, +$144]
   -----
-  B10 RESERVED for next during-trade promotion (C12 candidate)
-  B11 RESERVED for next during-trade promotion (C13 candidate)
+  B11 RESERVED for next promotion
+  B12 RESERVED for next promotion
   -----
   C9  LSTM leg-sizer                           FAILED (was B9 originally, lost to B7 GBM)
   C10 LSTM direct-trade                        FAILED (was B10 originally, OOS Pearson -0.02)
   C11 bad-trade binary-cut detector            FAILED (was B9 briefly 2026-05-17; both v1 + v2 walk-forward 0/N significant)
-  C12 RESERVED for next experimental retarget (B6 during-trade?)
-  C13 RESERVED for next experimental retarget (B5 during-trade?)
+  C12 imminent-exit binary-preempt             FAILED (0/15 ops sig negative)
+  C13 leg-phase phase-gated-pyramid-cap         FAILED (Pearson 0.32-0.48 learnable but action zero incremental)
+  C14 vol-regime defensive gate                 FAILED (defensive action BACKWARDS -- high-vol = best days; learned to invert action surface -> promoted v2 -> B10)
+  C15 pyramid-confidence attenuator             FAILED (AUC 0.883 strong signal but attenuation hurts at all recalls -- 88.4% of B9 pyramids pay off, attenuating any is net loss)
 
 **Two-stage workflow (effective 2026-05-18)**:
   STAGE 1 - candidate: new during-trade retarget research takes lowest available C-slot.

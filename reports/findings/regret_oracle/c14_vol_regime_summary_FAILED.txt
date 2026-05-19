@@ -1,0 +1,27 @@
+====================================================================================================
+C14 CANDIDATE -- vol-regime sideband (day-level risk-budget gate)
+====================================================================================================
+IS days: 246, OOS days: 43
+Tercile thresholds: low<0.0046  high>=0.0071
+
+  fold 1: AUC 0.691  (val n=41, pos 28)
+  fold 2: AUC 0.932  (val n=41, pos 4)
+  fold 3: AUC 0.728  (val n=41, pos 5)
+  fold 4: AUC 0.733  (val n=41, pos 11)
+  fold 5: AUC 0.868  (val n=41, pos 14)
+
+IS WF aggregate AUC: 0.834  (mean fold AUC 0.790)
+
+Production C14 model saved on 246 IS days (81 high-vol)
+
+=== SEALED OOS TEST (51-day fresh dump) ===
+OOS AUC for predicting HIGH-vol: 0.949
+Actual high-vol days: 13 / 43
+  gate_thr=0.3: gated 20/43 days  delta $-116/day  CI [$-239, $-13]  sig False
+  gate_thr=0.5: gated 18/43 days  delta $-119/day  CI [$-241, $-16]  sig False
+  gate_thr=0.7: gated 15/43 days  delta $-81/day  CI [$-196, $+6]  sig False
+
+--- HIGH-vol days actual P&L analysis ---
+  vol= low  n=6  mean $+69/day  neg_days 3
+  vol= mid  n=20  mean $+477/day  neg_days 3
+  vol=high  n=10  mean $+868/day  neg_days 2

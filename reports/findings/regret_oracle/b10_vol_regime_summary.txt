@@ -1,0 +1,64 @@
+====================================================================================================
+C14 v2 -- INVERTED vol-regime sizer (boost high-vol, cap low-vol)
+====================================================================================================
+IS: 246 days, OOS: 43 days
+IS tercile thresholds: low<0.0046  high>=0.0071
+
+=== IS walk-forward predictions ===
+  fold 1: val 41 days
+  fold 2: val 41 days
+  fold 3: val 41 days
+  fold 4: val 41 days
+  fold 5: val 41 days
+  IS days with valid pred + P&L: 164 / 246
+
+--- IS WF action-threshold tuning ---
+thr_h  thr_l  n_boost  n_cap    delta                  95% CI
+  0.50  0.50        43     46  $ +108  [$+39, $+188]
+  0.50  0.55        43     43  $ +107  [$+39, $+187]
+  0.50  0.60        43     41  $ +111  [$+44, $+190]
+  0.50  0.65        43     38  $ +113  [$+47, $+193]
+  0.50  0.70        43     35  $ +117  [$+52, $+196]
+  0.55  0.50        39     46  $  +98  [$+31, $+179]
+  0.55  0.55        39     43  $  +98  [$+31, $+178]
+  0.55  0.60        39     41  $ +102  [$+36, $+182]
+  0.55  0.65        39     38  $ +104  [$+38, $+183]
+  0.55  0.70        39     35  $ +108  [$+42, $+185]
+  0.60  0.50        37     46  $  +96  [$+30, $+176]
+  0.60  0.55        37     43  $  +95  [$+29, $+176]
+  0.60  0.60        37     41  $  +99  [$+34, $+178]
+  0.60  0.65        37     38  $ +102  [$+36, $+180]
+  0.60  0.70        37     35  $ +106  [$+40, $+183]
+  0.65  0.50        35     46  $  +95  [$+28, $+175]
+  0.65  0.55        35     43  $  +94  [$+28, $+174]
+  0.65  0.60        35     41  $  +98  [$+32, $+177]
+  0.65  0.65        35     38  $ +100  [$+35, $+178]
+  0.65  0.70        35     35  $ +104  [$+39, $+182]
+  0.70  0.50        29     46  $  +83  [$+17, $+162]
+  0.70  0.55        29     43  $  +83  [$+17, $+162]
+  0.70  0.60        29     41  $  +87  [$+22, $+166]
+  0.70  0.65        29     38  $  +89  [$+24, $+168]
+  0.70  0.70        29     35  $  +93  [$+28, $+171]
+
+SELECTED IS WF best: thr_high=0.5  thr_low=0.7  delta $+117/day
+
+Production C14 v2 models saved
+
+=== SEALED OOS test (IS-selected thresholds, single shot) ===
+  thr_high=0.5  thr_low=0.7
+  n_boost=13/36  n_cap=4/36
+  OOS delta: $+69/day   95% CI [$+7, $+144]   sig True
+  Baseline (no action): $+518/day
+  With C14 v2: $+587/day
+
+--- Anti-doom slippage stress ---
+  S=$0: delta $+69/day  CI [$+7, $+144]  sig True
+  S=$5: delta $+67/day  CI [$+5, $+141]  sig True
+  S=$10: delta $+64/day  CI [$+3, $+139]  sig True
+  S=$25: delta $+57/day  CI [$-3, $+131]  sig False
+  (n_actions = 17)
+
+--- OOS per-actual-vol-regime P&L (verifies inversion premise) ---
+  vol= low  n=  6  mean $+69/day  neg_days 3/6
+  vol= mid  n= 20  mean $+477/day  neg_days 3/20
+  vol=high  n= 10  mean $+868/day  neg_days 2/10
