@@ -1,0 +1,19 @@
+==============================================================================
+IS HARDENED FORWARD PASS  (flat sizing, no ML deps)
+==============================================================================
+Source: reports/findings/regret_oracle/zigzag_pivot_dataset_NT8_OOS_atr4.parquet
+Days available: 52   processed 51   skipped 1
+Day range: 2026_03_19 -> 2026_05_18
+Total legs: 2,936
+Friction per leg: $6.00
+
+  Mean per-leg P&L:       $+7.89
+  Median per-leg P&L:     $-12.75
+  Positive legs:          1217/2936 (41.5%)
+  Total $:                $+23,155.00
+  Mean $/day:             $+454.02
+
+  Day WR:                 37/51 (72.5%)
+  Median day:             $+321.00
+  Worst day:              $-571.00
+  Best day:               $+2797.50

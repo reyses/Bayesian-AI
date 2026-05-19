@@ -1,0 +1,32 @@
+==============================================================================
+TRADE TRAJECTORY DATASET (IS only)
+==============================================================================
+Source legs: reports/findings/regret_oracle/oos_hardened_legs_full.csv
+Source features: reports/findings/regret_oracle/zigzag_pivot_dataset_NT8_OOS_atr4.parquet
+Total trajectory rows: 12,559
+Unique legs: 2,926 (input legs: 2,936; missing trajectory rows = 10 legs whose K bars exit early)
+Days: 51
+V2 feature cols: 185
+
+Rows per K horizon:
+  K=  5  (25s)   n= 2,926
+  K= 10  (50s)   n= 2,917
+  K= 30  (150s)   n= 2,799
+  K= 60  (300s)   n= 2,342
+  K=120  (600s)   n= 1,575
+
+Leg outcome distribution (one row per leg, K=5 horizon):
+  Legs with K=5 row: 2,926
+  Mean exit pnl:    $+8.06
+  Median exit pnl:  $-12.50
+  Frac losing:      58.0%
+  Frac < -$50:      14.8%
+  Frac < -$100:     0.6%
+  Frac < -$200:     0.1%
+
+MAE at each K (vs entry, in points):
+  K=  5  median 5.50  90th 14.75  max 207.50
+  K= 10  median 6.50  90th 17.25  max 232.25
+  K= 30  median 8.75  90th 22.25  max 232.25
+  K= 60  median 10.00  90th 24.75  max 124.75
+  K=120  median 10.25  90th 25.00  max 124.75

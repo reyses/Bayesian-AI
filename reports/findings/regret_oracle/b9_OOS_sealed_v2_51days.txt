@@ -1,0 +1,23 @@
+==========================================================================================
+B9 SEALED OOS TEST -- fresh 51-day sample (2026-03-19 to 2026-05-18)
+==========================================================================================
+Legs: 2,936, days: 51
+Baseline flat: total $+23,155, $/day $+454
+
+K=  5   delta $+66/day   CI [$+41, $+94]   sig True   (cut 0 / half 8 / full 2781 / pyr 137)
+K= 10   delta $+31/day   CI [$+6, $+57]   sig True   (cut 0 / half 24 / full 2756 / pyr 137)
+K= 30   delta $+15/day   CI [$+4, $+27]   sig True   (cut 0 / half 45 / full 2718 / pyr 36)
+K= 60   delta $+2/day   CI [$-5, $+9]   sig False   (cut 0 / half 7 / full 2313 / pyr 22)
+K=120   delta $+16/day   CI [$-9, $+41]   sig False   (cut 0 / half 253 / full 1287 / pyr 35)
+
+--- VERDICT vs prior OOS sealed (2026-05-17 evening, 31 days) ---
+Prior: K=5 +$67/day CI [+$32, +$106] SIGNIFICANT (14.1% lift)
+Now (51 days): K=5 $+66/day  CI [$+41, $+94]  sig True
+
+=== Anti-doom slippage stress ===
+   K     S=$0     S=$2     S=$5    S=$10
+  K=  5  $  +66  $  +61  $  +52  $  +38
+  K= 10  $  +31  $  +24  $  +15  $   -1
+  K= 30  $  +15  $  +12  $   +7  $   -1
+  K= 60  $   +2  $   +1  $   -1  $   -3
+  K=120  $  +16  $   +4  $  -13  $  -41
