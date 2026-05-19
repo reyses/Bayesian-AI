@@ -1,0 +1,199 @@
+====================================================================================================
+NT8 REBUILD FROM 1s -- VALIDATION
+====================================================================================================
+Days: 58
+Target TFs: ['5s', '15s', '30s', '1m', '5m', '15m', '30m', '1h', '4h', '1D']
+
+=== Per-TF validation summary ===
+  TF  days  matched_avg  only_new_avg  only_old_avg  max_OHLC_diff  max_vol_diff
+  5s    58        12846           0.0           0.0         0.0000             0
+ 15s    58         4383           0.0           0.0         0.0000             0
+ 30s    58         2217           0.0           0.0         0.0000             0
+  1m    58         1094          23.1           6.0        59.2500          2470
+  5m    58          225           0.0           0.0         0.0000             0
+ 15m    58           75           0.0           0.0         0.0000             0
+ 30m    58           38           0.0           0.0         0.0000             0
+  1h    58            9          10.1          10.2         0.0000             0
+  4h    58            6           0.0           0.0         0.0000             0
+  1D    58            1           1.0           0.5         0.0000             0
+
+--- Per-day per-TF detail (only TFs with mismatches) ---
+
+2026_03_13 (src 1s rows: 8,056):
+  1m: n_new=829 n_old=829 matched=829 only_new=0 only_old=0
+    low: max_diff=51.0000  mean_diff=0.0615
+    close: max_diff=59.2500  mean_diff=0.0715
+    volume: max_diff=3.0000  mean_diff=0.0072
+
+2026_03_20 (src 1s rows: 49,172):
+  1m: n_new=840 n_old=840 matched=840 only_new=0 only_old=0
+    volume: max_diff=2.0000  mean_diff=0.0024
+  1h: n_new=14 n_old=14 matched=0 only_new=14 only_old=14
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_03_22 (src 1s rows: 30,486):
+  1m: n_new=540 n_old=540 matched=540 only_new=0 only_old=0
+    volume: max_diff=2.0000  mean_diff=0.0259
+  1h: n_new=9 n_old=9 matched=0 only_new=9 only_old=9
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_23 (src 1s rows: 77,920):
+  1m: n_new=1380 n_old=1380 matched=1380 only_new=0 only_old=0
+    volume: max_diff=1.0000  mean_diff=0.0007
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_24 (src 1s rows: 76,757):
+  1m: n_new=1380 n_old=1380 matched=1380 only_new=0 only_old=0
+    volume: max_diff=2.0000  mean_diff=0.0029
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_25 (src 1s rows: 76,239):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_26 (src 1s rows: 75,921):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_27 (src 1s rows: 48,980):
+  1m: n_new=840 n_old=840 matched=840 only_new=0 only_old=0
+    volume: max_diff=52.0000  mean_diff=0.0667
+  1h: n_new=14 n_old=14 matched=0 only_new=14 only_old=14
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_03_29 (src 1s rows: 29,799):
+  1h: n_new=9 n_old=9 matched=0 only_new=9 only_old=9
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_30 (src 1s rows: 76,828):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_03_31 (src 1s rows: 75,270):
+  1m: n_new=1380 n_old=1380 matched=1380 only_new=0 only_old=0
+    open: max_diff=4.0000  mean_diff=0.0031
+    high: max_diff=1.5000  mean_diff=0.0011
+    close: max_diff=1.2500  mean_diff=0.0016
+    volume: max_diff=706.0000  mean_diff=0.6514
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_01 (src 1s rows: 76,871):
+  1m: n_new=1380 n_old=1380 matched=1380 only_new=0 only_old=0
+    low: max_diff=1.2500  mean_diff=0.0009
+    volume: max_diff=249.0000  mean_diff=0.1804
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_02 (src 1s rows: 66,322):
+  1m: n_new=1380 n_old=1380 matched=1380 only_new=0 only_old=0
+    open: max_diff=2.7500  mean_diff=0.0020
+    high: max_diff=5.2500  mean_diff=0.0101
+    low: max_diff=2.5000  mean_diff=0.0036
+    close: max_diff=3.0000  mean_diff=0.0022
+    volume: max_diff=2470.0000  mean_diff=9.4841
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_03 (src 1s rows: 12,363):
+  1m: n_new=375 n_old=375 matched=375 only_new=0 only_old=0
+    volume: max_diff=1.0000  mean_diff=0.0027
+  1h: n_new=7 n_old=6 matched=0 only_new=7 only_old=6
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_04_05 (src 1s rows: 27,554):
+  1h: n_new=9 n_old=9 matched=0 only_new=9 only_old=9
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_06 (src 1s rows: 72,205):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_07 (src 1s rows: 77,652):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_08 (src 1s rows: 71,785):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_09 (src 1s rows: 68,645):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_10 (src 1s rows: 45,753):
+  1h: n_new=14 n_old=14 matched=0 only_new=14 only_old=14
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_04_12 (src 1s rows: 26,725):
+  1h: n_new=9 n_old=9 matched=0 only_new=9 only_old=9
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_13 (src 1s rows: 66,653):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_14 (src 1s rows: 68,747):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_15 (src 1s rows: 68,745):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_16 (src 1s rows: 66,073):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_17 (src 1s rows: 45,257):
+  1h: n_new=14 n_old=14 matched=0 only_new=14 only_old=14
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_04_19 (src 1s rows: 25,475):
+  1h: n_new=9 n_old=9 matched=0 only_new=9 only_old=9
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_20 (src 1s rows: 65,782):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_21 (src 1s rows: 67,585):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_22 (src 1s rows: 72,119):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_23 (src 1s rows: 72,817):
+  1h: n_new=23 n_old=23 matched=0 only_new=23 only_old=23
+  1D: n_new=2 n_old=1 matched=0 only_new=2 only_old=1
+
+2026_04_24 (src 1s rows: 47,129):
+  1h: n_new=14 n_old=14 matched=0 only_new=14 only_old=14
+  1D: n_new=1 n_old=1 matched=0 only_new=1 only_old=1
+
+2026_04_26 (src 1s rows: 10,142):
+  1m: n_new=192 n_old=540 matched=192 only_new=0 only_old=348
+    high: max_diff=0.2500  mean_diff=0.0013
+    close: max_diff=1.5000  mean_diff=0.0078
+    volume: max_diff=142.0000  mean_diff=0.7448
+  1h: n_new=4 n_old=9 matched=0 only_new=4 only_old=9
+
+2026_04_27 (src 1s rows: 70,438):
+  1m: n_new=1380 n_old=40 matched=40 only_new=1340 only_old=0
+
+2026_05_01 (src 1s rows: 45,258):
+  1m: n_new=840 n_old=840 matched=840 only_new=0 only_old=0
+    low: max_diff=41.0000  mean_diff=0.0488
+    close: max_diff=55.2500  mean_diff=0.0658
+    volume: max_diff=1.0000  mean_diff=0.0012
+
+2026_05_07 (src 1s rows: 65,098):
+  1m: n_new=1207 n_old=1206 matched=1206 only_new=1 only_old=0
+    volume: max_diff=1.0000  mean_diff=0.0017
+
+2026_05_15 (src 1s rows: 49,765):
+  1m: n_new=840 n_old=839 matched=839 only_new=1 only_old=0
