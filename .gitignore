@@ -142,3 +142,11 @@ training_iso_v2/output/
 # Claude Code harness runtime locks (auto-managed; not portable)
 .claude/*.lock
 
+
+# DRS day-level features + raw NT8 CSV exports + Databento raw (large, regenerable)
+DATA/CROSS_DAY/
+DATA/RAW/
+DATA/RAW_NT8/
+
+# Untrack OLD/ archive subfolders (preserved on disk, not in repo)
+DATA/ATLAS_NT8/OLD_parquet/
