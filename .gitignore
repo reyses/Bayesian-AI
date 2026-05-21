@@ -150,3 +150,9 @@ DATA/RAW_NT8/
 
 # Untrack OLD/ archive subfolders (preserved on disk, not in repo)
 DATA/ATLAS_NT8/OLD_parquet/
+
+# Live run outputs (regenerated every engine session — not source)
+reports/live/
+reports/screenshots/
+live/state/l5_overlay.txt
+live/state/dashboard_geometry.json

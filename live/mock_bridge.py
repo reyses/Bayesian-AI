@@ -64,6 +64,18 @@ class MockBridge:
         self._position_qty = 0
         self._position_side = ''
         self._last_price = 0.0
+        # Price of the most-recent BAR message put into engine's inbound
+        # queue. Used as the fill_price -- zero-slip relative to what the
+        # engine saw on its current bar. Without this, the replay loop
+        # races ahead during V2 feature compute and fills land on a stale
+        # bar's close.
+        self._last_bar_sent_price = 0.0
+        # Timestamp of the most-recent BAR sent to the engine. Used as the
+        # fill_time so a mock fill carries the REPLAYED bar's time, not the
+        # wall-clock time the mock happened to run. Wall-clock fill_time
+        # makes the engine set entry_ts to "now", which yields a negative
+        # bars_held (entry_ts > replayed bar ts) and breaks B9.
+        self._last_bar_sent_ts = 0.0
 
         # Load bars
         self._bars, self._day_to_replay = self._load_bars(day)
@@ -124,7 +136,13 @@ class MockBridge:
                 'order_id': order_id,
             })
 
-            fill_price = self._last_price
+            # Zero-slip fill: prefer the engine's stamped requested_price
+            # (= bar close where the decision was made -- exact zero-slip).
+            # Falls back to _last_bar_sent_price (mock_bridge's view of the
+            # most-recent bar sent to the engine) and finally _last_price.
+            req_px = msg.get('requested_price') or msg.get('limit_price')
+            fill_price = (float(req_px) if req_px
+                            else (self._last_bar_sent_price or self._last_price))
             position_effect = msg.get('position_effect', 'OPEN')
 
             if position_effect == 'OPEN':
@@ -143,7 +161,10 @@ class MockBridge:
                 'order_id': order_id,
                 'side': side,
                 'fill_price': fill_price,
-                'fill_time': time.time(),
+                # Bar-time of the replayed bar (NOT wall-clock). engine_v2
+                # sets the position entry_ts from this; wall-clock here
+                # gives a negative bars_held.
+                'fill_time': (self._last_bar_sent_ts or time.time()),
                 'qty': qty,
             })
 
@@ -155,12 +176,18 @@ class MockBridge:
                     'type': 'ORDER_ACK',
                     'order_id': 'BAY_CLOSE',
                 })
+                # Zero-slip exit: prefer engine's stamped requested_price
+                req_px_close = msg.get('requested_price') or msg.get('limit_price')
+                close_fill = (float(req_px_close) if req_px_close
+                                else (self._last_bar_sent_price or self._last_price))
                 self._priority_msgs.append({
                     'type': 'FILL',
                     'order_id': 'BAY_CLOSE',
                     'side': close_side,
-                    'fill_price': self._last_price,
-                    'fill_time': time.time(),
+                    'fill_price': close_fill,
+                    # Bar-time of the replayed bar (NOT wall-clock) -- see
+                    # the OPEN-fill note above.
+                    'fill_time': (self._last_bar_sent_ts or time.time()),
                     'qty': close_qty,
                 })
                 self._position_qty = 0
@@ -219,6 +246,8 @@ class MockBridge:
             if self._stop:
                 return
             self._last_price = float(row['close'])
+            self._last_bar_sent_price = self._last_price
+            self._last_bar_sent_ts = float(row['timestamp'])
             await self.inbound.put(self._row_to_msg(row))
 
         await self.inbound.put({'type': 'HISTORY_DONE'})
@@ -244,8 +273,11 @@ class MockBridge:
                 await asyncio.sleep(0)
 
             self._last_price = float(row['close'])
+            self._last_bar_sent_price = self._last_price
+            self._last_bar_sent_ts = float(row['timestamp'])
             await self.inbound.put(self._row_to_msg(row))
-            # Yield so the engine can process this bar (and any order it sends)
+            # Single yield -- the engine's requested_price stamp now makes
+            # fills bar-independent, so we don't need multi-yield handshake.
             await asyncio.sleep(0)
         pbar.close()
 

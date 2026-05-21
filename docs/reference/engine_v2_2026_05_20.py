@@ -9,8 +9,7 @@ Live Engine V2 — production pipeline, 7-step startup, SIM account.
 6. VERIFY   → Latency < 1s? Sync confirmed?
 7. TRADE    → Engine makes decisions, orders via OrderManager
 
-Runs the L5 zigzag engine (L5Decider): zigzag/R-trigger entries with the
-B7/B9/B10 sizing stack on V2 streaming features.
+Physics-only BlendedEngine with chained lightning (parallel contracts).
 All orders go to NT8 SIM account. No dry-run — SIM IS the test.
 
 Outputs:
@@ -51,6 +50,8 @@ logger = logging.getLogger('engine_v2')
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.protocol import MsgType, subscribe, place_order, close_position
+from training.live_feature_engine import LiveFeatureEngine
+from training.nightmare_blended import BlendedEngine
 from core.features import FEATURE_NAMES, N_FEATURES
 from config.symbols import SYMBOL_MAP
 from live.order_manager import OrderManager
@@ -103,7 +104,7 @@ class LiveEngineV2:
 
         # Core components (initialized in startup steps)
         self._client = None
-        self._lfe = None      # LiveFeatureEngineV2 (V2-only streaming features)
+        self._lfe = None      # LiveFeatureEngine (100% parity with training)
         self._engine = None
 
         # Position ledger — single source of truth for engine's position view.
@@ -302,10 +303,10 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 2: BUILD FEATURES')
 
-        # Refresh the B10 data chain so the day-regime sizer has a
-        # current row for today. Two steps, both unconditional (run
-        # before the "features up to date" early-return) and both
-        # NON-FATAL (failure -> B10 degrades, never crashes):
+        # L5 mode: refresh the B10 data chain so the day-regime sizer
+        # has a current row for today. Two steps, both unconditional
+        # (run before the V1 "features up to date" early-return) and
+        # both NON-FATAL (failure -> B10 degrades, never crashes):
         #
         #   2a. fetch_vix_dxy.py        -- network (yfinance), timeout 90s.
         #       On failure, the existing raw VIX/DXY parquets are reused
@@ -313,36 +314,37 @@ class LiveEngineV2:
         #   2b. build_cross_day_features.py -- offline, ~10-30s. Reads the
         #       (possibly just-refreshed) raw parquets + the 1m bars Step 1
         #       refreshed. On failure, B10 falls back to NORMAL mode.
-        import subprocess as _sp
+        if getattr(self._cfg, 'engine_mode', 'blended') == 'l5':
+            import subprocess as _sp
 
-        logger.info('  L5: refreshing VIX/DXY (yfinance)...')
-        try:
-            vd = _sp.run(
-                [sys.executable, 'tools/sourcing/fetch_vix_dxy.py'],
-                capture_output=True, text=True, timeout=90)
-            if vd.returncode == 0:
-                logger.info('  VIX/DXY refreshed')
-            else:
-                logger.warning(f'  VIX/DXY fetch failed (using existing '
-                                f'raw parquets): {vd.stderr[-160:]}')
-        except Exception as e:
-            logger.warning(f'  VIX/DXY fetch skipped (network?) '
-                            f'(using existing raw parquets): {e}')
+            logger.info('  L5: refreshing VIX/DXY (yfinance)...')
+            try:
+                vd = _sp.run(
+                    [sys.executable, 'tools/sourcing/fetch_vix_dxy.py'],
+                    capture_output=True, text=True, timeout=90)
+                if vd.returncode == 0:
+                    logger.info('  VIX/DXY refreshed')
+                else:
+                    logger.warning(f'  VIX/DXY fetch failed (using existing '
+                                    f'raw parquets): {vd.stderr[-160:]}')
+            except Exception as e:
+                logger.warning(f'  VIX/DXY fetch skipped (network?) '
+                                f'(using existing raw parquets): {e}')
 
-        logger.info('  L5: rebuilding cross_day_features for B10...')
-        try:
-            cd_result = _sp.run(
-                [sys.executable, 'tools/sourcing/build_cross_day_features.py'],
-                capture_output=True, text=True, timeout=300)
-            if cd_result.returncode == 0:
-                logger.info('  cross_day_features rebuilt (B10 ready)')
-            else:
-                logger.warning(f'  cross_day_features build failed '
-                                f'(B10 -> NORMAL mode): '
-                                f'{cd_result.stderr[-200:]}')
-        except Exception as e:
-            logger.warning(f'  cross_day_features build error '
-                            f'(B10 -> NORMAL mode): {e}')
+            logger.info('  L5: rebuilding cross_day_features for B10...')
+            try:
+                cd_result = _sp.run(
+                    [sys.executable, 'tools/sourcing/build_cross_day_features.py'],
+                    capture_output=True, text=True, timeout=300)
+                if cd_result.returncode == 0:
+                    logger.info('  cross_day_features rebuilt (B10 ready)')
+                else:
+                    logger.warning(f'  cross_day_features build failed '
+                                    f'(B10 -> NORMAL mode): '
+                                    f'{cd_result.stderr[-200:]}')
+            except Exception as e:
+                logger.warning(f'  cross_day_features build error '
+                                f'(B10 -> NORMAL mode): {e}')
 
         os.makedirs(FEATURES_NT8, exist_ok=True)
         atlas_5s = os.path.join(ATLAS_NT8, '5s')
@@ -382,12 +384,16 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 3: WARMUP')
 
-        # LiveFeatureEngineV2: V2 streaming subclass (185D vector on demand).
-        # v2_only=True: L5 purges the legacy V1 91D SFE entirely.
-        # B7/B9/B10 reason off V2; nothing in L5 reads V1 features.
-        from training.live_feature_engine_v2 import LiveFeatureEngineV2
-        self._lfe = LiveFeatureEngineV2(ATLAS_NT8, v2_only=True)
-        logger.info('  Feature engine: L5 (V2-ONLY -- V1 SFE purged)')
+        # LiveFeatureEngine: same batch SFE path as build_dataset (100% parity).
+        # engine_mode='l5' uses V2 streaming subclass (185D vector on demand).
+        if getattr(self._cfg, 'engine_mode', 'blended') == 'l5':
+            from training.live_feature_engine_v2 import LiveFeatureEngineV2
+            # v2_only=True: L5 purges the legacy V1 91D SFE entirely.
+            # B7/B9/B10 reason off V2; nothing in L5 reads V1 features.
+            self._lfe = LiveFeatureEngineV2(ATLAS_NT8, v2_only=True)
+            logger.info('  Engine mode: L5 (V2-ONLY -- V1 SFE purged)')
+        else:
+            self._lfe = LiveFeatureEngine(ATLAS_NT8)
         # Mock mode: skip the day being replayed so its bars arrive via on_bar
         exclude_day = None
         if self._mock_client and hasattr(self._mock_client, '_day_to_replay'):
@@ -462,14 +468,17 @@ class LiveEngineV2:
         else:
             logger.warning('  No checkpoint found — cold start')
 
-        from live.l5_decider import L5Decider, L5Context
-        pivot_source = getattr(self._cfg, 'pivot_source', 'stream')
-        l5_ctx = L5Context.load(pivot_source=pivot_source)
-        self._engine = L5Decider(l5_ctx)
-        logger.info(f'  Engine: L5Decider (pivot_source={pivot_source})')
-        if pivot_source == 'stream':
-            if '1m' in self._lfe._bars and len(self._lfe._bars['1m']) > 0:
-                self._engine.prime_atr_from_history(self._lfe._bars['1m'])
+        if getattr(self._cfg, 'engine_mode', 'blended') == 'l5':
+            from live.l5_decider import L5Decider, L5Context
+            pivot_source = getattr(self._cfg, 'pivot_source', 'stream')
+            l5_ctx = L5Context.load(pivot_source=pivot_source)
+            self._engine = L5Decider(l5_ctx)
+            logger.info(f'  Engine: L5Decider (pivot_source={pivot_source})')
+            if pivot_source == 'stream':
+                if '1m' in self._lfe._bars and len(self._lfe._bars['1m']) > 0:
+                    self._engine.prime_atr_from_history(self._lfe._bars['1m'])
+        else:
+            self._engine = BlendedEngine(use_cnn=False, live_mode=True)
 
         # Save pre-loaded end timestamp for gap check in Step 4
         self._preloaded_end_ts = self._last_ts
@@ -571,7 +580,7 @@ class LiveEngineV2:
         logger.info('')
         logger.info('STEP 5: CATCH-UP')
 
-        # Feed bars into LiveFeatureEngineV2 until caught up to wall time.
+        # Feed bars into LiveFeatureEngine until caught up to wall time.
         catchup_bars = 0
         wall_time = time.time()
 
@@ -1074,9 +1083,10 @@ class LiveEngineV2:
                 'timestamp': bar['timestamp'],
                 'positions': self._pos_ledger.snapshot(),
             }
-            # Hand the V2 getter to L5Decider (called lazily,
+            # L5 mode: hand the V2 getter to L5Decider (called lazily,
             # only when B7/B9 need V2 features).
-            eval_state['v2_getter'] = getattr(self._lfe, 'get_v2_vector', None)
+            if getattr(self._cfg, 'engine_mode', 'blended') == 'l5':
+                eval_state['v2_getter'] = getattr(self._lfe, 'get_v2_vector', None)
             batch = self._engine.evaluate(eval_state)
 
             # 3. Apply counter updates (does NOT close/open positions)
@@ -1304,35 +1314,36 @@ class LiveEngineV2:
                 'is_1m': False,
             })
 
-            # Push the decider's internal state so the dashboard
+            # L5 mode: push the decider's internal state so the dashboard
             # can overlay the indicators that actually drive decisions
             # (zigzag extreme, R-trigger threshold, B7/B9/B10).
-            eng = self._engine
-            zz = getattr(eng, '_zz_direction', 0)
-            self._gui.push({
-                'type': 'L5_STATE',
-                'r_price': getattr(eng, '_r_price', None),
-                'zz_dir': ('up' if zz == 1 else 'down' if zz == -1 else None),
-                'zz_extreme': getattr(eng, '_zz_extreme_price', None),
-                'b10_mode': getattr(eng, '_b10_mode', None),
-                'b7_pred': getattr(eng, '_last_b7_pred', None),
-                'b9_pred': getattr(eng, '_last_b9_pred', None),
-            })
-            # A detected-but-skipped R-trigger: surface it on the chart.
-            skip = getattr(eng, '_this_bar_skip', None)
-            if skip is not None:
+            if getattr(self._cfg, 'engine_mode', 'blended') == 'l5':
+                eng = self._engine
+                zz = getattr(eng, '_zz_direction', 0)
                 self._gui.push({
-                    'type': 'SIGNAL_SKIP',
-                    'price': bar['close'],
-                    'direction': skip.get('direction', '?'),
-                    'reason': skip.get('reason', ''),
-                    'pred_R': skip.get('pred_R'),
-                    'thr': skip.get('thr'),
-                    'skip_count': skip.get('skip_count', 0),
+                    'type': 'L5_STATE',
+                    'r_price': getattr(eng, '_r_price', None),
+                    'zz_dir': ('up' if zz == 1 else 'down' if zz == -1 else None),
+                    'zz_extreme': getattr(eng, '_zz_extreme_price', None),
+                    'b10_mode': getattr(eng, '_b10_mode', None),
+                    'b7_pred': getattr(eng, '_last_b7_pred', None),
+                    'b9_pred': getattr(eng, '_last_b9_pred', None),
                 })
-            # Mirror the L5 state to a flat file the NT8 BayesianCompanion
-            # indicator reads -- so the NT8 chart shows what Python shows.
-            self._write_l5_overlay(bar, skip, events)
+                # A detected-but-skipped R-trigger: surface it on the chart.
+                skip = getattr(eng, '_this_bar_skip', None)
+                if skip is not None:
+                    self._gui.push({
+                        'type': 'SIGNAL_SKIP',
+                        'price': bar['close'],
+                        'direction': skip.get('direction', '?'),
+                        'reason': skip.get('reason', ''),
+                        'pred_R': skip.get('pred_R'),
+                        'thr': skip.get('thr'),
+                        'skip_count': skip.get('skip_count', 0),
+                    })
+                # Mirror the L5 state to a flat file the NT8 BayesianCompanion
+                # indicator reads -- so the NT8 chart shows what Python shows.
+                self._write_l5_overlay(bar, skip, events)
 
             for ev in events:
                 if 'ENTRY' in ev:
@@ -1855,16 +1866,20 @@ def main():
     parser.add_argument('--headless', action='store_true', help='No dashboard GUI')
     parser.add_argument('--mock', action='store_true', help='Use MockBridge (replay ATLAS bars)')
     parser.add_argument('--mock-day', type=str, default=None, help='Day to replay (e.g. 2026_04_16)')
+    parser.add_argument('--engine-mode', choices=['blended', 'l5'], default='blended',
+                          help='Engine mode: blended (V1 + BlendedEngine, default) or '
+                                 'l5 (V2 + L5Decider, 1c Phase-1 deployment)')
     parser.add_argument('--pivot-source', choices=['stream', 'replay'], default='stream',
-                          help='L5: stream (causal detector) or replay '
+                          help='L5 only: stream (causal detector) or replay '
                                  '(inject pivots from production parquet, for SIM validation)')
     args = parser.parse_args()
 
     # LiveConfig is frozen; rebuild with overrides
     import dataclasses
     config = dataclasses.replace(LiveConfig(),
+                                    engine_mode=args.engine_mode,
                                     pivot_source=args.pivot_source)
-    logger.info(f'Engine: L5Decider  pivot_source={config.pivot_source}')
+    logger.info(f'Engine mode: {config.engine_mode}  pivot_source={config.pivot_source}')
     shared_state = {}
     gui_queue = None
 

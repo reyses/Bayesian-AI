@@ -1,0 +1,43 @@
+================================================================================
+MID-LEG ENTRY  --  E4: leg overlap-structure analysis
+================================================================================
+2,926 legs over 51 sealed OOS days
+
+--------------------------------------------------------------------------------
+CONSECUTIVE-LEG GAP  (entry[N+1] - exit[N], seconds)
+--------------------------------------------------------------------------------
+  consecutive pairs : 2,875
+  gap < 0 (overlap) : 4  (0.1%)
+  gap == 0          : 2,868  (99.8%)
+  gap > 0           : 3  (0.1%)
+  percentiles (s)   : min -15  p5 0  p25 0  med 0  p75 0  p95 0  max 20
+
+--------------------------------------------------------------------------------
+LEG DURATION  (exit - entry, seconds)
+--------------------------------------------------------------------------------
+  median 655s  mean 1146s  p90 2485s  max 13970s
+
+--------------------------------------------------------------------------------
+OVERLAP  &  ENGINE UTILISATION
+--------------------------------------------------------------------------------
+  legs overlapping any earlier leg : 4 / 2,926  (0.14%)
+  greedy 1-contract utilisation    : mean 99.9%  (busy time / session span, per day)
+  greedy-missed legs (engine busy) : 4 in 51 days
+
+  the genuinely-missable legs:
+    2026_04_21  leg  1593  entry 1776797674  exit 1776797979  dur 305s  exit_pnl $-110
+    2026_04_23  leg  1709  entry 1776950074  exit 1776950774  dur 700s  exit_pnl $-32
+    2026_04_24  leg  1778  entry 1777022554  exit 1777024439  dur 1885s  exit_pnl $+0
+    2026_05_07  leg  2367  entry 1778142334  exit 1778143494  dur 1160s  exit_pnl $-46
+
+================================================================================
+INTERPRETATION
+================================================================================
+Hardened zigzag legs are a near-perfect SEQUENTIAL PARTITION of the
+price path: leg N exits at a pivot, leg N+1 is born from that pivot,
+its R-trigger fires shortly after. Consecutive gaps are almost all
+>= 0, so a 1-contract engine riding leg N to its exit is free and
+ready before leg N+1 triggers. There is no meaningful population of
+legs missed because the engine was busy -> mid-leg / late-join entry
+has nothing to act on. "Lost signals" seen live are cold-start (fix:
+zigzag-state priming) or deliberate B7 skips -- NOT busy-missed legs.

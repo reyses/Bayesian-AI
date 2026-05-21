@@ -45,7 +45,7 @@ class TradingDashboard:
         self.shared_state = shared_state or {}
 
         self.root.title('BAYESIAN-AI v2')
-        self.root.geometry('1200x700')
+        # Geometry is restored from disk in _load_geometry() (called below).
         self.root.configure(bg=BG)
         self.root.minsize(900, 500)
 
@@ -77,8 +77,97 @@ class TradingDashboard:
         # Recent NT8 fill display
         self.last_nt8_fill_text = ''
 
+        # L5 engine state (pushed by engine via 'L5_STATE' messages)
+        self.l5_r_price = None        # zigzag reversal threshold (points)
+        self.l5_zz_dir = None         # 'up' / 'down'
+        self.l5_zz_extreme = None     # running extreme price
+        self.l5_b10_mode = None       # 'normal' / 'cautious'
+        self.l5_last_b7 = None        # last B7 pred_R
+        self.l5_last_b9 = None        # last B9 pred
+
+        # Skipped-signal tracking: an R-trigger fired but no entry taken.
+        # skip_flags is a parallel deque to `prices` -- each bar gets a
+        # None (no skip) or a direction string (skipped). They slide in
+        # lockstep so chart markers stay aligned.
+        self.skip_flags = deque(maxlen=500)
+        self.skip_count = 0
+        self.last_skip_text = ''
+
+        # Geometry persistence + debounced autosave
+        self._geom_save_job = None
+        self._load_geometry()
+
         self._build_ui()
+        self.root.bind('<Configure>', self._on_configure)
         self.root.after(100, self._poll_queue)
+
+    # ── Window geometry persistence ──
+
+    _GEOMETRY_FILE = 'live/state/dashboard_geometry.json'
+
+    def _load_geometry(self):
+        """Restore window position + size from the last session."""
+        import os, json
+        try:
+            if os.path.exists(self._GEOMETRY_FILE):
+                with open(self._GEOMETRY_FILE) as f:
+                    geom = json.load(f).get('geometry')
+                if geom:
+                    self.root.geometry(geom)
+                    return
+        except Exception:
+            pass
+        self.root.geometry('1200x700')   # default
+
+    def _on_configure(self, event):
+        """Debounced geometry save -- fires 800ms after the last move/resize."""
+        if event.widget is not self.root:
+            return
+        if self._geom_save_job is not None:
+            self.root.after_cancel(self._geom_save_job)
+        self._geom_save_job = self.root.after(800, self._save_geometry)
+
+    def _save_geometry(self):
+        import os, json
+        self._geom_save_job = None
+        try:
+            os.makedirs(os.path.dirname(self._GEOMETRY_FILE), exist_ok=True)
+            with open(self._GEOMETRY_FILE, 'w') as f:
+                json.dump({'geometry': self.root.geometry()}, f)
+        except Exception:
+            pass
+
+    # ── Screen capture ──
+
+    def _take_screenshot(self):
+        """Capture the dashboard window as a PNG (reports/screenshots/)."""
+        import os
+        from datetime import datetime
+        out_dir = os.path.join('reports', 'screenshots')
+        os.makedirs(out_dir, exist_ok=True)
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        path = os.path.join(out_dir, f'dashboard_{ts}.png')
+        try:
+            from PIL import ImageGrab
+            self.root.update_idletasks()
+            # Exact window bounds (handles multi-monitor + DPI)
+            x = self.root.winfo_rootx()
+            y = self.root.winfo_rooty()
+            w = self.root.winfo_width()
+            h = self.root.winfo_height()
+            img = ImageGrab.grab(bbox=(x, y, x + w, y + h), all_screens=True)
+            img.save(path)
+            if hasattr(self, 'lbl_save_status'):
+                self.lbl_save_status.config(text=f'shot: {os.path.basename(path)}')
+            print(f'  [SCREENSHOT] {path}')
+        except ImportError:
+            print('  [SCREENSHOT] Pillow not installed -- pip install Pillow')
+            if hasattr(self, 'lbl_save_status'):
+                self.lbl_save_status.config(text='shot: need Pillow')
+        except Exception as e:
+            print(f'  [SCREENSHOT] failed: {e}')
+            if hasattr(self, 'lbl_save_status'):
+                self.lbl_save_status.config(text=f'shot failed')
 
     def _build_ui(self):
         """Build the dashboard layout."""
@@ -248,9 +337,19 @@ class TradingDashboard:
         btn_row2.pack(fill=tk.X, pady=(4, 0))
 
         self.btn_save = tk.Button(btn_row2, text='SAVE NOW', bg=BLUE, fg=WHITE,
-                                   font=('Consolas', 11, 'bold'), width=14,
+                                   font=('Consolas', 11, 'bold'), width=10,
                                    command=self._on_save)
         self.btn_save.pack(side=tk.LEFT, padx=2)
+
+        self.btn_capture = tk.Button(btn_row2, text='CAPTURE', bg=CYAN, fg=BG,
+                                      font=('Consolas', 11, 'bold'), width=9,
+                                      command=self._take_screenshot)
+        self.btn_capture.pack(side=tk.LEFT, padx=2)
+
+        self.btn_close = tk.Button(btn_row2, text='CLOSE', bg='#8b1a1a', fg=WHITE,
+                                    font=('Consolas', 11, 'bold'), width=8,
+                                    command=self._on_close_clicked)
+        self.btn_close.pack(side=tk.LEFT, padx=2)
 
         self.lbl_save_status = tk.Label(btn_row2, text='',
                                          font=('Consolas', 9),
@@ -301,6 +400,35 @@ class TradingDashboard:
             self._update_engine_state()
             return
 
+        if msg_type == 'L5_STATE':
+            # L5 engine internals -- the indicators that actually drive
+            # trade decisions (zigzag/R-trigger/B7/B9/B10).
+            self.l5_r_price = msg.get('r_price')
+            self.l5_zz_dir = msg.get('zz_dir')
+            self.l5_zz_extreme = msg.get('zz_extreme')
+            self.l5_b10_mode = msg.get('b10_mode')
+            if msg.get('b7_pred') is not None:
+                self.l5_last_b7 = msg.get('b7_pred')
+            if msg.get('b9_pred') is not None:
+                self.l5_last_b9 = msg.get('b9_pred')
+            return
+
+        if msg_type == 'SIGNAL_SKIP':
+            # An R-trigger fired but no entry was taken (B7 low conviction,
+            # V2 warmup, etc.). Mark the current bar so the chart shows it.
+            self.skip_count = msg.get('skip_count', self.skip_count + 1)
+            direction = msg.get('direction', '?')
+            reason = msg.get('reason', '')
+            if self.skip_flags:
+                self.skip_flags[-1] = direction
+            pr = msg.get('pred_R')
+            thr = msg.get('thr')
+            if pr is not None and thr is not None:
+                self.last_skip_text = f'{direction} {reason} ({pr:.2f}<{thr:.2f})'
+            else:
+                self.last_skip_text = f'{direction} {reason}'
+            return
+
         if msg_type == 'TICK_UPDATE':
             price = msg.get('price', 0)
             self.last_price = price
@@ -315,6 +443,7 @@ class TradingDashboard:
 
             self.prices.append(price)
             self.z_history.append(self.last_z)
+            self.skip_flags.append(None)   # parallel to prices; SIGNAL_SKIP sets [-1]
             self._update_status()
             self._draw_price_chart()
 
@@ -505,6 +634,67 @@ class TradingDashboard:
                           x_at(i + 1), y_price(prices[i + 1]),
                           fill=BLUE, width=2)
 
+        # ── L5 zigzag overlay: running extreme + R-trigger threshold ──
+        # These are the indicators that actually drive L5 entries: the
+        # zigzag tracks an extreme; an R-trigger fires when price reverses
+        # by r_price from it.
+        if (self.l5_r_price is not None and self.l5_zz_extreme is not None
+                and self.l5_zz_dir is not None):
+            ext = self.l5_zz_extreme
+            rp = self.l5_r_price
+            # Reversal threshold: opposite side of the extreme by r_price
+            if self.l5_zz_dir == 'up':      # tracking a HIGH -> SHORT trigger below
+                thr = ext - rp
+            else:                            # tracking a LOW -> LONG trigger above
+                thr = ext + rp
+            # Extreme line (amber dashed) -- draw if within visible range
+            if p_min <= ext <= p_max:
+                ye = y_price(ext)
+                c.create_line(margin_l, ye, w - margin_r, ye,
+                              fill=AMBER, dash=(5, 3), width=1)
+                c.create_text(margin_l + 4, ye - 7, text='zz-extreme',
+                              anchor=tk.W, fill=AMBER, font=('Consolas', 7))
+            # R-trigger threshold line (cyan dashed)
+            if p_min <= thr <= p_max:
+                yt = y_price(thr)
+                c.create_line(margin_l, yt, w - margin_r, yt,
+                              fill=CYAN, dash=(5, 3), width=1)
+                c.create_text(margin_l + 4, yt - 7,
+                              text=f'R-trigger {thr:.2f}',
+                              anchor=tk.W, fill=CYAN, font=('Consolas', 7))
+            # L5 status block (bottom-left)
+            mode = (self.l5_b10_mode or 'normal').upper()
+            line1 = f'L5  r={rp:.1f}  dir={self.l5_zz_dir.upper()}  {mode}'
+            b7s = f'{self.l5_last_b7:.2f}' if self.l5_last_b7 is not None else '--'
+            b9s = (f'{self.l5_last_b9:+.1f}' if self.l5_last_b9 is not None else '--')
+            line2 = f'B7 {b7s}   B9 {b9s}   skips {self.skip_count}'
+            c.create_text(margin_l + 4, margin_t + chart_h - 32,
+                          text=line1, anchor=tk.W, fill=CYAN,
+                          font=('Consolas', 8, 'bold'))
+            c.create_text(margin_l + 4, margin_t + chart_h - 20,
+                          text=line2, anchor=tk.W, fill=FG,
+                          font=('Consolas', 8))
+            if self.last_skip_text:
+                c.create_text(margin_l + 4, margin_t + chart_h - 8,
+                              text=f'last skip: {self.last_skip_text}',
+                              anchor=tk.W, fill=AMBER, font=('Consolas', 8))
+
+        # ── Skipped-signal markers ──
+        # An R-trigger fired here but no entry was taken. Hollow amber
+        # triangle pointing the would-be trade direction (down=short skip,
+        # up=long skip). skip_flags is parallel to `prices`.
+        skips = list(self.skip_flags)
+        for i, sk in enumerate(skips):
+            if sk is None or i >= n:
+                continue
+            xs = x_at(i)
+            ys = y_price(prices[i])
+            if sk == 'short':   # would-be short -> triangle points down
+                pts = [xs - 4, ys - 7, xs + 4, ys - 7, xs, ys - 1]
+            else:               # long (or '?') -> triangle points up
+                pts = [xs - 4, ys + 7, xs + 4, ys + 7, xs, ys + 1]
+            c.create_polygon(pts, outline=AMBER, fill='', width=1)
+
         # ── Price axis labels (left) ──
         c.create_text(margin_l - 5, margin_t, text=f'{p_max:.2f}',
                       anchor=tk.E, fill=BLUE, font=('Consolas', 8))
@@ -631,6 +821,30 @@ class TradingDashboard:
         self.root.after(2000, lambda: self.lbl_save_status.config(text='saved',
                                                                     fg=GREEN))
         self.root.after(5000, lambda: self.lbl_save_status.config(text=''))
+
+    def _on_close_clicked(self):
+        """CLOSE button -- graceful engine shutdown.
+
+        Sets the shutdown flag the engine's trade loop polls. The engine
+        then flattens open positions, saves the checkpoint, disconnects,
+        and force-exits the process (os._exit) -- which closes this window
+        too. We save geometry first and show a status; a 20s fallback
+        destroys the window if the engine never takes the process down
+        (e.g. engine crashed before Step 7).
+        """
+        self._save_geometry()
+        self.shared_state['shutdown'] = True
+        try:
+            self.lbl_save_status.config(
+                text='closing -- engine flattening + saving...', fg=AMBER)
+            self.btn_close.config(state='disabled', text='CLOSING')
+            for b in (self.btn_flatten, self.btn_buy, self.btn_sell,
+                       self.btn_save, self.btn_capture):
+                b.config(state='disabled')
+        except Exception:
+            pass
+        # Fallback: if the engine doesn't os._exit within 20s, close anyway.
+        self.root.after(20000, self.root.destroy)
 
 
 # Alias for engine_v2 compatibility

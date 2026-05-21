@@ -1,33 +1,21 @@
 // =============================================================================
-// BayesianBridge 7.1.0 -- 2026-05-20
+// BayesianBridge 7.0.0 -- 2026-04-15 06:45
 // =============================================================================
 //
-// CHANGELOG 7.1.0:
-//   - DATA SERIES DECOUPLED FROM HOST CHART. The bridge now streams + trades
-//     a configurable TargetInstrument regardless of which chart the indicator
-//     is hosted on. Drop it on ANY chart -- it always streams MNQ (or whatever
-//     TargetInstrument is set to).
-//   - New "Target Instrument" property (default "MNQ 06-26").
-//   - Configure adds explicit data series for TargetInstrument:
-//       idx 0 = host chart   (IGNORED -- never streamed)
-//       idx 1 = 5s anchor    idx 2 = 1m    idx 3 = 1h
-//   - Bar JSON, order routing (CreateOrder), FindPosition, and instrument
-//     safety checks all use the resolved target instrument, not the chart.
-//   - OnPositionUpdate filters to the target instrument + prices unrealized
-//     PnL off the 5s series close (not the host chart's Close[0]).
-//   - Safe-fail: if TargetInstrument cannot be resolved, DataLoaded prints
-//     FATAL and the server never starts -- no silent wrong-instrument trading.
-//
-// CHANGELOG 7.0.0 (2026-04-15):
-//   - PLACE_ORDER reads "position_effect" field (OPEN | REDUCE)
-//   - REDUCE orders REJECTED if no matching opposing position exists
-//   - Fixes chain-exit bug (CHEXIT_* opening opposing positions)
+// CHANGELOG 7.0.0:
+//   - PLACE_ORDER now reads "position_effect" field (OPEN | REDUCE)
+//     OPEN   -> OrderAction.Buy / OrderAction.SellShort  (open or add)
+//     REDUCE -> OrderAction.Sell / OrderAction.BuyToCover (close existing)
+//   - REDUCE orders are REJECTED if no matching opposing position exists
+//   - Backward compat: missing position_effect defaults to OPEN (old behaviour)
+//   - Fixes critical bug where chain exits opened new opposing positions
+//     instead of scaling out (every CHEXIT_* was using SellShort/Buy)
 //
 // =============================================================================
 // BayesianBridge — NinjaTrader 8 NinjaScript Indicator
 //
 // PURPOSE: TCP server inside NT8 that bridges to the Python live trading engine.
-//   - Streams completed bars for TargetInstrument (5s/1m/1h) to Python
+//   - Streams completed bars (any TF, e.g. 1s) to Python
 //   - Streams PARTIAL_BAR for forming bars (higher TFs on child close,
 //     sub-minute on throttled ticks) so TBN workers get fresh beliefs
 //   - Receives PLACE_ORDER / CLOSE_POSITION / CANCEL_ORDER from Python
@@ -36,9 +24,8 @@
 // INSTALLATION:
 //   1. Copy this file to: Documents\NinjaTrader 8\bin\Custom\Indicators\
 //   2. In NT8: Tools > NinjaScript Editor > right-click > Compile
-//   3. Add indicator to ANY chart (instrument/TF no longer matters)
-//   4. Set the "Target Instrument" property to the MNQ front month
-//   5. Start the Python live engine: python -m live.engine_v2 --engine-mode l5
+//   3. Add indicator to ANY MNQ chart (1s, 15s, 1m, etc.) on your sim account
+//   4. Start the Python live engine: python -m live.launcher
 //
 // PROTOCOL: Length-prefixed JSON over TCP (port 5199)
 //   Wire format: [4 bytes: uint32 big-endian payload length][N bytes: UTF-8 JSON]
@@ -82,16 +69,8 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "DOM Levels", Description = "Depth of Market levels to track (0 = disabled)", Order = 3, GroupName = "Bridge")]
         public int DomLevels { get; set; }
 
-        [NinjaScriptProperty]
-        [Display(Name = "Target Instrument", Description = "Instrument to stream + trade, INDEPENDENT of the host chart (e.g. MNQ 06-26)", Order = 4, GroupName = "Bridge")]
-        public string TargetInstrument { get; set; }
-
         // ── Version ──────────────────────────────────────────────────
-        // 7.1.0: data series decoupled from host chart. The bridge now
-        //        streams + trades TargetInstrument regardless of which
-        //        chart the indicator is hosted on. Host chart series
-        //        (BarsInProgress index 0) is ignored entirely.
-        private const string BRIDGE_VERSION = "7.1.0";
+        private const string BRIDGE_VERSION = "7.0.0";
 
         // ── Internal State ────────────────────────────────────────────
         private TcpListener  _listener;
@@ -106,18 +85,11 @@ namespace NinjaTrader.NinjaScript.Indicators
         private readonly Queue<Dictionary<string, string>> _inboundQueue
             = new Queue<Dictionary<string, string>>();
 
-        // Map BarsInProgress index -> period label for the BAR message.
-        // v7.1.0: index 0 = HOST CHART (ignored). Indices 1+ = the
-        // explicitly-added TargetInstrument data series.
+        // Map BarsInProgress index -> period label for the BAR message
+        // Index 0 = primary chart (auto-detected), indices 1+ = added data series
         private string[] _barLabels;
         private int[]    _barPeriodSecs;
-        private int      _primaryPeriodSecs;  // host chart period (informational only)
-
-        // The instrument the bridge actually streams + trades, resolved
-        // from the first added data series (BarsArray[ANCHOR_IDX]).
-        // Decoupled from the host chart's Instrument.
-        private Instrument _targetInstr;
-        private const int  ANCHOR_IDX = 1;   // BarsInProgress index of the 5s anchor series
+        private int      _primaryPeriodSecs;  // primary chart period in seconds
 
         // History buffer — completed bars (TFs 1-11 only, skip 1s) stored
         // here; dumped to client on connect so Python bypasses warmup.
@@ -164,50 +136,40 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Port        = 5199;
                 AccountName = "Sim101";
                 DomLevels   = 5;
-                TargetInstrument = "MNQ 06-26";
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 Calculate           = Calculate.OnBarClose;
             }
             else if (State == State.Configure)
             {
-                // ── v7.1.0: explicit TargetInstrument data series ───────
-                // The host chart (BarsInProgress index 0) is IGNORED. We
-                // add our own series for TargetInstrument so the bridge
-                // streams + trades the same instrument no matter which
-                // chart the indicator is dropped on.
-                //
-                //   idx 0 = host chart            (ignored)
-                //   idx 1 = TargetInstrument 5s   (ANCHOR_IDX)
-                //   idx 2 = TargetInstrument 1m
-                //   idx 3 = TargetInstrument 1h
-                _primaryPeriodSecs = GetBarsPeriodSeconds(BarsPeriod);  // informational
+                // ── Detect primary chart timeframe dynamically ──────────
+                _primaryPeriodSecs = GetBarsPeriodSeconds(BarsPeriod);
+                string primaryLabel = GetTFLabel(_primaryPeriodSecs);
 
-                AddDataSeries(TargetInstrument, BarsPeriodType.Second, 5);
-                AddDataSeries(TargetInstrument, BarsPeriodType.Minute, 1);
-                AddDataSeries(TargetInstrument, BarsPeriodType.Minute, 60);
+                // Minimal TF set: 1m (anchor) + 1h (structure). Primary is 1s.
+                // Reduced from 12 series to 2 — cuts NT8 memory load by 83%.
+                BarsPeriodType[] addTypes  = { BarsPeriodType.Minute, BarsPeriodType.Minute };
+                int[]    addValues = { 1, 60 };
+                string[] addLabels = { "1m", "1h" };
+                int[]    addSecs   = { 60, 3600 };
 
-                // Index-aligned with BarsInProgress. Slot 0 is the host
-                // chart placeholder -- never emitted (OnBarUpdate skips it).
-                _barLabels     = new string[] { "(host)", "5s", "1m", "1h" };
-                _barPeriodSecs = new int[]    { 0,        5,    60,   3600 };
+                var labels  = new List<string> { primaryLabel };
+                var periods = new List<int>    { _primaryPeriodSecs };
+
+                for (int i = 0; i < addSecs.Length; i++)
+                {
+                    if (addSecs[i] > _primaryPeriodSecs)
+                    {
+                        AddDataSeries(addTypes[i], addValues[i]);
+                        labels.Add(addLabels[i]);
+                        periods.Add(addSecs[i]);
+                    }
+                }
+
+                _barLabels     = labels.ToArray();
+                _barPeriodSecs = periods.ToArray();
             }
             else if (State == State.DataLoaded)
             {
-                // Resolve the target instrument from the anchor data series.
-                // BarsArray[ANCHOR_IDX] is the 5s TargetInstrument series
-                // added in Configure -- its Instrument is what we trade.
-                if (BarsArray != null && BarsArray.Length > ANCHOR_IDX
-                    && BarsArray[ANCHOR_IDX] != null)
-                {
-                    _targetInstr = BarsArray[ANCHOR_IDX].Instrument;
-                }
-                if (_targetInstr == null)
-                {
-                    Print("BayesianBridge: FATAL — could not resolve TargetInstrument '"
-                        + TargetInstrument + "'. Check the contract name.");
-                    return;
-                }
-
                 // Find the account
                 lock (Account.All)
                 {
@@ -252,10 +214,9 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 Print("BayesianBridge " + BRIDGE_VERSION + ": Started on port " + Port
                     + ", account=" + AccountName
-                    + ", target=" + _targetInstr.FullName
-                    + ", host_chart=" + GetTFLabel(_primaryPeriodSecs)
-                    + " (streaming " + (_barLabels.Length - 1) + " series: "
-                    + string.Join(",", _barLabels, 1, _barLabels.Length - 1) + ")");
+                    + ", chart=" + GetTFLabel(_primaryPeriodSecs)
+                    + " (" + _barLabels.Length + " series: "
+                    + string.Join(",", _barLabels) + ")");
             }
             else if (State == State.Terminated)
             {
@@ -313,10 +274,6 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             int idx = BarsInProgress;
             if (_barLabels == null || idx >= _barLabels.Length)
-                return;
-            // v7.1.0: index 0 is the host chart -- never streamed. Only the
-            // explicitly-added TargetInstrument series (idx 1+) are emitted.
-            if (idx == 0 || _targetInstr == null)
                 return;
             if (CurrentBars[idx] < 1 || IsFirstTickOfBar == false)
                 return;
@@ -386,7 +343,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Base JSON without live flag (stored in history buffer)
             string jsonBase = "{"
                 + Q("type") + ":" + Q("BAR") + ","
-                + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                 + Q("tf") + ":" + Q(_barLabels[idx]) + ","
                 + Q("bar_period_s") + ":" + _barPeriodSecs[idx] + ","
                 + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[idx][1])) + ","
@@ -446,7 +403,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 string partial = "{"
                     + Q("type") + ":" + Q("PARTIAL_BAR") + ","
-                    + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                     + Q("tf") + ":" + Q(_barLabels[hi]) + ","
                     + Q("bar_period_s") + ":" + _barPeriodSecs[hi] + ","
                     + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[hi][0])) + ","
@@ -476,14 +433,13 @@ namespace NinjaTrader.NinjaScript.Indicators
                 return;
             _lastPartialSend = now;
 
-            // Start at i=1 -- index 0 is the host chart placeholder (period 0).
-            for (int i = 1; i < _barPeriodSecs.Length; i++)
+            for (int i = 0; i < _barPeriodSecs.Length; i++)
             {
                 if (_barPeriodSecs[i] >= 60) break;  // sorted ascending — stop at 1m+
                 if (CurrentBars[i] < 1) continue;
                 string partial = "{"
                     + Q("type") + ":" + Q("PARTIAL_BAR") + ","
-                    + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                     + Q("tf") + ":" + Q(_barLabels[i]) + ","
                     + Q("bar_period_s") + ":" + _barPeriodSecs[i] + ","
                     + Q("timestamp") + ":" + D2S(ToUnixSeconds(Times[i][0])) + ","
@@ -531,7 +487,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             string json = "{"
                 + Q("type") + ":" + Q("DOM") + ","
-                + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                 + Q("bid") + ":" + D2S(_bestBid) + ","
                 + Q("bid_size") + ":" + _bestBidSize + ","
                 + Q("ask") + ":" + D2S(_bestAsk) + ","
@@ -666,13 +622,6 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (e.Position == null) return;
 
-            // v7.1.0: ignore position updates for instruments we don't trade.
-            // The account may hold positions in other symbols; the bridge
-            // only reports/manages TargetInstrument.
-            if (_targetInstr != null
-                && e.Position.Instrument.FullName != _targetInstr.FullName)
-                return;
-
             try
             {
                 int qty = 0;
@@ -681,15 +630,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 else if (e.Position.MarketPosition == MarketPosition.Short)
                     qty = -e.Position.Quantity;
 
-                // Unrealized PnL priced off the target series' last close
-                // (NOT the host chart's Close[0]).
-                double refPx = 0;
-                try { refPx = Closes[ANCHOR_IDX][0]; }
-                catch { }
                 double unrealPnl = 0;
                 try { unrealPnl = e.Position.GetUnrealizedProfitLoss(
-                    PerformanceUnit.Currency, refPx); }
-                catch { }  // ref price may not be available yet
+                    PerformanceUnit.Currency, Close[0]); }
+                catch { }  // Close[0] may not be available yet
 
                 string json = "{"
                     + Q("type") + ":" + Q("POSITION") + ","
@@ -750,7 +694,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string connJson = "{"
                             + Q("type") + ":" + Q("CONNECTED") + ","
                             + Q("account") + ":" + Q(AccountName) + ","
-                            + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                            + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                             + Q("primary_period_s") + ":" + _primaryPeriodSecs + ","
                             + Q("version") + ":" + Q(BRIDGE_VERSION)
                             + "}";
@@ -951,10 +895,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             // Instrument safety check — reject if Python wants a different symbol
             if (reqInst.Length > 0
-                && !_targetInstr.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
+                && !Instrument.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
             {
                 Print("BayesianBridge: REJECTED PLACE_ORDER — instrument mismatch: "
-                    + "requested=" + reqInst + " target=" + _targetInstr.FullName);
+                    + "requested=" + reqInst + " chart=" + Instrument.FullName);
                 SendOrderRejected(orderId, "instrument_mismatch");
                 return;
             }
@@ -1023,7 +967,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             try
             {
                 Order order = _account.CreateOrder(
-                    _targetInstr,
+                    Instrument,
                     action,
                     OrderType.Market,
                     OrderEntry.Manual,
@@ -1050,10 +994,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             // Instrument safety check
             if (reqInst.Length > 0
-                && !_targetInstr.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
+                && !Instrument.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
             {
                 Print("BayesianBridge: REJECTED CLOSE_POSITION — instrument mismatch: "
-                    + "requested=" + reqInst + " target=" + _targetInstr.FullName);
+                    + "requested=" + reqInst + " chart=" + Instrument.FullName);
                 return;
             }
 
@@ -1068,7 +1012,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         ? OrderAction.Sell : OrderAction.BuyToCover;
 
                     Order closeOrder = _account.CreateOrder(
-                        _targetInstr,
+                        Instrument,
                         action,
                         OrderType.Market,
                         OrderEntry.Manual,
@@ -1208,7 +1152,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 string json = "{"
                     + Q("type") + ":" + Q("POSITION") + ","
-                    + Q("instrument") + ":" + Q(_targetInstr.FullName) + ","
+                    + Q("instrument") + ":" + Q(Instrument.FullName) + ","
                     + Q("qty") + ":" + qty + ","
                     + Q("avg_price") + ":" + D2S(avgPrice)
                     + "}";
@@ -1316,10 +1260,10 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         private Position FindPosition()
         {
-            if (_account == null || _targetInstr == null) return null;
+            if (_account == null) return null;
             foreach (Position p in _account.Positions)
             {
-                if (p.Instrument.FullName == _targetInstr.FullName)
+                if (p.Instrument.FullName == Instrument.FullName)
                     return p;
             }
             return null;
@@ -1459,6 +1403,7 @@ namespace NinjaTrader.NinjaScript.Indicators
     }
 }
 
+
 #region NinjaScript generated code. Neither change nor remove.
 
 namespace NinjaTrader.NinjaScript.Indicators
@@ -1466,18 +1411,18 @@ namespace NinjaTrader.NinjaScript.Indicators
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
 		private BayesianBridge[] cacheBayesianBridge;
-		public BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
+		public BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
 		{
-			return BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
+			return BayesianBridge(Input, port, accountName, domLevels);
 		}
 
-		public BayesianBridge BayesianBridge(ISeries<double> input, int port, string accountName, int domLevels, string targetInstrument)
+		public BayesianBridge BayesianBridge(ISeries<double> input, int port, string accountName, int domLevels)
 		{
 			if (cacheBayesianBridge != null)
 				for (int idx = 0; idx < cacheBayesianBridge.Length; idx++)
-					if (cacheBayesianBridge[idx] != null && cacheBayesianBridge[idx].Port == port && cacheBayesianBridge[idx].AccountName == accountName && cacheBayesianBridge[idx].DomLevels == domLevels && cacheBayesianBridge[idx].TargetInstrument == targetInstrument && cacheBayesianBridge[idx].EqualsInput(input))
+					if (cacheBayesianBridge[idx] != null && cacheBayesianBridge[idx].Port == port && cacheBayesianBridge[idx].AccountName == accountName && cacheBayesianBridge[idx].DomLevels == domLevels && cacheBayesianBridge[idx].EqualsInput(input))
 						return cacheBayesianBridge[idx];
-			return CacheIndicator<BayesianBridge>(new BayesianBridge(){ Port = port, AccountName = accountName, DomLevels = domLevels, TargetInstrument = targetInstrument }, input, ref cacheBayesianBridge);
+			return CacheIndicator<BayesianBridge>(new BayesianBridge(){ Port = port, AccountName = accountName, DomLevels = domLevels }, input, ref cacheBayesianBridge);
 		}
 	}
 }
@@ -1486,14 +1431,14 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 {
 	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
 	{
-		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
+		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
 		{
-			return indicator.BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
+			return indicator.BayesianBridge(Input, port, accountName, domLevels);
 		}
 
-		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels, string targetInstrument)
+		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels)
 		{
-			return indicator.BayesianBridge(input, port, accountName, domLevels, targetInstrument);
+			return indicator.BayesianBridge(input, port, accountName, domLevels);
 		}
 	}
 }
@@ -1502,14 +1447,14 @@ namespace NinjaTrader.NinjaScript.Strategies
 {
 	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
 	{
-		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
+		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels)
 		{
-			return indicator.BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
+			return indicator.BayesianBridge(Input, port, accountName, domLevels);
 		}
 
-		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels, string targetInstrument)
+		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels)
 		{
-			return indicator.BayesianBridge(input, port, accountName, domLevels, targetInstrument);
+			return indicator.BayesianBridge(input, port, accountName, domLevels);
 		}
 	}
 }

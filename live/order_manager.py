@@ -210,10 +210,17 @@ class OrderManager:
         self._daily_loss_limit_hit = False
         logger.warning(f"Loss limit unlocked (daily PnL still ${self._daily_pnl:+.2f})")
 
-    def build_entry_order(self, side: str) -> Optional[dict]:
+    def build_entry_order(self, side: str, allow_flip: bool = False) -> Optional[dict]:
         """
         Build a PLACE_ORDER message for a new entry.
         Returns None if ANY order is pending or risk limits hit.
+
+        Args:
+            side: 'BUY' or 'SELL'
+            allow_flip: when True, bypass the `can_enter` check (which
+                requires is_flat). Used when engine signals an exit + entry
+                in the same bar (L5 zigzag-reverse flip). The exit order
+                must have been sent immediately prior.
         """
         # Hard safety: never exceed max in-flight orders
         MAX_OPEN_ORDERS = 3
@@ -222,7 +229,7 @@ class OrderManager:
             logger.error(f"SAFETY LOCKOUT: {in_flight} in-flight orders (max={MAX_OPEN_ORDERS})")
             return None
 
-        if not self.can_enter:
+        if not allow_flip and not self.can_enter:
             if self.is_awaiting_open():
                 logger.warning("Entry blocked: awaiting OPEN fill")
             elif self.is_awaiting_reduce():

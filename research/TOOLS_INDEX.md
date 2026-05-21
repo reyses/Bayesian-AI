@@ -157,6 +157,10 @@ Complete index of everything under `tools/`. Grouped by function. Each entry: **
 | `winner_maxout_loser_rehab.py` | Trail stop on winners + direction flip on losers |
 | `big_loss_entry_signature.py` | Features at entry that predict catastrophic losses (Cohen d) |
 | `big_loss_physics.py` | When do catastrophic losers tip their hand (MAE / running PnL)? |
+| `forward_pass_midleg_entry.py` | Mid-leg entry E1: B9-gated unconstrained late-join forward pass (51d sealed OOS) |
+| `midleg_b1to6_augmented.py` | Mid-leg entry E2: B1-B6 pivot-structure augmentation vs B9-alone + structure gates + pullback filter |
+| `midleg_constrained_sim.py` | Mid-leg entry E3: position-constrained 1-contract greedy late-join sim (the operational truth) |
+| `midleg_overlap_analysis.py` | Mid-leg entry E4: leg overlap-structure analysis — proves zigzag legs are a sequential partition |
 
 ## 10. Peak Research
 

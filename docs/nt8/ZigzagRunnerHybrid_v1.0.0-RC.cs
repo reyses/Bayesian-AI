@@ -1,6 +1,27 @@
 // =============================================================================
-// ZigzagRunnerHybrid 1.0.0-RC -- 2026-05-18
+// ZigzagRunnerHybrid 1.0.0-RC -- 2026-05-18  (DEPRECATED 2026-05-18)
 // =============================================================================
+//
+// STATUS: REJECTED RESEARCH ARTIFACT. Do NOT compile or deploy.
+//   Rename to ZigzagRunnerHybrid_v1.0.0-RC.REJECTED.cs per CLAUDE.md
+//   versioning policy if it stays in tree.
+//
+// REASON FOR DEPRECATION
+//   This strategy + companion live/L5_sidecar.py duplicate ~80% of the
+//   existing live/engine_v2.py + OrderManager + nt8_client infrastructure
+//   (pending-order tracking, fill reconciliation, NT8 transport, position
+//   state, mock-bridge). Decision logic belongs in Python (engine_v2);
+//   NT8 should be a dumb pipe streaming bars + accepting orders, NOT a
+//   strategy host that calls back to Python.
+//
+// CORRECT PATH (see docs/L5_HYBRID_PIPELINE_SPEC.md):
+//   * Keep ZigzagRunnerNative_v1.0.0-RC.cs as research-grade NT8-native
+//     zigzag (matches Python ATR(14)x4 calibration) for tick-precise
+//     pivot validation -- not as a production decision point.
+//   * Move all B7/B9/B10 logic into live/l5_decider.py inside engine_v2.
+//   * Use existing BayesianBridge.cs v7.0.0 for bar streaming + orders.
+//
+// ──────────────────────── ORIGINAL HEADER ────────────────────────
 //
 // PURPOSE
 //   Hybrid NT8 + Python sidecar deployment of the full L5 stack:

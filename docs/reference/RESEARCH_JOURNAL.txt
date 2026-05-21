@@ -3835,3 +3835,63 @@ Next research directions:
   - Wait for 60-90 more OOS days, then re-run sealed test.
   - DRS-as-VETO rejected (anti-predictive on tails).
 
+
+=============================================================================
+MID-LEG ENTRY / MISSED-SIGNAL LATE-JOIN — RESEARCH (2026-05-20, autonomous)
+=============================================================================
+
+QUESTION
+--------
+Can the live L5 engine late-join an R-trigger it missed (cold start, or busy
+in another position)? User forks: Fork 1 = B9-gated late join; Fork 2 =
+augment with the B1-B6 pivot-structure models. 5 experiments, 51-day sealed
+OOS trajectory dataset.
+
+VERDICT: DO NOT BUILD. No addressable population of missed legs.
+
+EXPERIMENTS
+-----------
+E1  Fork 1, B9-gated, UNCONSTRAINED (tools/forward_pass_midleg_entry.py):
+      late-joiner at bar K captures remaining_pnl = exit_pnl - pnl_so_far
+      (= B9's training target). Principled gate B9_pred > $6 friction:
+        K=5  +$303/day CI [+160,+457] SIG
+        K=10 +$232/day CI [+86,+388]  SIG
+        K=30 +$78 / K=60 +$50 / K=120 -$19  (all not sig)
+      Unconditional join loses at every K -> the gate is essential. But
+      +$303 is the value of B9-GATING late entries, not new money: the
+      baseline already enters every leg at K=0; K=5 is the SAME legs 25s
+      later (strictly worse).
+
+E2  Fork 2, B1-B6 augmentation (tools/midleg_b1to6_augmented.py):
+      model A = GBM on B9's 190 features; model B = A + 18 B1-B6 prediction
+      features. delta(B-A): K=5 -$76/day CI [-158,-2] SIG NEGATIVE; all K
+      neutral-to-harmful. B1-B6 ARE in-distribution mid-leg (trained on all
+      1m bars) but the B9 GBM already extracts pivot-structure from the raw
+      V2 features -> stacked B1-B6 predictions add only noise. Same failure
+      as the rejected lead-in PCA. Structure gates lose money; pullback
+      filter = non-sig nudge. FORK 2 REJECTED.
+
+E3  Position-constrained 1-contract sim (tools/midleg_constrained_sim.py):
+      greedy baseline catches 2,922 / 2,926 legs (gross ~$466/day ~ known
+      FLAT-1c $454 -> sim calibrated). Late-join: incremental -$1/day
+      CI [-2,+1] not sig; only 4 late-joins in 51 days. MOOT.
+
+E4  Leg overlap structure (tools/midleg_overlap_analysis.py):
+      99.8% of consecutive-leg gaps = 0; engine utilisation 99.9%; 4/2926
+      legs overlap any earlier leg; the 4 missable legs are all losers.
+
+ROOT CAUSE
+----------
+Hardened zigzag legs are a SEQUENTIAL PARTITION of the price path: leg N
+exits at a pivot, leg N+1 is born from that pivot. The engine rides one leg
+to exit and is ready before the next triggers. There is no parallel-signal
+population. Structural -- will not change with contract scaling.
+
+The "lost signals" seen live = cold-start (~7 first-of-session legs/day lost
+to the ~20-min feature-engine + zigzag warmup, when the engine cannot
+compute) or deliberate B7 skips -- NOT busy-missed legs. Fix = zigzag-state
+priming (replay detect_swings + pre-warm feature engine at startup), NOT
+late-join.
+
+Report: reports/findings/regret_oracle/2026-05-20_midleg_entry_research.md
+

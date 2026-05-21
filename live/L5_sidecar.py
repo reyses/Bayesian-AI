@@ -1,4 +1,30 @@
-"""L5 Hybrid Sidecar — applies B7 (entry) + B9 (during-trade) + B10 (day-level)
+"""L5 Hybrid Sidecar — DEPRECATED 2026-05-18.
+
+Status: research artifact / reference only. Do NOT run in production.
+
+Reason for deprecation: this sidecar duplicates ~80% of `live/engine_v2.py`'s
+existing infrastructure — pending-order tracking, fill reconciliation, NT8
+transport, position state, mock-bridge support are all already implemented
+in the engine_v2 + OrderManager + nt8_client + Ledger stack.
+
+Correct path (see docs/L5_HYBRID_PIPELINE_SPEC.md):
+  1. Build `training/live_feature_engine_v2.py` as a subclass of
+     `LiveFeatureEngine` adding `get_v2_vector(ts)` (on-demand V2
+     features, not streaming).
+  2. Build `live/l5_decider.py` with same `evaluate(state) -> Batch`
+     interface as `BlendedEngine` — runs zigzag/R-trigger/B7/B9 logic.
+  3. Swap `self._engine = BlendedEngine(...)` for `L5Decider(...)` in
+     `live/engine_v2.py` behind a `LiveConfig.engine_mode` flag.
+
+The zigzag state machine and B9-at-K=5 sweep logic in this file are
+worth lifting into `live/l5_decider.py`. Everything else (sidecar
+protocol, IPC, threading) should be discarded.
+
+Companion deprecation: `docs/nt8/ZigzagRunnerHybrid_v1.0.0-RC.cs`.
+
+──────────────────────── ORIGINAL DOCSTRING ────────────────────────
+
+L5 Hybrid Sidecar — applies B7 (entry) + B9 (during-trade) + B10 (day-level)
 sizing on behalf of the NT8 ZigzagRunnerHybrid strategy.
 
 PROTOCOL (JSON over TCP, length-prefixed per BayesianBridge.cs v7.0.0 pattern):

@@ -1,50 +1,58 @@
 // =============================================================================
-// BayesianBridge 7.1.0 -- 2026-05-20
+// BayesianBridgeStrategy 7.1.0-RC -- 2026-05-20
 // =============================================================================
 //
-// CHANGELOG 7.1.0:
-//   - DATA SERIES DECOUPLED FROM HOST CHART. The bridge now streams + trades
-//     a configurable TargetInstrument regardless of which chart the indicator
-//     is hosted on. Drop it on ANY chart -- it always streams MNQ (or whatever
-//     TargetInstrument is set to).
-//   - New "Target Instrument" property (default "MNQ 06-26").
-//   - Configure adds explicit data series for TargetInstrument:
-//       idx 0 = host chart   (IGNORED -- never streamed)
-//       idx 1 = 5s anchor    idx 2 = 1m    idx 3 = 1h
-//   - Bar JSON, order routing (CreateOrder), FindPosition, and instrument
-//     safety checks all use the resolved target instrument, not the chart.
-//   - OnPositionUpdate filters to the target instrument + prices unrealized
-//     PnL off the 5s series close (not the host chart's Close[0]).
-//   - Safe-fail: if TargetInstrument cannot be resolved, DataLoaded prints
-//     FATAL and the server never starts -- no silent wrong-instrument trading.
+// STRATEGY variant of BayesianBridge. Same TCP bridge, same protocol, same
+// wire version -- hosted as a NinjaScript STRATEGY instead of an Indicator.
+//
+// WHY A STRATEGY:
+//   - Runs from the Control Center "Strategies" tab -- NO chart needed.
+//   - Survives NT8 restarts (running strategies auto-re-enable).
+//   - Cleaner enable/disable + lifecycle than a chart-hosted indicator.
+//
+// CRITICAL: IsUnmanaged = true.
+//   The bridge submits orders via the raw Account.CreateOrder / Account.Submit
+//   API (Python decides everything). It never uses NT8's managed EnterLong()/
+//   ExitLong() framework. IsUnmanaged=true declares this so NT8's managed-order
+//   layer does not interfere.
+//
+// CHANGELOG 7.1.0-RC (strategy conversion):
+//   - Base class Indicator -> Strategy; namespace Indicators -> Strategies.
+//   - SetDefaults: IsUnmanaged=true, BarsRequiredToTrade=0, removed IsOverlay.
+//   - All v7.1.0 indicator logic carried over UNCHANGED.
+//
+// CHANGELOG 7.1.0 (carried from indicator):
+//   - DATA SERIES DECOUPLED FROM HOST. Streams + trades a configurable
+//     TargetInstrument regardless of host. New "Target Instrument" property.
+//   - Configure adds explicit series: idx 0 = host (IGNORED),
+//     idx 1 = 5s anchor, idx 2 = 1m, idx 3 = 1h.
+//   - Bar JSON / order routing / FindPosition / safety checks use the
+//     resolved target instrument. OnPositionUpdate filters to target.
+//   - Safe-fail: unresolved TargetInstrument -> FATAL, server never starts.
 //
 // CHANGELOG 7.0.0 (2026-04-15):
 //   - PLACE_ORDER reads "position_effect" field (OPEN | REDUCE)
 //   - REDUCE orders REJECTED if no matching opposing position exists
-//   - Fixes chain-exit bug (CHEXIT_* opening opposing positions)
 //
 // =============================================================================
-// BayesianBridge — NinjaTrader 8 NinjaScript Indicator
-//
 // PURPOSE: TCP server inside NT8 that bridges to the Python live trading engine.
 //   - Streams completed bars for TargetInstrument (5s/1m/1h) to Python
-//   - Streams PARTIAL_BAR for forming bars (higher TFs on child close,
-//     sub-minute on throttled ticks) so TBN workers get fresh beliefs
+//   - Streams PARTIAL_BAR for forming bars
 //   - Receives PLACE_ORDER / CLOSE_POSITION / CANCEL_ORDER from Python
 //   - Sends FILL / ORDER_STATUS / POSITION messages back to Python
 //
-// INSTALLATION:
-//   1. Copy this file to: Documents\NinjaTrader 8\bin\Custom\Indicators\
-//   2. In NT8: Tools > NinjaScript Editor > right-click > Compile
-//   3. Add indicator to ANY chart (instrument/TF no longer matters)
-//   4. Set the "Target Instrument" property to the MNQ front month
-//   5. Start the Python live engine: python -m live.engine_v2 --engine-mode l5
+// INSTALLATION (RC -- not yet promoted; deploy only on explicit approval):
+//   1. Copy to: Documents\NinjaTrader 8\bin\Custom\Strategies\
+//   2. In NT8: NinjaScript Editor > Compile
+//   3. Control Center > Strategies tab > add BayesianBridgeStrategy,
+//      pick the account, set "Target Instrument" to MNQ front month, Enable.
+//      (No chart required.)
+//   4. Start the Python engine: python -m live.engine_v2 --engine-mode l5
 //
-// PROTOCOL: Length-prefixed JSON over TCP (port 5199)
-//   Wire format: [4 bytes: uint32 big-endian payload length][N bytes: UTF-8 JSON]
+// PROTOCOL: Length-prefixed JSON over TCP (port 5199) -- identical to the
+//   indicator bridge; Python side needs no changes.
 //
-// IMPORTANT: This is a REFERENCE implementation. Test thoroughly on sim
-// before any live deployment.
+// IMPORTANT: REFERENCE implementation. Test thoroughly on sim first.
 // =============================================================================
 
 #region Using declarations
@@ -65,9 +73,9 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Indicators;
 #endregion
 
-namespace NinjaTrader.NinjaScript.Indicators
+namespace NinjaTrader.NinjaScript.Strategies
 {
-    public class BayesianBridge : Indicator
+    public class BayesianBridgeStrategy : Strategy
     {
         // ── Settings ──────────────────────────────────────────────────
         [NinjaScriptProperty]
@@ -158,15 +166,34 @@ namespace NinjaTrader.NinjaScript.Indicators
         {
             if (State == State.SetDefaults)
             {
-                Description = "TCP bridge to Bayesian-AI Python live engine";
-                Name        = "BayesianBridge";
-                IsOverlay   = true;
+                Description = "TCP bridge to Bayesian-AI Python live engine (Strategy host)";
+                Name        = "BayesianBridgeStrategy";
                 Port        = 5199;
                 AccountName = "Sim101";
                 DomLevels   = 5;
                 TargetInstrument = "MNQ 06-26";
                 MaximumBarsLookBack = MaximumBarsLookBack.Infinite;
                 Calculate           = Calculate.OnBarClose;
+
+                // ── Strategy-specific defaults ──────────────────────────
+                // IsUnmanaged: the bridge submits orders via the raw
+                // Account.CreateOrder API, NOT NT8's managed EnterLong()/
+                // ExitLong(). Declaring unmanaged keeps NT8's managed-order
+                // layer from interfering with position tracking.
+                IsUnmanaged                  = true;
+                // The bridge must process bars from the very first one --
+                // no managed-trading warmup gate.
+                BarsRequiredToTrade          = 0;
+                // The bridge handles its own session/exit logic via Python;
+                // do NOT let NT8 auto-flatten at session close.
+                IsExitOnSessionCloseStrategy = false;
+                // A transient realtime order error must NOT stop the bridge
+                // or auto-flatten -- Python owns error handling. The bridge
+                // already relays ORDER_REJECTED etc. back to Python.
+                RealtimeErrorHandling        = RealtimeErrorHandling.IgnoreAllErrors;
+                // StartBehavior left at NT8 default (WaitUntilFlat) -- the
+                // bridge uses raw Account orders, so managed StartBehavior
+                // has minimal effect; no reason to override.
             }
             else if (State == State.Configure)
             {
@@ -203,7 +230,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 if (_targetInstr == null)
                 {
-                    Print("BayesianBridge: FATAL — could not resolve TargetInstrument '"
+                    Print("BayesianBridgeStrategy: FATAL — could not resolve TargetInstrument '"
                         + TargetInstrument + "'. Check the contract name.");
                     return;
                 }
@@ -223,7 +250,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
                 if (_account == null)
                 {
-                    Print("BayesianBridge: Account '" + AccountName + "' not found!");
+                    Print("BayesianBridgeStrategy: Account '" + AccountName + "' not found!");
                     return;
                 }
 
@@ -250,10 +277,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 _serverThread = new Thread(ServerLoop) { IsBackground = true };
                 _serverThread.Start();
 
-                Print("BayesianBridge " + BRIDGE_VERSION + ": Started on port " + Port
+                Print("BayesianBridgeStrategy " + BRIDGE_VERSION + ": Started on port " + Port
                     + ", account=" + AccountName
                     + ", target=" + _targetInstr.FullName
-                    + ", host_chart=" + GetTFLabel(_primaryPeriodSecs)
+                    + ", host=" + GetTFLabel(_primaryPeriodSecs)
                     + " (streaming " + (_barLabels.Length - 1) + " series: "
                     + string.Join(",", _barLabels, 1, _barLabels.Length - 1) + ")");
             }
@@ -271,7 +298,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 try { _client?.Close(); }   catch { }
                 try { _listener?.Stop(); }  catch { }
 
-                Print("BayesianBridge: Stopped");
+                Print("BayesianBridgeStrategy: Stopped");
             }
         }
 
@@ -284,13 +311,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (e.Status == ConnectionStatus.ConnectionLost)
             {
                 _connectionLost = true;
-                Print("BayesianBridge: CONNECTION LOST — notifying Python");
+                Print("BayesianBridgeStrategy: CONNECTION LOST — notifying Python");
                 SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_LOST") + "}");
             }
             else if (e.Status == ConnectionStatus.Disconnected)
             {
                 _connectionLost = true;
-                Print("BayesianBridge: DISCONNECTED — notifying Python");
+                Print("BayesianBridgeStrategy: DISCONNECTED — notifying Python");
                 SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_LOST") + "}");
             }
             else if (e.Status == ConnectionStatus.Connected)
@@ -298,7 +325,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (_connectionLost)
                 {
                     _connectionLost = false;
-                    Print("BayesianBridge: CONNECTION RESTORED — notifying Python");
+                    Print("BayesianBridgeStrategy: CONNECTION RESTORED — notifying Python");
                     SendRawJson("{" + Q("type") + ":" + Q("CONNECTION_RESTORED") + "}");
                 }
             }
@@ -331,14 +358,14 @@ namespace NinjaTrader.NinjaScript.Indicators
                 double gap = (now - _lastBarTime).TotalSeconds;
                 if (gap > 15 && !_haltNotified)
                 {
-                    Print("BayesianBridge: MARKET HALT detected (" + gap.ToString("F0") + "s gap)");
+                    Print("BayesianBridgeStrategy: MARKET HALT detected (" + gap.ToString("F0") + "s gap)");
                     SendRawJson("{" + Q("type") + ":" + Q("MARKET_HALT") + ","
                         + Q("gap_seconds") + ":" + gap.ToString("F0") + "}");
                     _haltNotified = true;
                 }
                 else if (gap <= 15 && _haltNotified)
                 {
-                    Print("BayesianBridge: MARKET RESUMED (ticks flowing)");
+                    Print("BayesianBridgeStrategy: MARKET RESUMED (ticks flowing)");
                     SendRawJson("{" + Q("type") + ":" + Q("MARKET_RESUMED") + "}");
                     _haltNotified = false;
                 }
@@ -705,7 +732,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: OnPositionUpdate error: " + ex.Message);
+                Print("BayesianBridgeStrategy: OnPositionUpdate error: " + ex.Message);
             }
         }
 
@@ -717,7 +744,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 _listener = new TcpListener(IPAddress.Loopback, Port);
                 _listener.Start();
-                Print("BayesianBridge: Listening on 127.0.0.1:" + Port);
+                Print("BayesianBridgeStrategy: Listening on 127.0.0.1:" + Port);
 
                 while (_running)
                 {
@@ -730,7 +757,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     // Close any stale previous connection before accepting
                     if (_client != null)
                     {
-                        Print("BayesianBridge: Closing previous client connection");
+                        Print("BayesianBridgeStrategy: Closing previous client connection");
                         _clientAlive = false;
                         try { _stream?.Close(); } catch { }
                         try { _client?.Close(); } catch { }
@@ -741,12 +768,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                     _client = _listener.AcceptTcpClient();
                     _stream = _client.GetStream();
                     _clientAlive = true;
-                    Print("BayesianBridge: Python client connected");
+                    Print("BayesianBridgeStrategy: Python client connected");
 
                     try
                     {
                         // Send CONNECTED message
-                        Print("BayesianBridge: Sending CONNECTED...");
+                        Print("BayesianBridgeStrategy: Sending CONNECTED...");
                         string connJson = "{"
                             + Q("type") + ":" + Q("CONNECTED") + ","
                             + Q("account") + ":" + Q(AccountName) + ","
@@ -755,19 +782,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                             + Q("version") + ":" + Q(BRIDGE_VERSION)
                             + "}";
                         SendRawJson(connJson);
-                        Print("BayesianBridge: CONNECTED sent OK");
+                        Print("BayesianBridgeStrategy: CONNECTED sent OK");
 
-                        Print("BayesianBridge: Sending position snapshot...");
+                        Print("BayesianBridgeStrategy: Sending position snapshot...");
                         SendPositionSnapshot();
-                        Print("BayesianBridge: Sending account update...");
+                        Print("BayesianBridgeStrategy: Sending account update...");
                         SendAccountUpdate();
                         // History is no longer sent automatically on connect.
                         // Python sends REQUEST_HISTORY when it needs the dump.
-                        Print("BayesianBridge: Ready (history on request)");
+                        Print("BayesianBridgeStrategy: Ready (history on request)");
                     }
                     catch (Exception ex)
                     {
-                        Print("BayesianBridge: Init send failed: " + ex.ToString());
+                        Print("BayesianBridgeStrategy: Init send failed: " + ex.ToString());
                     }
 
                     _readThread = new Thread(ReadLoop) { IsBackground = true };
@@ -792,19 +819,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                         }
                         catch (Exception ex)
                         {
-                            Print("BayesianBridge: Loop error: " + ex.Message);
+                            Print("BayesianBridgeStrategy: Loop error: " + ex.Message);
                         }
 
                         Thread.Sleep(50);
                     }
 
-                    Print("BayesianBridge: Python client disconnected");
+                    Print("BayesianBridgeStrategy: Python client disconnected");
                 }
             }
             catch (Exception ex)
             {
                 if (_running)
-                    Print("BayesianBridge: Server FATAL: " + ex.ToString());
+                    Print("BayesianBridgeStrategy: Server FATAL: " + ex.ToString());
             }
         }
 
@@ -813,7 +840,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             // Capture the stream we were started with — if the ServerLoop
             // recycles to a new client, we must NOT clobber _clientAlive.
             NetworkStream myStream = _stream;
-            Print("BayesianBridge: ReadLoop started (stream=" + myStream?.GetHashCode() + ")");
+            Print("BayesianBridgeStrategy: ReadLoop started (stream=" + myStream?.GetHashCode() + ")");
             try
             {
                 while (_running && _clientAlive && myStream != null)
@@ -841,7 +868,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             catch (Exception ex)
             {
                 if (_running)
-                    Print("BayesianBridge: Read error: " + ex.Message);
+                    Print("BayesianBridgeStrategy: Read error: " + ex.Message);
             }
 
             // Only signal dead if WE are still the active connection.
@@ -896,7 +923,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                         string inst = "", bps = "";
                         cmd.TryGetValue("instrument", out inst);
                         cmd.TryGetValue("bar_period_s", out bps);
-                        Print("BayesianBridge: SUBSCRIBE — instrument="
+                        Print("BayesianBridgeStrategy: SUBSCRIBE — instrument="
                             + inst + ", bar_period_s=" + bps);
                         break;
                     case "HEARTBEAT":
@@ -921,21 +948,21 @@ namespace NinjaTrader.NinjaScript.Indicators
                         SendRawJson(hb);
                         break;
                     case "REQUEST_HISTORY":
-                        Print("BayesianBridge: Sending history buffer on request...");
+                        Print("BayesianBridgeStrategy: Sending history buffer on request...");
                         SendHistoryBuffer();
                         break;
                     case "RESUME_FROM":
                         string lastTs = GetVal(cmd, "last_timestamp", "0");
-                        Print("BayesianBridge: Delta sync from ts=" + lastTs);
+                        Print("BayesianBridgeStrategy: Delta sync from ts=" + lastTs);
                         SendHistoryBufferFrom(double.Parse(lastTs));
                         break;
                     case "REQUEST_POSITION":
-                        Print("BayesianBridge: Position requested by Python");
+                        Print("BayesianBridgeStrategy: Position requested by Python");
                         SendPositionSnapshot();
                         SendAccountUpdate();
                         break;
                     default:
-                        Print("BayesianBridge: Unknown command: " + msgType);
+                        Print("BayesianBridgeStrategy: Unknown command: " + msgType);
                         break;
                 }
             }
@@ -953,13 +980,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (reqInst.Length > 0
                 && !_targetInstr.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
             {
-                Print("BayesianBridge: REJECTED PLACE_ORDER — instrument mismatch: "
+                Print("BayesianBridgeStrategy: REJECTED PLACE_ORDER — instrument mismatch: "
                     + "requested=" + reqInst + " target=" + _targetInstr.FullName);
                 SendOrderRejected(orderId, "instrument_mismatch");
                 return;
             }
 
-            Print("BayesianBridge: PLACE_ORDER " + side + " " + qty
+            Print("BayesianBridgeStrategy: PLACE_ORDER " + side + " " + qty
                 + " effect=" + posEffect + " id=" + orderId);
 
             // ACK — confirm receipt before submitting
@@ -967,7 +994,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
             if (_account == null)
             {
-                Print("BayesianBridge: REJECTED — _account is null (check AccountName setting)");
+                Print("BayesianBridgeStrategy: REJECTED — _account is null (check AccountName setting)");
                 SendOrderRejected(orderId, "account_null");
                 return;
             }
@@ -1001,7 +1028,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                     string posStr = pos == null || pos.MarketPosition == MarketPosition.Flat
                         ? "FLAT"
                         : (pos.MarketPosition + " x" + pos.Quantity);
-                    Print("BayesianBridge: REJECTED REDUCE — side=" + side
+                    Print("BayesianBridgeStrategy: REJECTED REDUCE — side=" + side
                         + " position=" + posStr + " (no matching opposing position)");
                     SendOrderRejected(orderId, "reduce_no_matching_position");
                     return;
@@ -1010,7 +1037,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 // Cap qty at current position size — never accidentally over-close
                 if (qty > pos.Quantity)
                 {
-                    Print("BayesianBridge: REDUCE qty=" + qty + " > position=" + pos.Quantity
+                    Print("BayesianBridgeStrategy: REDUCE qty=" + qty + " > position=" + pos.Quantity
                         + " — capping to position size");
                     qty = pos.Quantity;
                 }
@@ -1039,7 +1066,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Order submit failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Order submit failed: " + ex.Message);
                 SendOrderRejected(orderId, ex.Message);
             }
         }
@@ -1052,12 +1079,12 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (reqInst.Length > 0
                 && !_targetInstr.FullName.ToUpper().Contains(reqInst.Split(' ')[0].ToUpper()))
             {
-                Print("BayesianBridge: REJECTED CLOSE_POSITION — instrument mismatch: "
+                Print("BayesianBridgeStrategy: REJECTED CLOSE_POSITION — instrument mismatch: "
                     + "requested=" + reqInst + " target=" + _targetInstr.FullName);
                 return;
             }
 
-            Print("BayesianBridge: CLOSE_POSITION");
+            Print("BayesianBridgeStrategy: CLOSE_POSITION");
 
             try
             {
@@ -1084,19 +1111,19 @@ namespace NinjaTrader.NinjaScript.Indicators
                 }
                 else
                 {
-                    Print("BayesianBridge: No position to close");
+                    Print("BayesianBridgeStrategy: No position to close");
                 }
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Close position failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Close position failed: " + ex.Message);
             }
         }
 
         private void HandleCancelOrder(Dictionary<string, string> cmd)
         {
             string orderId = GetVal(cmd, "order_id", "");
-            Print("BayesianBridge: CANCEL_ORDER " + orderId);
+            Print("BayesianBridgeStrategy: CANCEL_ORDER " + orderId);
 
             try
             {
@@ -1110,11 +1137,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                         return;
                     }
                 }
-                Print("BayesianBridge: Order " + orderId + " not found or not cancellable");
+                Print("BayesianBridgeStrategy: Order " + orderId + " not found or not cancellable");
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Cancel failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Cancel failed: " + ex.Message);
             }
         }
 
@@ -1143,7 +1170,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Send failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Send failed: " + ex.Message);
             }
         }
 
@@ -1216,7 +1243,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Position snapshot failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Position snapshot failed: " + ex.Message);
             }
         }
 
@@ -1238,7 +1265,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + "}";
             SendRawJson(done);
 
-            Print("BayesianBridge: Sent " + snapshot.Count + " historical bars to client");
+            Print("BayesianBridgeStrategy: Sent " + snapshot.Count + " historical bars to client");
         }
 
         private void SendHistoryBufferFrom(double afterTimestamp)
@@ -1282,7 +1309,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 + "}";
             SendRawJson(done);
 
-            Print("BayesianBridge: Delta sync — sent " + sent + "/" + snapshot.Count
+            Print("BayesianBridgeStrategy: Delta sync — sent " + sent + "/" + snapshot.Count
                 + " bars (after ts=" + afterTimestamp + ")");
         }
 
@@ -1308,7 +1335,7 @@ namespace NinjaTrader.NinjaScript.Indicators
             }
             catch (Exception ex)
             {
-                Print("BayesianBridge: Account update failed: " + ex.Message);
+                Print("BayesianBridgeStrategy: Account update failed: " + ex.Message);
             }
         }
 
@@ -1459,59 +1486,9 @@ namespace NinjaTrader.NinjaScript.Indicators
     }
 }
 
-#region NinjaScript generated code. Neither change nor remove.
-
-namespace NinjaTrader.NinjaScript.Indicators
-{
-	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
-	{
-		private BayesianBridge[] cacheBayesianBridge;
-		public BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
-		{
-			return BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
-		}
-
-		public BayesianBridge BayesianBridge(ISeries<double> input, int port, string accountName, int domLevels, string targetInstrument)
-		{
-			if (cacheBayesianBridge != null)
-				for (int idx = 0; idx < cacheBayesianBridge.Length; idx++)
-					if (cacheBayesianBridge[idx] != null && cacheBayesianBridge[idx].Port == port && cacheBayesianBridge[idx].AccountName == accountName && cacheBayesianBridge[idx].DomLevels == domLevels && cacheBayesianBridge[idx].TargetInstrument == targetInstrument && cacheBayesianBridge[idx].EqualsInput(input))
-						return cacheBayesianBridge[idx];
-			return CacheIndicator<BayesianBridge>(new BayesianBridge(){ Port = port, AccountName = accountName, DomLevels = domLevels, TargetInstrument = targetInstrument }, input, ref cacheBayesianBridge);
-		}
-	}
-}
-
-namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
-{
-	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
-	{
-		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
-		{
-			return indicator.BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
-		}
-
-		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels, string targetInstrument)
-		{
-			return indicator.BayesianBridge(input, port, accountName, domLevels, targetInstrument);
-		}
-	}
-}
-
-namespace NinjaTrader.NinjaScript.Strategies
-{
-	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
-	{
-		public Indicators.BayesianBridge BayesianBridge(int port, string accountName, int domLevels, string targetInstrument)
-		{
-			return indicator.BayesianBridge(Input, port, accountName, domLevels, targetInstrument);
-		}
-
-		public Indicators.BayesianBridge BayesianBridge(ISeries<double> input , int port, string accountName, int domLevels, string targetInstrument)
-		{
-			return indicator.BayesianBridge(input, port, accountName, domLevels, targetInstrument);
-		}
-	}
-}
-
-#endregion
+// NOTE: The "#region NinjaScript generated code" block that an Indicator
+// file carries has been intentionally REMOVED for the Strategy variant.
+// That block declared indicator-factory wrappers (Indicators.BayesianBridge)
+// which do not apply to a Strategy and would not compile here. NinjaTrader
+// regenerates the correct Strategy-side generated region automatically on
+// the first compile inside the NinjaScript Editor.
