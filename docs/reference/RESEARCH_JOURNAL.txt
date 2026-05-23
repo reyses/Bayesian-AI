@@ -3355,6 +3355,72 @@ FEATURE EDA (Step 3b — E1 through E7):
       1h LEADS 1m for speed (velocity, acceleration).
   E7: z_se (-0.154), vwap_distance (-0.132), dmi_diff (-0.122) most level-aware.
 
+
+2026-05-21: CONDITIONAL PROBABILITY TABLE — DIAGNOSE-NOT-TRADE PIVOT
+=====================================================================
+
+REFRAME (user):
+  Not "catch more trades" — build a probability table of if-this-then-that
+  questions about zigzag-leg events. The ATR zigzag pinpoints the events;
+  the table makes the probability estimates. (A local-LLM reasoning layer to
+  chain the if-this-then-that logic was discussed and back-burnered.)
+
+ENTRY 1 — conditional_probability_table.py (chop begets chop):
+  Given K consecutive low-range legs, P(next leg's range class). After 3
+  low-range legs P(next low) = 65% IS vs 33% base; P(breakout) = 8%.
+  Replicates OOS. Chop is sticky.
+
+ENTRY 2 — leg_chop_survival.py (early chop -> longer leg):
+  v1 CONFOUNDED (chop ratio co-grows with leg length). v2 fixed-early-window:
+  chop measured over the first K tight legs only. Early-choppy wide legs run
+  ~2x longer — P(C>=K+5): clean 27% -> choppy 48% IS at K=3. Replicates OOS.
+
+ENTRY 3 — trend_continuation.py (does the trend survive a chop/fakeout):
+  v1 CONFOUNDED — the chop table alternated 65/37/64/36/65 by K parity (a
+  directional measure on leg-anchored windows is eaten by zigzag
+  alternation). v2 leg-DECOUPLED: trend = sign of the regression slope over a
+  90-min window, the zigzag marks the event only; no-K-parity validation gate
+  PASSED. Finding: WEAK — after a chop/fakeout P(preceding trend continues)
+  ~53-56% vs ~50-52% base (~+4pp). The mechanical counter-trend entry is
+  slightly wrong, but the edge is too small for a direction gate to fix
+  profitably (cf. B1-B6 augmentation already tested at -$76/day).
+
+ENTRY 4 — leg_age_hazard.py (is the move expended):
+  Conditional-survival curve: given a leg has run M min, P(it continues
+  +X min). HUMP-SHAPED hazard — the leg-death rate climbs 1% -> 9%/min over
+  the first ~5 min, peaks at the ~5-min danger window, then DECLINES; a leg
+  that clears ~5 min becomes MORE persistent. NOT monotone exhaustion. All
+  four shape arms significant IS+OOS. Caveat: the steep early arm is partly
+  the min_bars=36 (3-min minimum zigzag leg) construction floor; above the
+  floor continuation RISES with age (mild momentum). A pure "old leg =
+  cut it" time-stop is unsupported; only a danger-window-aware check is.
+
+EDA — worst_trades_gallery.py:
+  The N largest losing legs charted in context. Worst trades = fast sharp
+  adverse spikes ("entry disasters"). The extreme tail leans SHORT but
+  regresses with a wider window (worst-10 = 8 short; worst-100 = 57/43) —
+  regime-conditional, not a structural short bias.
+
+CROSS-ATR — atr_consensus_measure.py:
+  Offline cross-ATR consensus showed a +$57/leg spread, but CAUSAL consensus
+  INVERTS it (corr +0.34 -> -0.13): live, multi-scale agreement is a weak
+  leg-MATURITY signal (high consensus = late leg = worse), not an edge.
+
+METHOD LESSON — confounds in zigzag conditional tables (5 caught this arc):
+  (1) Never measure DIRECTION on leg-anchored windows — zigzag alternation
+  parity eats it; measure leg-decoupled (regression slope over a long
+  window). (2) Chop must be measured over a FIXED window, not one that
+  co-grows with the outcome. (3) Read the FULL curve shape, not endpoints —
+  an endpoint test mislabels a hump "exhaustion". (4) OOS-confirm every cell.
+  (5) FLAT oracle-zigzag passes are hindsight partitions — not valid
+  cross-parameter.
+
+TOOLS: conditional_probability_table.py, leg_chop_survival.py,
+  trend_continuation.py, leg_age_hazard.py, worst_trades_gallery.py,
+  atr_consensus_measure.py, _viz/chop_inspection_chart.py,
+  _viz/zigzag_atr_inspector.py, _viz/zigzag_range_compare.py.
+  Reports under reports/findings/oos_bad_days/.
+
 SHAPE ANALYSIS (Step 3c):
   2,588 level touch events. Four distinct types:
     Reversal (1031): V-shape, z_se drops, DMI turns negative
@@ -3895,3 +3961,333 @@ late-join.
 
 Report: reports/findings/regret_oracle/2026-05-20_midleg_entry_research.md
 
+
+=============================================================================
+ZIGZAG COLD-START DIVERGENCE — mid-day anchor vs beginning-of-time (2026-05-21)
+=============================================================================
+
+QUESTION
+--------
+Production (build_zigzag_pivot_dataset.py) runs detect_swings on each day's
+full 5s closes, anchored at the DAY'S FIRST BAR. A live engine launched
+mid-session cold-starts its zigzag at a mid-day anchor; a forward pass
+anchors at the day's first bar. They diverge -- do they diverge ENOUGH to be
+significant? (User reframe: the zigzag as a "beginning-of-time-dependent
+feature, the worst kind.")
+
+METHOD
+------
+tools/zigzag_coldstart_divergence.py. Per day, per offset K in {10,25,50,75}%
+of the day: reference = detect_swings(closes[0:]); coldstart =
+detect_swings(closes[K:]). resync lag = bars from K until the two pivot
+sequences become an identical tail (detect_swings is deterministic -> once
+they share a pivot + matching suffix they are identical forever after). Also
+transient mis-tiled legs + leg-amplitude $ divergence. Production params
+(ATR(14)x4, min_bars=36). 54 days, 216 cold-start samples.
+
+RESULTS
+-------
+  never-resync    0 / 216 (0%)  -- every cold-start re-converges
+  resync lag      median 27 min, mean 44 min CI [38,50], max 269 min
+                  per-offset median: 10%->39, 25%->22, 50%->20, 75%->47 min
+  mis-tiled legs  median 0, mean 0.7, max 4
+  $ proxy         mean $103, median $80, CI [$91,$114], max $514
+                  (a $ measure of mis-tiled leg-amplitude, NOT a P&L loss)
+
+VERDICT: BOUNDED TRANSIENT -- not significant.
+The zigzag is NOT a beginning-of-time-dependent feature; it is a
+bounded-lookback feature with ~27 min median memory. The 0% never-resync rate
+proves there is no permanent path-dependence -- the running extreme is
+memoryless beyond the last pivot, so two runs collapse to identical the
+instant they catch a common pivot. Median 0 divergent legs -> the transient
+is mostly warmup dead-air, not active disagreement.
+
+PHASE-2 REFRAME (docs/JULES_ZIGZAG_ONLY_REFACTOR.md)
+----------------------------------------------------
+Prior-day zigzag priming = REJECTED (the forward pass runs detect_swings
+PER-DAY; prior-day state would DIVERGE from it). Correct fix = SAME-DAY
+catch-up: at session start replay today's elapsed 5s bars (day's first bar ->
+launch) through the zigzag -> byte-identical from bar 1. Priority LOW --
+cheap, makes parity exact, does not gate SIM deploy.
+
+Report: reports/findings/regret_oracle/2026-05-21_zigzag_coldstart_divergence.txt
+
+
+=============================================================================
+ATR-MULTIPLIER SWEEP — FLAT PASS IS ORACLE-CONTAMINATED (2026-05-21, autonomous)
+=============================================================================
+
+QUESTION
+--------
+User wants a hot-swappable ATR-multiplier solution; watching live SIM, suspects
+ATR x4 is too coarse (prior 2-3). Swept the FLAT 1-contract zigzag forward pass
+across ATR multipliers 1-10 (tools/atr_multiplier_sweep.py, IS+OOS, reuses the
+production Stage A + Stage B; X=4 self-test reproduces $690.10 IS / $454.02 OOS
+exactly).
+
+RESULT — ARTIFACT
+-----------------
+OOS $/day rises MONOTONICALLY as ATR shrinks, no interior peak over 19 points:
+  ATR x10  -$167   DayWR 32.7%
+  ATR x4   +$454   DayWR 72.5%   <- baseline
+  ATR x2  +$1751   DayWR 92.3%
+  ATR x1  +$3480   DayWR 100.0%  PF 5.25
+X=1 = $3,480/day OOS with every one of 51 OOS days green. Not a causal result.
+
+WHY
+---
+The FLAT pass trades the OFFLINE zigzag. Offline-zigzag legs are a SEQUENTIAL
+PARTITION of the price path (cf. mid-leg finding: 99.8% of consecutive-leg gaps
+= 0) — every leg is a genuine pivot-to-pivot swing, ZERO whipsaws by
+construction. A causal engine flips at confirmations, many false, and whipsaws.
+As the ATR multiplier (-> r_price) shrinks, the offline pass finds ever more
+clean swings while the causal whipsaw cost it never pays explodes. The metric
+scales with zigzag SUBDIVISION, not tradeability — hence monotonic and
+unbounded. X=4 is ~trustworthy only because at a coarse threshold
+offline ~ streaming (the validated ~98% match).
+
+VERDICT
+-------
+The FLAT hardened-leg sweep CANNOT select the ATR multiplier. Valid only at a
+fixed X (baseline + fixed-X B-stack deltas). A real ATR comparison needs a
+CAUSAL streaming forward pass that pays the whipsaw cost. Stage-2 B9-retrain at
+the sweep's picks CANCELLED (would retrain at X=1).
+
+RE-AIM
+------
+User (same evening): full NN-training permission + unlimited research; the real
+goal is to LIFT THE OOS BAD DAYS. Pivoted to a DMAIC run (research/oos_bad_days):
+MEASURE the OOS bad days in the validated L5 stack -> ANALYZE -> one validated
+experiment. ATR/pivot retrain re-enters as a candidate lever, evaluated causally.
+
+Tool: tools/atr_multiplier_sweep.py (keep for fixed-X use; cross-X verdict
+annotated invalid).
+Report: reports/findings/regret_oracle/2026-05-21_atr_multiplier_sweep.txt
+Memory: feedback_flat_pipeline_cross_param.md
+
+
+=============================================================================
+OOS BAD-DAYS — MEASURE: day-level + hourly (2026-05-21, autonomous)
+=============================================================================
+
+GOAL
+----
+User re-aim: lift the OOS bad days (reduce frequency/severity of negative OOS
+days). Full NN-training permission + unlimited research. DMAIC MEASURE phase.
+
+DAY-LEVEL  (tools/oos_bad_day_characterize.py)
+----------------------------------------------
+Validated 1c OOS: FLAT $454/day, L5 stack $496/day, delta +$42/day
+CI [-$39,+$118] NOT sig. 14/51 OOS days negative (-$3,570 total; mean bad
+-$255 vs good +$722). 8 worst days = 85% of bad-day losses.
+KEY: the B-stack's whole edge is bad-day loss-shaving — on the 14 bad days
+FLAT -$255 -> stack -$80, delta +$175/day CI [+$98,+$269] SIGNIFICANT; good-day
+delta -$9 (not sig). The non-sig headline +$42 hid this asymmetric protection.
+Day-level ex-ante signals weak (n=14); macro/event features = noise.
+
+HOURLY  (tools/oos_hourly_characterize.py)
+------------------------------------------
+User: "add granularity hour by hour, like a manufacturing site." Decomposed
+FLAT $/day into ET hour-of-day shifts (sums exactly to $690.10 IS / $454.02
+OOS). Each hour-of-day = a production shift.
+- The strategy is a CASH-SESSION operation: ET hours 09-15 produce ~100% of
+  $/day (IS 09 +$196/day [CI +170,+225], 10 +$193, 11 +$85, 12-15 +$42..$66).
+  The overnight block 16:00-08:00 ET nets ~$0 — churn, 60-80% per-hour defect
+  rate.
+- Hour-of-day is a WEAK LEVER. Skipping the negative hours does NOT lift $/day:
+  IS-select/OOS-confirm — skip IS-negative hours -> OOS -$4/day [CI -73,+62]
+  not sig; skip IS-strict-negative -> +$9/day [-43,+52] not sig. The negative
+  hours are near-zero churn, not big losers; which hours are negative is not
+  IS->OOS stable (e.g. hour 20: IS -$2 but OOS +$36).
+- Bad days are NOT an overnight problem. The 14 bad days' damage is SPREAD
+  across hours, often hitting the normally-great RTH hours (11,14,15). A bad
+  day = the RTH session failing to trend (chopping). No shared clock hour.
+
+VERDICT / NEXT (ANALYZE)
+------------------------
+Bad days = RTH-chop failures; clock-hour ruled out as the lever. ANALYZE:
+test the during-day signal "if the session is down by ~ET hour 11, does it
+stay down?" — the during-day analog of the session-start prediction DRS
+failed at — and the RTH-only rule's effect on the bad-day tail.
+
+Reports: reports/findings/oos_bad_days/2026-05-21_{measure,hourly}.md
+
+
+=============================================================================
+OOS BAD-DAYS — ANALYZE + SYNTHESIS: no day-level fix (2026-05-21, autonomous)
+=============================================================================
+
+ANALYZE — intraday session-stop  (tools/oos_intraday_stop_analysis.py)
+----------------------------------------------------------------------
+Tested "if cumulative session P&L <= T by ET hour H, flatten rest of session"
+(H in {10,11,12,13}, T in {0,-50,-100,-150}). FAILS — same mode as the rejected
+per-trade drawdown stop. IS recovery 33-52%; chosen rule (H=13,T=0) 39% IS /
+81% OOS recovery. OOS: negative days 14 -> 20, worst day -$571 -> -$844,
+$/day +$454 -> +$375 = delta -$79/day CI [-$154,-$22] SIGNIFICANT LOSS.
+RTH-only (flat outside ET 09-15): ~3 fewer OOS bad days, daily std ~$742 ->
+~$630, but $/day delta -$27..-$45 CI crosses 0 — a variance trade, not a fix.
+
+ANALYZE — bad-day clustering  (tools/oos_bad_day_autocorr.py)
+-------------------------------------------------------------
+Daily P&L lag-1 autocorrelation: IS +0.061 (perm p=0.24), OOS -0.007 (p=0.96)
+— iid. Bad days do NOT cluster (longest OOS streak 2 days p=0.99). Prior-day
+P&L is not a signal. One real regularity: chop regime (mean leg amplitude) IS
+autocorrelated day-to-day (IS +0.275 / OOS +0.485) but does not propagate into
+bad-day clustering; B10 already exploits the vol regime.
+
+SYNTHESIS / VERDICT
+-------------------
+The OOS bad days are NOT preventable by any day/session-level lever. Four
+ruled out: hour-of-day skipping (not sig), intraday session-stop (sig loss),
+prior-day-P&L/clustering (iid), DRS session-start macro (failed OOS earlier),
+per-trade drawdown stop (rejected earlier). The deployed B-stack already
+shaves bad days +$175/day (CI [+98,+269] sig) — that IS the mitigation. The
+residual is the irreducible cost of a trend zigzag in choppy markets; chop is
+not predictable ahead of time at the day level.
+
+NEXT (user decision — not run autonomously)
+-------------------------------------------
+(1) causal ATR study — wider zigzag whipsaws less in chop, needs a causal
+streaming forward pass (FLAT sweep was contaminated); (2) strengthen B9 —
+per-leg continuous amplitude sizing, the only action template that beats the
+R-trigger. RTH-only available as a pure risk control.
+
+DMAIC project: research/oos_bad_days/project.md
+Memory: project_oos_bad_days_2026_05_21.md
+
+
+
+================================================================================
+2026-05-21  CONDITIONAL PROBABILITY TABLE -- diagnose-not-trade (entries 1-4)
+================================================================================
+
+User reframe: "I don't want to catch more -- I want to be able to DIAGNOSE
+that." Goal = an empirical conditional-probability table of if-this-then-that
+questions about zigzag-leg events, NOT a new trading model. The ATR zigzag
+pinpoints the events; the table attaches probability estimates. A diagnostic
+asset -- it has NOT changed production code.
+
+ENTRY 1 -- chop begets chop (tools/conditional_probability_table.py)
+  Given K consecutive low-range legs, P(next leg range). After 3 low-range
+  legs P(next low) = 65% IS vs 33% base; P(breakout) = 8%. Replicates OOS.
+
+ENTRY 2 -- early chop -> longer leg (tools/leg_chop_survival.py)
+  v1 confounded (chop ratio co-grew with leg length). v2 fixed-early-window:
+  early-choppy wide legs run ~2x longer -- P(C>=K+5) clean 27% -> choppy 48%
+  IS at K=3. Replicates OOS.
+
+ENTRY 3 -- trend survival after a chop/fakeout (tools/trend_continuation.py)
+  v1 confounded -- the chop table alternated 65/37/64/36/65 by K parity (a
+  directional measure on leg-anchored windows is eaten by zigzag alternation).
+  v2 leg-decoupled (trend = sign of the regression slope over a 90-min window;
+  the zigzag marks the event only) + a no-K-parity validation gate that
+  PASSED. Finding: WEAK -- after a chop/fakeout P(preceding trend continues)
+  ~53-56% vs ~50-52% base (~+4pp). Direction is not a profitable lever.
+
+ENTRY 4 -- leg-age exhaustion hazard (tools/leg_age_hazard.py)
+  Conditional-survival curve: given a leg has run M min, P(it continues
+  +X min). HUMP-SHAPED hazard -- the leg-death rate climbs ~1% -> 9%/min over
+  the first ~5 min, peaks at the ~5-min danger window, then DECLINES; a leg
+  that clears ~5 min becomes MORE persistent. NOT monotone exhaustion. All
+  four shape arms significant IS+OOS. min_bars caveat: the steep early arm is
+  partly the min_bars=36 (3-min minimum zigzag leg) construction floor --
+  above the floor continuation RISES with age. A pure "old leg = cut it"
+  time-stop is unsupported; only a danger-window-aware check is backed.
+
+SUPPORTING -- worst_trades_gallery.py (worst trades = fast sharp adverse
+"entry disasters"; the short-lean of the extreme tail regresses with window
+size -- regime-conditional, not structural); atr_consensus_measure.py (offline
+cross-ATR consensus +$57/leg INVERTS causally, corr +0.34 -> -0.13 -- a weak
+leg-maturity signal, not an edge); interactive zigzag_atr_inspector.py and
+chop_inspection_chart.py for visual EDA.
+
+METHOD LESSON -- 5 confounds caught and fixed this arc: (1) never measure
+DIRECTION on leg-anchored windows -- zigzag alternation parity eats it;
+measure leg-decoupled. (2) Measure chop on a FIXED window, not one that
+co-grows with the outcome. (3) Read the FULL curve shape, not endpoints (the
+hazard hump). (4) OOS-confirm every cell. (5) FLAT oracle-zigzag passes are
+hindsight partitions -- not valid cross-parameter.
+
+Reports: reports/findings/oos_bad_days/2026-05-21_{leg_chop_survival,
+trend_continuation,leg_age_hazard}.md
+Memory: project_conditional_probability_table_2026_05_21.md,
+feedback_zigzag_conditional_table_confounds.md
+
+
+================================================================================
+2026-05-22  TRADE OUTCOME PROBABILITY TABLE -- continuation + recovery
+================================================================================
+
+User request: a probability table over all trades for entry-to-close P&L, MAE,
+MFE. Sharpened to two CONDITIONAL questions: (1) given a trade is up +x, how
+likely to close beyond +$200? (2) given a trade is down -d, how likely to
+"work out in the end" (close net-positive)? A diagnostic asset -- has NOT
+changed production code.
+
+TOOL -- tools/trade_outcome_probability_table.py
+  Per hardened leg, reconstructs the full entry->exit MAE/MFE from the 5s path
+  (the legs CSVs carry only entry/exit/pnl). entry-to-close = CSV pnl (net of
+  $6/leg friction). Key identity: "the trade ever reached open-PnL x" == MFE>=x
+  (running maximum), so the conditional tables are simple MFE/MAE threshold
+  conditionals -- no per-bar path needed. Emits IS and OOS separately on the
+  R-multiple AND tick axes: (A) marginal survival CDF + histogram PDF; (B)
+  continuation table, rows MFE>=x; (C) recovery table, rows MAE>=d; (D) joint
+  2D MFE x MAE grid. Every conditional cell carries n + 95% bootstrap CI.
+
+FINDINGS  (17,767 IS legs / 275 days; 2,936 OOS legs / 51 days)
+  CONTINUATION -- P(close>=$200 | MFE>=x) rises 2.4% (x=0) -> ~25% (x~4R) ->
+  ~85% (x~8R), IS and OOS tracking closely. A big close requires a big peak;
+  "currently green" carries little information beyond how high it has run.
+  STRUCTURAL ~1R GIVEBACK confirmed -- P(close>=x) holds (the leg ends at or
+  above the level it reached) is flat ~44-50% across all x: once a leg reaches
+  +x it ends at-or-above +x only ~half the time. close ~= MFE - R.
+
+  RECOVERY -- the honest answer to "does going negative work out" is NO in
+  expectation. P(close>0 | MAE>=d) falls 42.7% -> 25.6% by d=0.75R IS
+  (41.5% -> 21% OOS), then survivorship-rebounds to ~38% at d>=1.25R (deep-
+  drawdown legs still open are early entries into big moves). BUT mean close
+  is NEGATIVE for every drawdown bucket d>=0.5R in both IS and OOS -- a leg
+  that has drawn down >=0.5R is a net loser on average even though it
+  sometimes recovers. The deep-d rebound is survivorship, not a hold signal.
+  Re-confirms drawdown_stop_analysis: "hold the loser, it'll come back" is
+  not supported.
+
+  JOINT 2D -- P(close>0) is almost entirely MFE-driven: ~0% at MFE<1R, ~95%+
+  at MFE>=2R; MAE only erodes it at the extreme corner. Ordering diagnostic:
+  99-100% of recovered legs dipped before they rallied (mechanical).
+
+Reports: reports/findings/trade_outcome_table/2026-05-22_trade_outcome_
+probability_table.md  (+ reusable per_leg_excursions_{IS,OOS}.parquet)
+Journal: docs/daily/2026-05-22.md
+
+SESSION CONTINUED -- the user drilled through ~14 conditional questions
+(continuation to +$200, the giveback, cut-and-bank, a breakeven safety limit,
+the adverse recovery sweep, "probability of getting worse", an n-iteration
+chain, MAE timing, the bimodal split) and then asked for it all to be
+consolidated. Result: NEW package tools/trade_outcome_suite/ -- excursions.py
+(shared per-leg dataset), questions.py (15 question fns), run_all.py (light
+wrapper -> one consolidated report). The standalone
+trade_outcome_probability_table.py was removed (folded in).
+
+ADDED FINDINGS:
+ - Cut-and-bank a WINNER loses: hold-vs-cut EV positive at every +$L level
+   (the heavy right tail pays for the giveback).
+ - Giveback is a FIXED ~1R toll (close ~= MFE - R) -- eats $50-100 peaks
+   whole, minor on $300+.
+ - Equity loss is a LOW-MFE phenomenon: by +$150 MFE P(close<0) ~= 1%; a
+   "$250 safety limit" guards empty space. The equity losses are trades that
+   never worked -- an entry-quality problem, not an exit-safety one.
+ - Cutting/bailing a LOSER loses at every drawdown level -- the R-trigger
+   recovers ~1R off the low; bailing forfeits it. (drawdown_stop re-confirmed.)
+ - "Drawdown gains momentum" does NOT replicate -- P(deepen) rises IS, falls
+   OOS over the same well-populated range. Regime-dependent, not bankable.
+ - Trade AGE beats depth: recoverers run ~2x longer than non-recoverers
+   (matches the leg_age_hazard hump).
+ - Bimodal MAE-timing = winners (real $100+ MFE) vs losers (~$14 poke), NOT
+   "peak then collapse".
+THROUGH-LINE: the R-trigger reversal exit is an adaptive stop; no fixed-dollar
+cut/lock/bail overlay beats it on EV. The only rewarded lever is the entry
+filter.
+
+Suite report: reports/findings/trade_outcome_table/
+2026-05-22_trade_outcome_full_report.md

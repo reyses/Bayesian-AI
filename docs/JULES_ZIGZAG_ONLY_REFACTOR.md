@@ -1,6 +1,7 @@
 # JULES — Zigzag-Only Engine Refactor
 
-Spec / design reference. Opened 2026-05-20. Status: **SPEC — execution pending.**
+Spec / design reference. Opened 2026-05-20. Status: **Phase 1 DONE
+(2026-05-20); Phase 2 reframed to low-priority same-day catch-up — see below.**
 
 ## Context (2026-05-20)
 Today's parity investigation found the live L5 run on 2026-05-20 (−$379) was
@@ -12,15 +13,18 @@ mock: the validated strategy on 2026-05-20 ≈ **−$59** (a flat day) — the
 −$379 was the bug.
 
 Residual after the fix: the live run and the forward-pass mock still don't
-tile legs identically (24 vs 28 trades). Root cause = the live engine
-**cold-starts** with no zigzag state at session open while the forward pass
-has full prior-day history. This refactor (a) strips the engine down to the
-zigzag-only path and (b) folds in zigzag-state priming to close that gap.
+tile legs identically (24 vs 28 trades). Root cause = **anchor mismatch**. The
+forward pass (`build_zigzag_pivot_dataset.py`) runs `detect_swings` **per-day**,
+anchored at each day's first bar — it does NOT carry prior-day zigzag state. A
+live engine launched mid-session cold-starts its zigzag at a different,
+mid-day anchor. This refactor (a) strips the engine down to the zigzag-only
+path and (b) closes that anchor gap — see Phase 2.
 
 ## Goal
 `engine_v2.py` currently runs two engines behind `engine_mode`: `blended`
 (V1 stack) and `l5` (zigzag stack). Only L5 is being deployed. Produce a
-clean **zigzag-only** live engine, and prime the zigzag state at startup.
+clean **zigzag-only** live engine, and re-anchor the zigzag at the day's
+first bar at startup.
 
 ## Phases (one change at a time — validate each before the next)
 
@@ -51,23 +55,33 @@ L5 trade output (`reports/live/v2_trades_2026_05_20.csv`) must be
 deletion for the L5 path — ANY change to an L5 trade means the removal broke
 something. Diff against a snapshot taken before Phase 1.
 
-### Phase 2 — Zigzag-state priming (functional — closes the cold-start gap)
-STEP 1 (diagnose — do NOT skip): confirm the exact cold-start gap. Read
-`l5_decider._on_session_start()` (it resets `_zz_direction`,
-`_zz_extreme_*`, `_zz_pivots`) and `prime_atr_from_history()` (primes ATR
-only). Confirm what state the live engine lacks at session open that the
-forward pass has — zigzag running-extreme/direction, the V2 feature-engine
-warmup, or both.
+### Phase 2 — Same-day zigzag catch-up (functional — closes the anchor gap)
+STEP 1 (diagnose) — **DONE**. `build_zigzag_pivot_dataset.py` runs
+`detect_swings` **per-day**: each day reads its own `{day}.parquet`, computes
+ATR from that day's 1m bars, runs the detector on that day's 5s closes from
+bar 0. The forward pass therefore anchors at the **day's first bar** — it does
+NOT carry prior-day zigzag state. CONSEQUENCE: priming the live zigzag with
+*prior-day* history (the original Phase-2 design) is **REJECTED** — it would
+make the live engine diverge from the validated forward pass, not converge.
 
-STEP 2 (design): a `prime_zigzag_from_history(bars_df)` on `L5Decider`,
-analogous to the existing `prime_atr_from_history` — replay recent history
-through `_update_zigzag` so `_zz_direction` / `_zz_extreme_*` / `_zz_pivots`
-reflect the current leg from bar 1. `engine_v2` passes the history (it
+STEP 2 (quantify) — **DONE**. `tools/zigzag_coldstart_divergence.py` (run
+2026-05-21, 54 days / 216 samples): a mid-day cold-start vs the day's-first-bar
+run is a **BOUNDED TRANSIENT** — 0/216 never-resync, resync lag median 27 min
+(mean 44, CI [38,50]), median 0 mis-tiled legs, ~$103 mean mis-tiled
+leg-amplitude (a $ proxy, not a realized loss). Not a structural break.
+
+STEP 3 (fix) — `prime_zigzag_from_history(bars_df)` on `L5Decider`: at session
+start, replay **today's elapsed 5s bars** (the day's first bar → launch time)
+through `_update_zigzag`. This re-creates the exact per-day anchor the forward
+pass uses → byte-identical zigzag from bar 1, transient eliminated. This is
+same-day catch-up, NOT prior-day priming. `engine_v2` passes the history (it
 already passes 1m history to `prime_atr_from_history`).
 
-VALIDATION: re-run the mock; verify the primed run opens the session already
-in the correct leg (no ~1.3 h blind window). Exact residual vs the forward
-pass is then a SIM-measured quantity.
+VALIDATION: re-run the mock launched mid-session; verify the primed run tiles
+legs identically to the forward pass from bar 1.
+
+PRIORITY: **low** — the transient is bounded and small (Step 2). Worth doing
+because it is cheap and makes parity exact, but it does not gate SIM deploy.
 
 ## Not in scope
 - ATR-multiplier sweep / B9-K sweep — separate research task (d).
