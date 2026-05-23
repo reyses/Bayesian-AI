@@ -40,6 +40,12 @@ wall-clock instead of the replayed bar-time, so `entry_ts` was wall-clock and
 blended-engine path is removed from the LIVE engine (Phase 1 of
 [[zigzag-only-refactor]] / `docs/JULES_ZIGZAG_ONLY_REFACTOR.md`; verified
 byte-identical mock output). BlendedEngine still exists for sim/training.
-Phase 2 (zigzag-state priming, to close the cold-start parity residual) is
-pending. Residual: the live engine cold-starts with no zigzag state while the
-forward pass warm-starts → ~first 1.3 h of a session diverges.
+Phase 2 reframed (2026-05-21): prior-day zigzag priming is **REJECTED** — the
+forward pass (`build_zigzag_pivot_dataset.py`) runs the detector **per-day**,
+anchored at each day's first bar, NOT on prior-day state. The cold-start
+divergence study (`tools/zigzag_coldstart_divergence.py`, 54 days / 216
+samples) measured the real gap: a mid-session cold-start vs the day's-first-bar
+run is a **BOUNDED TRANSIENT** — 0/216 never-resync, resync median 27 min,
+median 0 mis-tiled legs, ~$103 mean mis-tiled amplitude (a $ proxy). Not
+significant. Correct (optional, low-priority) fix = **same-day catch-up**:
+replay today's elapsed bars through the zigzag at session start.

@@ -44,6 +44,9 @@ ALREADY in, which B9's continuous sizing already covers.
 **What the "lost signals" the user sees actually are:** cold-start — ~7
 first-of-session legs/day lost to the ~20-min (240-bar) feature-engine +
 zigzag warmup (the engine cannot compute during warmup), or deliberate B7
-skips. The real fix is **zigzag-state priming** (replay `detect_swings` over
-prior-day history at startup + pre-warm the V2 feature engine), NOT late-join.
-Priming was recommended to the user, awaiting approval as of 2026-05-20.
+skips. The fix is **same-day catch-up**, NOT late-join: at startup replay
+TODAY's elapsed bars through `detect_swings` + pre-warm the V2 feature engine.
+NOT prior-day priming — the forward pass runs the detector PER-DAY anchored at
+the day's first bar, so prior-day state would diverge from it. The cold-start
+divergence was measured BOUNDED 2026-05-21 (`tools/zigzag_coldstart_divergence.py`:
+0/216 never-resync, resync median 27 min) — not significant, low priority.
