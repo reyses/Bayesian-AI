@@ -148,6 +148,9 @@ DATA/CROSS_DAY/
 DATA/RAW/
 DATA/RAW_NT8/
 
+# Local LLM model files (5GB+ GGUF, download manually per llm_news/score.py docstring)
+models/
+
 # Untrack OLD/ archive subfolders (preserved on disk, not in repo)
 DATA/ATLAS_NT8/OLD_parquet/
 

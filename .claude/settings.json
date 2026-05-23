@@ -15,7 +15,8 @@
       "Bash(ls -la DATA/ATLAS_LIVE/5s/_chunks/)",
       "Bash(ls -la DATA/ATLAS_NT8/5s/MNQ_06-26/2026_04_16.csv)",
       "Bash(wc -l DATA/ATLAS_NT8/5s/MNQ_06-26/2026_04_16.csv)",
-      "Read(//c/Users/reyse/OneDrive/Desktop/Bayesian-AI/**)"
+      "Read(//c/Users/reyse/OneDrive/Desktop/Bayesian-AI/**)",
+      "Bash(awk '{print $5, $9}')"
     ],
     "additionalDirectories": [
       "c:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\training\\output\\tree",
