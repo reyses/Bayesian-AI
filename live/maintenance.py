@@ -28,8 +28,8 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
 from training.aggregator import Aggregator
 from training.compute_features import compute_features_from_aggregator
 
@@ -99,7 +99,7 @@ def warm_aggregator(day_files: list):
 
     if last_79d is not None:
         # Check 1h and 1D are alive
-        from core.features import FEATURE_NAMES as FN
+        from core_v2.features import FEATURE_NAMES as FN
         for check_tf in ['1h', '1D']:
             z_idx = FN.index(f'{check_tf}_z_se')
             z_val = last_79d[z_idx]

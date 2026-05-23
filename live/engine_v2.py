@@ -18,10 +18,11 @@ Outputs:
     reports/live/v2_trades_YYYY_MM_DD.csv   — entry/exit events for parity check
 
 Usage:
-    python -m live.engine_v2                     # full production run
-    python -m live.engine_v2 --skip-check        # skip step 1 (assume current)
-    python -m live.engine_v2 --skip-build        # skip step 2
-    python -m live.engine_v2 --headless          # no dashboard GUI
+    python -m live.engine_v2                       # full run (prompts for account)
+    python -m live.engine_v2 --account Playback101 # NT8 Market Replay (playback)
+    python -m live.engine_v2 --skip-check          # skip step 1 (assume current)
+    python -m live.engine_v2 --skip-build          # skip step 2
+    python -m live.engine_v2 --headless            # no dashboard GUI
 """
 import warnings
 warnings.filterwarnings('ignore', module='numba')
@@ -51,12 +52,12 @@ logger = logging.getLogger('engine_v2')
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.protocol import MsgType, subscribe, place_order, close_position
-from core.features import FEATURE_NAMES, N_FEATURES
+from core_v2.features import FEATURE_NAMES, N_FEATURES
 from config.symbols import SYMBOL_MAP
 from live.order_manager import OrderManager
 from live.gui_bridge import GUIBridge
-from core.ledger import Ledger
-from core.sim_executor import _compute_entry_context, force_close as ledger_force_close
+from core_v2.ledger import Ledger
+from core_v2.sim_executor import _compute_entry_context, force_close as ledger_force_close
 
 TICK = 0.25
 TV = 0.50
@@ -522,8 +523,16 @@ class LiveEngineV2:
             elif msg.get('type') == MsgType.HISTORY_DONE:
                 history_done = True
             elif msg.get('type') == 'CONNECTED':
-                logger.info(f'  NT8: account={msg.get("account")} '
+                nt8_acct = msg.get('account')
+                logger.info(f'  NT8: account={nt8_acct} '
                             f'instrument={msg.get("instrument")}')
+                if nt8_acct and nt8_acct != self._cfg.account:
+                    logger.warning(
+                        f'  ACCOUNT MISMATCH: engine configured for '
+                        f'"{self._cfg.account}" but the NT8 bridge reports '
+                        f'"{nt8_acct}". Orders may route to the wrong '
+                        f'account — fix --account or the NT8 strategy '
+                        f'account before trading.')
 
         elapsed = time.perf_counter() - t0
         logger.info(f'  History: {bar_count:,} bars in {elapsed:.1f}s')
@@ -1587,7 +1596,7 @@ class LiveEngineV2:
         """Save accumulated 91D features to parquet — same format as build_dataset."""
         if not self._live_79d:
             return
-        from core.features import FEATURE_NAMES
+        from core_v2.features import FEATURE_NAMES
         os.makedirs(FEATURES_LIVE, exist_ok=True)
 
         # Group by UTC date
@@ -1848,6 +1857,47 @@ class LiveEngineV2:
         return datetime.fromtimestamp(ts).strftime('%H:%M:%S')
 
 
+# NT8 accounts the engine runs against without an extra confirmation --
+# all simulation / replay accounts. Playback101 is the account NT8 Market
+# Replay (playback) trades into.
+KNOWN_SIM_ACCOUNTS = ('Sim101', 'Sim102', 'Playback101')
+
+
+def _resolve_account(args) -> str:
+    """Decide which NT8 account this run trades into.
+
+    Explicit --account always wins. Otherwise: mock mode has no real NT8 so
+    the LiveConfig default is fine; headless mode cannot prompt so --account
+    is required; an interactive run prompts (the "live asks" path) and makes
+    an unrecognised account confirm before it is accepted.
+    """
+    default = LiveConfig().account
+    if args.account:
+        acct = args.account
+        if acct not in KNOWN_SIM_ACCOUNTS:
+            logger.warning(f'Account "{acct}" is not a known sim/replay '
+                           f'account {KNOWN_SIM_ACCOUNTS} — proceeding '
+                           f'because it was passed explicitly via --account.')
+        return acct
+    if args.mock:
+        return default                      # mock bridge: account is cosmetic
+    if args.headless:
+        raise SystemExit('engine_v2: --account is required with --headless '
+                         '(e.g. --account Playback101 for NT8 Market Replay).')
+    print()
+    print('  NT8 account for this run')
+    print(f'    known sim/replay accounts: {", ".join(KNOWN_SIM_ACCOUNTS)}')
+    print('    Playback101 = NT8 Market Replay (playback)')
+    acct = input(f'  account [{default}]: ').strip() or default
+    if acct not in KNOWN_SIM_ACCOUNTS:
+        confirm = input(f'  "{acct}" is NOT a known sim/replay account — '
+                        f'trade it anyway? [y/N]: ').strip().lower()
+        if confirm != 'y':
+            raise SystemExit('engine_v2: aborted — relaunch with a '
+                             'sim/replay account.')
+    return acct
+
+
 def main():
     parser = argparse.ArgumentParser(description='Live Engine V2')
     parser.add_argument('--skip-check', action='store_true')
@@ -1858,13 +1908,20 @@ def main():
     parser.add_argument('--pivot-source', choices=['stream', 'replay'], default='stream',
                           help='L5: stream (causal detector) or replay '
                                  '(inject pivots from production parquet, for SIM validation)')
+    parser.add_argument('--account', default=None,
+                          help='NT8 account (e.g. Sim101, Playback101). '
+                                 'Prompted at startup if omitted.')
     args = parser.parse_args()
+
+    account = _resolve_account(args)
 
     # LiveConfig is frozen; rebuild with overrides
     import dataclasses
     config = dataclasses.replace(LiveConfig(),
-                                    pivot_source=args.pivot_source)
-    logger.info(f'Engine: L5Decider  pivot_source={config.pivot_source}')
+                                    pivot_source=args.pivot_source,
+                                    account=account)
+    logger.info(f'Engine: L5Decider  pivot_source={config.pivot_source}  '
+                f'account={config.account}')
     shared_state = {}
     gui_queue = None
 

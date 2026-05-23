@@ -107,7 +107,7 @@ class SessionTracker:
                      anchor_tf: str = '15s', anchor_depth: int = 8,
                      bar_count: int = 0) -> str:
         """Write session summary to reports/live/. Returns path."""
-        from core.report_engine import format_scorecard
+        from core_v2.report_engine import format_scorecard
         s = self.stats
         report_dir = os.path.join('reports', 'live')
         os.makedirs(report_dir, exist_ok=True)

@@ -12,8 +12,8 @@ Spec: docs/JULES_ENGINE_DECOUPLE_ORDERS.md (Phase 3)
 import numpy as np
 from typing import Iterator, Dict, List
 
-from core.ledger import Ledger
-from core.engine_signals import DecisionBatch
+from core_v2.ledger import Ledger
+from core_v2.engine_signals import DecisionBatch
 
 # Feature indices for entry context (same constants as nightmare_blended.py).
 # Duplicated here to avoid a circular import — the executor must not import

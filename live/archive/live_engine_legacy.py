@@ -22,15 +22,15 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Dict, List
 
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.bayesian_brain import MarketBayesianBrain
-from core.exit_engine import ExitEngine
-from core.execution_engine import (ExecutionEngine, ActionType, TradeAction)
-from core.timeframe_belief_network import TimeframeBeliefNetwork
-from core.checkpoint_loader import load_checkpoints
-from core.engine_factory import create_belief_network, create_execution_engine
-from core.advance_engine import AdvanceEngine
-from core.physics_engine import PhysicsEngine, EngineResult
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.bayesian_brain import MarketBayesianBrain
+from core_v2.exit_engine import ExitEngine
+from core_v2.execution_engine import (ExecutionEngine, ActionType, TradeAction)
+from core_v2.timeframe_belief_network import TimeframeBeliefNetwork
+from core_v2.checkpoint_loader import load_checkpoints
+from core_v2.engine_factory import create_belief_network, create_execution_engine
+from core_v2.advance_engine import AdvanceEngine
+from core_v2.physics_engine import PhysicsEngine, EngineResult
 from live.exit_watcher import ExitWatcher
 from live.gui_bridge import GUIBridge
 from live.session_tracker import SessionTracker
@@ -253,7 +253,7 @@ class LiveEngine:
 
     async def run(self):
         """Main entry point  -- connect, load checkpoints, run loop."""
-        from core.keep_awake import keep_awake
+        from core_v2.keep_awake import keep_awake
 
         _mode_label = 'DMI' if self._dmi_mode else ('PHYSICS' if self._physics_mode else 'ADVANCE')
         logger.info("=" * 60)
@@ -671,7 +671,7 @@ class LiveEngine:
                                     _cnn_ok = False
                         if _cnn_ok:
                             logger.info(f"TP RE-ENTRY: {_dir.upper()} @ {fill_px} (TP #{self._dmi_flipper._tp_count})")
-                            from core.dmi_flipper import FlipperResult
+                            from core_v2.dmi_flipper import FlipperResult
                             _result = FlipperResult(action='ENTER', direction=_dir.upper(),
                                                     reason=f'TP re-entry #{self._dmi_flipper._tp_count}')
                             await self._physics_enter(_result, fill_px, _tr['ts'])
@@ -1448,7 +1448,7 @@ class LiveEngine:
                     if _tc_dir != result.direction:
                         logger.info(f"TradeCNN OVERRIDE: DMI={result.direction} -> TradeCNN={_tc_dir}")
                         # Override direction but keep the action
-                        from core.dmi_flipper import FlipperResult
+                        from core_v2.dmi_flipper import FlipperResult
                         result = FlipperResult(
                             action=result.action, direction=_tc_dir,
                             reason=f'{result.action} {_tc_dir} (TradeCNN override from {result.direction})')
@@ -1460,7 +1460,7 @@ class LiveEngine:
                 _cnn_dir = self._cnn_predict(price, state)
                 if _cnn_dir is not None and _cnn_dir != result.direction:
                     _old = result.direction
-                    from core.dmi_flipper import FlipperResult
+                    from core_v2.dmi_flipper import FlipperResult
                     logger.info(f"CNN VETO: DMI says {result.direction} but CNN says {_cnn_dir} — skipping")
                     # Log to session for post-analysis
                     self._session.record_skip(
@@ -2181,7 +2181,7 @@ class LiveEngine:
 
     def _brain_learn(self, pnl: float):
         """Feed trade outcome to brain, update GUI stats, save periodically."""
-        from core.bayesian_brain import record_trade
+        from core_v2.bayesian_brain import record_trade
 
         result = 'WIN' if pnl > 0 else 'LOSS'
 
@@ -2610,7 +2610,7 @@ class LiveEngine:
 
     def _init_dmi_flipper(self):
         """Create DMI smoothed cross flipper for live trading."""
-        from core.dmi_flipper import DmiFlipper
+        from core_v2.dmi_flipper import DmiFlipper
         # Force-read tuning file to get latest values (defaults may have tp=0)
         try:
             import json
@@ -2637,7 +2637,7 @@ class LiveEngine:
         if _tc_path and os.path.exists(_tc_path):
             try:
                 import torch as _torch
-                from core.trade_cnn import StatePredictor
+                from core_v2.trade_cnn import StatePredictor
                 _device = _torch.device('cuda' if _torch.cuda.is_available() else 'cpu')
                 _ckpt = _torch.load(_tc_path, map_location=_device, weights_only=False)
                 _model = StatePredictor(n_features=13, latent_dim=64, n_labels=21)
@@ -2932,7 +2932,7 @@ class LiveEngine:
 
     def _checkpoint_bundle(self):
         """Build a CheckpointBundle from already-loaded instance attrs."""
-        from core.checkpoint_loader import CheckpointBundle
+        from core_v2.checkpoint_loader import CheckpointBundle
         return CheckpointBundle(
             pattern_library=self._pattern_library,
             scaler=self._scaler,

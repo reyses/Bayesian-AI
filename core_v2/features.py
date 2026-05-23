@@ -23,7 +23,7 @@ Storage layout (see research/feature_spec_v2.md):
 
 V1 name compatibility: module exposes FEATURE_NAMES, N_FEATURES, TF_ORDER,
 TF_SECONDS as v1 did, so consumers that only read these symbol names can
-swap `from core` -> `from core_v2` with no other change (though the CONTENT
+swap `from core_v2` -> `from core_v2` with no other change (though the CONTENT
 of these symbols is v2 and the CNN input shape changes from 91 to 139).
 
 Supersedes: core/features.py (v1, 91D).

@@ -38,7 +38,7 @@ from typing import Optional, Callable
 import numpy as np
 import pandas as pd
 
-from core.engine_signals import (
+from core_v2.engine_signals import (
     DecisionBatch,
     EntrySignal,
     PositionDecision,

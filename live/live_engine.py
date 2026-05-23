@@ -38,8 +38,8 @@ logging.getLogger('numba').setLevel(logging.WARNING)
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 from training.nightmare_blended import BlendedEngine
 from training.aggregator import Aggregator
@@ -197,7 +197,7 @@ class LiveEngine:
 
     async def run(self):
         """Main entry point."""
-        from core.keep_awake import keep_awake
+        from core_v2.keep_awake import keep_awake
 
         logger.info("=" * 60)
         logger.info("LIVE ENGINE — BLENDED + 3 CNNs")

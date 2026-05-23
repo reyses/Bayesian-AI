@@ -6,7 +6,7 @@ Regression, z-score, and probability computations on GPU.
 import math
 import numba
 from numba import cuda
-from core.physics_utils import HURST_WINDOW
+from core_v2.physics_utils import HURST_WINDOW
 
 # Statistical Constants
 reg_period = 21

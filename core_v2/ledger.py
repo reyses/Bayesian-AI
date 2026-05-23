@@ -25,8 +25,8 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Dict
 import numpy as np
 
-from core.engine_signals import PositionView, PositionsView, PositionDecision
-from core.features import N_FEATURES
+from core_v2.engine_signals import PositionView, PositionsView, PositionDecision
+from core_v2.features import N_FEATURES
 
 
 # Chain-depth ceiling — how many parallel contracts can be stacked on one
