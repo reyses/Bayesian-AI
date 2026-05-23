@@ -32,14 +32,14 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import (
+from core_v2.features import (
     extract_features, build_all_tf_ohlcv, describe_features,
     FEATURE_NAMES, N_FEATURES, TF_ORDER
 )
-from core.incremental_ticker import IncrementalTicker
-from core.regret_tracker import RegretTracker
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.strategy_brain import StrategyBrain, compute_state_bin
+from core_v2.incremental_ticker import IncrementalTicker
+from core_v2.regret_tracker import RegretTracker
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.strategy_brain import StrategyBrain, compute_state_bin
 from training.train_strategy_nn import StrategyRouterNN, DIR_CLASSES, DURATION_BUCKETS
 
 TICK = 0.25
@@ -220,7 +220,7 @@ def run_day(day_file, model, brain, device, history_1m, equity, daily_pnl,
                 equity += pnl - COST_PER_TRADE
                 daily_pnl += pnl - COST_PER_TRADE
 
-                from core.features import N_CORE
+                from core_v2.features import N_CORE
                 tf_1m = 1 * N_CORE
                 # Entry features (saved at entry time)
                 e_z = entry_feat[tf_1m + 0] if entry_feat is not None else 0

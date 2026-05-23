@@ -15,7 +15,7 @@ from tqdm import tqdm
 # Add project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 from config.oracle_config import ORACLE_LOOKAHEAD_BARS
 
 

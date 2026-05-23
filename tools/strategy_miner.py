@@ -36,7 +36,7 @@ from itertools import combinations
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 from training.train_trade_cnn import extract_features_13d as extract_13d_batch, FEATURE_NAMES_13D
 
 TICK = 0.25

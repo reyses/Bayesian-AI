@@ -23,7 +23,7 @@ import torch
 from tqdm import tqdm
 from scipy import stats as sp_stats
 from sklearn.linear_model import LogisticRegression
-from core.calibration import TrajectoryCalibrator, HorizonCalibrator
+from core_v2.calibration import TrajectoryCalibrator, HorizonCalibrator
 
 TICK = 0.25
 LOOKBACK = 10
@@ -33,7 +33,7 @@ VAL_START = '2026-01-01'
 
 def load_model(tf):
     """Load TrajectoryPredictor for a TF."""
-    from core.direction_cnn import TrajectoryPredictor
+    from core_v2.direction_cnn import TrajectoryPredictor
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     path = f'checkpoints/trajectory_{tf}/best_model.pt'
     if not os.path.exists(path):
@@ -313,7 +313,7 @@ def calibrate_1s(pred_p, true_dir, prices, timestamps):
 
 
 def main():
-    from core.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
     from training.train_direction import extract_features_13d, N_FEAT_7D
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

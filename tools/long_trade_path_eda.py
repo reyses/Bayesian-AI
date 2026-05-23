@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 
 # Load data
 with open('training/output/trades/blended_is.pkl', 'rb') as f:

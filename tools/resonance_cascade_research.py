@@ -18,7 +18,7 @@ from collections import deque
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 
 # TF pairs: child -> parent (child detects, parent validates)

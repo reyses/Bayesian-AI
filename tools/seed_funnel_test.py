@@ -22,7 +22,7 @@ from collections import defaultdict
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 TICK_SIZE = 0.25
 TICK_VALUE = 0.50

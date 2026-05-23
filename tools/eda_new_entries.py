@@ -13,7 +13,7 @@ from tqdm import tqdm
 from collections import Counter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 
 FEAT_IDX = {name: i for i, name in enumerate(FEATURE_NAMES)}
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'

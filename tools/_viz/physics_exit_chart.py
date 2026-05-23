@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 TARGET_DATE = None  # None = run all days
 TICK = 0.25

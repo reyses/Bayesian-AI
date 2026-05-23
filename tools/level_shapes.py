@@ -44,7 +44,7 @@ FEATURE_NAMES = [
 
 def load_month(tf, month_str):
     """Load OHLCV + 13D features for a TF/month."""
-    from core.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
     from training.train_trade_cnn import extract_features_13d
 
     files = sorted(glob.glob(os.path.join(ATLAS, tf, '*.parquet')))
@@ -92,7 +92,7 @@ def classify_touch(closes, highs, lows, touch_idx, level_price, level_type):
 
     Returns: 'reversal', 'breakout', 'plateau', 'bounce', or None
     """
-    from core.shape_primitives import extract_lookback_geometry
+    from core_v2.shape_primitives import extract_lookback_geometry
 
     n = len(closes)
     i = touch_idx
@@ -242,7 +242,7 @@ def main():
 
         if args.tf in ('1s', '15s', '5s') and os.path.exists(month_file):
             # Sharded: load just this month's parquet
-            from core.statistical_field_engine import StatisticalFieldEngine
+            from core_v2.statistical_field_engine import StatisticalFieldEngine
             from training.train_trade_cnn import extract_features_13d
 
             df_month = pd.read_parquet(month_file).sort_values('timestamp').reset_index(drop=True)

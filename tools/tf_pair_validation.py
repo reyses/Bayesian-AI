@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 TF_PAIRS = [('15s', '1m'), ('1m', '5m'), ('5m', '15m'), ('15m', '1h'), ('1h', '4h')]
 TF_SECS = {'1s':1,'5s':5,'15s':15,'30s':30,'1m':60,'2m':120,'3m':180,

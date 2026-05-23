@@ -32,3 +32,4 @@
 | [`loser_cliff_eda.py`](../loser_cliff_eda.py) | Natural "dead" timescale where loser peak stalls |
 | [`loser_physics.py`](../loser_physics.py) | When flipping direction would rescue losers |
 | [`measure_bad_trade_holds.py`](../measure_bad_trade_holds.py) | Winners vs losers hold-time cohort |
+| [`trade_outcome_suite/`](../trade_outcome_suite/) | DIAGNOSTIC SUITE — 15 probability-table questions over all hardened legs (distributions, continuation, recovery, giveback, equity-loss, drawdown-worsening, MAE timing, winners-vs-losers). `run_all.py` wrapper → one consolidated report. IS/OOS, n + 95% CI |

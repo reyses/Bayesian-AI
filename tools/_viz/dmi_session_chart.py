@@ -1,6 +1,6 @@
 """Generate I-chart of a live session with trades, DMI, and volume."""
 import pandas as pd, numpy as np, os, sys
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt

@@ -23,7 +23,7 @@ from collections import Counter
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from training.sfe_ticker import FeatureTicker
-from core.features import N_CORE, N_HELPER, N_TFS
+from core_v2.features import N_CORE, N_HELPER, N_TFS
 
 FEATURES_DIR_5S = 'DATA/FEATURES_79D_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'

@@ -11,7 +11,7 @@ Pipeline:
        - % of trades that account for 50% / 70% / 80% / 90% / 95% of losses
   3. Define the "bleed cohort" as the worst --trade-pct (default 20%) of
      trades for each tier. These carry the target for any filter.
-  4. For every entry feature (91 canonical features from core.features),
+  4. For every entry feature (91 canonical features from core_v2.features),
      compute Cohen d between bleed cohort and rest-of-trades.
   5. Rank features by |d|. Walk-forward stability = sign(d_IS) == sign(d_OOS)
      AND min(|d_IS|, |d_OOS|) >= 0.30.
@@ -37,7 +37,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 
 
 TRADES_DIR = 'training_iso/output/trades'

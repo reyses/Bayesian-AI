@@ -27,8 +27,8 @@ from tqdm import tqdm
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.feature_extraction import extract_feature_vector
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.feature_extraction import extract_feature_vector
 
 
 TICK_SIZE = 0.25

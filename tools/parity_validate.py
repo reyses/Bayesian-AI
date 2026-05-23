@@ -27,7 +27,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 
 REPORTS = 'reports/findings'
 LIVE_DIR = 'reports/live'

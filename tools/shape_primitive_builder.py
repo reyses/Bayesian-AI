@@ -51,7 +51,7 @@ from tools.research.data import (
 from tools.research.shape_classifier import (
     classify_shape, quality_score, quality_tier, load_calibration
 )
-from core.shape_primitives import (
+from core_v2.shape_primitives import (
     EntryPrimitive, ExitPrimitive,
     EntryPrimitiveLibrary, ExitPrimitiveLibrary,
     extract_lookback_geometry,

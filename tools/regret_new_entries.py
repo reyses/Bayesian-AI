@@ -1,7 +1,7 @@
 """Run regret on new entry strategies to find optimal PnL and direction."""
 import pickle, numpy as np, pandas as pd, sys, os, glob
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 from training.regret import compute_all_regrets
 from tqdm import tqdm
 

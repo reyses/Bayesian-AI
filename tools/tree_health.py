@@ -30,7 +30,7 @@ from collections import defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
 
 TRADE_LOG = 'DATA/NMP_TRADES/nmp_is.pkl'
 REGRET_FILE = 'DATA/NMP_TREE/regret_analysis.csv'

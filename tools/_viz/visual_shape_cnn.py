@@ -161,7 +161,7 @@ def render_multi_tf_image(touch_ts, level_price, tf_data, img_w=256, img_h=256):
 
 def build_image_dataset(tf, months=None):
     """Build image dataset from level touches. Returns images, labels, metadata, context_features."""
-    from core.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
     from training.train_trade_cnn import extract_features_13d
     from tools.level_shapes import get_levels, classify_touch
 

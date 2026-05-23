@@ -12,7 +12,7 @@ import pandas as pd
 from collections import defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES, TF_ORDER
+from core_v2.features import FEATURE_NAMES, TF_ORDER
 
 # Load data
 print('Loading data...')

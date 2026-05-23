@@ -38,7 +38,7 @@ FEATURE_NAMES = [
 
 def load_features(tf, month_str=None):
     """Load OHLCV + compute 13D features for a TF. Returns df, feats."""
-    from core.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
     from training.train_trade_cnn import extract_features_13d
 
     files = sorted(glob.glob(os.path.join(ATLAS, tf, '*.parquet')))

@@ -21,7 +21,7 @@ import matplotlib.dates as mdates
 from datetime import timezone
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 date = sys.argv[1] if len(sys.argv) > 1 else '2026-03-19'
 start_hm = sys.argv[2] if len(sys.argv) > 2 else None

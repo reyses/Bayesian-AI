@@ -76,6 +76,14 @@ def bootstrap_ci(values, n_boot=N_BOOTSTRAP, seed=42):
 
 
 def main():
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--is-legs',
+                    default='reports/findings/regret_oracle/is_hardened_legs.csv',
+                    help='per-day IS legs CSV (per-day P&L target source). '
+                         'Default: hardened/offline IS. Pass causal_flat IS '
+                         'legs to retrain on honest causal data.')
+    args = ap.parse_args()
     lines = []
     def out(s=''):
         print(s); lines.append(s)
@@ -126,8 +134,9 @@ def main():
     is_df['p_high'] = is_p_high
     is_df['p_low']  = is_p_low
 
-    # Load IS per-day P&L (flat hardened)
-    is_legs = pd.read_csv('reports/findings/regret_oracle/is_hardened_legs.csv')
+    # Load IS per-day P&L (flat). Default hardened; --is-legs swaps in causal_flat.
+    is_legs = pd.read_csv(args.is_legs)
+    out(f'  IS legs source: {args.is_legs}  ({len(is_legs):,} legs)')
     is_day_pnl = is_legs.groupby('day')['pnl_usd'].sum().reset_index()
     is_day_pnl.columns = ['date_label', 'day_pnl']
 

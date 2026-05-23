@@ -21,7 +21,7 @@ from collections import defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES, TF_ORDER
+from core_v2.features import FEATURE_NAMES, TF_ORDER
 
 CORRECTED_LOG = 'training/output/trades/corrected_is.pkl'
 

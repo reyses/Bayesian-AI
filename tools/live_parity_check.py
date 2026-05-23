@@ -203,7 +203,7 @@ def step4_feature_parity():
         print('  No live features')
         return
 
-    from core.features import TF_ORDER
+    from core_v2.features import TF_ORDER
 
     for lf in live_files:
         day = os.path.basename(lf)
@@ -264,8 +264,8 @@ def step5_trade_parity():
 
     from training.sfe_ticker import FeatureTicker
     from training.nightmare_blended import BlendedEngine
-    from core.ledger import Ledger
-    from core import sim_executor
+    from core_v2.ledger import Ledger
+    from core_v2 import sim_executor
 
     engine = BlendedEngine(use_cnn=False, live_mode=True)
     ledger = Ledger()

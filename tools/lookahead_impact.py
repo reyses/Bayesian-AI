@@ -19,8 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from training.sfe_ticker import FeatureTicker
 from training.nightmare_blended import BlendedEngine
-from core.ledger import Ledger
-from core import sim_executor
+from core_v2.ledger import Ledger
+from core_v2 import sim_executor
 
 FEATURES_DIR = 'DATA/FEATURES_5s'
 OLD_TRADES = 'training/output/archive_pre_lookahead_fix/blended_is.pkl'

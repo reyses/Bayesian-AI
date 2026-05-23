@@ -30,7 +30,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES  # 91 named columns
+from core_v2.features import FEATURE_NAMES  # 91 named columns
 
 # 91D index helpers
 N_CORE = 12

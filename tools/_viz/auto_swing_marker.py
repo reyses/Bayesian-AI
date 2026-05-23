@@ -470,7 +470,7 @@ def main():
 
     # Compute physics states for enrichment
     print(f"  Computing 1m physics states...")
-    from core.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
     _sfe = StatisticalFieldEngine()
     _raw_states = _sfe.batch_compute_states(df_1m)
     _states_all = [s['state'] if s and isinstance(s, dict) and 'state' in s else None

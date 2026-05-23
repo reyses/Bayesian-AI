@@ -161,6 +161,22 @@ Complete index of everything under `tools/`. Grouped by function. Each entry: **
 | `midleg_b1to6_augmented.py` | Mid-leg entry E2: B1-B6 pivot-structure augmentation vs B9-alone + structure gates + pullback filter |
 | `midleg_constrained_sim.py` | Mid-leg entry E3: position-constrained 1-contract greedy late-join sim (the operational truth) |
 | `midleg_overlap_analysis.py` | Mid-leg entry E4: leg overlap-structure analysis — proves zigzag legs are a sequential partition |
+| `zigzag_coldstart_divergence.py` | Mid-day cold-start zigzag vs beginning-of-time run — resync lag + transient $ divergence (bounded-transient verdict) |
+| `atr_multiplier_sweep.py` | FLAT zigzag forward pass across ATR multipliers 1–10, IS+OOS — pick-and-choose table. VALID ONLY at fixed X (cross-X is oracle-contaminated) |
+| `oos_bad_day_characterize.py` | DMAIC MEASURE — characterize OOS bad days (day-level): count, severity, loss concentration, B-stack effect, per-day feature table |
+| `oos_hourly_characterize.py` | DMAIC MEASURE — decompose FLAT $/day into ET hour-of-day "shifts" (IS+OOS), defective-shift ID, skip-preview, bad-day loss localization |
+| `oos_intraday_stop_analysis.py` | DMAIC ANALYZE — intraday session-stop grid (H×T cumulative-P&L cutoff), IS recovery-rate / neg-day audit, sealed-OOS effect with bootstrap CIs, fixed RTH-only comparison. Verdict: session-stop FAILS like the per-trade drawdown stop |
+| `oos_bad_day_autocorr.py` | DMAIC ANALYZE — lag-1 autocorrelation of daily P&L + chop proxies; bad-day clustering / persistence test. Verdict: daily P&L is iid, bad days do not cluster |
+| `_viz/chop_inspection_chart.py` | Per-day inspection chart — 5s price + production zigzag legs (green win / red loss) + per-leg P&L + intraday equity curve; for arguing the chop case with images |
+| `_viz/zigzag_range_compare.py` | One day's price with the zigzag at several ATR multipliers, one panel each; quantifies the R-trigger give-up tax (2R / median-swing) per multiplier |
+| `_viz/zigzag_atr_inspector.py` | INTERACTIVE — price + zigzag with a live ATR-multiplier slider; day nav (PgUp/Dn), pan/zoom, screenshot-to-`examples/` (p), persisted window geometry + slider + day. The dynamic sweet-spot tuner (any day, no caches) |
+| `atr_consensus_measure.py` | Cross-ATR-level consensus vs leg outcome, OFFLINE vs CAUSAL — tests whether multi-scale zigzag agreement discriminates leg P&L. Verdict: offline signal is hindsight; causal consensus inverts to a weak leg-maturity signal |
+| `conditional_probability_table.py` | DIAGNOSTIC — empirical "if this then that" conditional probability table over zigzag-leg events (e.g. given K consecutive low-range legs, P of next leg's range). IS/OOS, n + 95% CI per cell |
+| `leg_chop_survival.py` | DIAGNOSTIC — does EARLY chop (chop ratio over the first K tight legs) inside a wide-ATR leg forecast a longer leg? Fixed-window (decoupled from leg length), IS/OOS, n + CI. Finding: early-choppy wide legs run ~2x longer |
+| `_viz/worst_trades_gallery.py` | DIAGNOSTIC chart — the N largest losing legs, each in context (lead-in + the bad leg in red + surrounding legs faint). EDA gallery for the worst-trades signature |
+| `trend_continuation.py` | DIAGNOSTIC — after a chop/fakeout, P(preceding trend continues)? Leg-DECOUPLED (regression-slope trend over a 90-min window; zigzag marks the event only) + a no-K-parity validation gate. Finding: weak — ~53-56% vs ~50% base |
+| `leg_age_hazard.py` | DIAGNOSTIC — leg-age conditional-survival table: given a leg has run M min, P(it continues +X min). IS/OOS, n + CI, shape-aware verdict. Finding: HUMP-shaped hazard, ~5-min danger window; no monotone exhaustion (a pure time-stop is unsupported) |
+| `trade_outcome_suite/run_all.py` | DIAGNOSTIC SUITE — 15 probability-table questions over all hardened legs (entry-to-close/MAE/MFE distributions, continuation, recovery, giveback, equity-loss map, drawdown-worsening, n-iteration chain, MAE timing, winners-vs-losers split). `excursions.py` shared per-leg dataset, `questions.py` one fn per question, `run_all.py` → one consolidated report. IS/OOS, n + 95% CI. Finding: every fixed-dollar exit overlay (cut winners / lock breakeven / bail losers) loses to the R-trigger on EV; equity loss is a low-MFE phenomenon; trade AGE beats depth as a signal |
 
 ## 10. Peak Research
 
@@ -245,6 +261,8 @@ Complete index of everything under `tools/`. Grouped by function. Each entry: **
 | `seed_oracle_trainer.py` | Entry classifier from manual seeds. 192D features, multi-TF |
 | `shape_primitive_builder.py` | UMAP+HDBSCAN on entry+exit primitives |
 | `visual_shape_cnn.py` | 2D CNN on candlestick images for level-touch classification |
+| `retrain_b_stack.py` | Sequential B1→B10 GBM retrain wrapper. Fail-fast subprocess chain; `--from/--to/--only/--dry-run/--extra-args`. **`--honest-is` mode** injects per-stage flags (`--is-dataset` / `--is-truth` / `--is-legs` / `--traj`) pointing each trainer at the CAUSAL_FLAT IS artifacts (lookahead-free, no GBMs upstream); preflight-checks the artifacts exist and aborts with build commands if not. Per-stage timing + summary table |
+| `build_causal_truth_dataset.py` | Retag the IS V2-per-1m truth dataset using CAUSAL pivots (from `causal_flat_zigzag_legs_IS.csv` entry_ts) instead of offline-zigzag `is_pivot` labels. Output: `zigzag_pivot_dataset_CAUSAL_IS_atr4.parquet`. Prerequisite for `retrain_b_stack.py --honest-is`. Downstream trainers derive targets from `is_pivot==1` + 5s bars, so retagging is sufficient — V2 columns stay |
 
 ## 16. Strategy Discovery
 

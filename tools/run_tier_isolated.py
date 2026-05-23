@@ -31,8 +31,8 @@ from training.nightmare_blended import (
     MTF_Z_MIN, MTF_VR_MIN, MTF_VOL_MIN, MTF_5M_VEL_MIN, MTF_1M_VEL_ALIVE,
     _N_CORE, ROCHE, VR_ENTRY,
 )
-from core.ledger import Ledger
-from core import sim_executor
+from core_v2.ledger import Ledger
+from core_v2 import sim_executor
 
 FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'

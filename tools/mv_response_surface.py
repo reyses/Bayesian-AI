@@ -36,7 +36,7 @@ from itertools import combinations
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import FEATURE_NAMES, N_FEATURES
+from core_v2.features import FEATURE_NAMES, N_FEATURES
 
 ISOLATED_DIR = 'training/output/isolated'
 OUT_DIR = 'reports/findings'
