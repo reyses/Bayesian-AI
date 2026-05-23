@@ -1,0 +1,9 @@
+======================================================================
+CAUSAL ZIGZAG FORWARD PASS — OOS
+======================================================================
+Legs: 2,061   Days: 51   Leg-dir: 1040L / 1021S
+$/day:        $+416.68
+Total $:      $+21,250.50
+P(close>0):   39.8%   mean $+10.3/leg
+Day WR:       37/51   worst $-703  best $+2770
+eod_close legs: 6 (open at session end, force-closed)

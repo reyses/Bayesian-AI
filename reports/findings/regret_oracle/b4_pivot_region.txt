@@ -2,43 +2,43 @@
 B4 PIVOT-REGION CLASSIFIER
   Label: in_region_W = 1 iff |bar_ts - nearest_pivot| <= W  (symmetric)
 ==============================================================================
-IS rows: 282,669   OOS rows: 34,844   features: 184
+IS rows: 282,669   OOS rows: 57,505   features: 184
 
---- W=30s --- positives IS 12.39%, OOS 10.56%
-IS  AUC = 0.8090
-OOS AUC = 0.7195  (base rate 10.56%)
-  thr=0.30:  prec= 12.6%  rec= 96.4%  cov=80.71%  lift= 1.19x  (tp=3546 fp=24575 fn=134)
-  thr=0.50:  prec= 16.8%  rec= 77.6%  cov=48.65%  lift= 1.60x  (tp=2856 fp=14096 fn=824)
-  thr=0.70:  prec= 24.6%  rec= 27.2%  cov=11.67%  lift= 2.33x  (tp=1002 fp=3066 fn=2678)
-  thr=0.85:  prec= 35.4%  rec=  0.5%  cov= 0.14%  lift= 3.35x  (tp=17 fp=31 fn=3663)
-  thr=0.95:  prec=  0.0%  rec=  0.0%  cov= 0.00%  lift= 0.00x  (tp=0 fp=0 fn=3680)
+--- W=30s --- positives IS 4.10%, OOS 10.29%
+IS  AUC = 0.8971
+OOS AUC = 0.6099  (base rate 10.29%)
+  thr=0.30:  prec= 12.7%  rec= 67.6%  cov=54.64%  lift= 1.24x  (tp=4001 fp=27422 fn=1918)
+  thr=0.50:  prec= 16.5%  rec= 37.9%  cov=23.66%  lift= 1.60x  (tp=2246 fp=11362 fn=3673)
+  thr=0.70:  prec= 22.0%  rec= 13.8%  cov= 6.45%  lift= 2.14x  (tp=816 fp=2894 fn=5103)
+  thr=0.85:  prec= 26.7%  rec=  2.6%  cov= 0.99%  lift= 2.60x  (tp=152 fp=417 fn=5767)
+  thr=0.95:  prec=  0.0%  rec=  0.0%  cov= 0.00%  lift= 0.00x  (tp=0 fp=0 fn=5919)
 
---- W=60s --- positives IS 12.71%, OOS 10.68%
-IS  AUC = 0.8048
-OOS AUC = 0.7227  (base rate 10.68%)
-  thr=0.30:  prec= 12.8%  rec= 96.5%  cov=80.56%  lift= 1.20x  (tp=3590 fp=24480 fn=130)
-  thr=0.50:  prec= 17.5%  rec= 78.1%  cov=47.61%  lift= 1.64x  (tp=2904 fp=13684 fn=816)
-  thr=0.70:  prec= 24.3%  rec= 25.6%  cov=11.27%  lift= 2.28x  (tp=954 fp=2973 fn=2766)
-  thr=0.85:  prec= 41.7%  rec=  0.5%  cov= 0.14%  lift= 3.90x  (tp=20 fp=28 fn=3700)
-  thr=0.95:  prec=  0.0%  rec=  0.0%  cov= 0.00%  lift= 0.00x  (tp=0 fp=0 fn=3720)
+--- W=60s --- positives IS 11.93%, OOS 10.40%
+IS  AUC = 0.8843
+OOS AUC = 0.6379  (base rate 10.40%)
+  thr=0.30:  prec= 13.2%  rec= 75.1%  cov=59.10%  lift= 1.27x  (tp=4492 fp=29496 fn=1491)
+  thr=0.50:  prec= 16.5%  rec= 51.2%  cov=32.36%  lift= 1.58x  (tp=3063 fp=15547 fn=2920)
+  thr=0.70:  prec= 19.9%  rec= 25.4%  cov=13.26%  lift= 1.91x  (tp=1519 fp=6107 fn=4464)
+  thr=0.85:  prec= 23.4%  rec=  6.3%  cov= 2.80%  lift= 2.25x  (tp=377 fp=1232 fn=5606)
+  thr=0.95:  prec= 16.7%  rec=  0.1%  cov= 0.03%  lift= 1.60x  (tp=3 fp=15 fn=5980)
 
---- W=120s --- positives IS 24.33%, OOS 20.79%
-IS  AUC = 0.8031
-OOS AUC = 0.7225  (base rate 20.79%)
-  thr=0.30:  prec= 23.7%  rec= 96.4%  cov=84.40%  lift= 1.14x  (tp=6981 fp=22429 fn=262)
-  thr=0.50:  prec= 30.9%  rec= 80.1%  cov=53.95%  lift= 1.48x  (tp=5800 fp=12997 fn=1443)
-  thr=0.70:  prec= 42.2%  rec= 33.7%  cov=16.62%  lift= 2.03x  (tp=2444 fp=3347 fn=4799)
-  thr=0.85:  prec= 64.5%  rec=  0.8%  cov= 0.27%  lift= 3.10x  (tp=60 fp=33 fn=7183)
-  thr=0.95:  prec=  0.0%  rec=  0.0%  cov= 0.00%  lift= 0.00x  (tp=0 fp=0 fn=7243)
+--- W=120s --- positives IS 18.91%, OOS 20.28%
+IS  AUC = 0.8830
+OOS AUC = 0.6741  (base rate 20.28%)
+  thr=0.30:  prec= 26.0%  rec= 79.0%  cov=61.64%  lift= 1.28x  (tp=9215 fp=26232 fn=2445)
+  thr=0.50:  prec= 31.7%  rec= 57.8%  cov=36.98%  lift= 1.56x  (tp=6739 fp=14527 fn=4921)
+  thr=0.70:  prec= 37.8%  rec= 33.3%  cov=17.86%  lift= 1.86x  (tp=3879 fp=6394 fn=7781)
+  thr=0.85:  prec= 43.7%  rec=  9.6%  cov= 4.44%  lift= 2.16x  (tp=1116 fp=1435 fn=10544)
+  thr=0.95:  prec= 40.6%  rec=  0.1%  cov= 0.06%  lift= 2.00x  (tp=13 fp=19 fn=11647)
 
---- W=300s --- positives IS 47.37%, OOS 42.03%
-IS  AUC = 0.8417
-OOS AUC = 0.7378  (base rate 42.03%)
-  thr=0.30:  prec= 44.3%  rec= 97.7%  cov=92.81%  lift= 1.05x  (tp=14310 fp=18028 fn=336)
-  thr=0.50:  prec= 51.8%  rec= 85.7%  cov=69.56%  lift= 1.23x  (tp=12545 fp=11691 fn=2101)
-  thr=0.70:  prec= 64.5%  rec= 57.6%  cov=37.52%  lift= 1.53x  (tp=8436 fp=4639 fn=6210)
-  thr=0.85:  prec= 79.0%  rec= 18.7%  cov= 9.95%  lift= 1.88x  (tp=2740 fp=727 fn=11906)
-  thr=0.95:  prec= 89.8%  rec=  0.3%  cov= 0.14%  lift= 2.14x  (tp=44 fp=5 fn=14602)
+--- W=300s --- positives IS 34.32%, OOS 41.26%
+IS  AUC = 0.8963
+OOS AUC = 0.7073  (base rate 41.26%)
+  thr=0.30:  prec= 49.0%  rec= 84.2%  cov=70.87%  lift= 1.19x  (tp=19987 fp=20768 fn=3738)
+  thr=0.50:  prec= 57.1%  rec= 65.8%  cov=47.51%  lift= 1.39x  (tp=15614 fp=11709 fn=8111)
+  thr=0.70:  prec= 65.1%  rec= 43.8%  cov=27.74%  lift= 1.58x  (tp=10384 fp=5570 fn=13341)
+  thr=0.85:  prec= 73.5%  rec= 21.9%  cov=12.29%  lift= 1.78x  (tp=5196 fp=1871 fn=18529)
+  thr=0.95:  prec= 83.6%  rec=  2.1%  cov= 1.06%  lift= 2.03x  (tp=508 fp=100 fn=23217)
 
 ==============================================================================
 COMPARISON to B1 K=1 (forward-only label, ~1-min ahead)

@@ -2,36 +2,36 @@
 B1 PIVOT-IMMINENT CLASSIFIER
 truth = zigzag (ATR x4) pivots from build_zigzag_pivot_dataset.py
 ========================================================================
-IS rows: 282,669   OOS rows: 34,844   features: 184
+IS rows: 282,669   OOS rows: 57,505   features: 184
 
---- K=1 min --- (positives IS 6.10%, OOS 5.23%) ---
-IS  AUC = 0.7762
-OOS AUC = 0.6862  (base rate 5.23%)
-  thr=0.30:  prec=5.7%  rec=96.8%  cov=88.40%  lift=1.10x  (tp=1765 fp=29037 fn=58)
-  thr=0.50:  prec=8.0%  rec=73.6%  cov=47.88%  lift=1.54x  (tp=1341 fp=15343 fn=482)
-  thr=0.70:  prec=13.6%  rec=11.7%  cov=4.48%  lift=2.61x  (tp=213 fp=1349 fn=1610)
-  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=1823)
+--- K=1 min --- (positives IS 3.92%, OOS 5.10%) ---
+IS  AUC = 0.8605
+OOS AUC = 0.5835  (base rate 5.10%)
+  thr=0.30:  prec=6.0%  rec=69.3%  cov=59.30%  lift=1.17x  (tp=2031 fp=32070 fn=901)
+  thr=0.50:  prec=7.4%  rec=38.0%  cov=26.21%  lift=1.45x  (tp=1113 fp=13957 fn=1819)
+  thr=0.70:  prec=9.4%  rec=12.1%  cov=6.58%  lift=1.84x  (tp=355 fp=3431 fn=2577)
+  thr=0.85:  prec=12.5%  rec=2.1%  cov=0.88%  lift=2.44x  (tp=63 fp=443 fn=2869)
 
---- K=3 min --- (positives IS 18.18%, OOS 15.67%) ---
-IS  AUC = 0.7649
-OOS AUC = 0.6978  (base rate 15.67%)
-  thr=0.30:  prec=16.7%  rec=98.1%  cov=92.24%  lift=1.06x  (tp=5356 fp=26784 fn=105)
-  thr=0.50:  prec=22.4%  rec=77.9%  cov=54.42%  lift=1.43x  (tp=4253 fp=14710 fn=1208)
-  thr=0.70:  prec=34.3%  rec=18.1%  cov=8.27%  lift=2.19x  (tp=988 fp=1892 fn=4473)
-  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=5461)
+--- K=3 min --- (positives IS 11.75%, OOS 15.27%) ---
+IS  AUC = 0.8230
+OOS AUC = 0.6704  (base rate 15.27%)
+  thr=0.30:  prec=18.2%  rec=86.8%  cov=72.87%  lift=1.19x  (tp=7624 fp=34278 fn=1156)
+  thr=0.50:  prec=24.2%  rec=59.9%  cov=37.83%  lift=1.58x  (tp=5258 fp=16498 fn=3522)
+  thr=0.70:  prec=31.2%  rec=27.1%  cov=13.27%  lift=2.04x  (tp=2379 fp=5250 fn=6401)
+  thr=0.85:  prec=36.6%  rec=2.2%  cov=0.92%  lift=2.40x  (tp=193 fp=334 fn=8587)
 
---- K=5 min --- (positives IS 28.45%, OOS 24.77%) ---
-IS  AUC = 0.7808
-OOS AUC = 0.7099  (base rate 24.77%)
-  thr=0.30:  prec=26.1%  rec=98.0%  cov=92.86%  lift=1.05x  (tp=8456 fp=23900 fn=176)
-  thr=0.50:  prec=33.7%  rec=80.0%  cov=58.75%  lift=1.36x  (tp=6902 fp=13570 fn=1730)
-  thr=0.70:  prec=47.1%  rec=37.8%  cov=19.90%  lift=1.90x  (tp=3264 fp=3669 fn=5368)
-  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=8632)
+--- K=5 min --- (positives IS 18.67%, OOS 24.17%) ---
+IS  AUC = 0.8286
+OOS AUC = 0.6915  (base rate 24.17%)
+  thr=0.30:  prec=27.7%  rec=89.4%  cov=77.91%  lift=1.15x  (tp=12426 fp=32379 fn=1471)
+  thr=0.50:  prec=36.3%  rec=66.3%  cov=44.17%  lift=1.50x  (tp=9210 fp=16188 fn=4687)
+  thr=0.70:  prec=47.3%  rec=32.8%  cov=16.78%  lift=1.96x  (tp=4562 fp=5085 fn=9335)
+  thr=0.85:  prec=57.5%  rec=2.4%  cov=1.03%  lift=2.38x  (tp=339 fp=251 fn=13558)
 
---- K=10 min --- (positives IS 46.37%, OOS 41.34%) ---
-IS  AUC = 0.8134
-OOS AUC = 0.7157  (base rate 41.34%)
-  thr=0.30:  prec=43.0%  rec=97.7%  cov=93.86%  lift=1.04x  (tp=14073 fp=18632 fn=331)
-  thr=0.50:  prec=52.2%  rec=79.0%  cov=62.49%  lift=1.26x  (tp=11374 fp=10400 fn=3030)
-  thr=0.70:  prec=64.5%  rec=49.2%  cov=31.53%  lift=1.56x  (tp=7089 fp=3896 fn=7315)
-  thr=0.85:  prec=78.1%  rec=7.3%  cov=3.88%  lift=1.89x  (tp=1055 fp=296 fn=13349)
+--- K=10 min --- (positives IS 31.80%, OOS 40.57%) ---
+IS  AUC = 0.8467
+OOS AUC = 0.7038  (base rate 40.57%)
+  thr=0.30:  prec=45.2%  rec=89.5%  cov=80.23%  lift=1.12x  (tp=20875 fp=25259 fn=2456)
+  thr=0.50:  prec=55.5%  rec=68.3%  cov=49.90%  lift=1.37x  (tp=15925 fp=12770 fn=7406)
+  thr=0.70:  prec=66.5%  rec=41.6%  cov=25.40%  lift=1.64x  (tp=9715 fp=4889 fn=13616)
+  thr=0.85:  prec=79.6%  rec=10.2%  cov=5.20%  lift=1.96x  (tp=2380 fp=611 fn=20951)

@@ -2,28 +2,28 @@
 B2 FAKE-OUT CLASSIFIER
 truth = pivot pairs from build_zigzag_pivot_dataset.py (ATR x4)
 ========================================================================
-IS pivots: 17,789   OOS pivots: 1,827   features: 184
+IS pivots: 11,314   OOS pivots: 2,938   features: 184
 
---- K=3 min --- (fakeout IS 9.06%, OOS 8.21%) ---
-IS  AUC = 0.8958
-OOS AUC = 0.6693  (base rate 8.21%)
-  thr=0.30:  prec=10.4%  rec=95.3%  cov=75.21%  lift=1.27x  (tp=143 fp=1231 fn=7)
-  thr=0.50:  prec=12.7%  rec=59.3%  cov=38.26%  lift=1.55x  (tp=89 fp=610 fn=61)
-  thr=0.70:  prec=30.8%  rec=2.7%  cov=0.71%  lift=3.75x  (tp=4 fp=9 fn=146)
-  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=150)
+--- K=3 min --- (fakeout IS 7.10%, OOS 7.86%) ---
+IS  AUC = 0.9376
+OOS AUC = 0.6733  (base rate 7.86%)
+  thr=0.30:  prec=9.9%  rec=91.8%  cov=72.53%  lift=1.27x  (tp=212 fp=1919 fn=19)
+  thr=0.50:  prec=12.6%  rec=51.9%  cov=32.37%  lift=1.60x  (tp=120 fp=831 fn=111)
+  thr=0.70:  prec=14.3%  rec=2.2%  cov=1.19%  lift=1.82x  (tp=5 fp=30 fn=226)
+  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=231)
 
---- K=5 min --- (fakeout IS 27.00%, OOS 25.18%) ---
-IS  AUC = 0.8307
-OOS AUC = 0.6851  (base rate 25.18%)
-  thr=0.30:  prec=28.8%  rec=98.7%  cov=86.21%  lift=1.14x  (tp=454 fp=1121 fn=6)
-  thr=0.50:  prec=34.0%  rec=87.0%  cov=64.31%  lift=1.35x  (tp=400 fp=775 fn=60)
-  thr=0.70:  prec=40.4%  rec=4.6%  cov=2.85%  lift=1.60x  (tp=21 fp=31 fn=439)
-  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=460)
+--- K=5 min --- (fakeout IS 21.56%, OOS 24.10%) ---
+IS  AUC = 0.8454
+OOS AUC = 0.6631  (base rate 24.10%)
+  thr=0.30:  prec=26.6%  rec=97.6%  cov=88.39%  lift=1.10x  (tp=691 fp=1906 fn=17)
+  thr=0.50:  prec=32.4%  rec=72.0%  cov=53.54%  lift=1.35x  (tp=510 fp=1063 fn=198)
+  thr=0.70:  prec=34.1%  rec=6.5%  cov=4.59%  lift=1.41x  (tp=46 fp=89 fn=662)
+  thr=0.85:  prec=0.0%  rec=0.0%  cov=0.00%  lift=0.00x  (tp=0 fp=0 fn=708)
 
---- K=10 min --- (fakeout IS 53.32%, OOS 49.64%) ---
-IS  AUC = 0.8462
-OOS AUC = 0.6952  (base rate 49.64%)
-  thr=0.30:  prec=53.9%  rec=96.8%  cov=89.22%  lift=1.09x  (tp=878 fp=752 fn=29)
-  thr=0.50:  prec=61.2%  rec=81.1%  cov=65.79%  lift=1.23x  (tp=736 fp=466 fn=171)
-  thr=0.70:  prec=66.1%  rec=24.7%  cov=18.56%  lift=1.33x  (tp=224 fp=115 fn=683)
-  thr=0.85:  prec=100.0%  rec=0.3%  cov=0.16%  lift=2.01x  (tp=3 fp=0 fn=904)
+--- K=10 min --- (fakeout IS 44.82%, OOS 48.37%) ---
+IS  AUC = 0.8774
+OOS AUC = 0.7100  (base rate 48.37%)
+  thr=0.30:  prec=53.9%  rec=92.2%  cov=82.71%  lift=1.11x  (tp=1310 fp=1120 fn=111)
+  thr=0.50:  prec=63.2%  rec=67.9%  cov=51.97%  lift=1.31x  (tp=965 fp=562 fn=456)
+  thr=0.70:  prec=74.4%  rec=23.9%  cov=15.55%  lift=1.54x  (tp=340 fp=117 fn=1081)
+  thr=0.85:  prec=50.0%  rec=0.2%  cov=0.20%  lift=1.03x  (tp=3 fp=3 fn=1418)

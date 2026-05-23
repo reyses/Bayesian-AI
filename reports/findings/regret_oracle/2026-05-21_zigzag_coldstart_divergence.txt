@@ -1,0 +1,36 @@
+================================================================================
+ZIGZAG COLD-START DIVERGENCE  --  mid-day anchor vs beginning-of-time
+================================================================================
+Days available: 54   (DATA/ATLAS_NT8/5s/)
+Cold-start offsets: ['10%', '25%', '50%', '75%'] into the day
+detect_swings, ATR(14)x4, min_bars=36 -- production params.
+
+Days used: 54   cold-start samples: 216
+
+--------------------------------------------------------------------------------
+RE-SYNC LAG  (bars from the mid-day cold-start until the two zigzags
+become identical -- i.e. the duration of the divergent transient)
+--------------------------------------------------------------------------------
+ K offset     n   resync median   resync mean       p90  never-resync
+     10%     54          39 min         46 min     89min       0/54   
+     25%     54          22 min         31 min     70min       0/54   
+     50%     54          20 min         43 min    125min       0/54   
+     75%     54          47 min         56 min    129min       0/54   
+
+  ALL: resync lag mean 44 min  CI [38, 50]  median 27 min  max 269 min
+  never-resyncs: 0/216 (0%)
+
+--------------------------------------------------------------------------------
+TRANSIENT COST  (leg-amplitude mis-tiled while desynced, $ @ $2/pt)
+--------------------------------------------------------------------------------
+  mean $+103   median $+80   CI [$91, $114]   max $514
+  transient mis-tiled legs: mean 0.7  median 0  max 4
+
+================================================================================
+VERDICT
+================================================================================
+BOUNDED TRANSIENT: a mid-day cold-start re-syncs in ~27 min
+median; after that the zigzag is identical to the beginning-of-time
+run. The divergence is a bounded warmup cost, not a structural
+break. Whether it is worth a code fix depends on the $ cost above
+vs how often the engine is actually launched mid-session.

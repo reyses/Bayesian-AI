@@ -1,0 +1,123 @@
+================================================================================
+ATR-MULTIPLIER SWEEP  --  FLAT 1-contract zigzag forward pass
+================================================================================
+Grid: 1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.25, 3.5, 3.75, 4, 5, 6, 7, 8, 9, 10
+FLAT = enter every leg at its R-trigger, exit at next pivot, 1 contract,
+       $6/leg friction, no ML filter.  $/day net of friction.
+
+SELF-TEST  (X=4 must reproduce the published baseline)
+  IS   X=4: computed $  690.10/day   baseline $  690.10   [PASS]
+  OOS  X=4: computed $  454.02/day   baseline $  454.02   [PASS]
+
+--------------------------------------------------------------------------------
+MAIN TABLE  ($/day net of friction)
+--------------------------------------------------------------------------------
+  ATR   IS $/day             [95% CI]   OOS $/day             [95% CI]   leg/day  legmin  legamp$  OOS DayWR   OOS TWR
+    1       3363 [    2993,    3781]        3480 [    2918,    4040]     157.8     5.6       18     100.0%     +4.25
+ 1.25       2941 [    2586,    3318]        2934 [    2437,    3434]     146.1     5.9       18     100.0%     +3.10
+  1.5       2579 [    2244,    2928]        2494 [    2042,    2960]     133.5     6.2       18      96.2%     +2.41
+ 1.75       2243 [    1939,    2564]        2081 [    1680,    2513]     122.1     6.6       20      96.2%     +1.84
+    2       1957 [    1677,    2256]        1751 [    1372,    2158]     111.3     7.0       21      92.3%     +1.46
+ 2.25       1713 [    1456,    1995]        1429 [    1092,    1794]     101.9     7.4       22      92.3%     +1.13
+  2.5       1486 [    1252,    1744]        1205 [     889,    1543]      93.2     7.8       24      88.5%     +0.93
+ 2.75       1281 [    1063,    1517]        1042 [     747,    1360]      85.4     8.4       26      84.6%     +0.81
+    3       1116 [     920,    1337]         833 [     555,    1134]      79.2     8.8       28      75.0%     +0.63
+ 3.25        994 [     813,    1200]         647 [     408,     908]      72.7     9.3       30      71.2%     +0.48
+  3.5        879 [     709,    1074]         583 [     369,     815]      66.5     9.8       32      76.9%     +0.45
+ 3.75        791 [     633,     975]         553 [     338,     788]      60.4    10.3       32      71.2%     +0.44
+    4        690 [     543,     863]         454 [     261,     664]      57.6    10.8       35      72.5%     +0.36  <- baseline
+    5        427 [     307,     565]         214 [      49,     383]      43.2    13.6       42      58.8%     +0.18
+    6        239 [     135,     356]          36 [    -114,     192]      33.5    16.2       49      56.9%     +0.03
+    7        114 [      30,     207]          24 [    -131,     177]      25.9    20.3       53      47.1%     +0.02
+    8         50 [     -23,     131]        -108 [    -246,      31]      21.6    21.9       60      38.0%     -0.11
+    9          4 [     -76,      87]        -127 [    -266,      18]      17.2    24.8       69      36.0%     -0.15
+   10         -4 [     -80,      76]        -167 [    -327,     -13]      14.6    26.7       77      32.7%     -0.21
+
+  legmin = median leg duration (min);  legamp$ = median leg amplitude (gross $);
+  OOS TWR = profit-factor Trade WR  (0 = break-even, +1 = PF 2).
+
+--------------------------------------------------------------------------------
+OOS VOL-REGIME STRATIFICATION  ($/day by ATR x vol tercile)
+  vol proxy = std(1m log-returns) x sqrt(390); IS terciles q33=0.0045 q67=0.0066
+  bucket day counts: low=12  mid=23  high=17
+--------------------------------------------------------------------------------
+  ATR     low-vol     mid-vol    high-vol    argmax
+    1        1238        3644        4842      high
+ 1.25         941        3102        4111      high
+  1.5         736        2695        3461      high
+ 1.75         570        2262        2902      high
+    2         387        1932        2469      high
+ 2.25         252        1642        1972      high
+  2.5         181        1376        1696      high
+ 2.75          78        1173        1545      high
+    3           0         925        1298      high
+ 3.25           7         773         930      high
+  3.5          28         691         830      high
+ 3.75         -32         655         827      high
+    4         -27         498         706      high
+    5        -214         338         324       mid
+    6        -168         184         -32       mid
+    7         -81          78          17       mid
+    8         -25         -67        -211       low
+    9         -46         -80        -239       low
+   10          63        -152        -309       low
+  best ATR per bucket:  low=x1  mid=x1  high=x1
+
+--------------------------------------------------------------------------------
+IS VOL-REGIME STRATIFICATION  ($/day by ATR x vol tercile)
+  vol proxy = std(1m log-returns) x sqrt(390); IS terciles q33=0.0045 q67=0.0066
+  bucket day counts: low=92  mid=93  high=92
+--------------------------------------------------------------------------------
+  ATR     low-vol     mid-vol    high-vol    argmax
+    1        1485        2662        5930      high
+ 1.25        1233        2297        5301      high
+  1.5        1033        1965        4745      high
+ 1.75         840        1691        4203      high
+    2         668        1462        3747      high
+ 2.25         550        1255        3340      high
+  2.5         433        1077        2953      high
+ 2.75         326         928        2593      high
+    3         253         804        2287      high
+ 3.25         190         719        2067      high
+  3.5         141         629        1861      high
+ 3.75         115         566        1687      high
+    4          81         491        1487      high
+    5          -3         338         917      high
+    6         -83         184         576      high
+    7        -131          99         340      high
+    8        -167          15         269      high
+    9        -168         -27         178      high
+   10        -161         -33         157      high
+  best ATR per bucket:  low=x1  mid=x1  high=x1
+
+================================================================================
+VERDICT
+================================================================================
+Best STATIC ATR (chosen on IS $/day): x1
+  IS  $3363/day   OOS $3480/day [2918, 4040]   OOS mode $212  median $3150
+  Baseline x4:  IS $690   OOS $454/day
+
+Regime-optimal policy (best ATR per IS vol bucket): low=x1  mid=x1  high=x1
+  OOS regime-optimal $3480/day  vs  best-static $3480/day
+  delta $+0/day   95% CI [+0, +0]   NOT significant
+
+-> The optimal multiplier does NOT move meaningfully with regime
+   (or the dynamic gain is not significant). A single STATIC ATR
+   multiplier of x1 is the recommendation. Building
+   a per-day dynamic ATR selector is NOT justified by this data.
+
+================================================================================
+*** POST-HOC CORRECTION (2026-05-21, autonomous) — THE VERDICT ABOVE IS INVALID
+================================================================================
+The "Best STATIC ATR = x1" verdict is an ARTIFACT, not a tradeable result.
+The FLAT pass trades the OFFLINE zigzag — a hindsight-clean SEQUENTIAL
+PARTITION of the price path: every leg is a genuine pivot-to-pivot swing,
+zero whipsaws by construction. A causal engine flips at confirmations (many
+false) and whipsaws; as the ATR multiplier shrinks, the offline pass finds
+ever more clean swings while the causal whipsaw cost it never pays explodes.
+Hence the monotonic, no-peak, unbounded $/day. X=1's $3,480/day at 100%
+winning days is NOT causally achievable. X=4 is ~trustworthy only because at
+a coarse threshold offline ~ streaming. The FLAT sweep CANNOT select the ATR
+multiplier — a valid comparison needs a CAUSAL streaming forward pass.
+See docs/daily/2026-05-21.md and memory feedback_flat_pipeline_cross_param.md.
+================================================================================

@@ -1,32 +1,32 @@
 ==============================================================================
 TRADE TRAJECTORY DATASET (IS only)
 ==============================================================================
-Source legs: reports/findings/regret_oracle/is_hardened_legs.csv
-Source features: reports/findings/regret_oracle/zigzag_pivot_dataset_IS_atr4.parquet
-Total trajectory rows: 74,976
-Unique legs: 17,748 (input legs: 17,767; missing trajectory rows = 19 legs whose K bars exit early)
-Days: 275
+Source legs: reports/findings/trade_outcome_table/causal_flat_zigzag_legs_IS.csv
+Source features: reports/findings/regret_oracle/zigzag_pivot_dataset_CAUSAL_IS_atr4.parquet
+Total trajectory rows: 50,868
+Unique legs: 11,589 (input legs: 14,274; missing trajectory rows = 2,685 legs whose K bars exit early)
+Days: 270
 V2 feature cols: 185
 
 Rows per K horizon:
-  K=  5  (25s)   n=17,735
-  K= 10  (50s)   n=17,708
-  K= 30  (150s)   n=17,085
-  K= 60  (300s)   n=13,785
-  K=120  (600s)   n= 8,663
+  K=  5  (25s)   n=11,553
+  K= 10  (50s)   n=11,571
+  K= 30  (150s)   n=11,570
+  K= 60  (300s)   n= 9,505
+  K=120  (600s)   n= 6,669
 
 Leg outcome distribution (one row per leg, K=5 horizon):
-  Legs with K=5 row: 17,735
-  Mean exit pnl:    $+10.75
-  Median exit pnl:  $-7.00
-  Frac losing:      56.8%
-  Frac < -$50:      6.4%
-  Frac < -$100:     0.7%
-  Frac < -$200:     0.1%
+  Legs with K=5 row: 11,553
+  Mean exit pnl:    $-7.70
+  Median exit pnl:  $-23.50
+  Frac losing:      66.8%
+  Frac < -$50:      22.8%
+  Frac < -$100:     4.0%
+  Frac < -$200:     0.5%
 
 MAE at each K (vs entry, in points):
-  K=  5  median 4.25  90th 12.50  max 136.75
-  K= 10  median 5.00  90th 14.25  max 328.25
-  K= 30  median 6.50  90th 18.00  max 328.25
-  K= 60  median 7.00  90th 19.50  max 328.25
-  K=120  median 7.25  90th 19.25  max 156.75
+  K=  5  median 4.50  90th 13.00  max 150.75
+  K= 10  median 5.50  90th 16.75  max 210.25
+  K= 30  median 8.25  90th 28.50  max 499.50
+  K= 60  median 8.75  90th 25.00  max 190.25
+  K=120  median 9.25  90th 23.75  max 190.25
