@@ -33,7 +33,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
+from core_v2.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
 
 # Data paths
 BLENDED_TRADES = 'training/output/trades/blended_is.pkl'

@@ -53,7 +53,7 @@ from core_v2.features import (
     LAYER_FAMILIES,
     _l0_names, _l1_names, _l2_names, _l3_names,
 )
-from core.features import N_FEATURES as N_V1   # V1 91D length (placeholder only)
+from core_v2.features import N_FEATURES as N_V1   # V1 91D length (placeholder only)
 
 logger = logging.getLogger(__name__)
 

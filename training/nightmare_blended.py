@@ -15,13 +15,14 @@ import numpy as np
 import pandas as pd
 import torch
 from typing import Dict, List
+from core_v2 import v1_compat
 from datetime import datetime
 
 TICK = 0.25
 TV = 0.50
 
 # NMP entry
-ROCHE = 2.0
+ROCHE = 1.87
 VR_ENTRY = 1.0
 
 # PEAK entry — DISABLED (DMI extreme is late signal, not the entry)
@@ -75,13 +76,13 @@ ABSORB_VOL_PERSIST_MAX = 1.5      # if vol_rel still above this at bar 24, bail
 ABSORB_VR_BAIL = 0.65             # vr above this = trending against absorption
 
 # EXHAUSTION_BAR (from EDA: winners enter deeper z + higher vr, revert fast)
-EXHAUST_Z_MIN = 1.4               # entry: must be deep in z extreme
+EXHAUST_Z_MIN = 1.31               # entry: must be deep in z extreme
 EXHAUST_VR_MIN = 0.70             # entry: must be trending (real exhaustion, not chop)
 EXHAUST_CONVICTION_BARS = 12      # exit: 1 minute to prove reversal
 EXHAUST_Z_SHRINK_MIN = 0.20      # exit: |z| must shrink 20%+ from entry
 
 # MTF_EXHAUSTION (from EDA: 17% WR, winners are deep z + high vr + high vol)
-MTF_Z_MIN = 1.4                   # entry: must be deep in z extreme
+MTF_Z_MIN = 1.31                   # entry: must be deep in z extreme
 MTF_VR_MIN = 0.58                 # entry: must be somewhat trending
 MTF_VOL_MIN = 2.0                 # entry: must have volume conviction
 MTF_CONVICTION_BARS = 12          # exit: 1 minute to prove thesis
@@ -91,7 +92,7 @@ MTF_Z_SHRINK_MIN = 0.10           # exit: |z| must shrink 10%+ from entry
 BAR_RANGE_MIN = 0.0  # set to ~30 to activate (filters tight chop)
 
 # Cascade: 1h z alignment
-H1_Z_MIN = 1.0
+H1_Z_MIN = 0.88
 
 # Tier 1-2 exit (kill shot / cascade)
 P_CENTER_EXIT = 0.60
@@ -122,9 +123,9 @@ HARD_STOP_LIVE = -40.0  # per-contract ceiling (account stop usually fires first
 #   Z_RANGE_SIZE_1 to REJECT   : 1 contract only (moderate chop)
 #   Z_RANGE_SIZE_2 to SIZE_1   : 2 contracts max
 #   range < Z_RANGE_SIZE_2     : up to 3 contracts (safe regime)
-Z_RANGE_REJECT  = 2.5   # hard entry filter
-Z_RANGE_SIZE_1  = 2.0   # above this -> max 1 contract
-Z_RANGE_SIZE_2  = 1.5   # above this -> max 2 contracts
+Z_RANGE_REJECT = 2.2   # hard entry filter
+Z_RANGE_SIZE_1 = 1.76   # above this -> max 1 contract
+Z_RANGE_SIZE_2 = 1.32   # above this -> max 2 contracts
 
 # Giveback stop — protect profits from round-tripping
 # Training: disabled. Live: activated via live_mode=True
@@ -164,29 +165,33 @@ RIDE_EXIT_BARS_TIERS = {
     'weak': 2,      # |1h_z| < 1.5 — exit fast, weak signal
 }
 
-# 79D absolute indices
-# 91D feature indices (12 core per TF, helpers at 72+)
-# TF order: 15s=0, 1m=1, 5m=2, 15m=3, 1h=4, 1D=5
-# Core offset per TF: tf_idx * 12
-_1M_OFFSET = 12       # TF1 * 12 (was 10)
-_Z = 0
-_VR = 2
-_5M_WICK_IDX = 80     # helper_start(72) + TF2*3 + 2 (was 68)
-_15M_WICK_IDX = 83    # helper_start(72) + TF3*3 + 2 (was 71)
-_1H_Z_IDX = 48        # TF4 * 12 (was 40)
-_1H_Z_HIGH_IDX = 58   # TF4*12 + 10 — for risk-aware entry filter & sizing
-_1H_Z_LOW_IDX  = 59   # TF4*12 + 11
-_1H_VELOCITY_IDX = 51 # TF4*12 + 3 (was 43)
-_1M_P_CENTER_IDX = 21 # TF1*12 + 9 (was 19)
-_1M_VELOCITY_IDX = 15 # TF1*12 + 3 (was 13)
-_5M_BAR_RANGE_IDX = 30 # TF2*12 + 6 (was 26)
-_5M_VELOCITY_IDX = 27  # TF2*12 + 3 (was 23)
-_5M_ACCEL_IDX = 28     # TF2*12 + 4 (was 24)
-_1M_HURST_IDX = 19     # TF1*12 + 7 (was 17)
-_1M_VOL_REL_IDX = 17   # TF1*12 + 5 (was 15)
-_1M_DMI_IDX = 13       # TF1*12 + 1 (was 11)
-_1M_WICK_IDX = 77      # helper_start(72) + TF1*3 + 2 (was 65)
-_1M_REVERSION_IDX = 20 # TF1*12 + 8 (was 18)
+# V2 dynamic indices via core_v2.features.FEATURE_NAMES
+from core_v2.features import FEATURE_NAMES
+_1M_Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
+_1M_VELOCITY_IDX = FEATURE_NAMES.index('L2_1m_price_velocity_15')
+_1M_ACCEL_IDX = FEATURE_NAMES.index('L2_1m_price_accel_15')
+_1M_HURST_IDX = FEATURE_NAMES.index('L3_1m_hurst_15')
+_1M_REVERSION_IDX = FEATURE_NAMES.index('L3_1m_reversion_prob_15')
+_5M_VELOCITY_IDX = FEATURE_NAMES.index('L2_5m_price_velocity_9')
+_5M_ACCEL_IDX = FEATURE_NAMES.index('L2_5m_price_accel_9')
+_5M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_5m_bar_range')
+_1H_Z_IDX = FEATURE_NAMES.index('L3_1h_z_se_12')
+_1H_Z_HIGH_IDX = FEATURE_NAMES.index('L3_1h_z_high_12')
+_1H_Z_LOW_IDX = FEATURE_NAMES.index('L3_1h_z_low_12')
+_1H_VELOCITY_IDX = FEATURE_NAMES.index('L2_1h_price_velocity_12')
+
+_1M_BODY_IDX = FEATURE_NAMES.index('L1_1m_body')
+_1M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_1m_bar_range')
+_5M_BODY_IDX = FEATURE_NAMES.index('L1_5m_body')
+_5M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_5m_bar_range')
+_15M_BODY_IDX = FEATURE_NAMES.index('L1_15m_body')
+_15M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_15m_bar_range')
+
+# Core dimensions (for grid logic)
+_N_CORE = 23 # In V2 there are 23 features per TF
+_N_HELPER = 0 # No helpers in V2
+_N_TFS = 8 # V2 has 8 TFs typically, or 6
+
 
 APPROACH_BUFFER_SIZE = 10  # CNN 1 loads approach from feature files directly, not buffer
 
@@ -208,7 +213,7 @@ TIER_MAP = {
 }
 
 # 1h opposition threshold for FADE_AGAINST / RIDE_AGAINST
-H1_AGAINST_Z_MIN = 1.5  # |1h_z| must be this extreme to count as "against"
+H1_AGAINST_Z_MIN = 1.32  # |1h_z| must be this extreme to count as "against"
 
 # Tier conviction strength (higher = stronger signal, used for negative exits)
 # An opposing tier exits the current trade only if it's stronger
@@ -300,6 +305,8 @@ class BlendedEngine:
         self.daily_pnl = 0.0
         self._bar_count = 0
         self._last_price = 0.0
+        self._close_history_1m = []
+        self._volume_history_1m = []
 
         # CNN model directory — release_dir overrides defaults
         self._model_dir = release_dir
@@ -454,8 +461,31 @@ class BlendedEngine:
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
 
         # Read 1m state
-        z = feat[_1M_OFFSET + _Z]
-        vr = feat[_1M_OFFSET + _VR]
+        z = feat[_1M_Z_IDX]
+        
+        # Maintain history for V1 concepts
+        if is_1m and state.get('bar_data'):
+            bar = state['bar_data']
+            self._close_history_1m.append(bar['close'])
+            self._volume_history_1m.append(bar['volume'])
+            if len(self._close_history_1m) > 60:
+                self._close_history_1m.pop(0)
+            if len(self._volume_history_1m) > 30:
+                self._volume_history_1m.pop(0)
+                
+        # Derive V1 concepts
+        if self._close_history_1m:
+            vr = v1_compat.variance_ratio_from_history(np.array(self._close_history_1m))
+            vol_rel = v1_compat.vol_rel_from_history(self._volume_history_1m[-1], np.array(self._volume_history_1m), 30)
+        else:
+            vr = 1.0
+            vol_rel = 1.0
+            
+        p_center = v1_compat.p_at_center_from_z(z)
+        dmi = np.sign(feat[_1M_VELOCITY_IDX]) * 5.0
+        wick_5m = v1_compat.wick_ratio_from_v2(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
+        wick_15m = v1_compat.wick_ratio_from_v2(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
+        wick_1m = v1_compat.wick_ratio_from_v2(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
 
         # Approach buffer when flat
         if not self.in_pos:
@@ -545,7 +575,7 @@ class BlendedEngine:
 
                 # 3. Physics exits (fallback — fires at 1m boundaries only)
                 elif is_1m:
-                    exit_reason = self._check_exit(feat, z, vr, pnl)
+                    exit_reason = self._check_exit(feat, z, vr, pnl, p_center, vol_rel, wick_1m)
                     if exit_reason:
                         self._close_trade(price, ts, time_str, exit_reason, feat)
 
@@ -575,7 +605,7 @@ class BlendedEngine:
                 self._tier_p_center_bars = cc.get('_tier_p_center_bars', 0)
                 self._p_center_bars = cc.get('_p_center_bars', 0)
 
-                exit_reason = self._check_exit(feat, z, vr, cc_pnl)
+                exit_reason = self._check_exit(feat, z, vr, cc_pnl, p_center, vol_rel, wick_1m)
 
                 # Save back counter state
                 cc['_tier_p_center_bars'] = self._tier_p_center_bars
@@ -624,7 +654,7 @@ class BlendedEngine:
         # === NEGATIVE EXIT + CHAINED LIGHTNING ===
         MAX_CHAIN_CONTRACTS = 3
         if self.in_pos and is_1m and price > 100:
-            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
+            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
 
             # Negative exit: opposing setup fires = current trade's thesis is dead
             # Only exit if the opposing tier has HIGHER conviction than current tier
@@ -649,7 +679,7 @@ class BlendedEngine:
                     'bars_held': 0,
                     'peak_pnl': 0.0,
                     'entry_79d': feat.copy(),
-                    'entry_1m': {'z_se': z, 'vr': feat[_1M_OFFSET + _VR]},
+                    'entry_1m': {'z_se': z, 'vr': vr},
                     'entry_abs_z': abs(z),
                     'entry_velocity': abs(feat[_1M_VELOCITY_IDX]),
                     '_p_center_bars': 0,
@@ -665,7 +695,7 @@ class BlendedEngine:
                 return
         if not self.in_pos and is_1m and price > 100:
             # Unified tier classification (no NMP/non-NMP split)
-            direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            direction, tier, cnn_flipped = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
 
             if tier is None:
                 return  # no tier qualifies
@@ -686,7 +716,7 @@ class BlendedEngine:
             self._open_trade(direction, price, ts, time_str, feat, tier,
                              cnn_flipped=cnn_flipped)
 
-    def _classify_full_tier(self, feat, z):
+    def _classify_full_tier(self, feat, z, vr, wick_5m, wick_15m, dmi):
         """Classify entry into tiered strategy.
 
         Returns (direction, tier, cnn_flipped).
@@ -713,16 +743,16 @@ class BlendedEngine:
         cnn_flipped = False
 
         # Read all conditions
-        wick_5m = feat[_5M_WICK_IDX]
-        wick_15m = feat[_15M_WICK_IDX]
+        wick_5m = wick_5m
+        wick_15m = wick_15m
         h1_z = feat[_1H_Z_IDX]
         velocity = feat[_1M_VELOCITY_IDX]
         h1_vel = feat[_1H_VELOCITY_IDX]
         abs_vel = abs(velocity)
-        acceleration = feat[_1M_OFFSET + 4]
-        vr = feat[_1M_OFFSET + _VR]
+        acceleration = feat[_1M_ACCEL_IDX]
+        vr = vr
         v5_vel = feat[_5M_VELOCITY_IDX]
-        dmi = feat[_1M_DMI_IDX]
+        dmi = dmi
 
         has_wick = wick_5m > WICK_5M_MIN and wick_15m > WICK_15M_MIN
         h1_against_fade = ((direction == 'long' and h1_z > H1_AGAINST_Z_MIN) or
@@ -734,7 +764,7 @@ class BlendedEngine:
         v5_accel = feat[_5M_ACCEL_IDX]
         v1 = abs(velocity)
         hurst = feat[_1M_HURST_IDX]
-        vol_rel = feat[_1M_VOL_REL_IDX]
+        vol_rel = vol_rel
 
         # Ordered by SEQUENCE OF APPEARANCE (which signal fires first in chains):
         # KILL_SHOT triggers first 60% of the time (wick = earliest physics)
@@ -778,8 +808,8 @@ class BlendedEngine:
             return mtf_dir, 'MTF_EXHAUSTION', True
 
         # 7. MTF_BREAKOUT — multi-TF aligned (confirms RIDE_AGAINST)
-        z_5m = abs(feat[2 * _N_CORE + _Z])
-        z_15m = abs(feat[3 * _N_CORE + _Z])
+        z_5m = abs(feat[_5M_Z_IDX])
+        z_15m = abs(feat[_15M_Z_IDX])
         if z_5m > 1.3 and z_15m > 1.3:
             breakout_dir = 'long' if z > 0 else 'short'
             dmi_aligned = ((breakout_dir == 'long' and dmi > -5) or
@@ -798,11 +828,11 @@ class BlendedEngine:
 
         return None, None, False
 
-    def _check_exit(self, feat, z, vr, pnl):
+    def _check_exit(self, feat, z, vr, pnl, p_center, vol_rel, wick_1m):
         """Check exit based on entry tier."""
         if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
             # Tier 1-2: exit at p_center (per-tier bar confirmation)
-            p_center = feat[_1M_P_CENTER_IDX]
+            p_center = p_center
             if p_center > P_CENTER_EXIT:
                 self._tier_p_center_bars += 1
             else:
@@ -828,7 +858,7 @@ class BlendedEngine:
         # 2. velocity * acceleration < 0 (decelerating)
         if self.entry_tier == 'FREIGHT_TRAIN':
             velocity = feat[_1M_VELOCITY_IDX]
-            acceleration = feat[_1M_OFFSET + 4]
+            acceleration = feat[_1M_ACCEL_IDX]
             abs_vel = abs(velocity)
             vel_ratio = abs_vel / max(self._entry_velocity, 1.0)
 
@@ -925,7 +955,7 @@ class BlendedEngine:
         # Losers: z flat, volume persistent, vr rising
         if self.entry_tier == 'ABSORPTION':
             abs_z = abs(z)
-            vol_rel = feat[_1M_VOL_REL_IDX]
+            vol_rel = vol_rel
 
             # Early conviction: z must shrink by 10%+ from entry by bar 12
             if self.bars_held >= ABSORB_CONVICTION_BARS and self.bars_held < ABSORB_CONVICTION_BARS + 3:
@@ -976,9 +1006,9 @@ class BlendedEngine:
         # Falls through to the generic fade/ride exit below
 
         # Other tiers: two exit modes based on trade type
-        p_center = feat[_1M_P_CENTER_IDX]
+        p_center = p_center
         velocity = feat[_1M_VELOCITY_IDX]
-        wick = feat[_1M_WICK_IDX]
+        wick = wick_1m
         reversion = feat[_1M_REVERSION_IDX]
 
         if not getattr(self, 'cnn_flipped', False):
@@ -1074,8 +1104,8 @@ class BlendedEngine:
         trade gets proper tier-specific exit management (not a generic exit).
         """
         time_str = datetime.utcfromtimestamp(ts).strftime('%H:%M')
-        z = feat[_1M_OFFSET + _Z]
-        vr = feat[_1M_OFFSET + _VR]
+        z = feat[_1M_Z_IDX]
+        vr = vr
 
         # Classify tier from current market state
         tier = 'FADE_CALM'  # safe default — gets full CNN exit management
@@ -1083,7 +1113,7 @@ class BlendedEngine:
 
         if abs(z) > ROCHE and vr < VR_ENTRY:
             # NMP conditions met — full tier classification
-            _, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            _, tier, cnn_flipped = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
             # If classified direction differs from manual, mark as flipped
             classified_dir = 'short' if z > 0 else 'long'
             if classified_dir != direction:
@@ -1109,8 +1139,8 @@ class BlendedEngine:
         self._reverse_logged = False
         self.entry_79d = feat.copy()
         self.entry_1m = {
-            'z_se': feat[_1M_OFFSET + _Z],
-            'vr': feat[_1M_OFFSET + _VR],
+            'z_se': feat[_1M_Z_IDX],
+            'vr': vr,
         }
         self.entry_tier = tier
         self.cnn_flipped = cnn_flipped
@@ -1132,8 +1162,8 @@ class BlendedEngine:
         # Entry context for tiered exits
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
         self._entry_velocity = abs(feat[_1M_VELOCITY_IDX])  # for FREIGHT_TRAIN decay exit
-        self._entry_abs_z = abs(feat[_1M_OFFSET + _Z])     # for REGIME_FLIP/ABSORPTION conviction
-        self._entry_vol_rel = feat[_1M_VOL_REL_IDX]       # for ABSORPTION volume fade check
+        self._entry_abs_z = abs(feat[_1M_Z_IDX])     # for REGIME_FLIP/ABSORPTION conviction
+        self._entry_vol_rel = vol_rel       # for ABSORPTION volume fade check
         # 5m velocity alignment with trade direction (exit patience signal)
         v5 = feat[_5M_VELOCITY_IDX]
         self._v5_aligned = ((direction == 'long' and v5 > 0) or
@@ -1146,12 +1176,12 @@ class BlendedEngine:
             self._ride_exit_bars = RIDE_EXIT_BARS_TIERS['weak']
 
         # Oscillation tracking (for FADE exit mode)
-        self._z_sign = 1.0 if feat[_1M_OFFSET + _Z] > 0 else -1.0
+        self._z_sign = 1.0 if feat[_1M_Z_IDX] > 0 else -1.0
         self._zero_crossings = 0
-        self._z_peak = abs(feat[_1M_OFFSET + _Z])  # entry |z| = initial amplitude
-        self._z_trough = abs(feat[_1M_OFFSET + _Z])
-        self._peak_amplitude = abs(feat[_1M_OFFSET + _Z])  # tracks max oscillation swing
-        self._current_amplitude = abs(feat[_1M_OFFSET + _Z])
+        self._z_peak = abs(feat[_1M_Z_IDX])  # entry |z| = initial amplitude
+        self._z_trough = abs(feat[_1M_Z_IDX])
+        self._peak_amplitude = abs(feat[_1M_Z_IDX])  # tracks max oscillation swing
+        self._current_amplitude = abs(feat[_1M_Z_IDX])
 
     def _flatten_all_chains(self, price, ts, feat, reason):
         """Close all chain contracts immediately."""
@@ -1317,7 +1347,7 @@ class BlendedEngine:
         # Local imports keep the engine module independent of core/ at module
         # load time — training/nightmare_blended.py is imported by a lot of
         # analysis scripts, some of which may not have core/ on sys.path.
-        from core.engine_signals import (
+        from core_v2.engine_signals import (
             DecisionBatch, EntrySignal, ExitSignal, PositionDecision,
             PositionsView,
         )
@@ -1328,8 +1358,14 @@ class BlendedEngine:
         positions: PositionsView = state.get('positions') or PositionsView()
 
         is_1m = (int(ts) % 60) < 5
-        z = feat[_1M_OFFSET + _Z]
-        vr = feat[_1M_OFFSET + _VR]
+        z = feat[_1M_Z_IDX]
+        
+        # In evaluate (stateless), history should be provided via state.
+        # Fallback to 1.0 if not provided (for simple tests).
+        vr = state.get('variance_ratio', 1.0)
+        wick_5m = v1_compat.wick_ratio_from_v2(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
+        wick_15m = v1_compat.wick_ratio_from_v2(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
+        dmi = np.sign(feat[_1M_VELOCITY_IDX]) * 5.0
 
         batch = DecisionBatch()
 
@@ -1337,8 +1373,12 @@ class BlendedEngine:
         # Every open position (primary + chains) gets a PositionDecision.
         # Counter updates happen every bar; physics exits gate on is_1m.
         for pos in positions.all_positions:
+            # Compute stateless variables
+            p_center = v1_compat.p_at_center_from_z(z)
+            vol_rel = state.get('vol_rel', 1.0)
+            wick_1m = v1_compat.wick_ratio_from_v2(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
             new_counters, exit_reason = self._evaluate_position_exit(
-                pos, feat, z, vr, price, is_1m
+                pos, feat, z, vr, price, is_1m, p_center, vol_rel, wick_1m
             )
             batch.position_decisions.append(PositionDecision(
                 contract_id=pos.contract_id,
@@ -1354,7 +1394,7 @@ class BlendedEngine:
 
         # ── Chain entry / negative exit (on primary, 1m boundaries) ─────
         if positions.primary is not None and is_1m and price > 100:
-            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z)
+            direction_new, tier_new, flipped_new = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
 
             # Negative exit: opposing tier with higher conviction
             if tier_new is not None and direction_new != positions.primary.direction:
@@ -1386,7 +1426,7 @@ class BlendedEngine:
                 if dt.weekday() == 6:   # Sunday
                     return batch
 
-            direction, tier, cnn_flipped = self._classify_full_tier(feat, z)
+            direction, tier, cnn_flipped = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
             if tier is not None:
                 batch.entry = EntrySignal(
                     tier=tier,
@@ -1396,7 +1436,7 @@ class BlendedEngine:
 
         return batch
 
-    def _evaluate_position_exit(self, pos, feat, z, vr, price, is_1m):
+    def _evaluate_position_exit(self, pos, feat, z, vr, price, is_1m, p_center, vol_rel, wick_1m):
         """Evaluate exit conditions for ONE position in isolation.
 
         This is the stateless parallel to _check_exit(). Instead of reading
@@ -1446,7 +1486,7 @@ class BlendedEngine:
 
         # ── CASCADE / KILL_SHOT: p_center exit ──────────────────────
         if tier in ('CASCADE', 'KILL_SHOT'):
-            p_center = feat[_1M_P_CENTER_IDX]
+            p_center = p_center
             if p_center > P_CENTER_EXIT:
                 new_counters['tier_p_center_bars'] = pos.tier_p_center_bars + 1
             else:
@@ -1467,7 +1507,7 @@ class BlendedEngine:
         # ── FREIGHT_TRAIN: velocity decay ───────────────────────────
         if tier == 'FREIGHT_TRAIN':
             velocity = feat[_1M_VELOCITY_IDX]
-            acceleration = feat[_1M_OFFSET + 4]
+            acceleration = feat[_1M_ACCEL_IDX]
             abs_vel = abs(velocity)
             vel_ratio = abs_vel / max(pos.entry_velocity, 1.0)
             if vel_ratio < FREIGHT_TRAIN_VEL_DECAY and velocity * acceleration < 0:
@@ -1530,7 +1570,7 @@ class BlendedEngine:
         # ── ABSORPTION ──────────────────────────────────────────────
         if tier == 'ABSORPTION':
             abs_z = abs(z)
-            vol_rel = feat[_1M_VOL_REL_IDX]
+            vol_rel = vol_rel
             if (ABSORB_CONVICTION_BARS <= pos.bars_held
                     < ABSORB_CONVICTION_BARS + 3):
                 z_shrink = (pos.entry_abs_z - abs_z) / max(pos.entry_abs_z, 0.01)
@@ -1566,9 +1606,9 @@ class BlendedEngine:
 
         # ── Default: FADE_CALM / FADE_AGAINST / RIDE_CALM / RIDE_MOMENTUM / FADE_MOMENTUM ──
         # Two exit modes based on cnn_flipped: FADE (entered against z) vs RIDE (with z).
-        p_center = feat[_1M_P_CENTER_IDX]
+        p_center = p_center
         velocity = feat[_1M_VELOCITY_IDX]
-        wick = feat[_1M_WICK_IDX]
+        wick = wick_1m
         reversion = feat[_1M_REVERSION_IDX]
 
         if not pos.cnn_flipped:
@@ -1597,8 +1637,8 @@ class BlendedEngine:
             # Phase 1: oscillation mode (crossed zero at least once)
             if (pos.peak_amplitude > 0
                     and pos.current_amplitude < pos.peak_amplitude * FADE_OSCILLATION_DECAY):
-                # Entry z_se is at feature index _1M_OFFSET + _Z (= 12 + 0 = 12)
-                entry_z = float(pos.entry_features[_1M_OFFSET + _Z])
+                # Entry z_se is at feature index _1M_Z_IDX
+                entry_z = float(pos.entry_features[_1M_Z_IDX])
                 entry_z_sign = 1.0 if entry_z > 0 else -1.0
                 z_favorable = (z > 0) != (entry_z_sign > 0)
                 if z_favorable or pos.zero_crossings >= 3:

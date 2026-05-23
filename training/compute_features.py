@@ -10,8 +10,8 @@ Guarantees: SFE and OHLCV-derived features use the SAME windowed data.
 import numpy as np
 from typing import Dict, Tuple, Optional
 
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.features import extract_features, TF_ORDER, FEATURE_NAMES
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.features import extract_features, TF_ORDER, FEATURE_NAMES
 
 SFE_MIN_BARS = 21
 SFE_WINDOW = 300  # max bars to feed SFE

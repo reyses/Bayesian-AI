@@ -23,8 +23,8 @@ import numpy as np
 import pandas as pd
 from typing import Optional, Dict, List
 
-from core.statistical_field_engine import StatisticalFieldEngine
-from core.features import extract_features, FEATURE_NAMES, TF_ORDER
+from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.features import extract_features, FEATURE_NAMES, TF_ORDER
 
 SFE_WINDOW = 300
 SFE_MIN_BARS = 21

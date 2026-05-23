@@ -29,7 +29,7 @@ from typing import Iterator, Dict, Optional
 
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES, N_FEATURES
+from core_v2.features import FEATURE_NAMES, N_FEATURES
 
 
 class FeatureTicker:

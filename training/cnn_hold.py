@@ -33,7 +33,7 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from core.features import FEATURE_NAMES, N_CORE, N_HELPER
+from core_v2.features import FEATURE_NAMES, N_CORE, N_HELPER
 
 BLENDED_TRADES = os.environ.get('CNN_TRADES_PATH', 'training/output/trades/blended_is.pkl')
 REGRET_FILE = os.environ.get('CNN_REGRET_PATH', 'training/output/nn/regret_cnn_flipped.csv')

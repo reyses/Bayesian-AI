@@ -21,9 +21,9 @@ import pandas as pd
 from datetime import datetime, timezone
 
 from training.aggregator import Aggregator
-from core.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine
 from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
-from core.features import FEATURE_NAMES, TF_ORDER
+from core_v2.features import FEATURE_NAMES, TF_ORDER
 
 HISTORY_LIMIT = 2000  # max bars per TF in aggregator
 

@@ -25,7 +25,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.features import N_FEATURES
+from core_v2.features import N_FEATURES
 
 OUTPUT_DIR = 'training/output/nn'
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'

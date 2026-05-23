@@ -24,7 +24,7 @@ ATLAS_1M = 'DATA/ATLAS/1m'
 #   DATA/ATLAS/FEATURES_5s/YYYY_MM_DD.parquet      (Databento IS/OOS)
 #   DATA/ATLAS_NT8/FEATURES_5s/YYYY_MM_DD.parquet  (NT8 live parity)
 FEATURES_DIR = os.path.join(ATLAS_1M, '..', 'FEATURES')  # placeholder (not used)
-FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s'
+FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s_v2'
 FEATURES_DIR_1M = 'DATA/ATLAS/FEATURES_1m'
 
 # NT8 dataset (OOS-2: live parity validation)
@@ -158,8 +158,8 @@ def _run_nmp_live(target: str, equity: float = None):
     from training.ticker import FileTicker
     from training.aggregator import Aggregator
     from training.nightmare import NightmareEngine
-    from core.statistical_field_engine import StatisticalFieldEngine
-    from core.features import extract_features, FEATURE_NAMES, TF_ORDER, N_FEATURES
+    from core_v2.statistical_field_engine import StatisticalFieldEngine
+    from core_v2.features import extract_features, FEATURE_NAMES, TF_ORDER, N_FEATURES
     from tqdm import tqdm
 
     SFE_MIN_BARS = 21
@@ -864,8 +864,8 @@ def _run_one_day(engine, ft, ledger=None):
     The caller must provide a Ledger when using the new path.
     """
     if USE_SIM_EXECUTOR:
-        from core import sim_executor
-        from core.ledger import Ledger as _Ledger
+        from core_v2 import sim_executor
+        from core_v2.ledger import Ledger as _Ledger
         if ledger is None:
             ledger = _Ledger()
         ledger.clear()
@@ -899,7 +899,7 @@ def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     engine = BlendedEngine(use_cnn=use_cnn)
     ledger = None
     if USE_SIM_EXECUTOR:
-        from core.ledger import Ledger
+        from core_v2.ledger import Ledger
         ledger = Ledger()
     all_results = []
     all_trades = []
@@ -1594,7 +1594,7 @@ def _run_blended_forward_physics_only(target: str):
     engine = BlendedEngine(use_cnn=False)
     ledger = None
     if USE_SIM_EXECUTOR:
-        from core.ledger import Ledger
+        from core_v2.ledger import Ledger
         ledger = Ledger()
     all_results = []
 
@@ -1748,7 +1748,7 @@ def _run_blended_forward_on_files(feat_files: list, label: str,
     engine = BlendedEngine(use_cnn=use_cnn)
     ledger = None
     if USE_SIM_EXECUTOR:
-        from core.ledger import Ledger
+        from core_v2.ledger import Ledger
         ledger = Ledger()
     all_results = []
     all_trades = []
@@ -1818,7 +1818,7 @@ def _run_blended_forward(target: str):
     engine = BlendedEngine(use_cnn=True)
     ledger = None
     if USE_SIM_EXECUTOR:
-        from core.ledger import Ledger
+        from core_v2.ledger import Ledger
         ledger = Ledger()
     all_results = []
     all_trades = []
