@@ -4,7 +4,7 @@ All briefs, specs, and exit reports for Google Jules tasks live here.
 
 ## Folder layout
 ```
-docs/jules/
+Jules_instructions/
   README.md                              # this file
   EXIT_REPORT_TEMPLATE.md                # mandatory exit-report format
   YYYY-MM-DD_<task_name>.md              # task brief (one per Jules run)

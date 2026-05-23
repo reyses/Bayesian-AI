@@ -2,7 +2,7 @@
 
 > **Mission**: collapse parallel training folders, extract canonical Forward Pass System (FPS), consolidate tools/, migrate `core/` → `core_v2/`, purge lookahead artifacts. End state: clean engine in `core_v2/` (with FPS subpackage), single `training/` folder with semantic subfolders, single `tools/` folder with semantic subfolders, no `core/`, no `training_v2/training_zigzag/training_iso*/`, no lookahead-contaminated code paths.
 
-> **Exit report mandatory.** When done, create `docs/jules/2026-05-23_consolidation_refactor_exit_report.md` following `docs/jules/EXIT_REPORT_TEMPLATE.md`. Deviations from this brief — instructions skipped or modified due to circumstances — must be documented in §4 of the exit report.
+> **Exit report mandatory.** When done, create `Jules_instructions/2026-05-23_consolidation_refactor_exit_report.md` following `Jules_instructions/EXIT_REPORT_TEMPLATE.md`. Deviations from this brief — instructions skipped or modified due to circumstances — must be documented in §4 of the exit report.
 
 ---
 
@@ -10,7 +10,7 @@
 
 1. `CLAUDE.md` — project rules, esp. metric defs, anti-doom rule, NT8 versioning rule
 2. `~/.claude/projects/c--Users-reyse-OneDrive-Desktop-Bayesian-AI/memory/MEMORY.md` — full context, esp. 2026-05-22-LATE lookahead finding
-3. `docs/jules/README.md` and `docs/jules/EXIT_REPORT_TEMPLATE.md`
+3. `Jules_instructions/README.md` and `Jules_instructions/EXIT_REPORT_TEMPLATE.md`
 
 ---
 
@@ -219,7 +219,7 @@ Each must pass before declaring refactor complete:
 6. Append entry to `docs/daily/2026-05-23.md` with refactor summary
 
 ### Phase 10 — Exit report
-Create `docs/jules/2026-05-23_consolidation_refactor_exit_report.md` using `docs/jules/EXIT_REPORT_TEMPLATE.md`.
+Create `Jules_instructions/2026-05-23_consolidation_refactor_exit_report.md` using `Jules_instructions/EXIT_REPORT_TEMPLATE.md`.
 - §4 Deviations Log must list every instruction that was not followed verbatim or was modified due to circumstance.
 - §5 Smoke test results must include actual stdout/stderr for each of the 10 tests above.
 - §6 file-change statistics with counts.
@@ -242,7 +242,7 @@ Create `docs/jules/2026-05-23_consolidation_refactor_exit_report.md` using `docs
 - [ ] All 10 smoke tests pass
 - [ ] `CLAUDE.md`, `MEMORY.md`, READMEs updated
 - [ ] Zero `*.pkl` / `*.pt` artifacts modified (verified via `git status`)
-- [ ] **Exit report filed at `docs/jules/2026-05-23_consolidation_refactor_exit_report.md`**
+- [ ] **Exit report filed at `Jules_instructions/2026-05-23_consolidation_refactor_exit_report.md`**
 
 ---
 

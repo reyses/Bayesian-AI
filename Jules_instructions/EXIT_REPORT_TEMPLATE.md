@@ -5,7 +5,7 @@
 ---
 
 ## 1. Task identifier
-- **Brief file**: `docs/jules/YYYY-MM-DD_<task_name>.md`
+- **Brief file**: `Jules_instructions/YYYY-MM-DD_<task_name>.md`
 - **Branch / commit range**: `<branch_name>` from `<base_sha>` to `<head_sha>`
 - **Wall-clock duration**: `<HH:MM>`
 - **Jules model version**: `<version>`
