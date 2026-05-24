@@ -43,7 +43,21 @@ class FeatureTicker:
                           If None, price comes from the 79D file's close
                           (if available) or is 0.
         """
-        self._feat_df = pd.read_parquet(feature_file)
+        day = os.path.basename(feature_file).replace('.parquet', '')
+        if 'FEATURES_79D' in feature_file or 'FEATURES_NT8' in feature_file or 'FEATURES_5s' in feature_file:
+            from core_v2.features import load_features
+            root = 'DATA/ATLAS_NT8/FEATURES_5s_v2' if 'NT8' in feature_file else 'DATA/ATLAS/FEATURES_5s_v2'
+            try:
+                self._feat_df = load_features([day], root=root).reset_index()
+            except Exception as e:
+                # fallback if it's actually a single file
+                if os.path.exists(feature_file):
+                    self._feat_df = pd.read_parquet(feature_file)
+                else:
+                    raise e
+        else:
+            self._feat_df = pd.read_parquet(feature_file)
+            
         self._n = len(self._feat_df)
 
         # Price source: 1m bars aligned by timestamp

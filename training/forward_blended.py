@@ -36,9 +36,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from training.nightmare_blended import BlendedEngine
 from training.sfe_ticker import FeatureTicker
 
-FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s'
+FEATURES_DIR_5S = 'DATA/ATLAS/FEATURES_5s_v2/L0'
 ATLAS_1M = 'DATA/ATLAS/1m'
-OUTPUT_DIR = 'training_iso/output'
+OUTPUT_DIR = 'training/output'
 
 
 def _resolve_days(target):

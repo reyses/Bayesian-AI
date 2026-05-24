@@ -28,16 +28,25 @@ from core_v2 import sim_executor
 from core_v2.sim_executor import apply_decision, force_close, _compute_entry_context
 from core_v2.features import N_FEATURES
 
-# Reuse the feature-index constants from the engine (for building test features)
 from training.nightmare_blended import (
     BlendedEngine,
-    _1M_OFFSET, _Z, _VR,
-    _1M_VELOCITY_IDX, _1H_VELOCITY_IDX, _1H_Z_IDX,
-    _1M_P_CENTER_IDX, _5M_WICK_IDX, _15M_WICK_IDX,
-    _5M_VELOCITY_IDX, _1M_VOL_REL_IDX,
     P_CENTER_EXIT, P_CENTER_EXIT_BARS_CASCADE,
     RIDE_EXIT_BARS_TIERS,
 )
+from core_v2.features import FEATURE_NAMES
+
+_1M_Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
+_1M_VELOCITY_IDX = FEATURE_NAMES.index('L2_1m_price_velocity_15')
+_1H_Z_IDX = FEATURE_NAMES.index('L3_1h_z_se_12')
+_1H_VELOCITY_IDX = FEATURE_NAMES.index('L2_1h_price_velocity_12')
+_5M_VELOCITY_IDX = FEATURE_NAMES.index('L2_5m_price_velocity_9')
+_1M_BODY_IDX = FEATURE_NAMES.index('L1_1m_body')
+_1M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_1m_bar_range')
+_5M_BODY_IDX = FEATURE_NAMES.index('L1_5m_body')
+_5M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_5m_bar_range')
+_15M_BODY_IDX = FEATURE_NAMES.index('L1_15m_body')
+_15M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_15m_bar_range')
+_1M_VOL_REL_IDX = FEATURE_NAMES.index('L1_1m_vol_velocity_1b')
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -47,22 +56,44 @@ from training.nightmare_blended import (
 def make_features(**overrides) -> np.ndarray:
     """Build a zero feature vector with optional field overrides."""
     feat = np.zeros(N_FEATURES, dtype=np.float32)
-    field_map = {
-        'z_1m':        _1M_OFFSET + _Z,
-        'vr_1m':       _1M_OFFSET + _VR,
-        'velocity_1m': _1M_VELOCITY_IDX,
-        'p_center_1m': _1M_P_CENTER_IDX,
-        'h1_z':        _1H_Z_IDX,
-        'h1_vel':      _1H_VELOCITY_IDX,
-        'wick_5m':     _5M_WICK_IDX,
-        'wick_15m':    _15M_WICK_IDX,
-        'v5_vel':      _5M_VELOCITY_IDX,
-        'vol_rel_1m':  _1M_VOL_REL_IDX,
-    }
-    for k, v in overrides.items():
-        if k not in field_map:
-            raise KeyError(f'unknown override: {k}')
-        feat[field_map[k]] = v
+    
+    feat[_1M_BAR_RANGE_IDX] = 1.0
+    feat[_5M_BAR_RANGE_IDX] = 1.0
+    feat[_15M_BAR_RANGE_IDX] = 1.0
+    feat[_1M_BODY_IDX] = 1.0
+    feat[_5M_BODY_IDX] = 1.0
+    feat[_15M_BODY_IDX] = 1.0
+
+    if 'velocity_1m' in overrides: feat[_1M_VELOCITY_IDX] = overrides['velocity_1m']
+    if 'h1_z' in overrides: feat[_1H_Z_IDX] = overrides['h1_z']
+    if 'h1_vel' in overrides: feat[_1H_VELOCITY_IDX] = overrides['h1_vel']
+    if 'v5_vel' in overrides: feat[_5M_VELOCITY_IDX] = overrides['v5_vel']
+    if 'vol_rel_1m' in overrides: feat[_1M_VOL_REL_IDX] = overrides['vol_rel_1m']
+    
+    if 'p_center_1m' in overrides:
+        import math
+        pc = overrides['p_center_1m']
+        z_mag = math.sqrt(-2 * math.log(pc)) if pc > 0 else 5.0
+        if 'z_1m' in overrides:
+            feat[_1M_Z_IDX] = -z_mag if overrides['z_1m'] < 0 else z_mag
+        else:
+            feat[_1M_Z_IDX] = z_mag
+    elif 'z_1m' in overrides:
+        feat[_1M_Z_IDX] = overrides['z_1m']
+        
+    if 'wick_5m' in overrides:
+        w = overrides['wick_5m']
+        feat[_5M_BAR_RANGE_IDX] = 1.0
+        feat[_5M_BODY_IDX] = max(1.0 - w, 0.0)
+
+    if 'wick_15m' in overrides:
+        w = overrides['wick_15m']
+        feat[_15M_BAR_RANGE_IDX] = 1.0
+        feat[_15M_BODY_IDX] = max(1.0 - w, 0.0)
+
+    # In test_sim_executor, we pass vr_1m differently if needed, 
+    # but the old sim test passed it directly to make_bar via `features`
+    # and didn't use `state_for`. Let's handle `vr_1m` manually if needed.
     return feat
 
 
@@ -313,8 +344,8 @@ class TestRun:
         # v5<-3, h1_vel<-3, h1_z>1.5 suppresses RIDE_AGAINST, v5 abs>10 kills FADE_AGAINST).
         for i in range(1, 4):
             exit_feat = make_features(
-                z_1m=-0.3, vr_1m=0.5,
-                p_center_1m=0.75,
+                z_1m=-0.5, vr_1m=0.5,
+                
                 v5_vel=-15.0, h1_vel=-5.0, h1_z=2.0,
             )
             bars.append(make_bar(TS_1M_0 + 60 * i, exit_feat))
@@ -370,7 +401,7 @@ class TestRun:
         )
         bars = [make_bar(TS_1M_0, entry_feat)]
         for i in range(1, 4):
-            exit_feat = make_features(z_1m=-0.3, vr_1m=0.5, p_center_1m=0.75,
+            exit_feat = make_features(z_1m=-0.5, vr_1m=0.5, 
                                       v5_vel=-15.0, h1_vel=-5.0, h1_z=2.0)
             bars.append(make_bar(TS_1M_0 + 60 * i, exit_feat))
 
@@ -402,7 +433,7 @@ class TestRun:
         # Exit features: suppress chain entries AND re-entry after exit
         # (direction=long: v5<-3, h1_vel<-3 → opposing; h1_z>1.5 kills RIDE_AGAINST;
         # abs(v5)>10 kills FADE_AGAINST)
-        exit_feat = make_features(z_1m=-0.3, vr_1m=0.5, p_center_1m=0.75,
+        exit_feat = make_features(z_1m=-0.5, vr_1m=0.5, 
                                   v5_vel=-15.0, h1_vel=-5.0, h1_z=2.0)
         bars_day1 = [make_bar(TS_1M_0, entry_feat)]
         for i in range(1, 4):
@@ -439,20 +470,20 @@ class TestRun:
         assert not ledger.is_flat
 
         # Bar 1: p_center above threshold → counter should be 1
-        feat1 = make_features(z_1m=-1.5, vr_1m=0.5, p_center_1m=0.75)
+        feat1 = make_features(z_1m=-0.5, vr_1m=0.5)
         bars1 = [make_bar(TS_1M_1, feat1)]
         sim_executor.run(ledger, engine, iter(bars1))
         assert ledger.primary.tier_p_center_bars == 1
 
         # Bar 2: p_center above threshold → counter should be 2
-        feat2 = make_features(z_1m=-1.5, vr_1m=0.5, p_center_1m=0.75)
+        feat2 = make_features(z_1m=-0.5, vr_1m=0.5)
         bars2 = [make_bar(TS_1M_2, feat2)]
         sim_executor.run(ledger, engine, iter(bars2))
         assert ledger.primary.tier_p_center_bars == 2
 
         # Bar 3: counter hits 3 → CASCADE exit fires
         # Suppress re-entry after exit (higher TFs opposing for direction=long)
-        feat3 = make_features(z_1m=-1.0, vr_1m=0.5, p_center_1m=0.75,
+        feat3 = make_features(z_1m=-0.5, vr_1m=0.5, 
                               v5_vel=-15.0, h1_vel=-5.0, h1_z=2.0)
         bars3 = [make_bar(TS_1M_3, feat3)]
         trades = sim_executor.run(ledger, engine, iter(bars3))

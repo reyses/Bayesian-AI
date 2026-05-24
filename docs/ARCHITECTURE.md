@@ -5,25 +5,25 @@
 
 | File | Lines | Main Class/Function | Purpose |
 |------|------:|---------------------|---------|
-| `core/statistical_field_engine.py` | 489 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
-| `core/market_state.py` | 255 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
-| `core/fractal_clustering.py` | 651 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
-| `core/execution_engine.py` | 976 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
-| `core/exit_engine.py` | 710 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
-| `core/feature_extraction.py` | 53 | `extract_feature_vector()` | Canonical 16D feature vector (single source of truth) |
-| `core/timeframe_belief_network.py` | 1018 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
-| `core/bayesian_brain.py` | 298 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
+| `core_v2/statistical_field_engine.py` | 489 | `StatisticalFieldEngine` | GPU-accelerated OLS regression bands, z-scores, OU probabilities, forces, entropy per bar |
+| `core_v2/market_state.py` | 255 | `MarketState` (frozen) | 50+ field snapshot: bands, z-score, velocity, forces, probabilities, ADX/DMI, Hurst |
+| `core_v2/fractal_clustering.py` | 651 | `FractalClusteringEngine` | Recursive K-Means → 100-1000 templates with per-template OLS/logistic models |
+| `core_v2/execution_engine.py` | 976 | `ExecutionEngine` | Gate cascade (0-4), direction cascade, sizing. Single source for IS/OOS/live |
+| `core_v2/exit_engine.py` | 710 | `ExitEngine`, `PositionState`, `make_position()` | Unified exit cascade: SL→TP→BandUrgent→EnvelopeDecay→PeakGiveback→BreakevenLock→BeliefFlip→Hold |
+| `core_v2/feature_extraction.py` | 53 | `extract_feature_vector()` | Canonical 16D feature vector (single source of truth) |
+| `core_v2/timeframe_belief_network.py` | 1018 | `TimeframeBeliefNetwork` | 11 TF workers (1s→1D), path conviction, band confluence, direction models |
+| `core_v2/bayesian_brain.py` | 298 | `BayesianBrain` | Hash table: state_key → {wins, losses}. Direction learning per template |
 
 ## Core Support
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `core/cuda_statistics.py` | 320 | Numba CUDA kernels for physics (regression, forces, probabilities) |
-| `core/cuda_pattern_detector.py` | 189 | GPU-accelerated geometric + candlestick pattern detection |
-| `core/pattern_utils.py` | 139 | Vectorized pattern detection (CPU path) |
-| `core/physics_utils.py` | 93 | ADX/DMI/Hurst constants |
-| `core/risk_engine.py` | 146 | Monte Carlo OU solver (legacy — analytical erfi in SFE supersedes) |
-| `core/state_vector.py` | 80 | Phase 1 prototype state (deprecated, kept for test compat) |
+| `core_v2/cuda_statistics.py` | 320 | Numba CUDA kernels for physics (regression, forces, probabilities) |
+| `core_v2/cuda_pattern_detector.py` | 189 | GPU-accelerated geometric + candlestick pattern detection |
+| `core_v2/pattern_utils.py` | 139 | Vectorized pattern detection (CPU path) |
+| `core_v2/physics_utils.py` | 93 | ADX/DMI/Hurst constants |
+| `core_v2/risk_engine.py` | 146 | Monte Carlo OU solver (legacy — analytical erfi in SFE supersedes) |
+| `core_v2/state_vector.py` | 80 | Phase 1 prototype state (deprecated, kept for test compat) |
 
 ## Live Stack
 
@@ -47,7 +47,7 @@
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `training/trainer.py` | 4994 | Main entry point: 6-phase pipeline (discovery→clustering→optimization→IS→OOS→strategy) |
+| `training/run.py` | - | Main entry point: orchestrated forward pass and evaluation pipeline |
 | `training/orchestrator_worker.py` | 617 | Numba JIT simulation loops, spectral gates (Fourier half-cycle + Laplace damping) |
 | `training/fractal_discovery_agent.py` | 830 | Multi-TF fractal scan → PatternEvent manifest with oracle markers |
 | `training/trade_analytics.py` | 562 | Post-run analytics: t-tests, ANOVA, OLS, logistic, capture rate regression |
@@ -58,7 +58,8 @@
 
 | File | Lines | Purpose |
 |------|------:|---------|
-| `visualization/dashboard.py` | 1486 | Tkinter "Fractal Command Center" (1600x950): training Pareto + live price/PnL |
+| `tools/viz/core/engine.py` | - | VizEngine: Unified visualization framework supporting plugins, dynamic panning, and ribbon UI |
+| `tools/viz/plugins/*.py` | - | Pluggable visualization tools: classifier_inspector, feature_marker, etc. |
 
 ## Dependency Flow
 

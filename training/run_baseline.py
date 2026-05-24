@@ -58,7 +58,7 @@ def filter_thin_market_days(feat_files: list, skip_sundays: bool) -> list:
               f'{sum(1 for s in skipped if s in HOLIDAY_DATES)} holiday)')
     return filtered
 
-FEATURES_DIR = 'DATA/FEATURES_79D_5s'
+FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s_v2/L0'
 FEATURES_NT8 = 'DATA/FEATURES_NT8_5s'
 ATLAS_1M = 'DATA/ATLAS/1m'
 ATLAS_NT8_1M = 'DATA/ATLAS_NT8/1m'
@@ -113,7 +113,7 @@ class ReportWriter:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(self._lines) + '\n')
-        print(f'  Report saved → {path}')
+        print(f'  Report saved -> {path}')
 
 
 def build_report(datasets, tier_trades=None, skip_sundays=False):
@@ -255,7 +255,7 @@ def build_report(datasets, tier_trades=None, skip_sundays=False):
         # Count Sundays
         sun_count = sum(1 for r in losers
                         if datetime.strptime(r['day'], '%Y_%m_%d').weekday() == 6)
-        rw.p(f'  → {sun_count}/{len(losers)} are Sundays')
+        rw.p(f'  -> {sun_count}/{len(losers)} are Sundays')
         rw.p()
 
     rw.p('=' * 70)
@@ -283,7 +283,7 @@ def save_daily_csv(datasets, out_path=DAILY_CSV_PATH):
         os.makedirs(os.path.dirname(out_path), exist_ok=True)
         df = pd.DataFrame(rows)
         df.to_csv(out_path, index=False)
-        print(f'  Saved {len(rows)} daily results → {out_path}')
+        print(f'  Saved {len(rows)} daily results -> {out_path}')
 
 
 def main():

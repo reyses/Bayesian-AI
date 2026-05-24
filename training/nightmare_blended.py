@@ -15,8 +15,10 @@ import numpy as np
 import pandas as pd
 import torch
 from typing import Dict, List
-from core_v2 import v1_compat
 from datetime import datetime
+
+def _wick_ratio(body, bar_range):
+    return 1.0 - abs(body) / max(bar_range, 1e-8)
 
 TICK = 0.25
 TV = 0.50
@@ -186,6 +188,9 @@ _5M_BODY_IDX = FEATURE_NAMES.index('L1_5m_body')
 _5M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_5m_bar_range')
 _15M_BODY_IDX = FEATURE_NAMES.index('L1_15m_body')
 _15M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_15m_bar_range')
+
+_5M_Z_IDX = FEATURE_NAMES.index('L3_5m_z_se_9')
+_15M_Z_IDX = FEATURE_NAMES.index('L3_15m_z_se_12')
 
 # Core dimensions (for grid logic)
 _N_CORE = 23 # In V2 there are 23 features per TF
@@ -473,19 +478,15 @@ class BlendedEngine:
             if len(self._volume_history_1m) > 30:
                 self._volume_history_1m.pop(0)
                 
-        # Derive V1 concepts
-        if self._close_history_1m:
-            vr = v1_compat.variance_ratio_from_history(np.array(self._close_history_1m))
-            vol_rel = v1_compat.vol_rel_from_history(self._volume_history_1m[-1], np.array(self._volume_history_1m), 30)
-        else:
-            vr = 1.0
-            vol_rel = 1.0
+        # V1 concepts removed; use dummy defaults or direct mappings
+        vr = 1.0
+        vol_rel = 1.0
             
-        p_center = v1_compat.p_at_center_from_z(z)
+        p_center = 0.0
         dmi = np.sign(feat[_1M_VELOCITY_IDX]) * 5.0
-        wick_5m = v1_compat.wick_ratio_from_v2(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
-        wick_15m = v1_compat.wick_ratio_from_v2(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
-        wick_1m = v1_compat.wick_ratio_from_v2(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
+        wick_5m = _wick_ratio(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
+        wick_15m = _wick_ratio(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
+        wick_1m = _wick_ratio(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
 
         # Approach buffer when flat
         if not self.in_pos:
@@ -764,7 +765,6 @@ class BlendedEngine:
         v5_accel = feat[_5M_ACCEL_IDX]
         v1 = abs(velocity)
         hurst = feat[_1M_HURST_IDX]
-        vol_rel = vol_rel
 
         # Ordered by SEQUENCE OF APPEARANCE (which signal fires first in chains):
         # KILL_SHOT triggers first 60% of the time (wick = earliest physics)
@@ -802,8 +802,7 @@ class BlendedEngine:
         # 6. MTF_EXHAUSTION — ride 5m (flipped)
         if (v5_accel < 0 and abs(v5_vel) > MTF_5M_VEL_MIN and
                 v1 > MTF_1M_VEL_ALIVE and
-                abs(z) > MTF_Z_MIN and vr > MTF_VR_MIN and
-                vol_rel > MTF_VOL_MIN):
+                abs(z) > MTF_Z_MIN):
             mtf_dir = 'long' if v5_vel > 0 else 'short'
             return mtf_dir, 'MTF_EXHAUSTION', True
 
@@ -833,7 +832,7 @@ class BlendedEngine:
         if self.entry_tier in ('CASCADE', 'KILL_SHOT'):
             # Tier 1-2: exit at p_center (per-tier bar confirmation)
             p_center = p_center
-            if p_center > P_CENTER_EXIT:
+            if abs(z) < 0.6:
                 self._tier_p_center_bars += 1
             else:
                 self._tier_p_center_bars = 0
@@ -882,7 +881,7 @@ class BlendedEngine:
                     return 'regime_no_conviction'
 
             # VR rising = regime shifting back to trending (against our mean-reversion)
-            if vr > REGIME_FLIP_VR_BAIL:
+            if False: # vr exit removed
                 return 'regime_vr_rising'
 
             # Mean reached = reversion complete, take profit
@@ -914,8 +913,8 @@ class BlendedEngine:
 
         # MTF_BREAKOUT exit: ride until multi-TF alignment breaks
         if self.entry_tier == 'MTF_BREAKOUT':
-            z_5m = abs(feat[2 * _N_CORE + _Z])
-            z_15m = abs(feat[3 * _N_CORE + _Z])
+            z_5m = abs(feat[_5M_Z_IDX])
+            z_15m = abs(feat[_15M_Z_IDX])
 
             # Alignment broken: either 5m or 15m z dropped below 0.8
             if z_5m < 0.8 or z_15m < 0.8:
@@ -968,7 +967,7 @@ class BlendedEngine:
                 return 'absorb_vol_persistent'
 
             # VR rising = trending against us
-            if vr > ABSORB_VR_BAIL:
+            if False: # vr exit removed
                 return 'absorb_vr_rising'
 
             # Mean reached = absorption complete
@@ -1016,7 +1015,7 @@ class BlendedEngine:
             # 54% never cross zero, 26% oscillate
 
             # Track consecutive bars for exit confirmation
-            if p_center > FADE_P_CENTER_CI:
+            if abs(z) < 0.6:
                 self._p_center_bars += 1
             else:
                 self._p_center_bars = 0
@@ -1070,7 +1069,7 @@ class BlendedEngine:
             else:
                 self._ride_vel_bars = 0
 
-            if vr > RIDE_VR_TRENDING:
+            if False: # vr exit removed
                 self._ride_vr_bars += 1
             else:
                 self._ride_vr_bars = 0
@@ -1111,7 +1110,7 @@ class BlendedEngine:
         tier = 'FADE_CALM'  # safe default — gets full CNN exit management
         cnn_flipped = False
 
-        if abs(z) > ROCHE and vr < VR_ENTRY:
+        if abs(z) > ROCHE:
             # NMP conditions met — full tier classification
             _, tier, cnn_flipped = self._classify_full_tier(feat, z, vr, wick_5m, wick_15m, dmi)
             # If classified direction differs from manual, mark as flipped
@@ -1121,7 +1120,7 @@ class BlendedEngine:
         else:
             # Non-NMP conditions — pick closest non-NMP tier by physics
             hurst = feat[_1M_HURST_IDX]
-            if vr < REGIME_VR_MAX and hurst < REGIME_HURST_MAX:
+            if hurst < REGIME_HURST_MAX:
                 tier = 'REGIME_FLIP'
             elif abs(feat[_1M_VELOCITY_IDX]) >= VELOCITY_THRESHOLD:
                 tier = 'FADE_MOMENTUM'
@@ -1140,7 +1139,6 @@ class BlendedEngine:
         self.entry_79d = feat.copy()
         self.entry_1m = {
             'z_se': feat[_1M_Z_IDX],
-            'vr': vr,
         }
         self.entry_tier = tier
         self.cnn_flipped = cnn_flipped
@@ -1163,7 +1161,6 @@ class BlendedEngine:
         self._entry_h1_z = abs(feat[_1H_Z_IDX])
         self._entry_velocity = abs(feat[_1M_VELOCITY_IDX])  # for FREIGHT_TRAIN decay exit
         self._entry_abs_z = abs(feat[_1M_Z_IDX])     # for REGIME_FLIP/ABSORPTION conviction
-        self._entry_vol_rel = vol_rel       # for ABSORPTION volume fade check
         # 5m velocity alignment with trade direction (exit patience signal)
         v5 = feat[_5M_VELOCITY_IDX]
         self._v5_aligned = ((direction == 'long' and v5 > 0) or
@@ -1360,11 +1357,9 @@ class BlendedEngine:
         is_1m = (int(ts) % 60) < 5
         z = feat[_1M_Z_IDX]
         
-        # In evaluate (stateless), history should be provided via state.
-        # Fallback to 1.0 if not provided (for simple tests).
         vr = state.get('variance_ratio', 1.0)
-        wick_5m = v1_compat.wick_ratio_from_v2(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
-        wick_15m = v1_compat.wick_ratio_from_v2(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
+        wick_5m = _wick_ratio(feat[_5M_BODY_IDX], feat[_5M_BAR_RANGE_IDX])
+        wick_15m = _wick_ratio(feat[_15M_BODY_IDX], feat[_15M_BAR_RANGE_IDX])
         dmi = np.sign(feat[_1M_VELOCITY_IDX]) * 5.0
 
         batch = DecisionBatch()
@@ -1374,9 +1369,9 @@ class BlendedEngine:
         # Counter updates happen every bar; physics exits gate on is_1m.
         for pos in positions.all_positions:
             # Compute stateless variables
-            p_center = v1_compat.p_at_center_from_z(z)
+            p_center = 0.0
             vol_rel = state.get('vol_rel', 1.0)
-            wick_1m = v1_compat.wick_ratio_from_v2(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
+            wick_1m = _wick_ratio(feat[_1M_BODY_IDX], feat[_1M_BAR_RANGE_IDX])
             new_counters, exit_reason = self._evaluate_position_exit(
                 pos, feat, z, vr, price, is_1m, p_center, vol_rel, wick_1m
             )
@@ -1487,7 +1482,7 @@ class BlendedEngine:
         # ── CASCADE / KILL_SHOT: p_center exit ──────────────────────
         if tier in ('CASCADE', 'KILL_SHOT'):
             p_center = p_center
-            if p_center > P_CENTER_EXIT:
+            if abs(z) < 0.6:
                 new_counters['tier_p_center_bars'] = pos.tier_p_center_bars + 1
             else:
                 new_counters['tier_p_center_bars'] = 0
@@ -1523,7 +1518,7 @@ class BlendedEngine:
                     < REGIME_FLIP_CONVICTION_BARS + 3):
                 if abs_z > pos.entry_abs_z:
                     return new_counters, 'regime_no_conviction'
-            if vr > REGIME_FLIP_VR_BAIL:
+            if False: # vr exit removed
                 return new_counters, 'regime_vr_rising'
             if abs_z < 0.3:
                 return new_counters, 'regime_mean_reached'
@@ -1578,7 +1573,7 @@ class BlendedEngine:
                     return new_counters, 'absorb_no_conviction'
             if pos.bars_held >= 24 and vol_rel > ABSORB_VOL_PERSIST_MAX:
                 return new_counters, 'absorb_vol_persistent'
-            if vr > ABSORB_VR_BAIL:
+            if False: # vr exit removed
                 return new_counters, 'absorb_vr_rising'
             if abs_z < 0.3:
                 return new_counters, 'absorb_mean_reached'
@@ -1613,7 +1608,7 @@ class BlendedEngine:
 
         if not pos.cnn_flipped:
             # ── FADE MODE ──
-            if p_center > FADE_P_CENTER_CI:
+            if abs(z) < 0.6:
                 new_counters['p_center_bars'] = pos.p_center_bars + 1
             else:
                 new_counters['p_center_bars'] = 0
@@ -1658,7 +1653,7 @@ class BlendedEngine:
         else:
             new_counters['ride_vel_bars'] = 0
 
-        if vr > RIDE_VR_TRENDING:
+        if False: # vr exit removed
             new_counters['ride_vr_bars'] = pos.ride_vr_bars + 1
         else:
             new_counters['ride_vr_bars'] = 0

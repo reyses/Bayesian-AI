@@ -16,15 +16,12 @@ from core_v2.ledger import Ledger
 from core_v2.engine_signals import DecisionBatch
 
 # Feature indices for entry context (same constants as nightmare_blended.py).
-# Duplicated here to avoid a circular import — the executor must not import
-# the engine module at module level (engine imports are the caller's job).
-_1M_OFFSET = 12
-_Z = 0
-_VR = 2
-_1M_VELOCITY_IDX = 15   # TF1*12 + 3
-_1H_Z_IDX = 48          # TF4*12
-_1M_VOL_REL_IDX = 17    # TF1*12 + 5
-_5M_VELOCITY_IDX = 27   # TF2*12 + 3
+from core_v2.features import FEATURE_NAMES
+_1M_Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
+_1M_VELOCITY_IDX = FEATURE_NAMES.index('L2_1m_price_velocity_15')
+_1H_Z_IDX = FEATURE_NAMES.index('L3_1h_z_se_12')
+_1M_VOL_REL_IDX = FEATURE_NAMES.index('L1_1m_vol_velocity_1b')
+_5M_VELOCITY_IDX = FEATURE_NAMES.index('L2_5m_price_velocity_9')
 
 # RIDE exit patience tiers (must match nightmare_blended.py constants)
 RIDE_EXIT_BARS_TIERS = {'strong': 5, 'medium': 3, 'weak': 2}
@@ -49,7 +46,7 @@ def _compute_entry_context(feat: np.ndarray, direction: str) -> dict:
         ride_exit_bars = RIDE_EXIT_BARS_TIERS['weak']
 
     return {
-        'entry_abs_z': abs(float(feat[_1M_OFFSET + _Z])),
+        'entry_abs_z': abs(float(feat[_1M_Z_IDX])),
         'entry_velocity': abs(float(feat[_1M_VELOCITY_IDX])),
         'entry_h1_z': entry_h1_z,
         'entry_vol_rel': float(feat[_1M_VOL_REL_IDX]),

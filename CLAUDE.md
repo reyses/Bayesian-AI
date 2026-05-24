@@ -22,27 +22,26 @@ MNQ futures trading system. Statistical regression bands + Bayesian learning.
 NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
-- **Blended pipeline**: `python training/run.py blended` (full 7-phase training)
-- **Blended partial**: `python training/run.py blended --from 3 --to 5`
+- **Consolidated pipeline**: `python training/run.py` (handles discovery, clustering, IS, OOS)
 - **Live trading**: `python -m live.launcher`
 - **Maintenance**: `python -m live.maintenance --days 30`
-- **ISO pipeline**: `python training_iso/run_iso.py` (isolated non-NMP entries)
+- **Visualization Engine**: `python -m tools.viz.run --plugin <plugin_name>`
 
 ## Key Files
-- `core/statistical_field_engine.py` — regression, z-scores, probability (CUDA)
-- `core/execution_engine.py` — gate cascade, direction, sizing
-- `core/exit_engine.py` — SL/TP/envelope/giveback exits
-- `core/bayesian_brain.py` — probability table + direction learning
-- `core/timeframe_belief_network.py` — 11-TF worker consensus
-- `core/fractal_clustering.py` — recursive K-Means templates
-- `core/feature_extraction.py` — canonical 16D feature vector
-- `core/dmi_flipper.py` — DMI smoothed cross flipper with trail/breakeven
-- `core/trade_cnn.py` — StatePredictor model (~16K params, 13D→7D state)
-- `training/train_trade_cnn.py` — TradeCNN pipeline (13D features, walk-forward, OOS sim)
-- `training/direction_cnn.py` — 7D CNN direction predictor ($736/day OOS)
+- `core_v2/statistical_field_engine.py` — regression, z-scores, probability (CUDA)
+- `core_v2/execution_engine.py` — gate cascade, direction, sizing
+- `core_v2/exit_engine.py` — SL/TP/envelope/giveback exits
+- `core_v2/bayesian_brain.py` — probability table + direction learning
+- `core_v2/timeframe_belief_network.py` — 11-TF worker consensus
+- `core_v2/fractal_clustering.py` — recursive K-Means templates
+- `core_v2/feature_extraction.py` — canonical 16D feature vector
+- `core_v2/dmi_flipper.py` — DMI smoothed cross flipper with trail/breakeven
+- `training/cnn_trade_manager.py` — StatePredictor model (~16K params, 13D→7D state)
+- `training/cnn_entry_direction.py` — 7D CNN direction predictor
 - `live/live_engine.py` — NT8 bridge orchestrator (DMI + TradeCNN modes)
 - `live/launcher.py` — CLI with --dmi, --trade-cnn, --dry-run flags
-- `training/trainer.py` — main pipeline (7 phases)
+- `training/run.py` — main training orchestration pipeline
+- `tools/viz/core/engine.py` — Visualization Engine (VizEngine) core architecture
 
 ## Active Work
 - **Blended pipeline (baseline-740)**: $740/day OOS, 88% win days, 74 OOS days
@@ -51,8 +50,9 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
   - 3 CNNs: flip (SAME/COUNTER), hold (HOLD/EXIT), risk (RECOVER/DEAD)
   - Exits: 3-bar confirmation, oscillation decay, tiered RIDE by 1h_z
   - Safety branch: `safe/v740` at commit `ce0674f9`
-- **ISO pipeline** (training_iso): isolated testing for non-NMP entries
+- **Consolidated ISO Pipeline** (`training/`): isolated testing for non-NMP entries consolidated from deprecated `training_iso` directories
   - REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION — separate CNN training
+- **VizEngine Migration**: Visualization tools ported to new `VizEngine` plugin architecture (supports 5s dynamic scrolling)
 - **Next**: CNN exit, tier-based sizing, live SIM deployment
 
 ## Conventions

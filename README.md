@@ -14,13 +14,13 @@ Bayesian-AI is a high-frequency algorithmic trading system for US equity index f
 pip install -r requirements.txt
 
 # Training pipeline (full: discovery -> clustering -> IS -> OOS -> strategy)
-python training/trainer.py --fresh --forward-pass
+python training/run.py
 
 # Live trading (dry run)
 python -m live.launcher --dry-run
 
-# Research harness
-python tools/standalone_research.py --data DATA/ATLAS_1WEEK
+# Run visualization engine (e.g., trade visualizer)
+python -m tools.viz.run --plugin trade_visualizer
 ```
 
 ## Documentation
@@ -55,10 +55,10 @@ python tools/standalone_research.py --data DATA/ATLAS_1WEEK
 ## Key Directories
 
 ```
-core/           Core engine modules (statistical field, brain, execution, exits, TBN)
-training/       Training pipeline (trainer.py entry point, discovery, clustering, analytics)
+core_v2/        Core engine modules (statistical field, brain, execution, exits, TBN)
+training/       Training pipeline (consolidated pipelines, discovery, clustering, analytics)
 live/           Live trading stack (NT8 bridge, bar aggregation, order management)
-tools/          Production tools + research harness
+tools/          Production tools, research harness, and VizEngine (tools/viz)
 DATA/           ATLAS parquet datasets (gitignored)
 checkpoints/    Model state (gitignored)
 reports/        Run outputs (text tracked, CSVs gitignored)

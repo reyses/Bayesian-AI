@@ -16,55 +16,86 @@ Run with:  pytest tests/test_engine_evaluate.py -v
 import numpy as np
 import pytest
 
-from training.nightmare_blended import (
-    BlendedEngine,
-   _Z, _VR,
-    _1M_VELOCITY_IDX, _1H_VELOCITY_IDX, _1H_Z_IDX,
-    _1M_P_CENTER_IDX, _5M_WICK_IDX, _15M_WICK_IDX,
-)
+from training.nightmare_blended import BlendedEngine
 from core_v2.engine_signals import (
     DecisionBatch, EntrySignal, ExitSignal, PositionDecision,
     PositionView, PositionsView,
 )
 from core_v2.ledger import Ledger
-from core_v2.features import N_FEATURES
+from core_v2.features import N_FEATURES, FEATURE_NAMES
+
+_1M_Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
+_1M_VELOCITY_IDX = FEATURE_NAMES.index('L2_1m_price_velocity_15')
+_1H_Z_IDX = FEATURE_NAMES.index('L3_1h_z_se_12')
+_1H_VELOCITY_IDX = FEATURE_NAMES.index('L2_1h_price_velocity_12')
+_5M_VELOCITY_IDX = FEATURE_NAMES.index('L2_5m_price_velocity_9')
+_1M_BODY_IDX = FEATURE_NAMES.index('L1_1m_body')
+_1M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_1m_bar_range')
+_5M_BODY_IDX = FEATURE_NAMES.index('L1_5m_body')
+_5M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_5m_bar_range')
+_15M_BODY_IDX = FEATURE_NAMES.index('L1_15m_body')
+_15M_BAR_RANGE_IDX = FEATURE_NAMES.index('L1_15m_bar_range')
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
-def make_features(**overrides) -> np.ndarray:
-    """Build a zero feature vector with optional field overrides.
-
-    Usage:
-        feat = make_features(z_1m=-2.5, vr_1m=0.5, velocity_1m=80.0)
-    """
+def make_features(**overrides):
+    """Build a zero feature vector with optional field overrides."""
     feat = np.zeros(N_FEATURES, dtype=np.float32)
-    # Default: calm market, no signals
-    field_map = {
-        'z_1m':         + _Z,
-        'vr_1m':        + _VR,
-        'velocity_1m': _1M_VELOCITY_IDX,
-        'p_center_1m': _1M_P_CENTER_IDX,
-        'h1_z':        _1H_Z_IDX,
-        'h1_vel':      _1H_VELOCITY_IDX,
-        'wick_5m':     _5M_WICK_IDX,
-        'wick_15m':    _15M_WICK_IDX,
-    }
-    for k, v in overrides.items():
-        if k not in field_map:
-            raise KeyError(f'unknown override: {k}')
-        feat[field_map[k]] = v
-    return feat
+    
+    # Safe defaults to prevent wick divide-by-zero
+    feat[_1M_BAR_RANGE_IDX] = 1.0
+    feat[_5M_BAR_RANGE_IDX] = 1.0
+    feat[_15M_BAR_RANGE_IDX] = 1.0
+    feat[_1M_BODY_IDX] = 1.0
+    feat[_5M_BODY_IDX] = 1.0
+    feat[_15M_BODY_IDX] = 1.0
+
+    if 'velocity_1m' in overrides: feat[_1M_VELOCITY_IDX] = overrides['velocity_1m']
+    if 'h1_z' in overrides: feat[_1H_Z_IDX] = overrides['h1_z']
+    if 'h1_vel' in overrides: feat[_1H_VELOCITY_IDX] = overrides['h1_vel']
+    if 'v5_vel' in overrides: feat[_5M_VELOCITY_IDX] = overrides['v5_vel']
+    
+    if 'p_center_1m' in overrides:
+        import math
+        pc = overrides['p_center_1m']
+        z_mag = math.sqrt(-2 * math.log(pc)) if pc > 0 else 5.0
+        if 'z_1m' in overrides:
+            feat[_1M_Z_IDX] = -z_mag if overrides['z_1m'] < 0 else z_mag
+        else:
+            feat[_1M_Z_IDX] = z_mag
+    elif 'z_1m' in overrides:
+        feat[_1M_Z_IDX] = overrides['z_1m']
+        
+    if 'wick_5m' in overrides:
+        w = overrides['wick_5m']
+        feat[_5M_BAR_RANGE_IDX] = 1.0
+        feat[_5M_BODY_IDX] = max(1.0 - w, 0.0)
+
+    if 'wick_15m' in overrides:
+        w = overrides['wick_15m']
+        feat[_15M_BAR_RANGE_IDX] = 1.0
+        feat[_15M_BODY_IDX] = max(1.0 - w, 0.0)
+
+    return {'feat': feat, 'vr': overrides.get('vr_1m', 1.0)}
 
 
-def state_for(feat, price: float, ts: float, positions: PositionsView = None):
+def state_for(feat_bundle, price: float, ts: float, positions: PositionsView = None):
     """Build the state dict evaluate() expects."""
+    if isinstance(feat_bundle, dict):
+        feat = feat_bundle['feat']
+        vr = feat_bundle['vr']
+    else:
+        feat = feat_bundle
+        vr = 1.0
+        
     return {
         'features_79d': feat,
         'price': price,
         'timestamp': ts,
+        'variance_ratio': vr,
         'positions': positions if positions is not None else PositionsView(),
     }
 
@@ -149,12 +180,12 @@ class TestEvaluateInPosition:
         led = Ledger()
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
-        feat = make_features(z_1m=-1.0)
+        feat = make_features(z_1m=-1.5)
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert len(batch.position_decisions) == 1
         pd = batch.position_decisions[0]
         assert pd.contract_id == 'P001'
-        # No exit this bar: tier_p_center_bars would only increment if p_center
+        # No exit this bar: tier_p_center_bars would only increment if abs(z) < 0.6
         # is high. We passed default p_center=0, so counter stays at 0.
         assert pd.exit_reason is None
         assert pd.tier_p_center_bars == 0
@@ -164,7 +195,7 @@ class TestEvaluateInPosition:
         led.add_position('long', 25000.0, TS_1M - 120, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
         led.add_position('long', 24990.0, TS_1M - 60, 'FADE_CALM',
-                         make_features(z_1m=-1.0), is_chain=True,
+                         make_features(z_1m=-0.5), is_chain=True,
                          entry_abs_z=1.0)
         feat = make_features(z_1m=-0.5)
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
@@ -179,7 +210,7 @@ class TestEvaluateInPosition:
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
         # High p_center triggers counter increment
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         pd = batch.position_decisions[0]
         assert pd.tier_p_center_bars == 1   # incremented from 0
@@ -195,7 +226,7 @@ class TestEvaluateInPosition:
             contract_id='P001',
             tier_p_center_bars=2,
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)   # third bar
+        feat = make_features(z_1m=-0.5, )   # third bar
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         pd = batch.position_decisions[0]
         assert pd.tier_p_center_bars == 3
@@ -210,7 +241,7 @@ class TestEvaluateInPosition:
             contract_id='P001',
             tier_p_center_bars=2,   # had 2 prior bars
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.30)   # p_center drops
+        feat = make_features(z_1m=-1.5, )   # z escapes center, counter resets
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert batch.position_decisions[0].tier_p_center_bars == 0
         assert batch.position_decisions[0].exit_reason is None
@@ -224,7 +255,7 @@ class TestEvaluateInPosition:
             contract_id='P001',
             tier_p_center_bars=2,
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         # NOT a 1m boundary
         batch = engine.evaluate(state_for(feat, 25005.0, TS_5S, led.snapshot()))
         pd = batch.position_decisions[0]
@@ -305,7 +336,7 @@ class TestStatelessness:
         led = Ledger()
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5))
-        feat = make_features(z_1m=-1.0)
+        feat = make_features(z_1m=-0.5)
         engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert engine.in_pos is False   # still flat on self
 
@@ -319,7 +350,7 @@ class TestStatelessness:
         led.apply_position_decision(PositionDecision(
             contract_id='P001', tier_p_center_bars=2,
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert batch.position_decisions[0].exit_reason == 'cascade_center'
         # But the engine's own trade list is still what it was
@@ -331,7 +362,7 @@ class TestStatelessness:
         led = Ledger()
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
-        feat = make_features(z_1m=-1.0)
+        feat = make_features(z_1m=-0.5)
         engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert engine._chain_contracts == initial_chains
 
@@ -340,7 +371,7 @@ class TestStatelessness:
         led = Ledger()
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         st = state_for(feat, 25005.0, TS_1M, led.snapshot())
 
         batch1 = engine.evaluate(st)
@@ -373,7 +404,7 @@ class TestDecisionBatchShape:
         led = Ledger()
         led.add_position('long', 25000.0, TS_1M - 60, 'CASCADE',
                          make_features(z_1m=-1.5), entry_abs_z=1.5)
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         batch = engine.evaluate(state_for(feat, 25005.0, TS_5S, led.snapshot()))
         # Non-1m bar: counters unchanged, no exit, no entry, no chain
         assert len(batch.position_decisions) == 1
@@ -395,7 +426,7 @@ class TestDecisionBatchShape:
         led.apply_position_decision(PositionDecision(
             contract_id='P001', tier_p_center_bars=2,
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         assert any(pd.exit_reason for pd in batch.position_decisions)
         assert batch.has_any
@@ -407,7 +438,7 @@ class TestDecisionBatchShape:
         led.apply_position_decision(PositionDecision(
             contract_id='P001', tier_p_center_bars=2,
         ))
-        feat = make_features(z_1m=-1.0, p_center_1m=0.80)
+        feat = make_features(z_1m=-0.5, )
         batch = engine.evaluate(state_for(feat, 25005.0, TS_1M, led.snapshot()))
         exits = batch.exits
         assert len(exits) == 1
