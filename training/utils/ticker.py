@@ -17,8 +17,8 @@ from typing import Iterator, List, Optional
 import numpy as np
 import pandas as pd
 
-from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features,
-                                    DEFAULT_FEATURES_ROOT)
+from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features)
+DEFAULT_FEATURES_ROOT = 'DATA/ATLAS_NT8/FEATURES_5s_v2'
 from training.utils.state import (BarState, regime_to_idx,
                                                   classify_regime_from_velocity)
 from training.utils.v2_cols import price_velocity_w, swing_noise_w

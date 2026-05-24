@@ -1,0 +1,22 @@
+===========================================================================
+PARITY CHECK: --help
+  Baseline events: 0
+  Live events: 0
+===========================================================================
+
+ENTRIES: baseline=0 live=0
+EXITS:   baseline=0 live=0
+
+Tier                   Baseline       Live    Match
+----------------------------------------------------
+
+PnL: baseline=$+0 live=$+0 diff=$+0
+
+ENTRY-BY-ENTRY MATCHING (within 60s):
+    Time B_tier             L_tier              Match    B_price    L_price
+---------------------------------------------------------------------------
+
+Matched: 0/0 baseline entries
+
+PARITY SCORE: 0% (0/0 entries matched)
+===========================================================================

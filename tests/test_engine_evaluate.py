@@ -18,16 +18,16 @@ import pytest
 
 from training.nightmare_blended import (
     BlendedEngine,
-    _1M_OFFSET, _Z, _VR,
+   _Z, _VR,
     _1M_VELOCITY_IDX, _1H_VELOCITY_IDX, _1H_Z_IDX,
     _1M_P_CENTER_IDX, _5M_WICK_IDX, _15M_WICK_IDX,
 )
-from core.engine_signals import (
+from core_v2.engine_signals import (
     DecisionBatch, EntrySignal, ExitSignal, PositionDecision,
     PositionView, PositionsView,
 )
-from core.ledger import Ledger
-from core.features import N_FEATURES
+from core_v2.ledger import Ledger
+from core_v2.features import N_FEATURES
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -43,8 +43,8 @@ def make_features(**overrides) -> np.ndarray:
     feat = np.zeros(N_FEATURES, dtype=np.float32)
     # Default: calm market, no signals
     field_map = {
-        'z_1m':        _1M_OFFSET + _Z,
-        'vr_1m':       _1M_OFFSET + _VR,
+        'z_1m':         + _Z,
+        'vr_1m':        + _VR,
         'velocity_1m': _1M_VELOCITY_IDX,
         'p_center_1m': _1M_P_CENTER_IDX,
         'h1_z':        _1H_Z_IDX,

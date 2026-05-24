@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Optional, List, Dict
 
 from training.utils.state import BarState, REGIME_VOCAB
-from training.ledger import Position
+from core_v2.ledger import Position
 from training.utils.v2_cols import (z_se_w, swing_noise_w, price_velocity_w,
                                           reversion_prob_w)
 

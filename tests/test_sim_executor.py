@@ -20,13 +20,13 @@ Run with:  pytest tests/test_sim_executor.py -v
 import numpy as np
 import pytest
 
-from core.ledger import Ledger
-from core.engine_signals import (
+from core_v2.ledger import Ledger
+from core_v2.engine_signals import (
     DecisionBatch, EntrySignal, ExitSignal, PositionDecision, PositionsView,
 )
-from core import sim_executor
-from core.sim_executor import apply_decision, force_close, _compute_entry_context
-from core.features import N_FEATURES
+from core_v2 import sim_executor
+from core_v2.sim_executor import apply_decision, force_close, _compute_entry_context
+from core_v2.features import N_FEATURES
 
 # Reuse the feature-index constants from the engine (for building test features)
 from training.nightmare_blended import (

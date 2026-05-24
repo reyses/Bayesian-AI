@@ -166,11 +166,14 @@ for _tf in TF_ORDER:
 
 # ─── Layer-family parquet loader ───────────────────────────────────────────
 
+DEFAULT_FEATURES_ROOT = 'DATA/ATLAS/FEATURES_5s_v2'
+
+
 def layer_family_path(root: str, family: str, day: str) -> str:
     """Return the parquet path for a layer-family on a given day.
 
     Args:
-        root: features root dir (e.g. 'DATA/ATLAS/FEATURES_5s_v2').
+        root: features root dir (default DATA/ATLAS/FEATURES_5s_v2).
         family: family name (e.g. 'L0', 'L1_1m', 'L3_1h').
         day: day label 'YYYY_MM_DD'.
     """
@@ -179,9 +182,9 @@ def layer_family_path(root: str, family: str, day: str) -> str:
 
 def load_features(
     days: Iterable[str],
-    root: str,
     tfs: Iterable[str] | None = None,
     layers: Iterable[str] | None = None,
+    root: str = DEFAULT_FEATURES_ROOT,
     require_all: bool = True,
 ) -> pd.DataFrame:
     """Join per-layer-family parquets into a single training-ready DataFrame.
@@ -190,19 +193,13 @@ def load_features(
         days: iterable of day labels 'YYYY_MM_DD'.
         tfs: iterable of TF labels to load. Default: all of TF_ORDER.
         layers: iterable of layer prefixes ('L0', 'L1', 'L2', 'L3'). Default: all.
-        root: features root dir. REQUIRED — no default path (Phase 2 path strip).
-              Every caller must pass the path explicitly.
+        root: features root dir.
         require_all: if True, raise on missing files. If False, skip them silently.
 
     Returns:
         DataFrame with timestamp as index (monotonic) and the requested
         feature columns. NaN filled naturally during warmup (no forward-fill).
     """
-    if root is None:
-        raise TypeError(
-            "load_features() missing required argument 'root'. "
-            "Pass features_root explicitly — no default path after Phase 2 path strip."
-        )
     if tfs is None:
         tfs = list(TF_ORDER)
     if layers is None:
@@ -296,3 +293,7 @@ def describe_feature_count() -> str:
         f"  TF order          : {TF_ORDER}\n"
         f"  N_BASE windows    : {N_BASE}\n"
     )
+
+
+def extract_features(*args, **kwargs):
+    raise NotImplementedError('V1 extraction deprecated')

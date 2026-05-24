@@ -1,5 +1,5 @@
 """
-Unit tests for core.ledger.Ledger.
+Unit tests for core_v2.ledger.Ledger.
 
 Phase 1 of the JULES_ENGINE_DECOUPLE_ORDERS refactor. These tests lock the
 ledger contract so Phases 2+ can integrate against a verified foundation.
@@ -10,9 +10,9 @@ Or:        python -m pytest tests/test_ledger.py -v
 import numpy as np
 import pytest
 
-from core.ledger import Ledger, Position, MAX_CHAIN_CONTRACTS
-from core.engine_signals import PositionsView
-from core.features import N_FEATURES
+from core_v2.ledger import Ledger, Position, MAX_CHAIN_CONTRACTS
+from core_v2.engine_signals import PositionsView
+from core_v2.features import N_FEATURES
 
 
 def _make_features(z_1m: float = 0.0) -> np.ndarray:

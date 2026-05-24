@@ -1,4 +1,4 @@
-"""Causal analysis of OOS bleed zones — what STRUCTURAL conditions
+"""Forward pass analysis of OOS bleed zones — what STRUCTURAL conditions
 distinguish bleed zones from profit zones?
 
 Loser autopsy showed three bleed zones in production OOS NMP_REGIME:
@@ -131,7 +131,7 @@ def summarize_classes(top: pd.DataFrame, label_a: str, label_b: str) -> str:
 
 
 def main():
-    p = argparse.ArgumentParser(description='Causal analysis of OOS bleed zones')
+    p = argparse.ArgumentParser(description='Forward pass analysis of OOS bleed zones')
     p.add_argument('--trades', default='training_iso_v2/output/nmp_regime_oos.pkl')
     p.add_argument('--regret', default='training_iso_v2/output/regret_nmp_regime_oos.pkl')
     p.add_argument('--out', default='reports/findings/v2_bleed_cause.md')

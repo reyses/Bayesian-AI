@@ -1,11 +1,11 @@
-"""Causal zigzag forward pass — drives the LIVE L5 engine bar-by-bar over
+"""Forward pass zigzag forward pass — drives the LIVE L5 engine bar-by-bar over
 historical days, producing a leg list with NO lookahead.
 
 This is the lean batch equivalent of `engine_v2._step7_trade()` minus the
 NT8/async/bridge layer (zero-slip immediate fills, the mock_bridge
 convention). It does NOT re-implement the engine: it imports and drives the
 real `L5Decider` + `core.ledger.Ledger`, with `pivot_source='stream'` (the
-causal streaming zigzag detector).
+forward pass streaming zigzag detector).
 
 Contrast with the OFFLINE hardened legs (build_is_hardened_legs.py): those
 take their pivot sequence from offline `is_pivot` labels — hindsight-clean,
@@ -169,7 +169,7 @@ def run_forward(target: str, limit: int = 0,
     OOS (DATA/ATLAS_NT8 = NT8 dump) corpus. Source is determined by target
     via ATLAS_ROOTS — no calendar-year filter, no atlas_root override.
 
-    pivot_source='stream'  -> causal streaming zigzag (the real causal pass).
+    pivot_source='stream'  -> forward pass streaming zigzag (the real forward pass pass).
     pivot_source='replay'  -> offline hardened-leg R-triggers fed in
                               (positive-control: should reproduce the offline
                               forward-pass number).
@@ -189,7 +189,7 @@ def run_forward(target: str, limit: int = 0,
 
     print(f'  warming feature engine ({atlas_root}) ...')
     lfe = LiveFeatureEngineV2(atlas_root, v2_only=True)
-    lfe.load_history()                       # get_v2_vector is causal-by-anchor
+    lfe.load_history()                       # get_v2_vector is forward pass-by-anchor
     bars_1m = lfe._bars.get('1m')
 
     all_rows = []
@@ -240,7 +240,7 @@ def main():
                     help='cap days per window (smoke test)')
     ap.add_argument('--pivot-source', choices=['stream', 'replay'],
                     default='stream',
-                    help="'stream' = causal zigzag (real causal pass); "
+                    help="'stream' = forward pass zigzag (real forward pass pass); "
                          "'replay' = offline hardened-leg R-triggers "
                          "(positive-control parity check)")
     ap.add_argument('--flat', action='store_true',
@@ -253,7 +253,7 @@ def main():
     if args.do_oos or args.with_oos or (not args.do_is and not args.with_oos):
         targets.append('oos')
 
-    tag = 'causal_flat' if args.flat else ('causal' if args.pivot_source == 'stream' else 'replay')
+    tag = 'causal_flat' if args.flat else ('forward pass' if args.pivot_source == 'stream' else 'replay')
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     lines = []
     for tgt in targets:
