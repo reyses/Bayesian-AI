@@ -123,19 +123,33 @@ class ForwardPassSystem:
     def __iter__(self) -> Iterator[BarState]:
         ts_arr = self._feats['timestamp'].values.astype(np.int64)
 
+        # Detect timestamp convention (start-of-bar vs end-of-bar)
+        offset = ts_arr[0] % 5 if len(ts_arr) > 0 else 0
+        mod_1m = 0 if offset == 0 else 59
+        mod_5m = 0 if offset == 0 else 299
+        mod_15m = 0 if offset == 0 else 899
+        mod_1h = 0 if offset == 0 else 3599
+
         # Pre-compute boundary flags vectorized
-        is_1m = (ts_arr % 60) == 0
-        is_5m = (ts_arr % 300) == 0
-        is_15m = (ts_arr % 900) == 0
-        is_1h = (ts_arr % 3600) == 0
+        is_1m = (ts_arr % 60) == mod_1m
+        is_5m = (ts_arr % 300) == mod_5m
+        is_15m = (ts_arr % 900) == mod_15m
+        is_1h = (ts_arr % 3600) == mod_1h
+
+        # Detect OHLCV conventions to prevent lookahead
+        # DataBento (ATLAS) uses start-of-bar (ts % 5 == 0). A bar at 10:00:00 closes at 10:00:05.
+        # NT8 (ATLAS_NT8) uses end-of-bar (ts % 5 == 4). A bar at 10:00:04 closes at 10:00:05.
+        is_5s_start = (self._ts5s[0] % 5 == 0) if len(self._ts5s) > 0 else False
+        is_1m_start = (self._ts1m[0] % 60 == 0) if len(self._ts1m) > 0 else False
 
         for i in range(self._n):
             ts = int(ts_arr[i])
             v2_vec = self._v2_matrix[i]
             v2_dict = {name: float(v2_vec[j]) for j, name in enumerate(FEATURE_NAMES)}
 
-            # 5s OHLCV — searchsorted nearest <= ts
-            idx5 = np.searchsorted(self._ts5s, ts, side='right') - 1
+            # 5s OHLCV — searchsorted nearest <= search_ts
+            search_ts_5s = ts - 5 if is_5s_start else ts
+            idx5 = np.searchsorted(self._ts5s, search_ts_5s, side='right') - 1
             if 0 <= idx5 < len(self._ts5s):
                 ohlcv_5s = {
                     'timestamp': float(self._ts5s[idx5]),
@@ -150,7 +164,8 @@ class ForwardPassSystem:
                                 'low': 0., 'close': 0., 'volume': 0.}
 
             # 1m OHLCV — same pattern
-            idx1 = np.searchsorted(self._ts1m, ts, side='right') - 1
+            search_ts_1m = ts - 60 if is_1m_start else ts
+            idx1 = np.searchsorted(self._ts1m, search_ts_1m, side='right') - 1
             if 0 <= idx1 < len(self._ts1m):
                 ohlcv_1m = {
                     'timestamp': float(self._ts1m[idx1]),
