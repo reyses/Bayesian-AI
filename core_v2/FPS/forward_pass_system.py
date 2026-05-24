@@ -1,13 +1,12 @@
-"""Forward Pass System — V2-native bar-by-bar ticker.
+"""V2-native ticker.
 
 Yields BarState per 5s bar by joining:
   - V2 layered features  : core_v2.features.load_features([day])
-  - 5s OHLCV             : {atlas_root}/5s/{day}.parquet
-  - 1m OHLCV             : {atlas_root}/1m/{day}.parquet
-  - 2D regime label      : {labels_csv}
+  - 5s OHLCV             : DATA/ATLAS/5s/{day}.parquet
+  - 1m OHLCV             : DATA/ATLAS/1m/{day}.parquet (for price + 1m boundary detection)
+  - 2D regime label      : DATA/ATLAS/regime_labels_2d.csv
 
 No V1 conversion, no compat cache, no v1_compat shim.
-All data paths must be passed explicitly — no hardcoded defaults.
 """
 from __future__ import annotations
 
@@ -18,24 +17,22 @@ from typing import Iterator, List, Optional
 import numpy as np
 import pandas as pd
 
-from core_v2.features import FEATURE_NAMES, N_FEATURES, load_features
-from core_v2.FPS.state import BarState, regime_to_idx
+from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features,
+                                    DEFAULT_FEATURES_ROOT)
+from .state import BarState, regime_to_idx
 
 
-# 5s bar period — anchor cadence of the V2 feature set
-ANCHOR_PERIOD_S = 5  # seconds
+ATLAS_ROOT = 'DATA/ATLAS'
+LABELS_CSV = 'DATA/ATLAS/regime_labels_2d.csv'
+
+# 5s bar period — this is the anchor cadence of the V2 features
+ANCHOR_PERIOD_S = 5
 
 
 _REGIME_CACHE: Optional[dict] = None
 
 
-def _load_regime_lookup(labels_csv: str) -> dict:
-    """Load regime labels from CSV. Caches globally on first call.
-
-    Note: cache is keyed globally, not per labels_csv path. If multiple
-    paths are used in the same process the first one wins. This is a
-    known limitation — acceptable for single-source deployments.
-    """
+def _load_regime_lookup(labels_csv: str = LABELS_CSV) -> dict:
     global _REGIME_CACHE
     if _REGIME_CACHE is None:
         try:
@@ -65,21 +62,16 @@ def _read_ohlcv(path: str) -> Optional[pd.DataFrame]:
 
 
 class ForwardPassSystem:
-    """Single-day forward pass system (V2-native).
-
-    All data paths are required — no hardcoded defaults.
+    """Single-day V2-native ticker.
 
     Usage:
-        for state in ForwardPassSystem(
-                day='2026_05_15',
-                atlas_root='DATA/ATLAS_NT8',
-                features_root='DATA/ATLAS_NT8/FEATURES_5s_v2',
-                labels_csv='DATA/ATLAS_NT8/regime_labels_2d.csv'):
+        for state in ForwardPassSystem('2025_06_15'):
             ...  # state: BarState
     """
 
-    def __init__(self, day: str, atlas_root: str, features_root: str,
-                 labels_csv: str):
+    def __init__(self, day: str, atlas_root: str = ATLAS_ROOT,
+                 features_root: str = DEFAULT_FEATURES_ROOT,
+                 labels_csv: str = LABELS_CSV):
         self.day = day
         # Load V2 features (185 cols + timestamp). Anchor cadence = 5s.
         feats = load_features(days=[day], root=features_root)
@@ -104,7 +96,7 @@ class ForwardPassSystem:
         self._regime_2d = str(regime)
         self._regime_idx = regime_to_idx(self._regime_2d)
 
-        # Pre-extract V2 vector matrix (n × N_FEATURES) in canonical FEATURE_NAMES order
+        # Pre-extract V2 vector matrix (n × 185) in canonical FEATURE_NAMES order
         # Missing cols → 0 (warmup). Defends against schema drift.
         v2_matrix = np.zeros((self._n, N_FEATURES), dtype=np.float32)
         feat_cols = set(feats.columns)
@@ -158,7 +150,7 @@ class ForwardPassSystem:
                 }
             else:
                 ohlcv_5s = {'timestamp': float(ts), 'open': 0., 'high': 0.,
-                            'low': 0., 'close': 0., 'volume': 0.}
+                                'low': 0., 'close': 0., 'volume': 0.}
 
             # 1m OHLCV — same pattern
             idx1 = np.searchsorted(self._ts1m, ts, side='right') - 1
@@ -195,34 +187,24 @@ class ForwardPassSystem:
 
 
 class MultiDayForwardPassSystem:
-    """Replays multiple days through ForwardPassSystem.
+    """Replays multiple days through ForwardPassSystem."""
 
-    All data paths are required keyword arguments — no hardcoded defaults.
-
-    Usage:
-        ticker = MultiDayForwardPassSystem(
-            atlas_root='DATA/ATLAS_NT8',
-            features_root='DATA/ATLAS_NT8/FEATURES_5s_v2',
-            labels_csv='DATA/ATLAS_NT8/regime_labels_2d.csv',
-        )
-        for state in ticker:
-            ...
-    """
-
-    def __init__(self, *, atlas_root: str, features_root: str, labels_csv: str,
-                 days: Optional[List[str]] = None,
+    def __init__(self, days: Optional[List[str]] = None,
                  start_date: Optional[str] = None,
-                 end_date: Optional[str] = None):
+                 end_date: Optional[str] = None,
+                 atlas_root: str = ATLAS_ROOT,
+                 features_root: str = DEFAULT_FEATURES_ROOT,
+                 labels_csv: str = LABELS_CSV):
         if days is None:
             l0_dir = os.path.join(features_root, 'L0')
             files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
             day_list = [os.path.basename(f).replace('.parquet', '') for f in files]
             if start_date:
                 day_list = [d for d in day_list
-                            if d.replace('_', '-') >= start_date]
+                                if d.replace('_', '-') >= start_date]
             if end_date:
                 day_list = [d for d in day_list
-                            if d.replace('_', '-') <= end_date]
+                                if d.replace('_', '-') <= end_date]
             days = day_list
         self._days = list(days)
         self._atlas_root = atlas_root
@@ -241,12 +223,9 @@ class MultiDayForwardPassSystem:
         for day in self._days:
             self._current_day = day
             try:
-                ticker = ForwardPassSystem(
-                    day=day,
-                    atlas_root=self._atlas_root,
-                    features_root=self._features_root,
-                    labels_csv=self._labels_csv,
-                )
+                ticker = ForwardPassSystem(day=day, atlas_root=self._atlas_root,
+                                       features_root=self._features_root,
+                                       labels_csv=self._labels_csv)
             except FileNotFoundError:
                 continue
             for state in ticker:
