@@ -190,7 +190,7 @@ Migration map:
 1. After Phase 3 audit passes: `rm -rf core/`
 2. After Phase 4 audit passes: `rm -rf training_v2/ training_zigzag/ training_iso/ training_iso_v2/`
 3. After Phase 5 audit passes: `rm -rf tools/_*/` (the old underscored folders, contents already moved)
-4. Run full project grep: `from core\.|import core\.|from training_v2|from training_zigzag|from training_iso|tools._` — must return zero hits in `.py` files
+4. Run full project grep: `from core\.|import core\.|from training_v2|from training_zigzag|from training_iso|tools.` — must return zero hits in `.py` files
 
 ### Phase 8 — Smoke tests + audit
 Each must pass before declaring refactor complete:
