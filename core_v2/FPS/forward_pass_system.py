@@ -17,13 +17,10 @@ from typing import Iterator, List, Optional
 import numpy as np
 import pandas as pd
 
-from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features,
-                                    DEFAULT_FEATURES_ROOT)
+from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features)
 from .state import BarState, regime_to_idx
 
 
-ATLAS_ROOT = 'DATA/ATLAS'
-LABELS_CSV = 'DATA/ATLAS/regime_labels_2d.csv'
 
 # 5s bar period — this is the anchor cadence of the V2 features
 ANCHOR_PERIOD_S = 5
@@ -32,7 +29,7 @@ ANCHOR_PERIOD_S = 5
 _REGIME_CACHE: Optional[dict] = None
 
 
-def _load_regime_lookup(labels_csv: str = LABELS_CSV) -> dict:
+def _load_regime_lookup(labels_csv: str) -> dict:
     global _REGIME_CACHE
     if _REGIME_CACHE is None:
         try:
@@ -69,9 +66,9 @@ class ForwardPassSystem:
             ...  # state: BarState
     """
 
-    def __init__(self, day: str, atlas_root: str = ATLAS_ROOT,
-                 features_root: str = DEFAULT_FEATURES_ROOT,
-                 labels_csv: str = LABELS_CSV):
+    def __init__(self, day: str, atlas_root: str,
+                 features_root: str,
+                 labels_csv: str):
         self.day = day
         # Load V2 features (185 cols + timestamp). Anchor cadence = 5s.
         feats = load_features(days=[day], root=features_root)
@@ -189,12 +186,12 @@ class ForwardPassSystem:
 class MultiDayForwardPassSystem:
     """Replays multiple days through ForwardPassSystem."""
 
-    def __init__(self, days: Optional[List[str]] = None,
+    def __init__(self, atlas_root: str,
+                 features_root: str,
+                 labels_csv: str,
+                 days: Optional[List[str]] = None,
                  start_date: Optional[str] = None,
-                 end_date: Optional[str] = None,
-                 atlas_root: str = ATLAS_ROOT,
-                 features_root: str = DEFAULT_FEATURES_ROOT,
-                 labels_csv: str = LABELS_CSV):
+                 end_date: Optional[str] = None):
         if days is None:
             l0_dir = os.path.join(features_root, 'L0')
             files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))

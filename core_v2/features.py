@@ -179,9 +179,9 @@ def layer_family_path(root: str, family: str, day: str) -> str:
 
 def load_features(
     days: Iterable[str],
+    root: str,
     tfs: Iterable[str] | None = None,
     layers: Iterable[str] | None = None,
-    root: str = None,
     require_all: bool = True,
 ) -> pd.DataFrame:
     """Join per-layer-family parquets into a single training-ready DataFrame.
