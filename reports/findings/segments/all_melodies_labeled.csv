@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 level,parent_motif_idx,seg_idx,start_ts,end_ts,start_iso,end_iso,length_min,slope_pts_per_min,mean_sigma,sigma_rank_mid,r2adj,shape_class,shape_pearson_r,peak_abs_z,tod_start_hour_utc,net_move_pts,day,split,sequence_position,prev_seg_shape,next_seg_idx,next_seg_continued,ride_pnl_pts,fade_pnl_pts,max_mfe_ride_pts,max_mae_ride_pts,max_mfe_fade_pts,max_mae_fade_pts,time_to_max_z_min,time_to_revert_min,resolved_as_cascade,extended_60m,extended_120m
 melody,0,0,1735772400,1735775995,2025-01-01T23:00:00+00:00,2025-01-01T23:59:55+00:00,59.92,,11.989,0.62,0.528,NOISE,-999.0,5.104,23,0.75,2025_01_01,IS,0,NONE,-1,False,0.0,-0.0,51.75,-23.25,23.25,-51.75,5.08,5.17,False,False,False
 melody,0,0,1735776000,1735778400,2025-01-02T00:00:00+00:00,2025-01-02T00:40:00+00:00,40.0,,29.61,0.754,0.604,NOISE,-999.0,7.574,0,-81.25,2025_01_02,IS,0,NONE,12,False,0.0,-0.0,1.0,-136.75,136.75,-1.0,18.58,33.83,False,False,False

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 features within-TF tail asymmetry (Layer D6) - 2026-05-03 20:06 UTC
 
 **Q**: 5  **chance per cell**: 0.0400  **Total rows**: 7590

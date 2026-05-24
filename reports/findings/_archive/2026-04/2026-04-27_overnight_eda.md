@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # 2026-04-27 Overnight EDA — Chop-Edge Discovery and v1.5-RC Filter Design
 
 **Author**: Claude Sonnet 4.5 (overnight session, 01:00–06:00 AM)

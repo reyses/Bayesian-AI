@@ -23,7 +23,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from tools._viz.auto_swing_marker import detect_swings, TICK_SIZE
+from tools.viz.auto_swing_marker import detect_swings, TICK_SIZE
 
 
 DEFAULT_ATLAS_ROOT = 'DATA/ATLAS'

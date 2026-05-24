@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 date,mean_rolling_corr,regime_2d,pair,tf
 2025-01-01,0.3937526111108357,FLAT_SMOOTH,price_velocity_w__price_sigma_w,15m
 2025-01-02,-0.10775775234512988,FLAT_SMOOTH,price_velocity_w__price_sigma_w,15m

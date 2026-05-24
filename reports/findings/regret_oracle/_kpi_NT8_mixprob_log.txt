@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 OOS days: 32   cache: reports/findings/regret_oracle/zz_timing_cache_OOS_NT8_atr4_gbm.parquet
   atlas_root: DATA/ATLAS_NT8
 Grid: 75 combos

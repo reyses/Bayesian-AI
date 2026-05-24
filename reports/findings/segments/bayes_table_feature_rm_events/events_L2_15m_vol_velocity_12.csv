@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
 L2_15m_vol_velocity_12,IS,2025_01_02,above_+3sigma,1735785000,1.33,12.083325566943762,12.083325566943762,12.0,20.25,-9.75,2,Thu
 L2_15m_vol_velocity_12,IS,2025_01_02,below_-3sigma,1735787700,1.5,3.5066294327506267,-3.5066294327506267,-9.75,25.25,-18.5,3,Thu

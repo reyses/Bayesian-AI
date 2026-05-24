@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 timestamp,git_hash,mode,total_pnl,profit_factor,gross_profit,gross_loss,trades,win_rate,avg_pnl,correct_dir_pct,counter_trend_pct,reversed_pct,avg_capture_pct,avg_target_capture_pct,too_early_pct,too_late_pct,avg_hold_min,worst_dip,max_dd,halflife,giveback_pct,wrong_dir_pnl,scalp_pnl,left_on_table
 2026-03-08 08:16,8a82c22,IS,85277.00,4.14,112446.50,27169.50,7597,79.0,11.22,52.5,35.0,20.0,8.3,0.0,19.7,46.3,3.1,395.50,679.00,42.9,55,17067.50,41691.50,843810.50
 2026-03-08 08:24,8a82c22,OOS,21887.00,4.31,28506.50,6619.50,1730,77.7,12.65,57.1,30.6,19.7,8.5,0.0,13.5,54.1,2.7,267.00,294.00,47.2,55,4143.00,9790.50,216473.50

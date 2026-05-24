@@ -1,2 +1,4 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 R_pts,n_days_is,n_days_oos,total_legs,legs_per_day,theo_is_per_day_usd,theo_oos_per_day_usd,theo_is_day_wr_pct,theo_oos_day_wr_pct,real_is_per_day_usd,real_oos_per_day_usd,real_is_day_wr_pct,real_oos_day_wr_pct,real_is_trade_wr_pct,real_oos_trade_wr_pct,real_median_trade_usd,confirm_tf_seconds
 30.0,246,60,3650,11.928104575163399,1386.0467479674796,1665.0666666666666,97.15447154471545,100.0,-150.33692691128192,-176.65127199328188,41.05691056910569,36.666666666666664,36.06016140865737,35.33083645443196,-37.445496241300134,1800

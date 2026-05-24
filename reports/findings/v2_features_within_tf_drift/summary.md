@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 features within-TF drift (Layer D7) - 2026-05-03 20:02 UTC
 
 Half-1 IS dates: 2025-01-01 -> 2025-05-11  (104 days)

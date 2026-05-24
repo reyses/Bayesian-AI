@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 pair,n_regimes,min_corr_xy,max_corr_xy,corr_xy_range,sign_flip,n_pos_regimes,n_neg_regimes
 L2_1h_price_velocity_w__x__L1_1D_bar_range,6,-0.47674812664626803,0.6624898174559746,1.1392379441022427,True,3,3
 L2_1D_price_velocity_w__x__L2_1D_vol_sigma_w,6,-0.812259149318615,0.17950284095784325,0.9917619902764583,True,2,4

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 entry_ts,entry_price,leg_dir,r_price,actual_peak_price,leg_end_ts,baseline_exit_ts,baseline_exit_price,baseline_exit_idx,composite_exit_ts,composite_exit_price,composite_exit_idx,composite_exit_zone,edge_pts,edge_usd,day,atr_pts
 1773990119,24495.833333333332,LONG,33.0,24614.5,1773994529,1773994529,24614.25,882,1773990149,24487.0,6,AT_PIVOT,-127.25,-254.5,2026_03_20,8.25
 1773994529,24614.5,SHORT,33.0,24558.0,1773995429,1773995429,24560.0,180,1773995369,24575.5,168,IMMINENT,-15.5,-31.0,2026_03_20,8.25

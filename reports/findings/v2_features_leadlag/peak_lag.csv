@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,regime_2d,peak_shift,peak_corr,contemp_corr,role,lift_vs_contemp
 price_velocity_w,5m,UP_SMOOTH,-12,0.9011963506615597,0.11459038018077079,lagging,0.7866059704807888
 price_velocity_w,5m,FLAT_CHOPPY,-12,0.8668327269601368,-0.013102523690748288,lagging,0.8537302032693885

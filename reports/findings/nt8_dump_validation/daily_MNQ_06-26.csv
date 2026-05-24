@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,open,high,low,close,volume,n_bars,open_to_close_pts,high_to_low_pts,first_bar_ts,last_bar_ts,drift_usd,range_usd,dow
 2026_03_20,24529.25,24616.5,23970.75,24217.0,1834655,840,-312.25,645.75,1773990059,1774040399,-624.5,1291.5,4
 2026_03_22,23914.0,24095.75,23826.5,23855.0,447224,540,-59.0,269.25,1774216859,1774249199,-118.0,538.5,6

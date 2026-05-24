@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 trade_id,side,entry_dt,exit_dt,entry_px,exit_px,exit_name,pnl_usd,pnl_usd_gross,bars,mfe_usd,day,ym
 1,Short,2025-01-02 00:11:00+00:00,2025-01-02 00:19:00+00:00,21217.75,21145.75,TrailExitShort,142.1,144.0,8,159.5,2025-01-02,2025-01
 2,Long,2025-01-02 00:39:00+00:00,2025-01-02 00:48:00+00:00,21186.25,21231.5,TrailExitLong,88.6,90.5,9,100.0,2025-01-02,2025-01

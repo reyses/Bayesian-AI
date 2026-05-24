@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,c1,c2,regime_2d,peak_shift,peak_corr,contemp_corr,role,abs_peak
 5s,price_mean_w,vwap_w,FLAT_SMOOTH,0,0.9999999097088496,0.9999999097088496,contemporaneous,0.9999999097088496
 5s,price_mean_w,vwap_w,DOWN_CHOPPY,0,0.9999998739397132,0.9999998739397132,contemporaneous,0.9999998739397132

@@ -12,7 +12,7 @@ so "choppy legs are longer" was largely tautological. This v2 fixes that:
   CHOP is measured over a FIXED EARLY WINDOW — the first K tight-ATR legs of
   the wide leg only. early_chop_ratio(K) = (path length of the first K tight
   legs) / (net displacement over those K legs). This is decoupled from the
-  wide leg's eventual length, and it is causal (the first K legs are early).
+  wide leg's eventual length, and it is forward pass (the first K legs are early).
 
   OUTCOME = the wide leg's eventual total tight-leg count C (its length), and
   P(C >= K + 5) — i.e. P(it runs at least 5 more tight legs past the window).

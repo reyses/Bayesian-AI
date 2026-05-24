@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,modifier,target,modifier_q,n,target_mean,target_std,target_corr_fwd
 1h,vol_mean_w,price_velocity_1b,0,11689,2.289994866968945,49.752629525484565,-0.02191215398854686
 1h,vol_mean_w,price_velocity_1b,1,11701,-0.8656738740278609,57.81273278878629,0.0026642113254047614

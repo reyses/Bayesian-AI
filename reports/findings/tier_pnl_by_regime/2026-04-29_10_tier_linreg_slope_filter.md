@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # LinReg slope filter applied per tier
 
 Generated: 2026-04-29 23:16

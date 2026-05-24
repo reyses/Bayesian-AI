@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # LinReg(30) EDA — ZigzagRunner R=45.0
 
 Generated: 2026-04-29 06:39

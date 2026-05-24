@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Cross-TF anchor-pair drill (Layer Cross-TF 2) - 2026-05-03 23:11 UTC
 
 Anchor pairs: [('price_velocity_w', 'price_sigma_w'), ('bar_range', 'body'), ('price_velocity_1b', 'bar_range'), ('price_velocity_w', 'swing_noise_w'), ('price_velocity_w', 'SE_low_w'), ('price_velocity_1b', 'reversion_prob_w'), ('body', 'reversion_prob_w'), ('price_velocity_w', 'vol_mean_w')]

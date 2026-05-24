@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,seg_idx,parent_motif_idx,shape_class,parent_15m_cluster,cluster_5m,ride_pnl_pts,resolved_as_cascade,length_min,peak_abs_z
 2025_01_01,0,0,NOISE,NOISE_NOISE,-1,0.0,False,59.92,5.104
 2025_01_02,0,0,NOISE,NOISE_NOISE,-1,0.0,False,40.0,7.574

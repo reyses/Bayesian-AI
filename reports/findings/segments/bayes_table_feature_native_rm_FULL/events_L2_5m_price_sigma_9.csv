@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
 L2_5m_price_sigma_9,IS,2025_01_02,above_+3sigma,1735777200,4.92,5.382367435923693,5.382367435923693,118.25,138.75,-13.0,0,Thu
 L2_5m_price_sigma_9,IS,2025_01_02,below_-3sigma,1735802100,4.92,4.327928544381042,-4.327928544381042,40.75,43.0,-34.0,7,Thu

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 features within-TF interaction x regime (Layer D2) - 2026-05-03 19:55 UTC
 
 **Pairs per TF**: 253 (C(23,2))  **TFs**: 8  **Regimes**: 6  **Total cells**: 12144

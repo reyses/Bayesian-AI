@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Tier Exit Physics — KILL_SHOT
 
 ## 1. Cohort summary

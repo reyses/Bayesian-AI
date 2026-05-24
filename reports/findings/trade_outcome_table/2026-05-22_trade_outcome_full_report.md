@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Trade Outcome Suite - Full Report
 
 Generated 2026-05-22 by `tools/trade_outcome_suite/run_all.py`. Population: every hardened zigzag-leg trade -- IS 17,767 legs / 275 days, OOS 2,936 legs / 51 days, reported separately (never pooled).

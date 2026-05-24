@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Loser Cliff EDA — KILL_SHOT
 
 **Purpose:** find the bar N at which a losing trade has clearly failed to make progress (peak_pnl stays flat) while winners have tipped their hand. This gives a no-progress cut rule: `bars_held > N AND peak_pnl < $X → exit`.

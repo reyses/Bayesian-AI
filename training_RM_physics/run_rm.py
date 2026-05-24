@@ -1,7 +1,7 @@
 """
 RM Physics pipeline — pivot-based entries + RM-cusp exits.
 
-Single-strategy replacement for training_iso. One engine, one "tier"
+Single-strategy replacement for training. One engine, one "tier"
 (RM_PIVOT), no CNN, no tier cascade. The engine in rm_physics_engine.py
 handles entry via 1m price-zigzag pivots and exit via RM-zigzag reversal.
 

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,entry_ts,entry_price,exit_ts,exit_price,direction,pnl_pts,pnl_usd,mfe_pts,mae_pts,leg_min,exit_reason
 2025_01_02,1735776300,21228.5,1735776570,21238.5,-1,-10.0,-23.0,5.0,10.75,4.5,sl
 2025_01_02,1735778040,21171.25,1735778165,21161.25,1,-10.0,-23.0,3.75,10.5,2.0833333333333335,sl

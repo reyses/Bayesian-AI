@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # FADE_CALM Dropout Investigation
 
 Generated: 2026-04-29 23:23

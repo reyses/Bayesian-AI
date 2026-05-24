@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 x_feature,y_feature,pair,interaction_rms,max_abs_mean_fwd,max_win_rate,min_win_rate,wr_spread,n_total
 L1_1h_body,L1_1h_price_velocity_1b,L1_1h_body__x__L1_1h_price_velocity_1b,12.20603616265857,30.166666666666668,0.6043478260869565,0.375,0.22934782608695647,46893
 L1_5m_price_velocity_1b,L1_5m_body,L1_5m_price_velocity_1b__x__L1_5m_body,10.359013561284478,31.03125,0.75,0.4166666666666667,0.3333333333333333,46915

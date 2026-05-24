@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Bucket manifest - axis: `regime`
 
 _Generated 2026-05-09T22:46:25.945217_

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,split,day,side,start_ts,duration_min,peak_value,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
 L3_15m_hurst_12,IS,2025_01_03,below_lower,1735862400,14.92,0.3809526100735695,75.25,77.5,-6.75,0,Fri
 L3_15m_hurst_12,IS,2025_01_03,below_lower,1735888500,14.92,0.3428935566595647,44.0,47.5,-1.75,7,Fri

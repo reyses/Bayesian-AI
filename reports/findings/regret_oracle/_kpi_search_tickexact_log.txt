@@ -1,5 +1,7 @@
+**DEPRECATED â€” LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 OOS days: 68
-Grid: 6 TP/SL × 3 thresholds × 2 cadences = 36 combos
+Grid: 6 TP/SL  3 thresholds  2 cadences = 36 combos
 
 [1/36] TP=20 SL=20 T=0.65 cad=5m
   n=7005  /day=103.0  $/day=$-331.7 CI [-392,-274]  $/t=$-3.22  DayWR=0.088  MAE=$-7.4  score=-356.0

@@ -1870,7 +1870,7 @@ def main():
                           help='Engine mode: blended (V1 + BlendedEngine, default) or '
                                  'l5 (V2 + L5Decider, 1c Phase-1 deployment)')
     parser.add_argument('--pivot-source', choices=['stream', 'replay'], default='stream',
-                          help='L5 only: stream (causal detector) or replay '
+                          help='L5 only: stream (forward pass detector) or replay '
                                  '(inject pivots from production parquet, for SIM validation)')
     args = parser.parse_args()
 

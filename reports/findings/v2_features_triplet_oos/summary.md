@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Layer C1 triplet OOS validation - 2026-05-03 18:03 UTC
 
 **Method:** for each top-K IS triplet cell per regime,

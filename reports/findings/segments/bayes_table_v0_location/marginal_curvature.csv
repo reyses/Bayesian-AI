@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 split,side,anchor,axis,bin,n,P_continue_30m_mean,P_continue_30m_cilo,P_continue_30m_cihi,P_continue_60m_mean,P_continue_60m_cilo,P_continue_60m_cihi,fwd_ret_h60m_mean,fwd_mfe_h60m_mean,fwd_mae_h60m_mean,duration_min_mean,max_abs_z_mean
 IS,above,high,curvature,0,31,0.1515,0.0528,0.2899,0.0303,0.0008,0.1089,22.234,108.629,-69.46,12.858,3.07
 IS,above,high,curvature,1,138,0.0857,0.0454,0.1372,0.0071,0.0002,0.0262,17.083,47.341,-26.73,9.767,3.072

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 pair,tf,n_days,overall_acc,up_acc,down_acc,flat_acc,cm_up_to_up,cm_up_to_down,cm_up_to_flat,cm_down_to_up,cm_down_to_down,cm_down_to_flat,cm_flat_to_up,cm_flat_to_down,cm_flat_to_flat
 bar_range__body,1h,71,0.7464788732394366,0.875,0.7333333333333333,0.7,14,0,2,0,11,4,8,4,28
 price_velocity_1b__bar_range,1h,71,0.7464788732394366,0.875,0.7333333333333333,0.7,14,0,2,0,11,4,7,5,28

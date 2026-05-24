@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,confirm_ts,kind,direction,ext_price,regime,with_regime,z_1h_envelope,band,z_15m,z_5m,z_1m,z_1D,entry_p,exit_p,mfe_pts,mae_pts,leg_pts,etd_pts
 2025_01_02,1735776300,high,-1,21258.0,0,,0.0,inside,0.0,0.0,-2.4991261959075928,0.0,21230.5,21170.75,109.5,8.75,59.75,49.75
 2025_01_02,1735778040,low,1,21138.0,0,,0.0,inside,0.0,0.0,1.377502202987671,0.0,21170.75,21299.0,168.75,9.25,128.25,40.5

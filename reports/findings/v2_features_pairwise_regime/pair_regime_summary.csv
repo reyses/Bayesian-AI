@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 x_feature,y_feature,pair,regime_2d,n,corr_xy,interaction_rms,max_abs_cell_fwd,best_cell_xq,best_cell_yq
 L2_1h_price_velocity_w,L3_4h_z_se_w,L2_1h_price_velocity_w__x__L3_4h_z_se_w,UP_SMOOTH,6978,0.4038251171404902,44.43161067267522,133.60807291666666,2,0
 L2_1h_price_velocity_w,L3_4h_z_se_w,L2_1h_price_velocity_w__x__L3_4h_z_se_w,UP_CHOPPY,3924,0.6319807000595165,3.5261654728373917,18.169642857142858,0,0

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Layer 1b: 5m motif sub-clustering within 15m phrase clusters
 
 _Generated 2026-05-10T01:36:36.222565_

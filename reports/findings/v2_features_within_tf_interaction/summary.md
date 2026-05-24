@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 features within-TF interaction (Layer D1) - 2026-05-03 19:18 UTC
 
 **Concepts:** 23 v2 features per TF

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Trade Outcome Suite - Full Report
 
 Generated 2026-05-22 by `tools/trade_outcome_suite/run_all.py` on leg-list source **`causal`**. 

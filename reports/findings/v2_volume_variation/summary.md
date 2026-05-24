@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 Volume x Variation EDA — 2026-05-03 16:25 UTC
 
 **Base TF:** `5m`  **Split:** `IS`

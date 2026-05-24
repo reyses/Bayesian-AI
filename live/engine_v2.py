@@ -1906,7 +1906,7 @@ def main():
     parser.add_argument('--mock', action='store_true', help='Use MockBridge (replay ATLAS bars)')
     parser.add_argument('--mock-day', type=str, default=None, help='Day to replay (e.g. 2026_04_16)')
     parser.add_argument('--pivot-source', choices=['stream', 'replay'], default='stream',
-                          help='L5: stream (causal detector) or replay '
+                          help='L5: stream (forward pass detector) or replay '
                                  '(inject pivots from production parquet, for SIM validation)')
     parser.add_argument('--account', default=None,
                           help='NT8 account (e.g. Sim101, Playback101). '

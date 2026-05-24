@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,split,date_iso,threshold,max_depth,n_phrases,n_motifs,n_sub_motifs,n_measures,n_notes
 2025_01_01,IS,2025-01-01,0.85,5,1,2,4,11,27
 2025_01_02,IS,2025-01-02,0.85,5,4,23,78,262,741

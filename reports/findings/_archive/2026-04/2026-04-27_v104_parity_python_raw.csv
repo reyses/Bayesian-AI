@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 trade_id,side,qty,entry_dt,exit_dt,entry_px,exit_px,entry_name,exit_name,pnl_usd,commission
 1,Long,1,2026-03-20 07:18:59+00:00,2026-03-20 08:28:59+00:00,24543.25,24577.0,LongAtLowPivot,PivotExitLong,65.6,1.9
 2,Short,1,2026-03-20 08:28:59+00:00,2026-03-20 08:35:59+00:00,24577.0,24598.25,ShortAtHighPivot,PivotExitShort,-44.4,1.9

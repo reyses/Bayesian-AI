@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 entry_idx,exit_idx,entry_ts,exit_ts,date,direction,entry_price,exit_price,pnl_ticks,pnl_dollars,hold_bars
 49,61,1765973100,1765976700,2025-12-17,SHORT,25245.75,25243.5,9.0,4.5,12
 61,73,1765976700,1765980300,2025-12-17,SHORT,25243.5,25222.25,85.0,42.5,12

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,regime_2d,lag_k,n_pairs,p_q4_given_q4
 price_sigma_w,5s,UP_SMOOTH,1,1429,0.5549335199440167
 price_sigma_w,5s,UP_SMOOTH,2,1424,0.5435393258426966

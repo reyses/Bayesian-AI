@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,split,day,side,start_ts,duration_min,peak_value,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
 L2_5m_vol_velocity_9,IS,2025_01_02,above_upper,1735826700,4.92,2088.5555555555557,50.25,50.25,-197.75,14,Thu
 L2_5m_vol_velocity_9,IS,2025_01_02,above_upper,1735828500,44.92,5152.777777777777,-16.5,178.5,-95.5,14,Thu

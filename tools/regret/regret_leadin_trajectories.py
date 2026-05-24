@@ -121,7 +121,7 @@ def main():
         e_ts = int(row.oracle_ts)
         # Lead-in: K bars BEFORE entry (inclusive of entry bar? exclude.)
         # Generate timestamps: e_ts - K*TF, e_ts - (K-1)*TF, ..., e_ts - TF
-        # We exclude entry_ts itself so this is purely lead-in (causal at entry)
+        # We exclude entry_ts itself so this is purely lead-in (forward pass at entry)
         lead_ts = np.arange(e_ts - args.lookback_bars * TF_S, e_ts, TF_S,
                              dtype=np.int64)
         if len(lead_ts) < MIN_BARS_FOR_PCA:

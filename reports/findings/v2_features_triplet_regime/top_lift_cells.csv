@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 anchor_concept,anchor_tf,x_concept,x_tf,y_concept,y_tf,regime_2d,q_anchor,q_x,q_y,n,cell_mean,regime_mean,lift,win_rate,cell_std,triplet_id,abs_lift
 hurst_w,15m,price_sigma_w,5m,vol_velocity_w,15m,UP_SMOOTH,1,2,1,96,119.74479166666667,19.840890008396304,99.90390165827037,0.6458333333333334,334.35404726121703,hurst_w_15m|price_sigma_w_5m|vol_velocity_w_15m,99.90390165827037
 bar_range,1h,price_velocity_w,5m,vol_velocity_w,15m,UP_SMOOTH,2,2,1,123,114.92276422764228,19.840890008396304,95.08187421924598,0.7235772357723578,310.40277597019224,bar_range_1h|price_velocity_w_5m|vol_velocity_w_15m,95.08187421924598

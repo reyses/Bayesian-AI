@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 direction,entry_price,exit_price,entry_bar,exit_bar,bars_held,entry_ts,exit_ts,pnl_ticks,pnl,result,exit_reason,entry_p,exit_p,peak_mfe_ticks,day
 LONG,24790.75,24773.5,21,23,2,1772436000.0,1772436120.0,-69.0,-34.5,LOSS,dynamic_sl,0.727812305555659,0.595810807612984,12.0,2026-03-02
 LONG,24777.75,24758.75,24,28,4,1772436180.0,1772436420.0,-76.0,-38.0,LOSS,dynamic_sl,0.6608197353717605,0.3726771544771533,25.0,2026-03-02

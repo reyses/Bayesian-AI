@@ -86,7 +86,7 @@ def compute_and_detect(closes, volumes):
     for i in range(MAG_WINDOW, n):
         magnitude[i] = abs(closes[i] - closes[i-MAG_WINDOW]) / TICK
 
-    # Magnitude percentile (causal, 1h lookback)
+    # Magnitude percentile (forward pass, 1h lookback)
     pctile_w = 3600
     mag_pct = np.full(n, 0.0)
     for i in range(max(MAG_WINDOW, pctile_w), n):

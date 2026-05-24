@@ -96,7 +96,7 @@ def compute_base_features(closes, volumes, highs, lows):
             mag[i] = abs(closes[i] - closes[i-w]) / TICK
         magnitudes[w] = mag
 
-    # Rolling magnitude percentiles (causal — from prior data only)
+    # Rolling magnitude percentiles (forward pass — from prior data only)
     mag_pctiles = {}
     pctile_window = 3600  # 1 hour of history for percentile ranking
     for w in [10, 20, 30, 60]:

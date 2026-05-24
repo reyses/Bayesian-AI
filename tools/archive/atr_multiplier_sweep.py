@@ -400,7 +400,7 @@ def main():
     out('*** WARNING: FLAT $/day is NOT valid for cross-ATR comparison. The')
     out('*** offline zigzag is a hindsight-clean partition; FLAT $/day scales')
     out('*** with pivot SUBDIVISION, not tradeability (monotonic, no peak).')
-    out('*** Use a causal streaming forward pass to compare multipliers.')
+    out('*** Use a forward pass streaming forward pass to compare multipliers.')
     out('')
     bs_oos = summ['OOS'][best_static]
     out(f'Best STATIC ATR (chosen on IS $/day): x{best_static:g}')

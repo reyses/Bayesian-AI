@@ -82,7 +82,7 @@ def main():
                     default='reports/findings/regret_oracle/is_hardened_legs.csv',
                     help='per-day IS legs CSV (per-day P&L target source). '
                          'Default: hardened/offline IS. Pass causal_flat IS '
-                         'legs to retrain on honest causal data.')
+                         'legs to retrain on honest forward pass data.')
     args = ap.parse_args()
     lines = []
     def out(s=''):

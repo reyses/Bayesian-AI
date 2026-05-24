@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 ========================================================================
 B2 FAKE-OUT CLASSIFIER
 truth = pivot pairs from build_zigzag_pivot_dataset.py (ATR x4)

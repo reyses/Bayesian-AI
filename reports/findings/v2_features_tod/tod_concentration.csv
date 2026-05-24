@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,regime_2d,n_target,n_buckets_with_data,best_bucket,best_bucket_fwd,worst_bucket,worst_bucket_fwd,inversion
 vol_mean_w,1h,UP_SMOOTH,1441,5,us_morning,316.75694444444446,pre_market,3.031177829099307,False
 price_velocity_1b,1h,UP_SMOOTH,1446,9,us_pre,238.4277108433735,us_pm,0.5509259259259259,False

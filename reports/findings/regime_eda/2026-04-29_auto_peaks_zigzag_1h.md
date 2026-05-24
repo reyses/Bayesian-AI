@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Auto peaks (ZigZag) - TF=1h
 
 Generated: 2026-04-29 22:06

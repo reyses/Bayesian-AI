@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 ====================================================================================
 MID-LEG ENTRY  --  E3: position-constrained 1-contract late-join sim
 ====================================================================================

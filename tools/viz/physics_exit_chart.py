@@ -86,7 +86,7 @@ for i in day_5m_idx:
         move_start_price = closes_5m[i]
     prev_fm = fm
 
-# Causal percentile: rank against prior days + peaks seen so far today
+# Forward pass percentile: rank against prior days + peaks seen so far today
 pk = pd.DataFrame(peaks)
 causal_pctile = []
 for i in range(len(pk)):

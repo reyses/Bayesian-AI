@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Band-touch aggregation report
 
 _Generated 2026-05-09T22:06:47.192486_

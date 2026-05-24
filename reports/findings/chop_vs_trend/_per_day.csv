@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 date,open,high,low,close,range,body,efficiency,body_signed,strat_pnl,strat_n,strat_wins,eff_q,range_20d_mean,range_ratio,window
 2026-01-02,25497.0,25803.5,25265.25,25393.75,538.25,103.25,0.19182535996284256,-103.25,-84.59999999999985,19,5,Q1 chop,,,WORKING (1/2-2/26)
 2026-01-04,25430.0,25463.5,25406.0,25457.75,57.5,27.75,0.4826086956521739,27.75,-17.9,1,0,Q2,,,WORKING (1/2-2/26)

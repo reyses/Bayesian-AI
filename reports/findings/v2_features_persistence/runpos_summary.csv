@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,regime_2d,run_pos,lo,hi,n,mean_fwd,win_rate
 price_sigma_w,5s,UP_SMOOTH,bar_1,1,1,638,28.280172413793103,0.6536050156739812
 price_sigma_w,5s,UP_SMOOTH,bar_2,2,2,238,33.32983193277311,0.6638655462184874

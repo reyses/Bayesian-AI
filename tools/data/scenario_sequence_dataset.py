@@ -136,7 +136,7 @@ def main():
     t1 = time.time()
     for ti, row in enumerate(df_v2.itertuples(index=False)):
         e_ts = int(row.oracle_ts)
-        # Sequence: e_ts - K*TF .. e_ts - TF  (causal, excludes entry bar)
+        # Sequence: e_ts - K*TF .. e_ts - TF  (forward pass, excludes entry bar)
         target_ts = np.arange(e_ts - K*TF_S, e_ts, TF_S, dtype=np.int64)
         # asof-merge per layer
         for layer, fcols in feat_by_layer.items():

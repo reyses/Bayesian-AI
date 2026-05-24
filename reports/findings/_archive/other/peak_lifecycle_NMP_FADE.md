@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Peak Bucket Lifecycle — NMP_FADE
 
 **8174 trades** (4486 winners / 3644 losers)

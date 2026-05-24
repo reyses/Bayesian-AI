@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 ================================================================================
 ATR-MULTIPLIER SWEEP  --  FLAT 1-contract zigzag forward pass
 ================================================================================

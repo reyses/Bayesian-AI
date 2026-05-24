@@ -81,7 +81,7 @@ def compute_all_features(closes, volumes, highs, lows):
     for i in range(20, n):
         magnitude[i] = abs(closes[i] - closes[i-20]) / TICK
 
-    # Magnitude percentile (causal, 1h lookback)
+    # Magnitude percentile (forward pass, 1h lookback)
     mag_pct = np.full(n, 0.0)
     pctile_w = 3600
     for i in range(max(20, pctile_w), n):

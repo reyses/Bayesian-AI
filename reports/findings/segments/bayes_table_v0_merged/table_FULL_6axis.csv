@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 side,anchor,sigma_rank_q,slope_q,motif_shape,measure_shape,n_total,n_is,n_oos,P_is,ci_is_lo,ci_is_hi,mean_is,sign_match,P_oos,ci_oos_lo,ci_oos_hi,mean_oos
 above,high,3,4,STEEP_CONCAVE_UP,STEEP_CONCAVE_UP,16,15,1,0.2353,0.0727,0.4565,-45.0,-1,,,,
 above,high,3,4,STEEP_LINEAR_UP,STEEP_CONCAVE_UP,18,11,7,0.7692,0.5159,0.9451,30.09,1,0.5556,0.2449,0.843,29.64

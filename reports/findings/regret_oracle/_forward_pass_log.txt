@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 Loading IS: reports/findings/regret_oracle/daisy_with_v2_features_IS_full.parquet
   IS: 7925 trades x 184 features, LONG rate 0.505
   Train acc: 0.8251

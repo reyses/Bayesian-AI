@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,pair,c1,c2,r_min,r_max,regime_min,regime_max,n_regimes,spread
 1h,price_velocity_w__price_sigma_w,price_velocity_w,price_sigma_w,-0.8375531557001195,0.8872957470571535,DOWN_SMOOTH,UP_SMOOTH,6,1.724848902757273
 15m,price_velocity_w__price_sigma_w,price_velocity_w,price_sigma_w,-0.8077892226610971,0.8461087583218551,DOWN_SMOOTH,UP_SMOOTH,6,1.6538979809829522

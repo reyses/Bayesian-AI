@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Trade Outcome Suite - Full Report
 
 Generated 2026-05-22 by `tools/trade_outcome_suite/run_all.py` on leg-list source **`causal_flat`**. CAUSAL streaming zigzag, no model filters. Honest lookahead-free leg population — includes the whipsaws a live engine actually takes.

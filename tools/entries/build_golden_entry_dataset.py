@@ -14,7 +14,7 @@ Output: parquet with V2 features at each 1m close + is_golden + oracle_dir
 The classifier downstream uses (V2 features) -> P(golden); when high, the
 direction classifier picks LONG/SHORT.
 
-CRITICAL: features are causal (V2 at that 1m close); label is forward-looking
+CRITICAL: features are forward pass (V2 at that 1m close); label is forward-looking
 (whether that bar BECAME a high-MFE move). This is standard supervised
 learning, not lookahead.
 """

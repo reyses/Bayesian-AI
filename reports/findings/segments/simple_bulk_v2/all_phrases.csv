@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,split,level,idx,parent_chain,shape,shape_class,skew,r,mean_sigma,start_ts,end_ts,start_i,end_i,length_min
 2025_01_01,IS,phrase,0,,NOISE,NOISE,NONE,-2.0,11.851731795701022,1735772400,1735775995,0,605,59.92
 2025_01_02,IS,phrase,0,,NOISE,NOISE,NONE,-2.0,44.04425566522087,1735776000,1735779705,0,721,61.75

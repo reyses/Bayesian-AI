@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 entry_tier,seg_direction,n_trades,wr_pct,pnl_total,pnl_mean,pnl_median,combo_label,dmi_5m_sign,zone_behavior
 FADE_CALM,UP,214,83.64485981308411,26431.5,123.51168224299066,92.0,tier x direction,,
 FADE_CALM,,208,82.6923076923077,24863.0,119.53365384615384,78.0,tier x zone,,between_zones

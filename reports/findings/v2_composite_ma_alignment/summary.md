@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 MA Alignment Composite — 2026-05-02 00:08 UTC
 
 **Common cadence:** `5m`

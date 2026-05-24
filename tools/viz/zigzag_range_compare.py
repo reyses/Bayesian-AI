@@ -10,9 +10,9 @@ structural loser before friction) and the leg count -> implied daily friction.
 
 IMPORTANT — this is the OFFLINE zigzag. It shows ONE of the two forces:
   force 1 (give-up tax)  — falls monotonically as the multiplier shrinks;
-  force 2 (whipsaw)      — a causal engine flips on noise and takes whipsaw
+  force 2 (whipsaw)      — a forward pass engine flips on noise and takes whipsaw
                            losers; NOT visible here (offline never whipsaws).
-The real sweet spot is where the two balance — that needs a causal sim, not
+The real sweet spot is where the two balance — that needs a forward pass sim, not
 this chart. This chart quantifies force 1 only.
 
 Usage:  python -m tools.viz.zigzag_range_compare --day 2026_05_05 --atr-mults 2,3,4,6,8

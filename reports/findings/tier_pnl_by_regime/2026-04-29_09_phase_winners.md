@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Tier × Macro phase analysis
 
 Generated: 2026-04-29 23:15

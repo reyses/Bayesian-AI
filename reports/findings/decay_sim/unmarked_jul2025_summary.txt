@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 === unmarked_jul2025 ===
 n_trades       : 207  (LONG 110 / SHORT 97)
 n_days_active  : 26

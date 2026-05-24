@@ -6,7 +6,7 @@ Mirror of the price-track lead-lag: does feature X at time t correlate
 with feature Y at time t+s? If peak |corr| at s>0, X LEADS Y. If peak
 at s<0, X LAGS Y. If at s=0, they are contemporaneous.
 
-This exposes asymmetric/causal structure that symmetric pearson misses.
+This exposes asymmetric/forward pass structure that symmetric pearson misses.
 For example, if vol_velocity_w leads price_velocity_w by N bars, then
 volume changes precede price changes — actionable.
 

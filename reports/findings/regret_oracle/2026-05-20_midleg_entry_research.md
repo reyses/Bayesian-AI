@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Mid-Leg Entry / Missed-Signal Late-Join — Research Verdict
 
 **2026-05-20 · autonomous sleep-run · 51 sealed OOS days · 2,926 legs**

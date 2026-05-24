@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 Trend Direction Regression — 2026-05-02 06:09 UTC
 
 **Base TF:** `5m`

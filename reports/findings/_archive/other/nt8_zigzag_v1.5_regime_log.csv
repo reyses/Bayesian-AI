@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 log_time_utc,session_date,prior_range,range_compression,bleed_score,threshold_z,trade_today,enable_filter
 2026-04-27T14:51:02.6188282Z,2026-02-01,446.5000,1.1738,0.5369,-0.3400,false,true
 2026-04-27T14:51:02.6202169Z,2026-02-02,446.5000,1.1738,0.5369,-0.3400,false,true

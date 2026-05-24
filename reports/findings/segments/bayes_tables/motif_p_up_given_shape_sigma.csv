@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 shape,sigma_bucket,n,k_up,p_up_mean,ci95_lo,ci95_hi,mean_fwd_return
 NOISE,Sq1,289,143,0.4948,0.4376,0.5522,-0.423
 FLATLINE,Sq1,245,124,0.5061,0.4439,0.5682,0.541

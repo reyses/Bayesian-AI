@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 trade_id,day,time,dir,pnl,exit,held,peak,strategy,strategy_id,half_life,equity_after,nn_p_profit,nn_expected_pnl,nn_confidence,nn_dir_conf,nn_dur_conf,entry_z_1m,entry_dmi_1m,entry_vr_1m,exit_z_1m,exit_dmi_1m,exit_vr_1m
 0,2026_01_06,00:03,short,-8.0,max_hold,3,0.0,short_1,"('short', 1)",1.0,492.0,0.9400877356529236,14.852433204650879,0.3006049061809733,0.49712660908699036,0.18177121877670288,1.7556489,-0.6873896,0.22117828,1.1653918,7.860259,0.4194872
 1,2026_01_06,00:07,short,16.0,max_hold,3,16.5,short_1,"('short', 1)",1.0,508.0,0.9432931542396545,15.835482597351074,0.3177956569437668,0.5555179119110107,0.1818016618490219,1.5434252,10.753536,0.44463754,-1.0565201,1.7544917,0.48541892

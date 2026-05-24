@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 log_time_utc,session_date,mean_range_5d,threshold_pts,trade_today,enable_filter
 2026-04-27T07:58:04.2365456Z,2026-01-11,308.0500,350.0000,true,true
 2026-04-27T07:58:04.2387658Z,2026-01-12,308.0500,350.0000,true,true

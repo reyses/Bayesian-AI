@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Optimized within-TF mirror — pruned to 8 family reps
 
 Generated 2026-05-03 22:46 UTC

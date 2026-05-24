@@ -5,15 +5,15 @@ The existing `zigzag_pivot_dataset_IS_atr4.parquet` carries V2 features per
 (`tools/train_b{1..8}.py`) consume the pivot tags as their event source and
 derive per-pivot targets (leg amplitude, direction, etc.) ON THE FLY from the
 5s bars between consecutive `is_pivot==1` rows. So to retrain on HONEST
-(causal) data, we only need to swap out the pivot tags — the V2 features and
+(forward pass) data, we only need to swap out the pivot tags — the V2 features and
 all downstream target derivation stay correct.
 
 This tool zeroes the offline tags and re-tags `is_pivot=1` at the 1m bar
-at-or-just-before each causal leg's `entry_ts`.
+at-or-just-before each forward pass leg's `entry_ts`.
 
 Default I/O:
   base-truth   reports/findings/regret_oracle/zigzag_pivot_dataset_IS_atr4.parquet
-  causal-legs  reports/findings/trade_outcome_table/causal_flat_zigzag_legs_IS.csv
+  forward pass-legs  reports/findings/trade_outcome_table/causal_flat_zigzag_legs_IS.csv
   out          reports/findings/regret_oracle/zigzag_pivot_dataset_CAUSAL_IS_atr4.parquet
 
 Caveat: base-truth's day span (2025-only by default) caps the retag. Legs
@@ -37,9 +37,9 @@ def main():
     ap.add_argument('--base-truth',
                     default='reports/findings/regret_oracle/zigzag_pivot_dataset_IS_atr4.parquet',
                     help='source V2-per-1m-bar parquet whose pivot tags will be replaced')
-    ap.add_argument('--causal-legs',
+    ap.add_argument('--forward pass-legs',
                     default='reports/findings/trade_outcome_table/causal_flat_zigzag_legs_IS.csv',
-                    help='causal leg list whose entry_ts marks the new is_pivot=1 bars')
+                    help='forward pass leg list whose entry_ts marks the new is_pivot=1 bars')
     ap.add_argument('--out',
                     default='reports/findings/regret_oracle/zigzag_pivot_dataset_CAUSAL_IS_atr4.parquet',
                     help='output parquet')
@@ -60,7 +60,7 @@ def main():
     truth['pivot_dir'] = ''
     truth['pivot_price'] = np.nan
 
-    print(f'Loading causal legs: {legs_path}')
+    print(f'Loading forward pass legs: {legs_path}')
     legs = pd.read_csv(legs_path)
     legs['day'] = legs['day'].astype(str)
     print(f'  legs={len(legs):,}  days={legs.day.nunique()}  '
@@ -93,9 +93,9 @@ def main():
             truth.at[row_idx, 'pivot_price'] = float(leg['entry_price'])
             tagged += 1
 
-    print(f'\nTagged {tagged:,} causal pivot bars  '
-          f'(causal legs in span: {len(in_span):,})')
-    print(f'Final causal is_pivot=1 rows: {int((truth.is_pivot==1).sum()):,} '
+    print(f'\nTagged {tagged:,} forward pass pivot bars  '
+          f'(forward pass legs in span: {len(in_span):,})')
+    print(f'Final forward pass is_pivot=1 rows: {int((truth.is_pivot==1).sum()):,} '
           f'(was offline {n_offline_piv:,})')
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

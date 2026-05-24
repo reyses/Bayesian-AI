@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,c1,c2,regime_min,regime_max,is_r_min,is_r_max,oos_r_min,oos_r_max,n_oos_min,n_oos_max,sign_min_ok,sign_max_ok,regime_diff_holds,survives
 1h,price_velocity_w,price_sigma_w,DOWN_SMOOTH,UP_SMOOTH,-0.8375531557001195,0.8872957470571535,-0.8233277476200487,0.5178051306536297,1782,2592,True,True,True,True
 15m,price_velocity_w,price_sigma_w,DOWN_SMOOTH,UP_SMOOTH,-0.8077892226610971,0.8461087583218551,-0.784334160548355,0.7644526310950429,1782,2592,True,True,True,True

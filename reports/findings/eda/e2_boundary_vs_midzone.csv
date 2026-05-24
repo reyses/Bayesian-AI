@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,boundary_mean,midzone_mean,t_stat,p_value,significant,n_boundary,n_midzone
 dmi_diff,0.2254834,-3.1889915,6.127756499779003,9.967375602828018e-10,True,1087,2208
 dmi_gap,11.559298,12.442103,-2.5829122955294106,0.009839776711217604,True,1087,2208

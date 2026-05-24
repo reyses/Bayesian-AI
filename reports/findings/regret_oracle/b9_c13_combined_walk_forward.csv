@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 K,fold,b9_alone_per_day,combined_per_day,incremental,ci_lo,ci_hi,significant,n_capped
 5,1,101.98636363636363,101.98636363636363,0.0,0.0,0.0,False,0
 5,2,25.822727272727274,25.822727272727274,0.0,0.0,0.0,False,0

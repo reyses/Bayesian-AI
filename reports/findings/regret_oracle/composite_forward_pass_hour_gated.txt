@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 ==============================================================================
 HOUR-GATED FORWARD PASS — B7 sizing × B8 hour multiplier
 ==============================================================================

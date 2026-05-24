@@ -92,7 +92,7 @@ class L5Context:
     b10_high: dict
     b10_low: dict
     cross_day_features_path: str = 'DATA/CROSS_DAY/cross_day_features.parquet'
-    # Pivot source: 'stream' = causal detector (production live), 'replay'
+    # Pivot source: 'stream' = forward pass detector (production live), 'replay'
     # = inject pivots from a pre-built parquet (mock/SIM validation)
     pivot_source: str = 'stream'
     # When pivot_source='replay', this DataFrame holds (timestamp, pivot_dir,
@@ -124,7 +124,7 @@ class L5Context:
         if pivot_source == 'replay':
             # Replay must use HARDENED LEGS (R-trigger fire timestamps),
             # not raw pivot timestamps. The pivot extreme bar is future
-            # knowledge -- the R-trigger fire is causal (close crosses
+            # knowledge -- the R-trigger fire is forward pass (close crosses
             # pivot +- r_price). Hardened legs CSV stores fire_ts as
             # entry_ts and exit_ts.
             #
@@ -204,7 +204,7 @@ class L5Decider:
         self._r_price: Optional[float] = None         # min_rev_ticks * TICK_SIZE (points)
 
         # Zigzag state machine (5s closes, in tick space) -- mirrors
-        # tools/_viz/auto_swing_marker.detect_swings causal pass.
+        # tools/_viz/auto_swing_marker.detect_swings forward pass pass.
         # direction:  0 = undecided (warmup)
         #             1 = trending up, tracking running HIGH
         #            -1 = trending down, tracking running LOW
@@ -261,7 +261,7 @@ class L5Decider:
             atr_pts = median(TR_full_day[-period*3:])
             min_rev_ticks = max(4, round(atr_pts / TICK_SIZE * ATR_MULT))
 
-        We use YESTERDAY's full-day TRs as a causal proxy for today's
+        We use YESTERDAY's full-day TRs as a forward pass proxy for today's
         (which we don't have yet at session start). This locks
         min_rev_ticks for the whole session -- no mid-day drift.
 
@@ -509,7 +509,7 @@ class L5Decider:
         This matches production behaviour: the offline builder computes ONE
         atr_pts per day (median of 42 TRs from the full day's 1m bars), so
         the threshold is constant intraday. For live we use yesterday's
-        full-day median (causal) -- same constant-threshold behaviour but
+        full-day median (forward pass) -- same constant-threshold behaviour but
         based on yesterday's volatility, since today's full data isn't
         available yet.
 

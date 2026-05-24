@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,c1,c2,regime_2d,n,pearson,p_q4q4,p_q0q0,p_q4q0,p_q0q4,upper_lift,lower_lift,tail_asymmetry,joint_extreme,cross_extreme,abs_asym
 1h,price_mean_w,swing_noise_w,UP_CHOPPY,3924,-0.8694249080221136,0.0,0.0,0.14984709480122324,0.16819571865443425,0.0,0.0,0.0,0.0,7.951070336391437,0.0
 1h,vwap_w,swing_noise_w,UP_CHOPPY,3924,-0.8671043998006501,0.0,0.0,0.14984709480122324,0.16819571865443425,0.0,0.0,0.0,0.0,7.951070336391437,0.0

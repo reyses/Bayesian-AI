@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,n_1m_bars,session_range_pts,p90_bar_range_pts,mean_bar_range_pts,median_bar_range_pts,realized_vol_pts,max_1m_move_pts,max_drawdown_pts,ts,dow
 2025_01_01,60,76.25,15.150000000000006,9.075,8.125,6.492866724285912,18.0,67.0,1735689600.0,Wednesday
 2025_01_02,1380,507.5,26.5,12.497826086956522,9.0,9.319754036597644,56.5,489.75,1735776000.0,Thursday

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,c1,c2,pearson,category,predicted_sign,hypothesis
 5s,price_velocity_1b,price_accel_1b,0.7128750781565866,UNPREDICTED_HIGH,,
 5s,price_velocity_1b,body,0.9098114264135586,AGREES_AS_PREDICTED,+,body_is_velocity

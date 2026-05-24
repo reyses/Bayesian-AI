@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Drill: rolling corr as regime classifier - 2026-05-03 23:15 UTC
 
 **Window**: 50 5m bars (~4.2h)

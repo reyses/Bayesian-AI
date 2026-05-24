@@ -2,7 +2,7 @@
 
 Composite of four signals we've built this session:
   1. trend3 raw           : per-1m-bar (p_long, p_short, p_neutral) — direction
-  2. Live zigzag indicator : per-5s-bar streaming direction (lagged but causal)
+  2. Live zigzag indicator : per-5s-bar streaming direction (lagged but forward pass)
   3. B1 pivot-imminent     : per-1m-bar P(pivot in next K min)
   4. B2 fakeout            : per-pivot P(this leg dies within K min)
 

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 close_time_utc,day,entry_time_utc,exit_time_utc,direction,entry_price,exit_price,qty,pnl_points,pnl_usd,held_minutes,entry_reason,exit_reason
 2026-04-25T20:32:15.5008963Z,2026-02-24,2026-02-24 01:24:00,2026-02-24 01:47:00,long,25039.0000,25045.2500,1,6.2500,12.50,23.00,LongAtLowPivot,TrailStopLong
 2026-04-25T20:32:15.5008963Z,2026-02-24,2026-02-24 01:47:00,2026-02-24 07:08:00,short,25045.2500,25074.0000,1,-28.7500,-57.50,321.00,ShortAtHighPivot,FlipExitShort

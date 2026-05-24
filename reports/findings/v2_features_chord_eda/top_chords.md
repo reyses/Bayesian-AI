@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 feature chords (3-feature regime fingerprints) — 2026-05-03 16:15 UTC
 
 **Base TF:** `5m`  **Split:** `IS`

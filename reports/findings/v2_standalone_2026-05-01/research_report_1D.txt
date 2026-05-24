@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 ======================================================================
   STANDALONE RESEARCH
   Data: DATA/ATLAS

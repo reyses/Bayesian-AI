@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 feature,side,n_is,n_oos,P_up_IS,CI_IS_lo,CI_IS_hi,P_up_OOS,sign_match,mean_fwd_IS,mean_fwd_OOS,mean_abs_z,med_dur_min,IS_edge
 L1_1m_body,above_+3sigma,57,13,0.661,0.5366,0.7751,0.8,1,30.61,53.13,5.21,1.92,0.16100000000000003
 L2_1h_price_sigma_12,below_-3sigma,78,18,0.65,0.5429,0.75,0.5,0,9.5,-18.24,4.52,59.92,0.15000000000000002

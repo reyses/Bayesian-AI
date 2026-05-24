@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 seg_direction,n_trades,wr_pct,pnl_total,pnl_mean,pnl_median,dimension,regime_dimension,seg_sub_pattern,seg_slope_bucket,zone_behavior
 UP,2974,36.88634835238736,-1195.1000000000067,-0.4018493611297938,-38.4,Direction,Direction,,,
 DOWN,2786,35.39124192390524,-15452.400000000005,-5.5464465183058165,-38.9,Direction,Direction,,,

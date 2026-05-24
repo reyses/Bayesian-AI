@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,regime_2d,hour_bucket,n,mean_fwd,win_rate
 price_sigma_w,5s,UP_SMOOTH,pre_market,103,2.662621359223301,0.6213592233009708
 price_sigma_w,5s,UP_SMOOTH,asia_close,88,-4.5397727272727275,0.5113636363636364

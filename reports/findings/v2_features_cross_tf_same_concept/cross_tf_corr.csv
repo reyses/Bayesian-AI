@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf1,tf2,regime_2d,n,pearson
 price_velocity_1b,5s,15s,ALL,46928,0.5654852110245145
 price_velocity_1b,5s,15s,UP_SMOOTH,7146,0.5821142102055241

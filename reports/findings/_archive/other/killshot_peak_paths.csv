@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,entry_ts,dir,peak_pts,peak_dollar,bars_to_peak,sec_to_peak,path_len,pnl
 2025_01_02,1735783500.0,long,9.75,19.5,18,90,43,0.0
 2025_01_02,1735783860.0,short,4.0,8.0,32,160,39,18.5

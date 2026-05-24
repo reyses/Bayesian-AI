@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,split,direction,entry_ts,actual_exit_ts,entry_price,actual_exit_price,actual_pnl,actual_exit_reason,bayes_exit_ts,bayes_exit_price,bayes_exit_reason,bayes_pnl,p_final_at_exit,delta_vs_actual
 2025_01_02,IS,short,1735779720,1735779840,21274.5,21262.75,23.5,z_se_retracement,1735779840,21262.75,oracle_never_fired,23.5,,0.0
 2025_01_02,IS,short,1735781880,1735782060,21296.75,21304.0,-14.5,z_se_retracement,1735782005,21301.75,bayes_exit_p0.94_t5_cap0,-10.0,0.939,4.5

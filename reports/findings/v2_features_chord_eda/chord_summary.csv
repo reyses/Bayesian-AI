@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 x,y,z,chord_purity,chord_signal,chord_entropy,n_cells
 L1_4h_body,L1_4h_price_velocity_1b,L3_4h_z_low_w,0.5461635755758208,10.71875,1.502312569856288,17
 L3_4h_z_se_w,L1_4h_body,L1_4h_price_velocity_1b,0.5452579242369842,10.71875,1.5164968956051028,17

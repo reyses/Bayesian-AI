@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 hypothesis,x,y,tf,predicted,pearson,spearman,sign_actual,agrees,n,interpretation
 velocity_needs_volume,abs:price_velocity_w,vol_mean_w,5s,+,0.4016428077854375,0.43502981376419525,+,YES,46928,directional moves require volume
 velocity_needs_volume,abs:price_velocity_w,vol_mean_w,15s,+,0.5182058005727402,0.5045442968890135,+,YES,46928,directional moves require volume

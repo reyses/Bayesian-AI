@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 concept,tf,n_regimes,n_pos,n_neg,has_inversion,min_corr,max_corr,corr_range
 bar_range,5m,6,2,4,True,-0.15719479682480292,0.23474758405552626,0.3919423808803292
 price_sigma_w,15s,6,2,4,True,-0.15535061255275823,0.22220706364550413,0.37755767619826236

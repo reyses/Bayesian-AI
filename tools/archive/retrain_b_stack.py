@@ -10,7 +10,7 @@ re-trigger; it does not modify any trainer's hyper-parameters.
 
 Usage:
     python tools/retrain_b_stack.py                  # B1 -> B10, vanilla
-    python tools/retrain_b_stack.py --honest-is      # B1 -> B10 on causal IS
+    python tools/retrain_b_stack.py --honest-is      # B1 -> B10 on forward pass IS
     python tools/retrain_b_stack.py --from 7         # resume from B7
     python tools/retrain_b_stack.py --to 6           # B1..B6 only
     python tools/retrain_b_stack.py --only 9         # B9 alone
@@ -21,9 +21,9 @@ Usage:
     (built by  tools/build_causal_truth_dataset.py)
   - reports/findings/regret_oracle/causal_flat_trade_trajectory_IS.parquet
     (built by  tools/build_trade_trajectory_dataset.py with --legs/--truth/--out
-     pointing at the causal artifacts)
+     pointing at the forward pass artifacts)
 
-The only manual prereq is the causal IS legs CSV
+The only manual prereq is the forward pass IS legs CSV
 (reports/findings/trade_outcome_table/causal_flat_zigzag_legs_IS.csv) — that
 requires a heavy forward_zigzag run and is left to the user:
     python training_zigzag/forward_zigzag.py --is --flat
@@ -46,13 +46,13 @@ HONEST_PATHS = {
 }
 
 # Auto-built prereqs for --honest-is: (output path, command-tokens). Run only
-# if the output is missing. The causal IS legs CSV is NOT auto-built — it
+# if the output is missing. The forward pass IS legs CSV is NOT auto-built — it
 # requires a heavy forward_zigzag run and is left to the user.
 HONEST_BUILD_STEPS = [
-    # 1. Retag the IS V2-per-1m truth with causal pivots.
+    # 1. Retag the IS V2-per-1m truth with forward pass pivots.
     (HONEST_PATHS['HONEST_IS_TRUTH'],
      ['tools/build_causal_truth_dataset.py']),
-    # 2. Build the causal trajectory (uses the new causal truth + causal legs).
+    # 2. Build the forward pass trajectory (uses the new forward pass truth + forward pass legs).
     (HONEST_PATHS['HONEST_IS_TRAJ'],
      ['tools/build_trade_trajectory_dataset.py',
       '--legs', HONEST_PATHS['HONEST_IS_LEGS'],
@@ -122,13 +122,13 @@ def _resolve_honest(args_list: list[str]) -> list[str]:
 
 
 def _ensure_honest_artifacts(dry_run: bool = False) -> bool:
-    """Hard-check causal IS legs (user prereq) and auto-build the two derived
+    """Hard-check forward pass IS legs (user prereq) and auto-build the two derived
     artifacts if missing. Returns True if everything is ready; False on any
     hard failure (missing legs CSV, or a build subprocess failed).
     """
     legs_path = REPO / HONEST_PATHS['HONEST_IS_LEGS']
     if not legs_path.exists():
-        print('--honest-is requires the causal IS legs CSV at:')
+        print('--honest-is requires the forward pass IS legs CSV at:')
         print(f'  {legs_path.relative_to(REPO)}')
         print('Build it first (it requires a forward pass):')
         print('  python training_zigzag/forward_zigzag.py --is --flat')
@@ -175,7 +175,7 @@ def main() -> int:
                     help='retrain on the CAUSAL_FLAT IS data (lookahead-free, no '
                          'GBMs upstream). Injects per-stage --is-dataset / '
                          '--is-truth / --is-legs / --traj flags pointing at the '
-                         'causal artifacts. Preflight-checks the artifacts exist.')
+                         'forward pass artifacts. Preflight-checks the artifacts exist.')
     ap.add_argument('--extra-args', default='',
                     help='string of args to pass through to every trainer in '
                          'addition to per-stage honest-IS flags (quote it).')

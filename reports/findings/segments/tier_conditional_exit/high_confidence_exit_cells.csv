@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tier,t_since_peak_bucket,capture_bucket,n_is,n_oos,P_is_peak_final_IS,P_is_peak_final_OOS,sign_match
 CASCADE,0,1,161,25,0.714,0.64,1
 CASCADE,1,1,331,79,0.725,0.709,1

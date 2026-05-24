@@ -1,4 +1,4 @@
-"""Live zigzag baseline — causal ZZ direction vs hindsight leg_direction.
+"""Live zigzag baseline — forward pass ZZ direction vs hindsight leg_direction.
 
 Purpose: settle whether the trend3 ML adds anything over a 30-line zigzag
 indicator. If the indicator alone matches the hindsight leg direction at a
@@ -17,7 +17,7 @@ Method:
   - For each NT8 OOS day, load 5s closes
   - Compute day ATR(14) on 1m, get min_rev_ticks at ATR×4 (training match)
   - Run STREAMING detect_swings on 5s closes: emit per-5s-bar direction
-    state at the time that bar is processed (causal, no future info)
+    state at the time that bar is processed (forward pass, no future info)
   - Sample the per-5s direction at each 1m close timestamp
   - Compare to leg_direction (hindsight) from the truth dataset
 
@@ -226,7 +226,7 @@ def main():
         print(s); lines.append(s)
 
     out('=' * 72)
-    out('LIVE ZIGZAG BASELINE  (causal indicator vs hindsight leg_direction)')
+    out('LIVE ZIGZAG BASELINE  (forward pass indicator vs hindsight leg_direction)')
     out('=' * 72)
     out(f'Days: {len(per_day_df)}   bars: {n_total:,}')
     out(f'ATR multiplier (matched to training): x{args.atr_mult}')

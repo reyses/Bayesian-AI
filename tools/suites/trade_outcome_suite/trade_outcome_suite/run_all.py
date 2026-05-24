@@ -27,7 +27,7 @@ SRC_BLURB = {
                     'live engine actually takes.'),
     'hardened':    ('OFFLINE zigzag (whole-day pivots, lookahead). Zero '
                     'whipsaw by construction. Findings describe an optimistic '
-                    'leg population, NOT the live causal engine.'),
+                    'leg population, NOT the live forward pass engine.'),
 }
 
 
@@ -35,7 +35,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--source', choices=list(ex.SOURCES),
                     default=ex.DEFAULT_SOURCE,
-                    help='leg-list source (default: causal_flat = honest causal; '
+                    help='leg-list source (default: causal_flat = honest forward pass; '
                          "'hardened' = legacy lookahead population)")
     ap.add_argument('--rebuild', action='store_true',
                     help='force rebuild of the per-leg excursion parquet cache')
@@ -80,7 +80,7 @@ def main():
         head.append(f'| {i} | {title} | {verdict} |')
     cmp_hint = (' For comparison vs the lookahead-tainted population, '
                 'run with `--source hardened`.' if src == 'causal_flat' else
-                ' For the honest causal numbers, run with `--source causal_flat`.')
+                ' For the honest forward pass numbers, run with `--source causal_flat`.')
     head += ['', '## Standing caveats', '',
              '- `close ~= MFE - R`: a zigzag leg exits ~1R below its peak by '
              'construction. Every winner gives back ~1R; every loser is '

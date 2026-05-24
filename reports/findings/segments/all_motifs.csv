@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 level,parent_motif_idx,seg_idx,start_ts,end_ts,start_iso,end_iso,length_min,slope_pts_per_min,mean_sigma,sigma_rank_mid,r2adj,shape_class,shape_pearson_r,peak_abs_z,tod_start_hour_utc,net_move_pts,day,split
 motif,-1,0,1735772400,1735775995,2025-01-01T23:00:00+00:00,2025-01-01T23:59:55+00:00,59.92,,11.852,,0.528,NOISE,-999.0,23.476,23,0.75,2025_01_01,IS
 motif,-1,0,1735776000,1735805700,2025-01-02T00:00:00+00:00,2025-01-02T08:15:00+00:00,495.0,,32.378,0.107,0.792,NOISE,-999.0,3.997,0,155.0,2025_01_02,IS

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 X,Y,tfX,tfY,regime_2d,n,pearson
 price_velocity_w,price_sigma_w,5s,5s,ALL,46928,-0.06530418178560601
 price_velocity_w,price_sigma_w,5s,5s,UP_SMOOTH,7146,0.2966894701805443

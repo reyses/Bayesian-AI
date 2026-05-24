@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,pnl,n_trades,n_winners,n_losers,n_trail,n_pivot,n_eod,n_long,n_short,sum_mfe_usd,avg_leg_min,best_trade,worst_trade,pivot_pnl,trail_pnl,pivot_share,trail_share,long_share,is_loss_day,split,dow
 2025_01_02,-221.5,29,15,14,16,13,0,19,10,1499.0,9.428735632183908,107.5,-80.5,-839.0,617.5,0.4482758620689655,0.5517241379310345,0.6551724137931034,True,IS,Thursday
 2025_01_03,339.0,25,18,7,21,4,0,13,12,1306.5,10.892000000000001,152.0,-69.5,-248.0,587.0,0.16,0.84,0.52,False,IS,Friday

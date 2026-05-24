@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 motif_shape,sub_motif_shape,measure_shape,n_total,n_is,n_oos,P_is,ci_is_lo,ci_is_hi,mean_is,sign_match,P_oos,ci_oos_lo,ci_oos_hi,mean_oos
 FLATLINE,FLATLINE,STEEP_CONVEX_DOWN,10,10,0,0.8333,0.5872,0.9772,22.48,-1,,,,
 FLATLINE,GENTLE_CONCAVE_UP,STEEP_CONVEX_DOWN,10,10,0,0.5,0.2338,0.7662,11.82,-1,,,,

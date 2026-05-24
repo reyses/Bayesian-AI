@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # v1.0.4 PnL by 1D regime - cross-tab
 
 Generated: 2026-04-29 22:36

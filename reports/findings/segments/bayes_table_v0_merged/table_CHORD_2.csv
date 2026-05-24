@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 sub_motif_shape,measure_shape,n_total,n_is,n_oos,P_is,ci_is_lo,ci_is_hi,mean_is,P_oos,ci_oos_lo,ci_oos_hi,mean_oos,sign_match
 FLATLINE,FLATLINE,39,33,6,0.5429,0.3789,0.7022,-12.64,0.75,0.4213,0.9633,33.58,1
 FLATLINE,NOISE,64,53,11,0.6364,0.5062,0.7571,-0.69,0.6154,0.3489,0.8483,5.25,1

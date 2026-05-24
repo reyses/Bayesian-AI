@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Pairwise lookback combos — 2026-05-03 08:08 UTC
 
 **Base TF:** `5m`  **Split:** `IS`  **Forward N:** 12

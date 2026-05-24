@@ -1,4 +1,6 @@
-# Direction-classifier KPI search — OOS 2026
+**DEPRECATED â€” LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
+# Direction-classifier KPI search  OOS 2026
 
 **Grid**: 36 combos.  Cost: $4.0/trade. Time stop: 360 bars (30min).
 

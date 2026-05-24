@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 Day PnL stats (N=86):
   mean   = $-162.27/day
   median = $-96.00/day

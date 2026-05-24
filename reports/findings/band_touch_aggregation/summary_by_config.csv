@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 split,tf,anchor,side,k_sigma,total_entries,days_active,split_days,frac_days_active,mean_per_day,median_per_day,max_per_day,q90_per_day
 IS,1m,close,above,1.0,75571,277,277,1.0,272.82,319.0,471,372.8
 IS,1m,close,above,2.0,43139,277,277,1.0,155.74,181.0,259,222.0

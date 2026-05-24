@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,pivot_ts,pivot_dir_new,pivot_price,atr_pts,r_price,r_trigger_ts,r_trigger_price,imminent_ts,imminent_price,edge_pts,edge_usd,leadtime_s,imminent_before_rtrig
 2026_03_20,1773990119,LONG,24495.833333333332,8.25,33.0,1773990959,24532.75,,,,,,False
 2026_03_20,1773994529,SHORT,24614.5,8.25,33.0,1773995224,24580.5,,,,,,False

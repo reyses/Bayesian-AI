@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 nt8_id,nt8_side,nt8_entry_dt,nt8_entry_px,nt8_exit_px,nt8_pnl,py_id,py_side,py_entry_dt,py_entry_px,py_exit_px,py_pnl,entry_dt_diff_s,entry_px_diff,exit_px_diff,pnl_diff
 1,Short,2026-03-19 22:02:00,24568.0,24543.5,47.1,1,Long,2026-03-20 07:18:59+00:00,24543.25,24577.0,65.6,33419,-24.75,33.5,18.499999999999993
 2,Long,2026-03-20 00:19:00,24543.5,24561.25,33.6,2,Short,2026-03-20 08:28:59+00:00,24577.0,24598.25,-44.4,29399,33.5,37.0,-78.0

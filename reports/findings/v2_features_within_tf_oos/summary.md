@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Within-TF feature×feature OOS validation (Layer D9) - 2026-05-03 20:13 UTC
 
 ## D7 confirmed regime-flip pairs OOS

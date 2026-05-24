@@ -26,7 +26,7 @@ class LiveConfig:
     warmup_bars: int = 240            # Bars before first signal (auto-scaled to anchor TF)
     base_resolution_s: int = 5       # Bar size from NT8 (5s chart)
     anchor_tf: str = '5s'            # Primary signal TF — matches training pipeline
-    pivot_source: str = 'stream'      # L5: 'stream' = causal detector (live);
+    pivot_source: str = 'stream'      # L5: 'stream' = forward pass detector (live);
                                        # 'replay' = inject pivots from production
                                        # parquet (mock/SIM validation).
 

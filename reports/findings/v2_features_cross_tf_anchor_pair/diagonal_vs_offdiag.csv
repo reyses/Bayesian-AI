@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 X,Y,regime_2d,max_diag_tf,max_diag_r,max_offdiag_tfX,max_offdiag_tfY,max_offdiag_r,offdiag_lift,sign_match
 price_velocity_w,swing_noise_w,ALL,4h,-0.08848731338389461,1D,1h,-0.3900093952208588,0.3015220818369642,True
 price_velocity_w,swing_noise_w,DOWN_CHOPPY,1h,-0.39917875144115694,1h,15m,-0.5940253440433452,0.19484659260218823,True

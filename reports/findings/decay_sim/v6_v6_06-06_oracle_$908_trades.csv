@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 side,entry_utc,exit_utc,entry_px,exit_px,pnl,dur_min,reason,entry_z_15m,entry_pos,slope_long,slope_short,peak_ticks,worst_ticks
 SHORT,2025-06-06 01:53:00,2025-06-06 02:38:00,21590.0,21579.5,21.0,45.0,time_stop,1.571,-0.202,0.791,-0.925,66.0,0.0
 SHORT,2025-06-06 03:29:00,2025-06-06 03:43:00,21594.75,21612.0,-34.5,14.0,stop_z_extension,1.543,-0.01,1.038,-0.642,17.0,-69.0

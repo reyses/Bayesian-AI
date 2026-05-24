@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # z_range filter backtest — per-tier decile view
 
 Thresholds: reject >= 2.5, size1 >= 2.0, size2 >= 1.5

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 entry_bar,exit_bar,entry_price,exit_price,direction,pnl_ticks,pnl_dollars,mae_ticks,mfe_ticks,hold_bars,template_id,timestamp
 0,120,25518.25,25434.0,SHORT,337.0,168.5,76.0,578.0,120,184,1769986800.0
 120,240,25434.0,25531.25,SHORT,-389.0,-194.5,551.0,62.0,120,184,1769988600.0

@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Top features by price correlation
 
 Generated: 2026-05-03 07:48 UTC

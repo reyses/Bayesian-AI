@@ -30,7 +30,7 @@ OUT_DIR = REPO / 'reports/findings/trade_outcome_table'
 #                   genuine swing confirmed in hindsight. +$454/day OOS.
 #   'causal_flat' — CAUSAL streaming zigzag pivots, NO model filters
 #                   (no B7/B9/B10). Built by training_zigzag/forward_zigzag.py.
-#                   Honest causal trade list — includes whipsaws. ~-$330/day.
+#                   Honest forward pass trade list — includes whipsaws. ~-$330/day.
 SOURCES = {
     'hardened': {
         'IS':  (REPO / 'reports/findings/regret_oracle/is_hardened_legs.csv',
@@ -47,7 +47,7 @@ SOURCES = {
         'OOS': (REPO / 'reports/findings/trade_outcome_table/causal_flat_zigzag_legs_OOS.csv',
                 REPO / 'DATA/ATLAS_NT8/5s'),
     },
-    'causal': {
+    'forward pass': {
         # Same IS/OOS sources, but WITH the L5 stack active (B7 skip + B9 cut +
         # B10 day mode). Lift over causal_flat: +$118/day IS (Databento), but
         # only -$10/day on OOS NT8 — filters trained on Databento don't
@@ -58,7 +58,7 @@ SOURCES = {
                 REPO / 'DATA/ATLAS_NT8/5s'),
     },
 }
-DEFAULT_SOURCE = 'causal_flat'   # honest causal — supersedes lookahead-tainted hardened
+DEFAULT_SOURCE = 'causal_flat'   # honest forward pass — supersedes lookahead-tainted hardened
 
 TICK = 0.25                 # MNQ tick size (price units)
 DOLLAR_PER_POINT = 2.0      # MNQ: $0.50/tick * 4 ticks/pt

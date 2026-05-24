@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 side,entry_ts,entry_utc,entry_price,exit_ts,exit_utc,exit_price,exit_reason,duration_min,realized_pnl_dollars,peak_pnl_ticks,worst_pnl_ticks,entry_pos_in_band,entry_z_1h_high,entry_z_15m_crm,entry_slope_15s,entry_slope_15m,entry_sig_above_1h_low
 LONG,1749168300,2025-06-06 00:05:00,21577.5,1749169020,2025-06-06 00:17:00,21574.5,slope_rolled_over,12.0,-6.0,35.0,-27.0,-0.528,-1.437,1.302,2.868,0.0,-0.614
 LONG,1749169980,2025-06-06 00:33:00,21564.0,1749170820,2025-06-06 00:47:00,21550.5,slope_rolled_over,14.0,-27.0,40.0,-73.0,-0.539,-1.538,0.859,0.29,-0.05,-0.627

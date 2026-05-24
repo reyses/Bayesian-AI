@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 close_time_utc,day,entry_time_utc,exit_time_utc,direction,entry_price,exit_price,qty,pnl_points,pnl_usd,held_minutes,entry_reason,exit_reason,mfe_pts,mae_pts,capture_pct,max_neg_bars
 2026-04-27T01:14:43.7188202Z,2026-03-23,2026-03-23 00:07:00,2026-03-23 00:06:41,short,23973.5000,23998.5000,1,-25.0000,-50.00,-0.32,ShortAtHighPivot,Stop loss,0.0000,24.2500,0.00,0
 2026-04-27T01:14:43.7198251Z,2026-03-23,2026-03-23 00:06:41,2026-03-23 00:08:07,long,23998.5000,24017.0000,1,18.5000,37.00,1.43,LongAtLowPivot,Stop loss,23.5000,1.2500,78.72,0

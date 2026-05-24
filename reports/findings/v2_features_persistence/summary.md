@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # V2 features within-day persistence (Step #2) - 2026-05-03 17:43 UTC
 
 **Concepts:** ['price_sigma_w', 'bar_range', 'vol_mean_w', 'vol_velocity_w', 'price_velocity_w', 'body', 'price_velocity_1b', 'swing_noise_w']

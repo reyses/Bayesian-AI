@@ -67,7 +67,7 @@ def offline_direction(closes: np.ndarray, min_rev: int) -> np.ndarray:
 
 
 def causal_direction(closes: np.ndarray, min_rev: int) -> np.ndarray:
-    """Causal per-bar leg direction — a single forward pass mirroring
+    """Forward pass per-bar leg direction — a single forward pass mirroring
     auto_swing_marker.detect_swings' core loop (no hindsight merge pass).
     d[i] is confirmed using only closes[0..i]."""
     n = len(closes)

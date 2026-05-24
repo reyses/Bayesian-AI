@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 axis,side,anchor,bin,IS_p,OOS_p,IS_n,OOS_n,IS_ret,OOS_ret,sign_match
 slope_q,above,high,2,0.5,0.6923,64,11,3.96,0.91,0
 slope_q,above,high,3,0.4451,0.5758,162,31,-7.0,3.17,0

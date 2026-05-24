@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tf,vol_feature,var_feature,max_abs_mean_fwd,max_dominant_pct,wr_spread
 5m,L1_5m_vol_velocity_1b,L1_5m_bar_range,4.267282321899736,0.46912928759894457,0.030940173037982466
 5m,L1_5m_vol_velocity_1b,L2_5m_price_sigma_w,5.783392304290137,0.44714727996461745,0.019991057500085896

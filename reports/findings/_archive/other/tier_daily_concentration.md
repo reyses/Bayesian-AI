@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 # Tier daily concentration diagnostic
 
 For each tier, this analysis reveals how "tail-driven" the edge is. Robust tiers show consistent small-win contributions across many days; fragile tiers concentrate most of their $ in a small number of hot days.

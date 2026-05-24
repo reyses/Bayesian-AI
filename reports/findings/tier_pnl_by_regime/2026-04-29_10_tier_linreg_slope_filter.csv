@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 tier,threshold,n_total,n_kept,n_skipped,pnl_kept,pnl_skipped,wr_kept,wr_skipped,pnl_per_kept_trade,pnl_per_skipped_trade,pnl_delta
 RIDE_CALM,0.0,,637,0,3761.5,0.0,47.56671899529042,0.0,5.905023547880691,,0.0
 RIDE_CALM,0.5,637.0,451,186,16891.5,-13130.0,58.09312638580931,22.043010752688172,37.45343680709534,-70.59139784946237,13130.0

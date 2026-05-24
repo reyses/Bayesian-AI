@@ -1,3 +1,5 @@
+**DEPRECATED — LOOKAHEAD ARTIFACT, DO NOT QUOTE**
+
 day,confirm_ts,kind,direction,ext_price,alignment,dir_energy,sum_abs_z,entry_p,exit_p,mfe_pts,mae_pts,leg_pts,etd_pts,capture_pct,leg_minutes,15s_z_se,1m_z_se,5m_z_se,15m_z_se,1h_z_se,1D_z_se
 2025_01_01,1735772640,low,1,21263.0,0,0.0,0.0,21316.5,21278.25,3.5,45.0,-38.25,41.75,-1092.857142857143,32.0,0.0,0.0,0.0,0.0,0.0,0.0
 2025_01_02,1735776300,high,-1,21258.0,0,0.0,4.762418031692505,21230.5,21170.75,109.5,8.75,59.75,49.75,54.5662100456621,29.0,-2.263291835784912,-2.4991261959075928,0.0,0.0,0.0,0.0
