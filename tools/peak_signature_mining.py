@@ -95,7 +95,7 @@ def find_mfe(trade, ts_arr: np.ndarray, close_arr: np.ndarray,
     return idx + off, float(pnl_path[off])
 
 
-def collect_trade_mfes(prefix: str) -> pd.DataFrame:
+def collect_trade_mfes(prefix: str, features_root: str) -> pd.DataFrame:
     """For each trade in iso pickles, capture entry + MFE feature vectors."""
     pkls = sorted(glob.glob(f'{prefix}_*.pkl'))
     pkls = [p for p in pkls if 'regret' not in p and 'summary' not in p]
@@ -121,7 +121,7 @@ def collect_trade_mfes(prefix: str) -> pd.DataFrame:
         ts_arr = ohlcv['timestamp'].values.astype(np.int64)
         close_arr = ohlcv['close'].values
 
-        feats = load_features(days=[day])
+        feats = load_features(days=[day], root=features_root)
         if feats.empty:
             continue
         feats_ts = feats['timestamp'].values.astype(np.int64)
@@ -234,6 +234,8 @@ def main():
     ap.add_argument('--prefix', default='training_iso_v2/output/is')
     ap.add_argument('--out-dir',
                           default='reports/findings/peak_signatures')
+    ap.add_argument('--features-root', required=True,
+                          help='Root dir for V2 layered features (e.g. DATA/ATLAS/FEATURES_5s_v2)')
     ap.add_argument('--top-k', type=int, default=8,
                           help='top-K most-coalescent features per cell')
     ap.add_argument('--min-n', type=int, default=30,
@@ -242,7 +244,7 @@ def main():
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    df = collect_trade_mfes(args.prefix)
+    df = collect_trade_mfes(args.prefix, features_root=args.features_root)
     if df.empty:
         print('No MFE-feature data; aborting')
         return
