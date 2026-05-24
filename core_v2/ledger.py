@@ -22,7 +22,7 @@ NOT responsibilities:
 Spec: docs/JULES_ENGINE_DECOUPLE_ORDERS.md
 """
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import numpy as np
 
 from core_v2.engine_signals import PositionView, PositionsView, PositionDecision
@@ -32,6 +32,31 @@ from core_v2.features import N_FEATURES
 # Chain-depth ceiling — how many parallel contracts can be stacked on one
 # primary. Matches the MAX_CHAIN_CONTRACTS constant BlendedEngine uses today.
 MAX_CHAIN_CONTRACTS = 3
+
+# MNQ contract economics (from V1/training_v2)
+TICK = 0.25
+TICK_VALUE = 0.50      # $/tick/contract
+DOLLAR_PER_POINT = 2.0  # $/pt/contract
+
+@dataclass
+class ClosedTrade:
+    direction: str
+    entry_price: float
+    exit_price: float
+    entry_ts: float
+    exit_ts: float
+    bars_held: int
+    pnl: float
+    peak_pnl: float
+    entry_tier: str
+    exit_reason: str
+    entry_day: str
+    entry_v2: np.ndarray
+    entry_regime_idx: int
+    cnn_filtered: bool = False
+    cnn_generated: bool = False
+    extras: Dict[str, Any] = field(default_factory=dict)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────
