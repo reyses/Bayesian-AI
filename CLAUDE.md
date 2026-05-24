@@ -44,12 +44,11 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `tools/viz/core/engine.py` — Visualization Engine (VizEngine) core architecture
 
 ## Active Work
-- **Blended pipeline (baseline-740)**: $740/day OOS, 88% win days, 74 OOS days
-  - 9 ExNMP tiers: CASCADE, KILL_SHOT, FREIGHT_TRAIN, FADE_AGAINST, RIDE_AGAINST,
-    RIDE_MOMENTUM, RIDE_CALM, FADE_MOMENTUM, FADE_CALM
+- **Blended pipeline (9 ExNMP tiers)**: 
+  - CASCADE, KILL_SHOT, FREIGHT_TRAIN, FADE_AGAINST, RIDE_AGAINST, RIDE_MOMENTUM, RIDE_CALM, FADE_MOMENTUM, FADE_CALM
+  - *(Note: Previous baseline-740 was invalidated due to lookahead bias. New baseline pending.)*
   - 3 CNNs: flip (SAME/COUNTER), hold (HOLD/EXIT), risk (RECOVER/DEAD)
   - Exits: 3-bar confirmation, oscillation decay, tiered RIDE by 1h_z
-  - Safety branch: `safe/v740` at commit `ce0674f9`
 - **Consolidated ISO Pipeline** (`training/`): isolated testing for non-NMP entries consolidated from deprecated `training_iso` directories
   - REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION — separate CNN training
 - **VizEngine Migration**: Visualization tools ported to new `VizEngine` plugin architecture (supports 5s dynamic scrolling)
