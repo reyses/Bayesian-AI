@@ -337,7 +337,7 @@ DATA/ATLAS/FEATURES_5s/
    - `L2` per TF: rolling-window MA (velocity_N, accel_N, mean_N, sigma_N for price/vol), VWAP
    - `L3` per TF: OLS-based SE bands (z_se, z_high, z_low) + Hurst + reversion_prob
    - **Remove**: p_center, DMI, variance_ratio, wick_ratio, vol_rel, dir_vol, and all other v1 L3+ derivations
-2. **Update builder** (`training/build_dataset.py`) to write per-layer-family parquets
+2. **Update builder** (`core_v2/build_dataset.py`) to write per-layer-family parquets
 3. **Write loader** (`core/features.py::load_features`) that joins requested (layers × TFs × days) into a single training-ready DataFrame
 4. **Regenerate** `DATA/ATLAS/FEATURES_5s/{L0,L1_*,L2_*,L3_*}/*.parquet` from scratch (breaking rebuild — baseline is -$164/day, nothing worth preserving)
 5. **Retrain** pivot-direction CNN on v2 features

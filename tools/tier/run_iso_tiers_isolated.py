@@ -22,7 +22,7 @@ from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from training.sfe_ticker import FeatureTicker
+from training.utils.sfe_ticker import FeatureTicker
 from training.nightmare_iso import IsoEngine, TIER_MAP
 
 FEATURES_DIR = 'DATA/ATLAS/FEATURES_5s'

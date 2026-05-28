@@ -27,4 +27,5 @@ Pre-2026-05-23 Jules briefs live at the `docs/` root as `JULES_<TASK_NAME>.md` (
 
 | Date | Task | Status |
 |---|---|---|
-| 2026-05-23 | Consolidation refactor (FPS, training/, tools/, core→core_v2) | In progress |
+| 2026-05-23 | Consolidation refactor (FPS, training/, tools/, core→core_v2) | Completed (exit report filed) |
+| 2026-05-24 | Forward Pass Unification — V2-only, single bar-walker for cache/live | Draft (Phase 0 ready) |

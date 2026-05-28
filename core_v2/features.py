@@ -293,7 +293,3 @@ def describe_feature_count() -> str:
         f"  TF order          : {TF_ORDER}\n"
         f"  N_BASE windows    : {N_BASE}\n"
     )
-
-
-def extract_features(*args, **kwargs):
-    raise NotImplementedError('V1 extraction deprecated')

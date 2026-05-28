@@ -17,7 +17,7 @@ from collections import Counter, defaultdict
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from training.sfe_ticker import FeatureTicker
+from training.utils.sfe_ticker import FeatureTicker
 from training.nightmare_blended import BlendedEngine
 from core_v2.ledger import Ledger
 from core_v2 import sim_executor

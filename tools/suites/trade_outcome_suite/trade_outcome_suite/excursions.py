@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[4]
 OUT_DIR = REPO / 'reports/findings/trade_outcome_table'
 
 # ── Leg-list source registry ─────────────────────────────────────────────
@@ -55,6 +55,28 @@ SOURCES = {
         'IS':  (REPO / 'reports/findings/trade_outcome_table/causal_zigzag_legs_IS.csv',
                 REPO / 'DATA/ATLAS/5s'),
         'OOS': (REPO / 'reports/findings/trade_outcome_table/causal_zigzag_legs_OOS.csv',
+                REPO / 'DATA/ATLAS_NT8/5s'),
+    },
+    'strategy_run': {
+        # Output of training/run_strategy.py — V2 ForwardPass + registered
+        # Strategy class (zigzag today). Canonical paths from the runner's
+        # default --out (ATR×4). Use this source from --analyze to consume
+        # the fresh trades the runner just produced.
+        'IS':  (REPO / 'reports/findings/strategy_runs/zigzag_is_atr4.csv',
+                REPO / 'DATA/ATLAS/5s'),
+        'OOS': (REPO / 'reports/findings/strategy_runs/zigzag_oos_atr4.csv',
+                REPO / 'DATA/ATLAS_NT8/5s'),
+    },
+    'zigzag_lstm': {
+        'IS':  (REPO / 'reports/findings/strategy_runs/zigzag_lstm_is_atr4.csv',
+                REPO / 'DATA/ATLAS/5s'),
+        'OOS': (REPO / 'reports/findings/strategy_runs/zigzag_lstm_oos_atr4.csv',
+                REPO / 'DATA/ATLAS_NT8/5s'),
+    },
+    'entry_ml_filtered': {
+        'IS':  (REPO / 'reports/findings/trade_outcome_table/entry_ml_filtered_IS.csv',
+                REPO / 'DATA/ATLAS/5s'),
+        'OOS': (REPO / 'reports/findings/trade_outcome_table/entry_ml_filtered_OOS.csv',
                 REPO / 'DATA/ATLAS_NT8/5s'),
     },
 }

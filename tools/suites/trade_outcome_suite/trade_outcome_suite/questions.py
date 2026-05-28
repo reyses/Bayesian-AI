@@ -14,7 +14,7 @@ import pandas as pd  # noqa: E402
 from excursions import (pct, pct1, usd, md_table, bootstrap_ci,  # noqa: E402
                         FRICTION_USD, MIN_CELL_N)
 
-STEP = 20  # dollars per drawdown iteration
+STEP = 5  # dollars per drawdown iteration
 
 
 # --- Q1 -------------------------------------------------------------------
@@ -206,7 +206,7 @@ def q08_equity_loss_map(IS, OOS):
     hdr = ['MFE reached ≥', 'n IS', 'P(lose equity) IS', 'P(close<-$100) IS',
            'n OOS', 'P(lose equity) OOS', 'P(close<-$100) OOS']
     rows = []
-    for L in [25, 50, 75, 100, 150, 200, 250, 300]:
+    for L in list(range(5, 101, 5)) + list(range(110, 301, 10)):
         r = [f'+${L}']
         for d in (IS, OOS):
             b = d[d['mfe_usd'] >= L]
@@ -222,7 +222,7 @@ def q08_equity_loss_map(IS, OOS):
 # --- Q9 -------------------------------------------------------------------
 def _rec_rows(d):
     rows = []
-    for D in range(0, 261, 20):
+    for D in list(range(0, 101, 5)) + list(range(110, 201, 10)):
         m = d['mae_usd'] >= D
         n = int(m.sum())
         if n < 10:
@@ -406,10 +406,35 @@ def q15_bimodal(IS, OOS):
     return title, 'Not "peak then collapse" - it is winners (real $100+ MFE) vs losers (~$14 poke, never worked).', body
 
 
+# --- Q16 ------------------------------------------------------------------
+def q16_loser_trajectories(IS, OOS):
+    title = 'Q16 - Loser Trajectories: Did they start green or plunge immediately?'
+    hdr = ['Bucket', 'n IS', 'MFE < $10', 'MFE ≥ $10', 'MFE ≥ $25', 'MFE ≥ $50', 'Median MFE',
+           'n OOS', 'MFE < $10', 'MFE ≥ $10', 'MFE ≥ $25', 'MFE ≥ $50', 'Median MFE']
+    
+    out = []
+    r = ['All Losers (close < 0)']
+    for d in (IS, OOS):
+        losers = d[d['pnl_usd'] < 0]
+        if len(losers) == 0:
+            r += ['0'] + ['-']*5
+            continue
+        r += [f'{len(losers):,}', 
+              pct((losers['mfe_usd'] < 10).mean()),
+              pct((losers['mfe_usd'] >= 10).mean()),
+              pct((losers['mfe_usd'] >= 25).mean()),
+              pct((losers['mfe_usd'] >= 50).mean()),
+              usd(losers['mfe_usd'].median())]
+              
+    body = (f'## {title}\n\n'
+            'Looking EXCLUSIVELY at trades that closed red. Did they plunge immediately '
+            '(MFE < $10) or did they push into profit first?\n\n' + md_table(hdr, [r]))
+    return title, '', body
+
 QUESTIONS = [
     q01_distributions, q02_joint, q03_continuation, q04_reach_conditional,
     q05_cut_vs_hold_winner, q06_giveback, q07_mfe_close_cumulative,
     q08_equity_loss_map, q09_recovery, q10_mae_recovery_sweep,
     q11_mae_worsening, q12_mae_iteration, q13_cut_vs_hold_loser,
-    q14_timing, q15_bimodal,
+    q14_timing, q15_bimodal, q16_loser_trajectories
 ]

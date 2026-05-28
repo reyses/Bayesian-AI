@@ -20,7 +20,7 @@ from typing import Optional
 from training.utils.state import BarState
 from training.strategies.base import EntrySignal
 from training.strategies._nmp_base import NMPBaseStrategy, NMPSeed
-from training.wicks import wick_ratio_from_bar
+from training.utils.wicks import wick_ratio_from_bar
 
 
 WICK_5M_MIN_DEFAULT = 0.50    # legacy 0.83 was on V1 data; recalibrate as needed

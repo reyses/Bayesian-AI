@@ -29,7 +29,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from training.sfe_ticker import FeatureTicker
+from training.utils.sfe_ticker import FeatureTicker
 from training.nightmare_blended import (
     BlendedEngine,
     _15M_WICK_IDX, _5M_WICK_IDX, _1M_P_CENTER_IDX,

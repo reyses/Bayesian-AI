@@ -19,7 +19,7 @@ from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from training.sfe_ticker import FeatureTicker
+from training.utils.sfe_ticker import FeatureTicker
 
 TRADES_DIR = 'training/output/trades'
 FEATURES_DIR = 'DATA/FEATURES_79D_5s'

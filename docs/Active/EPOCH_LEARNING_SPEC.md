@@ -135,11 +135,11 @@ VALIDATE (H1):
 
 ## Files NOT modified:
 - `training/nightmare.py` — data source, correct
-- `training/regret.py` — analysis tool, correct
+- `training/regret/` — analysis tool, correct (collapsed from training/regret.py 2026-05-24)
 - `training/tree.py` — frozen classifier, correct
 - `training/ai.py` — executor, correct (reads book, doesn't modify it)
 - `training/gate.py` — classifier + exit checker, correct
-- `training/report.py` — reporting, correct
+- `training/utils/report.py` — reporting, correct (moved from training/ 2026-05-24)
 - `training/memory.py` — brain accumulator, correct
 
 ## Risk assessment:

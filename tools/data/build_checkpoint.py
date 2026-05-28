@@ -29,7 +29,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from training.aggregator import Aggregator
+from training.utils.aggregator import Aggregator
 
 
 DEFAULT_WARMUP_DAYS = 10

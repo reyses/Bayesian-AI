@@ -30,7 +30,7 @@ Before starting the engine for a parity test session:
 3. **Fresh data**
    - Dump latest history via BayesianHistoryDumper indicator
    - `python tools/convert_nt8_atlas.py --start 2026-03-20`
-   - `python training/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s`
+   - `python core_v2/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s`
 
 4. **Verify the build**
    - Last line: `Checkpoint saved: DATA/ATLAS_NT8/checkpoint.json`
@@ -133,7 +133,7 @@ Once all three layers PASS for a clean session:
 Maintenance window (5pm ET):
   1. Dump history in NT8
   2. python tools/convert_nt8_atlas.py --start 2026-03-20
-  3. python training/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s
+  3. python core_v2/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s
 
 Market open:
   4. python -m live.engine_v2
@@ -143,7 +143,7 @@ Market open:
 Post-session:
   7. Dump history in NT8 (now includes today's bars)
   8. python tools/convert_nt8_atlas.py --start 2026-03-20
-  9. python training/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s
+  9. python core_v2/build_dataset.py --atlas DATA/ATLAS_NT8 --resolution 5s
   10. python tools/parity_validate.py
 ```
 

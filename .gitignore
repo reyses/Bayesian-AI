@@ -159,3 +159,16 @@ reports/live/
 reports/screenshots/
 live/state/l5_overlay.txt
 live/state/dashboard_geometry.json
+
+# RL engine training artifacts (experience replay buffers + epoch checkpoints +
+# logs — regenerable, 11GB+; .h5 buffers alone exceed GitHub's 100MB file limit)
+training/rl_engine/*.h5
+training/rl_engine/*.pth
+training/rl_engine/*.bin
+training/rl_engine/logs_*.txt
+
+# Scratch / sandbox working files
+scratch/
+
+# Telegram bridge runtime inbox (live message data, not source)
+telegram_inbox.txt

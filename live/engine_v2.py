@@ -365,7 +365,7 @@ class LiveEngineV2:
 
         import subprocess
         result = subprocess.run(
-            [sys.executable, 'training/build_dataset.py',
+            [sys.executable, 'core_v2/build_dataset.py',
              '--resolution', '5s', '--atlas', ATLAS_NT8,
              '--start', missing[0].replace('_', '-')],
             capture_output=True, text=True, timeout=3600)
@@ -567,7 +567,7 @@ class LiveEngineV2:
                     logger.error(f'  ATLAS_NT8 ends at {self._ts_str(preloaded_end)}, '
                                  f'dump starts ~{self._ts_str(oldest_dump_ts)}')
                     logger.error(f'  Run: python tools/convert_nt8_atlas.py --contract MNQ_06-26')
-                    logger.error(f'  Then: python training/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start <date>')
+                    logger.error(f'  Then: python core_v2/build_dataset.py --resolution 5s --atlas DATA/ATLAS_NT8 --start <date>')
                     logger.error(f'  REFUSING TO TRADE — features would be stale.')
                     self._shutting_down = True
                     return

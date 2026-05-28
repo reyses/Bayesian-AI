@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core_v2.statistical_field_engine import StatisticalFieldEngine
 from core_v2.features import TF_ORDER
-from training.aggregator import Aggregator
+from training.utils.aggregator import Aggregator
 from training.compute_features import SFE_MIN_BARS, SFE_WINDOW
 
 TEST_DIR = 'DATA/ATLAS_TEST'

@@ -34,7 +34,7 @@ logger = logging.getLogger('diag')
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.protocol import MsgType
-from training.aggregator import Aggregator
+from training.utils.aggregator import Aggregator
 from core_v2.statistical_field_engine import StatisticalFieldEngine
 from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
 from core_v2.features import FEATURE_NAMES, N_FEATURES

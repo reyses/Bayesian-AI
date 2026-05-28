@@ -21,7 +21,7 @@ from typing import Optional
 from training.utils.state import BarState
 from training.strategies.base import EntrySignal
 from training.strategies._nmp_base import NMPBaseStrategy, NMPSeed
-from training.wicks import wick_ratio_from_bar
+from training.utils.wicks import wick_ratio_from_bar
 from training.utils.v2_cols import price_velocity_w
 
 

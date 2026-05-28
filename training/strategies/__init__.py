@@ -44,6 +44,9 @@ from training.strategies.trend3 import Trend3Strategy
 # 2026-05-17 DMI-smoothed trend3 (regime confirmation from EMA + state machine)
 from training.strategies.trend3_smoothed import Trend3SmoothedStrategy
 
+# 2026-05-24 streaming zigzag pivot-reversal (5s trigger, 1m-ATR-sized R, ATR×4)
+from training.strategies.zigzag import ZigzagStrategy
+
 __all__ = [
     'EntrySignal', 'Strategy',
     # 9 legacy tiers ported V2-native
@@ -65,6 +68,8 @@ __all__ = [
     'GoldenCombinedStrategy',
     'Trend3Strategy',
     'Trend3SmoothedStrategy',
+    # 2026-05-24 streaming zigzag (5s trigger, ATR(1m)×4 R)
+    'ZigzagStrategy',
     # Helpers
     'NMPBaseStrategy', 'NMPSeed', 'evaluate_nmp_seed',
 ]

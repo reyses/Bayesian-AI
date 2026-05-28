@@ -42,7 +42,7 @@ from core_v2.features import FEATURE_NAMES, TF_ORDER, N_FEATURES
 from core_v2.statistical_field_engine import StatisticalFieldEngine
 
 from training.nightmare_blended import BlendedEngine
-from training.aggregator import Aggregator
+from training.utils.aggregator import Aggregator
 from training.compute_features import compute_features_from_aggregator, SFE_MIN_BARS
 
 from live.config import LiveConfig

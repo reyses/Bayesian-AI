@@ -53,7 +53,6 @@ def main():
         title, verdict, body = fn(IS, OOS)
         results.append((title, verdict, body))
         print(f'  [done] {title}')
-        print(f'         verdict: {verdict}')
 
     head = [
         '# Trade Outcome Suite - Full Report',
@@ -70,14 +69,7 @@ def main():
         f'($2/point); `pnl_usd` is net of ${ex.FRICTION_USD:.0f}/leg friction. '
         f'Conditional cells carry n + 95% bootstrap CI ({ex.N_BOOT} resamples); '
         f'cells with n < {ex.MIN_CELL_N} are flagged ` !`.',
-        '',
-        '## Verdict index',
-        '',
-        '| # | Question | Verdict |',
-        '|---|---|---|',
     ]
-    for i, (title, verdict, _) in enumerate(results, 1):
-        head.append(f'| {i} | {title} | {verdict} |')
     cmp_hint = (' For comparison vs the lookahead-tainted population, '
                 'run with `--source hardened`.' if src == 'causal_flat' else
                 ' For the honest forward pass numbers, run with `--source causal_flat`.')

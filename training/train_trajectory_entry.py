@@ -1,0 +1,328 @@
+"""Trajectory-Aware CNN Entry Filter.
+
+Trains a binary classifier to predict P(winner) based on the 5-minute (60 bars at 5s)
+trajectory of V2 features leading up to a Zigzag entry trigger.
+
+Inputs:
+    grid_traj : (B, 1, 60, 8, 23) - 60 bars of 8x23 V2 feature grids.
+    tod       : (B, 1)            - time of day scalar.
+    regime    : (B,)              - regime embedding.
+Outputs:
+    P(winner) : (B, 1)            - probability the trade closes green.
+"""
+from __future__ import annotations
+
+import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import torch
+import torch.nn as nn
+import numpy as np
+import pandas as pd
+from tqdm import tqdm
+from torch.utils.data import TensorDataset, DataLoader
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, average_precision_score
+
+from core_v2.features import load_features, FEATURE_NAMES, DEFAULT_FEATURES_ROOT
+from training.utils.state import regime_to_idx
+from training.models.cnn.model import GRID_FLAT_IDX, L0_IDX, GRID_H, GRID_W, N_REGIMES, REGIME_EMBED
+
+# ─── Dataset Builder ─────────────────────────────────────────────────────────
+
+def _load_regime_lookup(labels_csv: str = 'DATA/ATLAS/regime_labels_2d.csv') -> dict:
+    df = pd.read_csv(labels_csv)
+    df['date'] = df['date'].astype(str).str[:10]
+    return dict(zip(df['date'], df['regime_2d']))
+
+def build_trajectory_dataset(csv_path: str, atlas_root: str = 'DATA/ATLAS',
+                             features_root: str = DEFAULT_FEATURES_ROOT,
+                             seq_len: int = 60) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Build dataset from strategy_run CSV containing trades.
+    Extracts `seq_len` bars of V2 features ending at each entry_ts."""
+    
+    trades = pd.read_csv(csv_path)
+    # Binary label: 1 if pnl_usd > 0 else 0
+    trades['label'] = (trades['pnl_usd'] > 0).astype(int)
+    
+    regime_lookup = _load_regime_lookup()
+    
+    # Group trades by day so we only load each day's parquet once
+    days = trades['day'].unique()
+    
+    X_grid_list, X_tod_list, X_reg_list, X_dense_list, y_list = [], [], [], [], []
+    
+    for day in tqdm(days, desc="Building Trajectories"):
+        day_trades = trades[trades['day'] == day]
+        
+        feats = load_features(days=[day], root=features_root, require_all=False)
+        if feats.empty:
+            continue
+        feats = feats.sort_values('timestamp').reset_index(drop=True)
+        if pd.api.types.is_datetime64_any_dtype(feats['timestamp']):
+            feats['timestamp'] = (feats['timestamp'].astype('int64') // 10**9)
+            
+        ts = feats['timestamp'].values.astype(np.int64)
+        
+        # Build feature matrix
+        v2_matrix = np.zeros((len(feats), len(FEATURE_NAMES)), dtype=np.float32)
+        feat_cols = set(feats.columns)
+        for j, name in enumerate(FEATURE_NAMES):
+            if name in feat_cols:
+                v2_matrix[:, j] = feats[name].values.astype(np.float32)
+                
+        # Grids and tods
+        grids_all = v2_matrix[:, GRID_FLAT_IDX].reshape(-1, GRID_H, GRID_W)
+        tods_all = v2_matrix[:, L0_IDX].reshape(-1, 1)
+        
+        iso = day.replace('_', '-')
+        regime_2d = regime_lookup.get(iso, 'UNKNOWN')
+        regime_idx = regime_to_idx(regime_2d)
+        
+        for _, trade in day_trades.iterrows():
+            entry_ts = int(trade['entry_ts'])
+            # Find the exact index of this timestamp
+            idx_arr = np.where(ts == entry_ts)[0]
+            if len(idx_arr) == 0:
+                continue
+            end_idx = idx_arr[0]
+            start_idx = end_idx - seq_len + 1
+            
+            if start_idx < 0:
+                continue # Not enough history for the trajectory
+                
+            traj_grid = grids_all[start_idx:end_idx+1] # shape (seq_len, 8, 23)
+            tod_val = tods_all[end_idx] # scalar at entry
+            
+            # Note: For shorts, we could flip the trajectory features (negate price/z-scores, invert volume direction)
+            # but for now we let the model learn the generic direction-agnostic geometry if it can, 
+            # or rely on the direction signal. We might need a leg_dir embedding if we don't flip.
+            # Let's add leg_dir as an extra input or flip. Flipping is safer for symmetry.
+            leg_dir = 1 if trade['leg_dir'] == 'LONG' else -1
+            
+            # Do NOT flip the trajectory grid.
+            # We want the model to see the absolute unadulterated grid to predict the raw physical direction (Long vs Short)
+            
+            # SPATIAL ANCHOR: Channel 0 is Absolute Grid, Channel 1 is Delta Grid from True Pivot
+            true_pivot_ts = int(trade['true_pivot_ts'])
+            pivot_idx_arr = np.where(ts == true_pivot_ts)[0]
+            if len(pivot_idx_arr) > 0:
+                pivot_idx = pivot_idx_arr[0]
+                anchor_grid = grids_all[pivot_idx]
+            else:
+                anchor_grid = traj_grid[0]
+                
+            delta_grid = traj_grid - anchor_grid
+            two_channel_grid = np.stack([traj_grid, delta_grid], axis=1) # (seq_len, 2, 8, 23)
+            
+            # Explicit Multi-ATR State
+            multi_atr_cols = ['dir_x1', 'dist_x1', 'dir_x2', 'dist_x2', 'dir_x4', 'dist_x4', 'dir_x8', 'dist_x8', 'dir_x10', 'dist_x10']
+            dense_state = trade[multi_atr_cols].values.astype(np.float32)
+            
+            # True Direction Label
+            # If leg_dir is LONG and pnl > 0, true direction is LONG (1)
+            # If leg_dir is SHORT and pnl <= 0, true direction is LONG (1)
+            # Else SHORT (0)
+            is_long = leg_dir == 1
+            is_winner = ('pnl_usd' in trade and trade['pnl_usd'] > 0) or ('p_winner' in trade and trade['p_winner'] == 1.0)
+            
+            # Fallback if pnl_usd isn't there, we know 'label' was the original winner status in the old builds
+            if 'pnl_usd' not in trade and 'p_winner' not in trade:
+                is_winner = trade['label'] == 1.0
+                
+            true_dir = 1.0 if (is_long and is_winner) or (not is_long and not is_winner) else 0.0
+            
+            X_grid_list.append(two_channel_grid)
+            X_tod_list.append(tod_val)
+            X_reg_list.append(regime_idx)
+            X_dense_list.append(dense_state)
+            y_list.append(true_dir)
+
+    if not X_grid_list:
+        raise ValueError("No valid trajectories found.")
+        
+    X_grid = np.stack(X_grid_list, axis=0) # (N, seq_len, 2, 8, 23)
+    X_tod = np.stack(X_tod_list, axis=0)   # (N, 1)
+    
+    # Handle NaNs from parquets
+    X_grid = np.nan_to_num(X_grid, nan=0.0, posinf=0.0, neginf=0.0)
+    X_tod = np.nan_to_num(X_tod, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    X_reg = np.array(X_reg_list, dtype=np.int64) # (N,)
+    X_dense = np.stack(X_dense_list, axis=0) # (N, 10)
+    y = np.array(y_list, dtype=np.float32).reshape(-1, 1) # (N, 1)
+    
+    return X_grid, X_tod, X_reg, X_dense, y
+
+# ─── Model ───────────────────────────────────────────────────────────────────
+
+class TrajectoryLSTM(nn.Module):
+    """LSTM over 2D Conv extracted V2 features."""
+    def __init__(self, n_regimes: int = N_REGIMES, regime_embed: int = REGIME_EMBED):
+        super().__init__()
+        
+        # Borrow the proven V2DirectionCNN 2D convolution stack
+        self.conv = nn.Sequential(
+            nn.Conv2d(2, 32, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=(3, 3), padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.AdaptiveAvgPool2d((4, 8)),  # → (64, 4, 8)
+        )
+        conv_flat = 64 * 4 * 8 # 2048
+        
+        self.regime_embed = nn.Embedding(n_regimes, regime_embed)
+        
+        # Sequence model
+        lstm_input_size = conv_flat
+        self.lstm = nn.LSTM(input_size=lstm_input_size, hidden_size=128, num_layers=2, batch_first=True, dropout=0.2)
+        
+        # Classifier head (takes final LSTM hidden state + regime + tod)
+        head_in = 128 + regime_embed + 1 + 10
+        
+        self.head = nn.Sequential(
+            nn.Linear(head_in, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, 1),
+        )
+
+    def forward(self, grid_traj: torch.Tensor, tod: torch.Tensor, regime: torch.Tensor, dense: torch.Tensor) -> torch.Tensor:
+        # grid_traj: (B, seq_len, 2, H, W)
+        B, seq_len, C, H, W = grid_traj.size()
+        
+        # Reshape for 2D Conv
+        x = grid_traj.reshape(B * seq_len, C, H, W)
+        c = self.conv(x) # -> (B * seq_len, 64, 4, 8)
+        c = c.view(B, seq_len, -1) # -> (B, seq_len, 2048)
+        
+        # Run LSTM
+        lstm_out, (hn, cn) = self.lstm(c) # lstm_out: (B, seq_len, 128)
+        
+        # We take the output at the last time step
+        last_out = lstm_out[:, -1, :] # (B, 128)
+        
+        r = self.regime_embed(regime) # (B, regime_embed)
+        
+        # Concatenate final LSTM state, regime, TOD, and explicit Multi-ATR dense state
+        out = torch.cat([last_out, r, tod, dense], dim=1) # (B, 128 + regime_embed + 1 + 10)
+        
+        return self.head(out)
+
+# ─── Training Loop ───────────────────────────────────────────────────────────
+
+def train():
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+    
+    csv_is = 'reports/findings/multi_atr/multi_atr_is.csv'
+    csv_oos = 'reports/findings/multi_atr/multi_atr_oos.csv'
+    
+    print("Building IS Dataset...")
+    X_grid, X_tod, X_reg, X_dense, y = build_trajectory_dataset(csv_is)
+    print(f"IS Shape: {X_grid.shape}, Positives: {y.sum()}/{len(y)} ({y.sum()/len(y)*100:.1f}%)")
+    
+    print("Building OOS Dataset...")
+    X_grid_val, X_tod_val, X_reg_val, X_dense_val, y_val = build_trajectory_dataset(csv_oos, features_root='DATA/ATLAS_NT8/FEATURES_5s_v2', atlas_root='DATA/ATLAS_NT8')
+    print(f"OOS Shape: {X_grid_val.shape}, Positives: {y_val.sum()}/{len(y_val)} ({y_val.sum()/len(y_val)*100:.1f}%)")
+    
+    # Tensors
+    t_grid = torch.tensor(X_grid, dtype=torch.float32)
+    t_tod = torch.tensor(X_tod, dtype=torch.float32)
+    t_reg = torch.tensor(X_reg, dtype=torch.long)
+    t_y = torch.tensor(y, dtype=torch.float32)
+    
+    v_grid = torch.tensor(X_grid_val, dtype=torch.float32)
+    v_tod = torch.tensor(X_tod_val, dtype=torch.float32)
+    v_reg = torch.tensor(X_reg_val, dtype=torch.long)
+    v_y = torch.tensor(y_val, dtype=torch.float32)
+    
+    t_dense = torch.tensor(X_dense, dtype=torch.float32)
+    v_dense = torch.tensor(X_dense_val, dtype=torch.float32)
+    
+    train_ds = TensorDataset(t_grid, t_tod, t_reg, t_dense, t_y)
+    val_ds = TensorDataset(v_grid, v_tod, v_reg, v_dense, v_y)
+    
+    train_ld = DataLoader(train_ds, batch_size=256, shuffle=True, drop_last=True)
+    val_ld = DataLoader(val_ds, batch_size=512, shuffle=False)
+    
+    model = TrajectoryLSTM().to(device)
+    
+    # Address class imbalance using pos_weight
+    # y = 1 (winner) is minority ~35%
+    num_neg = (y == 0).sum()
+    num_pos = (y == 1).sum()
+    pos_weight = torch.tensor([num_neg / num_pos], dtype=torch.float32).to(device)
+    criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    
+    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-3)
+    
+    epochs = 25
+    best_auc = 0.0
+    
+    out_dir = 'checkpoints/trajectory_entry'
+    os.makedirs(out_dir, exist_ok=True)
+    
+    for ep in range(epochs):
+        model.train()
+        train_loss = 0.0
+        for b_grid, b_tod, b_reg, b_dense, b_y in train_ld:
+            b_grid, b_tod, b_reg, b_dense, b_y = b_grid.to(device), b_tod.to(device), b_reg.to(device), b_dense.to(device), b_y.to(device)
+            
+            optimizer.zero_grad()
+            logits = model(b_grid, b_tod, b_reg, b_dense)
+            loss = criterion(logits, b_y)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
+            optimizer.step()
+            train_loss += loss.item()
+            
+        train_loss /= len(train_ld)
+        
+        # Eval
+        model.eval()
+        val_loss = 0.0
+        all_preds = []
+        all_y = []
+        with torch.no_grad():
+            for b_grid, b_tod, b_reg, b_dense, b_y in val_ld:
+                b_grid, b_tod, b_reg, b_dense, b_y = b_grid.to(device), b_tod.to(device), b_reg.to(device), b_dense.to(device), b_y.to(device)
+                logits = model(b_grid, b_tod, b_reg, b_dense)
+                loss = criterion(logits, b_y)
+                val_loss += loss.item()
+                
+                probs = torch.sigmoid(logits)
+                all_preds.extend(probs.cpu().numpy().flatten())
+                all_y.extend(b_y.cpu().numpy().flatten())
+                
+        val_loss /= len(val_ld)
+        all_preds = np.array(all_preds)
+        all_y = np.array(all_y)
+        
+        auc = roc_auc_score(all_y, all_preds)
+        ap = average_precision_score(all_y, all_preds)
+        
+        # P(winner) threshold at 0.5
+        preds_bin = (all_preds > 0.5).astype(int)
+        precision = precision_score(all_y, preds_bin, zero_division=0)
+        recall = recall_score(all_y, preds_bin, zero_division=0)
+        
+        # Win rate of trades we ALlowed to pass
+        allowed_trades = preds_bin.sum()
+        total_trades = len(all_y)
+        allowed_pct = allowed_trades / total_trades * 100
+        
+        print(f"Ep {ep+1:2d} | TL: {train_loss:.4f} | VL: {val_loss:.4f} | AUC: {auc:.3f} | AP: {ap:.3f} | "
+              f"Prec: {precision:.3f} | Rec: {recall:.3f} | Allowed: {allowed_pct:.1f}%")
+              
+        # Early stopping logic (max 25 epochs)
+        if auc > best_auc:
+            best_auc = auc
+            torch.save(model.state_dict(), os.path.join(out_dir, 'best_model.pt'))
+            
+    print(f"Training complete. Best OOS AUC: {best_auc:.3f}")
+
+if __name__ == '__main__':
+    train()

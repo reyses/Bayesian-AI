@@ -116,6 +116,9 @@ class Position:
     # Sticky flags / volume tracking
     slow_flip_active: bool = False
     peak_volume: float = 0.0
+    
+    # Generic extras dictionary for exits.py to read thresholds/state
+    extras: Dict[str, Any] = field(default_factory=dict)
 
     def to_view(self) -> PositionView:
         """Produce an immutable PositionView snapshot for the engine."""
@@ -358,9 +361,9 @@ class Ledger:
 
         # Compute final PnL in dollars (same formula as BlendedEngine)
         if pos.direction == 'long':
-            pnl = (exit_price - pos.entry_price) / self.tick_size * self.tick_value
+            pnl = ((exit_price - pos.entry_price) / self.tick_size * self.tick_value) - 5.0
         else:
-            pnl = (pos.entry_price - exit_price) / self.tick_size * self.tick_value
+            pnl = ((pos.entry_price - exit_price) / self.tick_size * self.tick_value) - 5.0
 
         record = {
             'contract_id': contract_id,
@@ -420,11 +423,11 @@ class Ledger:
             # bars_held — elapsed 1m bars since entry (cadence-independent)
             pos.bars_held = int((ts - pos.entry_ts) // 60)
 
-            # pnl in dollars (same TICK/TV math as engine)
+            # pnl in dollars (same TICK/TV math as engine) with transaction costs
             if pos.direction == 'long':
-                pnl = (price - pos.entry_price) / self.tick_size * self.tick_value
+                pnl = ((price - pos.entry_price) / self.tick_size * self.tick_value) - 5.0
             else:
-                pnl = (pos.entry_price - price) / self.tick_size * self.tick_value
+                pnl = ((pos.entry_price - price) / self.tick_size * self.tick_value) - 5.0
 
             # peak_pnl — monotonic MFE tracker
             if pnl > pos.peak_pnl:

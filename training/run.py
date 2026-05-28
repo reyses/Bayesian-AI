@@ -39,7 +39,7 @@ USE_SIM_EXECUTOR = True
 
 def cmd_build(args):
     """Build 79D dataset (sequential, live parity)."""
-    from training.build_dataset import main as build_main
+    from core_v2.build_dataset import main as build_main
     sys.argv = ['build_dataset.py'] + args
     build_main()
 
@@ -75,7 +75,7 @@ def _resolve_days(target: str, source_dir: str) -> list:
 
 def _run_nmp_fast(target: str, equity: float = None):
     """Run NMP from pre-computed 79D features (fast test mode)."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare import NightmareEngine
     from tqdm import tqdm
 
@@ -155,8 +155,8 @@ def _run_nmp_live(target: str, equity: float = None):
     import warnings
     warnings.filterwarnings('ignore', module='numba')
 
-    from training.ticker import FileTicker
-    from training.aggregator import Aggregator
+    from training.utils.file_ticker import FileTicker
+    from training.utils.aggregator import Aggregator
     from training.nightmare import NightmareEngine
     from core_v2.statistical_field_engine import StatisticalFieldEngine
     from core_v2.features import extract_features, FEATURE_NAMES, TF_ORDER, N_FEATURES
@@ -297,7 +297,7 @@ def _run_regret():
 
 def _run_gated(target: str):
     """Run NMP with strategy gate. Bayesian memory learns per day. Plots equity."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare import NightmareEngine
 
     tree_path = 'training/output/nn/strategy_tree.pkl'
@@ -492,7 +492,7 @@ def _run_gated(target: str):
 
 def _run_ai(target: str):
     """Run AI continuous positioning — clean forward pass, save full trades."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.ai import AIEngine
     from tqdm import tqdm
     import pickle
@@ -705,7 +705,7 @@ def _run_full_pipeline():
 
     # Step 9: Final report (IS/OOS comparison, modes, typical month)
     print(f'\n--- STEP 9: System Report ---')
-    from training.report import main as report_main
+    from training.utils.report import main as report_main
     sys.argv = ['report.py',
                 '--is-csv', 'training/output/nn/ai_is_daily.csv',
                 '--oos-csv', 'training/output/nn/ai_oos_daily.csv']
@@ -790,7 +790,7 @@ def _print_summary(results: list, show_daily: bool = True):
 
 def _run_ai_with_book(target: str, book_pkl_path: str, label: str):
     """Run AI forward pass with a specific book version. Saves as label_* files."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.ai import AIEngine
     from tqdm import tqdm
     import pickle
@@ -881,7 +881,7 @@ def _run_one_day(engine, ft, ledger=None):
 
 def _run_blended_nmp(target: str, use_cnn: bool = True, verbose: bool = False):
     """Run blended NMP (tiered: cascade/killshot/base) on 5s features."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare_blended import BlendedEngine
     from tqdm import tqdm
     import pickle
@@ -1072,7 +1072,7 @@ def _run_bayesian_pipeline():
     # === PHASE 3b: PICK BEST EPOCH ===
     # Sample frozen versions to find peak before overfit
     print(f'\n--- Scanning book versions for best epoch ---')
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.ai import AIEngine as _AIEngine
 
     # Sample every 20th version + first + last
@@ -1146,7 +1146,7 @@ def _run_bayesian_pipeline():
     print(f'PHASE 5: COMPARE (H0 vs H1)')
     print(f'{"="*40}')
 
-    from training.report import compute_stats, format_report
+    from training.utils.report import compute_stats, format_report
     h0_is = pd.read_csv('training/output/books/h0_is_daily.csv')
     h1_is = pd.read_csv('training/output/books/h1_is_daily.csv')
 
@@ -1577,7 +1577,7 @@ BASELINE_FILE = 'training/output/baseline_best.json'
 
 def _run_blended_forward_physics_only(target: str):
     """OOS forward pass with NO CNN — pure physics baseline."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare_blended import BlendedEngine
     from tqdm import tqdm
     from collections import Counter
@@ -1732,7 +1732,7 @@ def _check_new_baseline(oos_csv_path):
 def _run_blended_forward_on_files(feat_files: list, label: str,
                                    use_cnn: bool = True, price_dir: str = None):
     """Forward pass on explicit file list (for NT8 OOS or custom datasets)."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare_blended import BlendedEngine
     from tqdm import tqdm
     import pickle
@@ -1801,7 +1801,7 @@ def _run_blended_forward_on_files(feat_files: list, label: str,
 
 def _run_blended_forward(target: str):
     """Forward pass with full BlendedEngine (3 CNNs loaded)."""
-    from training.sfe_ticker import FeatureTicker
+    from training.utils.sfe_ticker import FeatureTicker
     from training.nightmare_blended import BlendedEngine
     from tqdm import tqdm
     import pickle

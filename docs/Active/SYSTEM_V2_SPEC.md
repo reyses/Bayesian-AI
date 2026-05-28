@@ -188,15 +188,15 @@ These are NOT strategy fixes. They become risk management guardrails:
 ### Create:
 | File | Purpose |
 |------|---------|
-| `training/report.py` | End-of-run reporting with IS/OOS comparison table |
+| `training/utils/report.py` | End-of-run reporting with IS/OOS comparison table |
 
 ### Do NOT modify:
-- `training/ticker.py` — dumb pipe, correct
-- `training/aggregator.py` — TF aggregation, correct
-- `training/build_dataset.py` — sheet music builder, correct
-- `training/sfe_ticker.py` — test mode replay, correct
+- `training/utils/file_ticker.py` — dumb pipe, correct (renamed from training/ticker.py 2026-05-24)
+- `training/utils/aggregator.py` — TF aggregation, correct (moved from training/ 2026-05-24)
+- `core_v2/build_dataset.py` — sheet music builder, correct
+- `training/utils/sfe_ticker.py` — test mode replay, correct (moved from training/ 2026-05-24)
 - `training/nightmare.py` — NMP seed generator, correct (but no longer used at runtime)
-- `training/regret.py` — counterfactual analysis, correct
+- `training/regret/__init__.py` — counterfactual analysis, correct (collapsed from training/regret.py 2026-05-24)
 - `training/tree.py` — strategy tree, correct
 - `training/book.py` — strategy book generator, correct
 
