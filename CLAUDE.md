@@ -22,26 +22,30 @@ MNQ futures trading system. Statistical regression bands + Bayesian learning.
 NOT quantum physics — the physics metaphors are historical and fully purged.
 
 ## Entry Points
-- **Consolidated pipeline**: `python training/run.py` (handles discovery, clustering, IS, OOS)
-- **Live trading**: `python -m live.launcher`
-- **Maintenance**: `python -m live.maintenance --days 30`
+> Full, maintained command list lives in `AGENTS.ini [entry_points]`.
+- **Strategy validation run**: `python -m training.run_strategy --strategy <name> --target {is,oos} [--analyze]`
+- **V2 feature build**: `python core_v2/build_dataset.py --atlas {DATA/ATLAS,DATA/ATLAS_NT8} --fresh` (user-runs)
+- **Zigzag pivot datasets**: `python -m training.strategies.zigzag` (IS + OOS to canonical CSVs)
+- **RL training**: `python training/rl_engine/train_historical.py --agent-type {EXIT_NMP,ENTRY_NMP,NMP,YOLO}` (user-runs; heavy)
+- **Live engine (zigzag / L5)**: `python -m live.engine_v2 --engine-mode l5 [--mock]`
+- **Legacy training orchestrator**: `python training/run.py` — PARTIALLY BROKEN (dangling imports; see Active Work)
 - **Visualization Engine**: `python -m tools.viz.run --plugin <plugin_name>`
 
 ## Key Files
-- `core_v2/statistical_field_engine.py` — regression, z-scores, probability (CUDA)
-- `core_v2/execution_engine.py` — gate cascade, direction, sizing
-- `core_v2/exit_engine.py` — SL/TP/envelope/giveback exits
-- `core_v2/bayesian_brain.py` — probability table + direction learning
-- `core_v2/timeframe_belief_network.py` — 11-TF worker consensus
-- `core_v2/fractal_clustering.py` — recursive K-Means templates
-- `core_v2/feature_extraction.py` — canonical 16D feature vector
-- `core_v2/dmi_flipper.py` — DMI smoothed cross flipper with trail/breakeven
-- `training/cnn_trade_manager.py` — StatePredictor model (~16K params, 13D→7D state)
-- `training/cnn_entry_direction.py` — 7D CNN direction predictor
-- `live/live_engine.py` — NT8 bridge orchestrator (DMI + TradeCNN modes)
-- `live/launcher.py` — CLI with --dmi, --trade-cnn, --dry-run flags
-- `training/run.py` — main training orchestration pipeline
+- `core_v2/statistical_field_engine.py` — V2 statistical field engine (regression, z-scores; CUDA)
+- `core_v2/features.py` — V2 feature names / loader / 185D layer-family schema
+- `core_v2/build_dataset.py` — V2 feature materializer (lookahead fix at `_last_closed_idx` is load-bearing)
+- `core_v2/forward_pass_system.py` — ForwardPassSystem (FPS), causal forward pass
+- `core_v2/strategy_engine.py` — drives Strategy subclasses bar-by-bar
+- `core_v2/ledger.py` — position / PnL ledger
+- `training/strategies/` — Strategy subclasses (`evaluate(state)`); registry in `__init__.py`; `zigzag.py` = current streaming-pivot strategy
+- `training/rl_engine/` — RL engine (PW-CRL): `train_historical.py`, `environment.py`, `network.py`, `parallel_worlds.py`, `run_doe.py`, `vtrace_reconciliation.py`, `hdf5_shadow_queue.py`
+- `training/regret/` — counterfactual regret package (`compute_regret`, …)
+- `training/utils/` — shared helpers (`state`, `sfe_ticker`, `aggregator`, `v2_cols`, `regime_router`, …)
+- `live/engine_v2.py` — V2 live engine (zigzag / L5 modes; `--engine-mode l5`)
+- `live/launcher.py` — live CLI
 - `tools/viz/core/engine.py` — Visualization Engine (VizEngine) core architecture
+> `rl_whitepaper.md` (repo root) documents the RL architecture. `AGENTS.ini` is the maintained file-layout index.
 
 ## Active Work
 - **Blended pipeline (9 ExNMP tiers)**: 
