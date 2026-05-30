@@ -172,3 +172,11 @@ scratch/
 
 # Telegram bridge runtime inbox (live message data, not source)
 telegram_inbox.txt
+
+# Environment files — credentials, never commit
+.env
+.env.*
+!.env.example
+
+# Zip handoff / snapshot bundles (regenerable, not source)
+*.zip
