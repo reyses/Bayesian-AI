@@ -23,11 +23,6 @@ class ResearchANetwork(nn.Module):
         
         # Head 1: Direct Action Space (Hold, Long, Short)
         self.fc_action = nn.Linear(128, 3)
-        
-        # Parameter Space: 9-Level Response Surface
-        self.fc_zfit = nn.Linear(128, 9)
-        self.fc_vr = nn.Linear(128, 9)
-        self.fc_patience = nn.Linear(128, 9)
 
     def forward(self, v2_grid, l0_feature, hidden_state=None):
         """
@@ -58,8 +53,5 @@ class ResearchANetwork(nn.Module):
         out = F.relu(self.fc1(final_step))
         
         q_action = self.fc_action(out)       # [Batch, 3]
-        q_zfit = self.fc_zfit(out)           # [Batch, 9]
-        q_vr = self.fc_vr(out)               # [Batch, 9]
-        q_patience = self.fc_patience(out)   # [Batch, 9]
         
-        return (q_action, q_zfit, q_vr, q_patience), new_hidden
+        return q_action, new_hidden

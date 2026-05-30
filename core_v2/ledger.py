@@ -192,9 +192,11 @@ class Ledger:
 
     def __init__(self,
                  tick_size: float = DEFAULT_TICK_SIZE,
-                 tick_value: float = DEFAULT_TICK_VALUE):
+                 tick_value: float = DEFAULT_TICK_VALUE,
+                 round_trip_fee: float = 5.0):
         self.tick_size = tick_size
         self.tick_value = tick_value
+        self.round_trip_fee = round_trip_fee
 
         # Active positions. primary stored separately from chains for O(1)
         # lookup on the common path. Both indexed by contract_id for removal.
@@ -361,9 +363,9 @@ class Ledger:
 
         # Compute final PnL in dollars (same formula as BlendedEngine)
         if pos.direction == 'long':
-            pnl = ((exit_price - pos.entry_price) / self.tick_size * self.tick_value) - 5.0
+            pnl = ((exit_price - pos.entry_price) / self.tick_size * self.tick_value) - self.round_trip_fee
         else:
-            pnl = ((pos.entry_price - exit_price) / self.tick_size * self.tick_value) - 5.0
+            pnl = ((pos.entry_price - exit_price) / self.tick_size * self.tick_value) - self.round_trip_fee
 
         record = {
             'contract_id': contract_id,
@@ -425,9 +427,9 @@ class Ledger:
 
             # pnl in dollars (same TICK/TV math as engine) with transaction costs
             if pos.direction == 'long':
-                pnl = ((price - pos.entry_price) / self.tick_size * self.tick_value) - 5.0
+                pnl = ((price - pos.entry_price) / self.tick_size * self.tick_value) - self.round_trip_fee
             else:
-                pnl = ((pos.entry_price - price) / self.tick_size * self.tick_value) - 5.0
+                pnl = ((pos.entry_price - price) / self.tick_size * self.tick_value) - self.round_trip_fee
 
             # peak_pnl — monotonic MFE tracker
             if pnl > pos.peak_pnl:

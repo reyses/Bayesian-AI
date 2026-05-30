@@ -1,0 +1,16 @@
+{
+    "learning_rate": 0.05,
+    "epsilon_start": 0.1,
+    "epsilon_decay": 0.95,
+    "epsilon_min": 0.05,
+    "gamma": 0.99,
+    "vtrace_clip_rho": 1.0,
+    "vtrace_clip_c": 1.0,
+    "eval_thresholds": {
+        "min_metric_n": 0.2,
+        "min_auc": 0.7,
+        "min_pnl_mode_ci_lower": -999.0,
+        "min_total_pnl": 200.0
+    },
+    "history": []
+}

@@ -53,7 +53,7 @@ def main():
             print("New message detected! Typing in 2 seconds...")
             time.sleep(2) # Brief delay to ensure UI is ready
             
-            inject_prompt(current_msg)
+            inject_prompt("Telegram: " + current_msg)
             last_processed_msg = current_msg
             
         time.sleep(1) # Poll every 1 second

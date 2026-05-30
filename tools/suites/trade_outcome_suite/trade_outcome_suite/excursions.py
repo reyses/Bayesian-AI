@@ -79,6 +79,12 @@ SOURCES = {
         'OOS': (REPO / 'reports/findings/trade_outcome_table/entry_ml_filtered_OOS.csv',
                 REPO / 'DATA/ATLAS_NT8/5s'),
     },
+    'research_A': {
+        'IS':  (REPO / 'reports/findings/strategy_runs/research_A_is.csv',
+                REPO / 'DATA/ATLAS/5s'),
+        'OOS': (REPO / 'reports/findings/strategy_runs/research_A_oos.csv',
+                REPO / 'DATA/ATLAS_NT8/5s'),
+    },
 }
 DEFAULT_SOURCE = 'causal_flat'   # honest forward pass — supersedes lookahead-tainted hardened
 

@@ -18,8 +18,12 @@ You are a critical collaborator, not an assistant. This is a real-money trading 
   and propose at least one alternative approach. Then proceed with the user's instruction.
 
 ## What This Is
-MNQ futures trading system. Statistical regression bands + Bayesian learning.
-NOT quantum physics — the physics metaphors are historical and fully purged.
+MNQ futures trading system. Originally statistical regression bands + Bayesian
+learning + a supervised CNN/blended stack; **pivoting to a reinforcement-learning
+engine** (Parallel Worlds Curriculum RL — see `rl_whitepaper.md`). RL is
+mid-training and NOT yet deployed; live trading still flows through the V2
+zigzag/L5 engine. NOT quantum physics — physics metaphors are historical and
+fully purged.
 
 ## Entry Points
 > Full, maintained command list lives in `AGENTS.ini [entry_points]`.
@@ -35,7 +39,7 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 - `core_v2/statistical_field_engine.py` — V2 statistical field engine (regression, z-scores; CUDA)
 - `core_v2/features.py` — V2 feature names / loader / 185D layer-family schema
 - `core_v2/build_dataset.py` — V2 feature materializer (lookahead fix at `_last_closed_idx` is load-bearing)
-- `core_v2/forward_pass_system.py` — ForwardPassSystem (FPS), causal forward pass
+- `core_v2/FPS/forward_pass_system.py` — ForwardPassSystem (FPS), causal forward pass; `forward_pass_system_vram.py` = VRAM-aware variant for RL training
 - `core_v2/strategy_engine.py` — drives Strategy subclasses bar-by-bar
 - `core_v2/ledger.py` — position / PnL ledger
 - `training/strategies/` — Strategy subclasses (`evaluate(state)`); registry in `__init__.py`; `zigzag.py` = current streaming-pivot strategy
@@ -48,15 +52,25 @@ NOT quantum physics — the physics metaphors are historical and fully purged.
 > `rl_whitepaper.md` (repo root) documents the RL architecture. `AGENTS.ini` is the maintained file-layout index.
 
 ## Active Work
-- **Blended pipeline (9 ExNMP tiers)**: 
-  - CASCADE, KILL_SHOT, FREIGHT_TRAIN, FADE_AGAINST, RIDE_AGAINST, RIDE_MOMENTUM, RIDE_CALM, FADE_MOMENTUM, FADE_CALM
-  - *(Note: Previous baseline-740 was invalidated due to lookahead bias. New baseline pending.)*
-  - 3 CNNs: flip (SAME/COUNTER), hold (HOLD/EXIT), risk (RECOVER/DEAD)
-  - Exits: 3-bar confirmation, oscillation decay, tiered RIDE by 1h_z
-- **Consolidated ISO Pipeline** (`training/`): isolated testing for non-NMP entries consolidated from deprecated `training_iso` directories
-  - REGIME_FLIP, EXHAUSTION_BAR, ABSORPTION — separate CNN training
-- **VizEngine Migration**: Visualization tools ported to new `VizEngine` plugin architecture (supports 5s dynamic scrolling)
-- **Next**: CNN exit, tier-based sizing, live SIM deployment
+> Canonical "what's broken / what's still TBD" lives in `AGENTS.ini [known_issues]`.
+> Historical "Active Work" snapshots (blended 9-tier pipeline, 3 CNNs, ISO consolidation,
+> VizEngine migration) moved to `docs/daily/` journals from their respective dates.
+
+- **RL engine training (PW-CRL)** — mid-curriculum (`EXIT_NMP → ENTRY_NMP → YOLO`).
+  Current focus: Composite Brain dual normal curves + `N_AGENTS=1` pure-OOS evaluation
+  (HEAD `55e7f0e5`). A `research_A` architecture variant is being trialed in parallel
+  via `training/rl_engine/{network,train_gpu,evaluate_oos}_research_A.py`.
+- **VRAM / OOM hardening** of the forward pass — see
+  `core_v2/FPS/forward_pass_system_vram.py`.
+- **Blended path = retired-but-runnable via compat shim.** Supervised CNN/blended/
+  nightmare modules were deleted; `training/nightmare_blended.py` is now a **proxy**
+  that imports the frozen snapshot at `docs/reference/nightmare_blended_2026_05_20.py`
+  and remaps `core` → `core_v2` so legacy tools/tests still resolve. Other deleted-
+  module importers (`nightmare`, `compute_features`, `ai`, `physics_labels`) remain
+  dangling — track in `AGENTS.ini [known_issues]`, do not assume status.
+- **Deployment status**: RL engine NOT deployed. Live money / SIM still flows through
+  `live/engine_v2.py` (zigzag + L5 decider). C++/ONNX/NT8 RL deployment per
+  `rl_whitepaper.md §5` is the future direction, not current.
 
 ## Conventions
 - CUDA-only (no CPU fallback — removed)
@@ -125,7 +139,7 @@ When projecting deployment risk, do NOT:
    reflect any realistic deployment scenario. Report each layer's contribution
    separately so the user can see which assumptions drive the verdict.
 
-Tooling: `tools/blowout_with_intervention.py` reports survival under a
+Tooling: `tools/risk/blowout_with_intervention.py` reports survival under a
 multi-axis grid (gap × intervention × equity). USE IT for deployment-risk
 reports, not the bare bootstrap.
 - **Change report**: After ANY code change (feature, fix, refactor), write a short
@@ -144,7 +158,7 @@ reports, not the bare bootstrap.
 When a pipeline run achieves a new OOS $/day record:
 1. **Tag it**: `git tag vXXX -m "BASELINE: OOS $XXX/day on YY days"`
 2. **Safety branch**: `git branch safe/vXXX` and push to remote
-3. **Track CNN models**: `git add -f training/output/nn/cnn_*.pt` (700KB each)
+3. **Track the model artifact(s) needed to reproduce the OOS number.** Check size first: anything >50MB needs LFS or `.gitignore` + a documented regeneration recipe. Historical: `git add -f training/output/nn/cnn_*.pt` (~700KB each, legacy supervised stack). RL: `training/rl_engine/*.pth` checkpoints and `*.h5` experience buffers are gitignored (multi-GB); the ONNX export (`master_net.onnx` when produced by `train_historical.py`) is the deployable artifact.
 4. **Report auto-generated**: pipeline saves to `reports/findings/baseline_*.md`
 5. **Journal entry**: detailed breakdown with IS/OOS summary, tier table, exit table
 6. **Update baseline_best.json**: pipeline does this automatically
@@ -157,7 +171,7 @@ When a pipeline run achieves a new OOS $/day record:
 
 ## Do NOT
 - Add CPU fallback paths (CUDA-only decision)
-- Reimplement gate logic in live_engine.py (delegates to ExecutionEngine)
+- Edit `live/live_engine.py` for new live behavior — it's the LEGACY blended path (currently broken-by-import; kept only as historical reference). All live changes go in `live/engine_v2.py` (zigzag/L5 engine, the active live path).
 - Delete historical entries from MEMORY.md (append with dates instead)
 - Use physics metaphors in new code (regression/statistical language only)
 - Run training via Bash — say "run with --fresh when ready" and stop
@@ -184,7 +198,7 @@ When a pipeline run achieves a new OOS $/day record:
 
 The `VERSION` constant in NT8 .cs files MUST carry the suffix. The header
 banner MUST carry the suffix. CHANGELOG section labels MUST carry the suffix.
-See `docs/VERSIONING.md` for full policy.
+See `docs/nt8/VERSIONING.md` for full policy.
 
 ## NT8 Live-Deploy Gate — MANDATORY (effective 2026-04-25 evening)
 **Never copy a .cs file to `Documents/NinjaTrader 8/bin/Custom/Strategies/`

@@ -18,7 +18,7 @@ import ctypes
 from network_research_A import ResearchANetwork
 from vtrace_reconciliation import VTraceReconciliation
 from curriculum_config import load_config, save_segment_metrics
-from curriculum_metrics import evaluate_curriculum_segment
+from curriculum_metrics import evaluate_is_metrics, OOSDiagnosticsSuite
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem, ForwardPassSystem
@@ -113,7 +113,7 @@ def learner_worker(learner_queue, master_net, optimizer, vtrace, temperature, de
             
         all_grids, all_l0s, all_params, all_pis, all_regrets = item
         dataset_size = len(all_grids)
-        batch_size = 4096
+        batch_size = 512
         indices = torch.randperm(dataset_size, device='cpu')
         
         master_net.train()
@@ -126,25 +126,20 @@ def learner_worker(learner_queue, master_net, optimizer, vtrace, temperature, de
             b_regrets = all_regrets[idx].to(device)
             
             optimizer.zero_grad()
-            heads, _ = master_net(b_grids, b_l0s)
+            q_action, _ = master_net(b_grids, b_l0s)
             
-            joint_target_pi = torch.ones(len(idx), dtype=torch.float32, device=device)
-            head_loss_sum = 0.0
+            # Since param_actions was [Batch, 4], the first index is the action head.
+            param_actions = b_params[:, 0]
+            current_q = q_action.gather(1, param_actions.unsqueeze(1)).squeeze(1)
+            target_probs = F.softmax(q_action / temperature, dim=1)
+            target_pi = target_probs.gather(1, param_actions.unsqueeze(1)).squeeze(1)
             
             # Log Scaling Regrets
             log_regrets = torch.sign(b_regrets) * torch.log1p(torch.abs(b_regrets))
             
-            for h_idx, head_q in enumerate(heads):
-                param_actions = b_params[:, h_idx]
-                current_q = head_q.gather(1, param_actions.unsqueeze(1)).squeeze(1)
-                target_probs = F.softmax(head_q / temperature, dim=1)
-                target_pi = target_probs.gather(1, param_actions.unsqueeze(1)).squeeze(1)
-                
-                joint_target_pi = joint_target_pi * target_pi
-                q_loss = F.mse_loss(current_q, log_regrets, reduction='none')
-                head_loss_sum += q_loss
+            q_loss = F.mse_loss(current_q, log_regrets, reduction='none')
             
-            loss = vtrace.apply_gradient_correction(head_loss_sum / 4.0, joint_target_pi, b_pis)
+            loss = vtrace.apply_gradient_correction(q_loss, target_pi, b_pis[:, 0] if b_pis.dim() > 1 else b_pis)
             loss = loss * meta_critic_multiplier
             loss.backward()
             total_norm = torch.nn.utils.clip_grad_norm_(master_net.parameters(), max_norm=1.0)
@@ -156,6 +151,12 @@ def learner_worker(learner_queue, master_net, optimizer, vtrace, temperature, de
                 epoch_diagnostics["batches"] += 1
 
 def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_idx=0, N_AGENTS=128, is_eval=False, meta_critic_multiplier=1.0):
+    trade_pnls = []
+    trade_durations = []
+    trade_mfe_avail = []
+    trade_mfe_trade = []
+    trade_mae = []
+    
     if is_eval:
         N_AGENTS = 1
         master_net.eval()
@@ -172,15 +173,17 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
     entry_prices = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
     position_age = torch.zeros(N_AGENTS, dtype=torch.int32, device=device)
     
-    # EFactor: Natural aggressiveness profile per agent N(1.0, 1.0) clamped to [0.05, 0.95] to prevent 100% clustering
-    efactor = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 0.95)
-    
-    # ECuriosity: Natural curiosity profile per agent (Epsilon modifier)
-    ecuriosity = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 1.95)
-    
     if is_eval:
-        epsilon = torch.tensor(config.get("eval_epsilon", 0.0), device=device).expand(N_AGENTS)
+        efactor = torch.ones(N_AGENTS, device=device)
+        ecuriosity = torch.zeros(N_AGENTS, device=device)
+        epsilon = torch.zeros(N_AGENTS, device=device)
     else:
+        # EFactor: Natural aggressiveness profile per agent N(1.0, 1.0) clamped to [0.05, 0.95] to prevent 100% clustering
+        efactor = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 0.95)
+        
+        # ECuriosity: Natural curiosity profile per agent (Epsilon modifier)
+        ecuriosity = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 1.95)
+        
         epsilon = (base_epsilon * ecuriosity).clamp(0.0, 1.0)
         
     if N_AGENTS >= 4:
@@ -201,7 +204,7 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
         param_indices = torch.zeros(N_AGENTS, dtype=torch.long, device=device)
     trade_entry_grids = torch.zeros((N_AGENTS, 8, 60, 23), dtype=torch.float32, device=device)
     trade_entry_l0s = torch.zeros((N_AGENTS, 60, 3), dtype=torch.float32, device=device)
-    trade_entry_params = torch.zeros((N_AGENTS, 4), dtype=torch.int64, device=device)
+    trade_entry_params = torch.zeros((N_AGENTS, 1), dtype=torch.int64, device=device)
     trade_entry_pis = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
     
     gross_profits = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
@@ -273,48 +276,24 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
             l0_tensor = l0_all_tensor[i-59:i+1].unsqueeze(0) # [1, 60, 3]
             
             with torch.no_grad():
-                heads, _ = master_net(grid_tensor, l0_tensor)
+                q_action, _ = master_net(grid_tensor, l0_tensor)
                 
-                joint_pi = torch.ones(N_AGENTS, dtype=torch.float32, device=device)
-                param_indices = torch.zeros((N_AGENTS, 4), dtype=torch.int64, device=device)
                 explore_mask = torch.rand(N_AGENTS, device=device) < epsilon
                 
-                # Action space is head 0 (size 3), parameters are heads 1, 2, 3 (size 9)
-                for h_idx, head_q in enumerate(heads):
-                    head_size = head_q.size(1)
-                    q_exp = head_q.expand(N_AGENTS, head_size)
-                    probs = F.softmax(q_exp / temperature, dim=1)
-                    random_acts = torch.randint(0, head_size, (N_AGENTS,), device=device)
-                    greedy_acts = torch.argmax(q_exp, dim=1)
-                    acts = torch.where(explore_mask, random_acts, greedy_acts)
-                    pi_val = torch.where(explore_mask, torch.tensor(1.0 / head_size, device=device), probs.gather(1, greedy_acts.unsqueeze(1)).squeeze(1))
+                head_size = q_action.size(1)
+                q_exp = q_action.expand(N_AGENTS, head_size)
+                probs = F.softmax(q_exp / temperature, dim=1)
+                random_acts = torch.randint(0, head_size, (N_AGENTS,), device=device)
+                greedy_acts = torch.argmax(q_exp, dim=1)
+                nn_action = torch.where(explore_mask, random_acts, greedy_acts)
+                joint_pi = torch.where(explore_mask, torch.tensor(1.0 / head_size, device=device), probs.gather(1, greedy_acts.unsqueeze(1)).squeeze(1))
                     
-                    joint_pi = joint_pi * pi_val
-                    param_indices[:, h_idx] = acts
-                    
-            nn_action = param_indices[:, 0]
             nn_wants_flat = (nn_action == 0) | ((directions == 1) & (nn_action == 2)) | ((directions == 2) & (nn_action == 1))
             
-            # Evaluate dynamic physics signals
-            physics_entry, physics_exit = physics_proxy_research_A(grid_tensor.expand(N_AGENTS, -1, -1, -1), param_indices[:, 1], param_indices[:, 2], param_indices[:, 3])
-            
-            map_patience = torch.linspace(3, 27, 9, device=device)
-            limit_patience = map_patience[param_indices[:, 3]]
-            patience_exit = position_age > limit_patience
-            
-            # Route logic across 4 Quadrants
-            wants_entry_long = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
-            wants_entry_short = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
-            
-            wants_entry_long = torch.where(q1_mask | q3_mask, physics_entry == 1, wants_entry_long)
-            wants_entry_short = torch.where(q1_mask | q3_mask, physics_entry == 2, wants_entry_short)
-            
-            wants_entry_long = torch.where(q2_mask | q4_mask, nn_action == 1, wants_entry_long)
-            wants_entry_short = torch.where(q2_mask | q4_mask, nn_action == 2, wants_entry_short)
-            
-            custom_exit = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
-            custom_exit = torch.where(q1_mask | q2_mask, physics_exit | patience_exit, custom_exit)
-            custom_exit = torch.where(q3_mask | q4_mask, nn_wants_flat, custom_exit)
+            # Pure Q4 Routing (NN Entry + NN Exit)
+            wants_entry_long = (nn_action == 1)
+            wants_entry_short = (nn_action == 2)
+            custom_exit = nn_wants_flat
             
             # Check exits
             if torch.any(in_position):
@@ -340,7 +319,58 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
                     gross_losses[agents_exiting] += losses
                     trade_counts[agents_exiting] += 1
                     
-                    regrets = torch.where(exit_pnls < 20.0, (exit_pnls * 10.0) - 500.0, exit_pnls)
+                    F_FRICTION = 18.0
+                    LAMBDA = 0.4
+                    H_LOOKAHEAD = 27
+                    
+                    optimal_pnls = torch.zeros_like(exit_pnls)
+                    
+                    # Diagnostics lists
+                    mfe_avail_list = []
+                    mfe_trade_list = []
+                    mae_list = []
+                    
+                    for local_idx in range(len(agents_exiting)):
+                        agent_id = agents_exiting[local_idx].item()
+                        dur = exit_durs[local_idx].item()
+                        entry_bar_idx = i - dur
+                        lookahead_end = min(entry_bar_idx + H_LOOKAHEAD, N_BARS)
+                        
+                        price_path_avail = price_arr[entry_bar_idx:lookahead_end]
+                        price_path_trade = price_arr[entry_bar_idx:i+1] # up to current bar
+                        agent_dir = directions[agent_id].item()
+                        entry_p = entry_prices[agent_id].item()
+                        
+                        if agent_dir == 1: # Long
+                            max_fav_avail = np.max(price_path_avail)
+                            mfe_avail = ((max_fav_avail - entry_p) * 50.0) - 5.0
+                            
+                            max_fav_trade = np.max(price_path_trade)
+                            mfe_trade = ((max_fav_trade - entry_p) * 50.0) - 5.0
+                            
+                            min_price = np.min(price_path_trade)
+                            mae = ((entry_p - min_price) * 50.0)
+                        else: # Short
+                            min_fav_avail = np.min(price_path_avail)
+                            mfe_avail = ((entry_p - min_fav_avail) * 50.0) - 5.0
+                            
+                            min_fav_trade = np.min(price_path_trade)
+                            mfe_trade = ((entry_p - min_fav_trade) * 50.0) - 5.0
+                            
+                            max_price = np.max(price_path_trade)
+                            mae = ((max_price - entry_p) * 50.0)
+                            
+                        optimal_pnls[local_idx] = mfe_avail
+                        mfe_avail_list.append(max(0.0, mfe_avail))
+                        mfe_trade_list.append(max(0.0, mfe_trade))
+                        mae_list.append(max(0.0, mae))
+
+                    pnl_adj = exit_pnls - F_FRICTION
+                    base_reward = torch.sign(pnl_adj) * torch.log1p(torch.abs(pnl_adj))
+                    gap = torch.clamp(optimal_pnls - exit_pnls, min=0.0)
+                    regret_term = torch.log1p(gap)
+
+                    regrets = base_reward - LAMBDA * regret_term
                     
                     if not is_eval:
                         buffer_grids.append(trade_entry_grids[exit_mask].clone().cpu())
@@ -351,6 +381,19 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
                     else:
                         trade_pnls.extend(exit_pnls.cpu().numpy().tolist())
                         trade_durations.extend(exit_durs.cpu().numpy().tolist())
+                        if "mfe_avail" not in locals():
+                            # Return lists through the method signature if evaluating
+                            pass
+                        try:
+                            # Use a hack to attach it to trade_pnls or return a dictionary
+                            # Actually let's return a dictionary from run_quadrant_sim if is_eval
+                            pass
+                        except:
+                            pass
+                        
+                        trade_mfe_avail.extend(mfe_avail_list)
+                        trade_mfe_trade.extend(mfe_trade_list)
+                        trade_mae.extend(mae_list)
                         
                     in_position[exit_mask] = False
                     directions[exit_mask] = 0
@@ -375,7 +418,7 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
                     expanded_l0 = l0_tensor.expand(N_AGENTS, -1, -1)
                     trade_entry_grids[entry_mask] = expanded_grid[entry_mask]
                     trade_entry_l0s[entry_mask] = expanded_l0[entry_mask]
-                    trade_entry_params[entry_mask] = param_indices[entry_mask]
+                    trade_entry_params[entry_mask, 0] = nn_action[entry_mask]
                     trade_entry_pis[entry_mask] = joint_pi[entry_mask]
                     
             # Train optimization using V-Trace Reconciliation (Async)
@@ -416,6 +459,8 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
         avg_grad = epoch_diagnostics["grad_norm_sum"] / batches
         print(f"\n[DIAGNOSTICS] Avg Loss: {avg_loss:.4f} | Avg Grad Norm: {avg_grad:.4f}\n")
 
+    if is_eval:
+        return trade_pnls, trade_durations, trade_mfe_avail, trade_mfe_trade, trade_mae
     return trade_pnls, trade_durations
 
 def prevent_sleep():
@@ -473,51 +518,23 @@ def run_walk_forward_curriculum():
         print(f" EVALUATE ON: {eval_segment[0]} -> {eval_segment[-1]}")
         print(f"==============================================")
         
-        epoch = 0
-        meta_critic_multiplier = 1.0
-        while True:
-            epoch += 1
-            config = load_config()
-            lr = config.get("learning_rate", 0.005)
-            optimizer = optim.Adam(master_net.parameters(), lr=lr)
+        config = load_config()
+        lr = config.get("learning_rate", 0.001)
+        optimizer = optim.Adam(master_net.parameters(), lr=lr)
+        epochs_per_segment = config.get("epochs_per_segment", 5)
+        
+        diagnostics_suite = OOSDiagnosticsSuite()
+        
+        for epoch in range(1, epochs_per_segment + 1):
             
-            print(f"[TRAIN] Running Epoch {epoch} with LR={lr} | Meta-Critic Multiplier={meta_critic_multiplier:.2f}...")
+            print(f"[TRAIN] Running Epoch {epoch}/{epochs_per_segment} with LR={lr}...")
             fps_train = MultiDayForwardPassSystem(
                 atlas_root=atlas_root, features_root=features_root, labels_csv=labels_csv, days=train_segment
             )
-            is_trade_pnls, is_trade_durations = run_quadrant_sim(fps_train, master_net, optimizer, vtrace, config, device, epoch_idx=epoch-1, is_eval=False, meta_critic_multiplier=meta_critic_multiplier)
+            is_trade_pnls, is_trade_durations = run_quadrant_sim(fps_train, master_net, optimizer, vtrace, config, device, epoch_idx=epoch-1, is_eval=False)
             
-            is_passed, is_metrics = evaluate_curriculum_segment(is_trade_pnls, is_trade_durations, config)
-            print(f"\n[IS EVAL] AUC: {is_metrics.get('auc', 0):.4f} | n: {is_metrics.get('metric_n', 0):.4f} | PnL: {is_metrics.get('total_pnl', 0):.2f} | PnL Mode CI: {is_metrics.get('pnl_mode_ci', (0,0))}")
-            
-            print(f"\n[EVAL] Running OOS Evaluation on Next Segment (Week 2)...")
-            fps_eval = MultiDayForwardPassSystem(
-                atlas_root=atlas_root, features_root=features_root, labels_csv=labels_csv, days=eval_segment
-            )
-            trade_pnls, trade_durations = run_quadrant_sim(fps_eval, master_net, optimizer, vtrace, config, device, epoch_idx=epoch-1, is_eval=True)
-            
-            passed, metrics = evaluate_curriculum_segment(trade_pnls, trade_durations, config)
-            print(f"\n[OOS EVAL] AUC: {metrics.get('auc', 0):.4f} | n: {metrics.get('metric_n', 0):.4f} | PnL: {metrics.get('total_pnl', 0):.2f} | PnL Mode CI: {metrics.get('pnl_mode_ci', (0,0))}")
-            save_segment_metrics(f"Step_{idx+1}_Epoch_{epoch}", metrics, passed)
-            
-            # Enforce 2 epochs minimum
-            if epoch < 2:
-                print(f"[INFO] Epoch {epoch} complete (n={metrics.get('metric_n', 0):.4f}, AUC={metrics.get('auc', 0):.4f}). Minimum 2 epochs required. Continuing to Epoch 2...")
-            else:
-                if passed and is_passed:
-                    print(f"[PASS] Gating Metrics passed after Epoch {epoch}! AUC={metrics['auc']:.4f} | n={metrics['metric_n']:.4f}")
-                    torch.save({
-                        'segment_idx': idx + 1,
-                        'lstm': master_net.lstm.state_dict(),
-                        'heads': master_net.state_dict()
-                    }, f'checkpoints/research_A_segment_{idx+1}.pth')
-                    break
-                else:
-                    target_auc = config.get("eval_thresholds", {}).get("min_auc", 0.7)
-                    oos_auc = metrics.get('auc', 0)
-                    meta_critic_multiplier = max(1.0, 1.0 + (target_auc - oos_auc) * 2.0)
-                    print(f"[FAIL] IS Passed: {is_passed} | OOS Passed: {passed}. Retrying segment with Meta-Critic Penalty of {meta_critic_multiplier:.2f}x...")
-                    time.sleep(5)
+            is_metrics = evaluate_is_metrics(is_trade_pnls, is_trade_durations)
+            print(f"\n[IS EVAL] n: {is_metrics.get('metric_n', 0):.4f} | PnL: {is_metrics.get('total_pnl', 0):.2f} | PnL Mode CI: {is_metrics.get('pnl_mode_ci', (0,0))} | Dur Mode CI: {is_metrics.get('dur_mode_ci', (0,0))}")
             
             # Save a temporary checkpoint for the latest epoch regardless of passing status
             torch.save({
@@ -527,13 +544,38 @@ def run_walk_forward_curriculum():
                 'heads': master_net.state_dict()
             }, f'checkpoints/research_A_segment_{idx+1}_latest_epoch.pth')
             
-            print("\nwakeup(1)\n")
+        # IS loop finished. Unconditional checkpoint save.
+        print(f"[INFO] IS budget reached ({epochs_per_segment} epochs). Saving unconditional checkpoint.")
+        torch.save({
+            'segment_idx': idx + 1,
+            'lstm': master_net.lstm.state_dict(),
+            'heads': master_net.state_dict()
+        }, f'checkpoints/research_A_segment_{idx+1}.pth')
 
-            # Memory Cleanup
+        # Run OOS Eval exactly once
+        print(f"\n[EVAL] Running OOS Evaluation on Next Segment (Week 2)...")
+        fps_eval = MultiDayForwardPassSystem(
+            atlas_root=atlas_root, features_root=features_root, labels_csv=labels_csv, days=eval_segment
+        )
+        trade_pnls, trade_durations, trade_mfe_avail, trade_mfe_trade, trade_mae = run_quadrant_sim(fps_eval, master_net, optimizer, vtrace, config, device, epoch_idx=epochs_per_segment, is_eval=True)
+        
+        seg_diag = diagnostics_suite.add_segment_data(trade_pnls, trade_durations, trade_mfe_avail, trade_mfe_trade, trade_mae)
+        print(f"\n[OOS DIAGNOSTICS] Trades: {seg_diag.get('trade_count', 0)} | MaxDD: {seg_diag.get('max_drawdown', 0):.2f} | PnL Mode CI: {seg_diag.get('pnl_mode_ci', (0,0))}")
+        print(f"[OOS DIAGNOSTICS] Cap vs Avail: {seg_diag.get('cap_vs_avail', 0):.2%} | Cap vs Trade: {seg_diag.get('cap_vs_trade', 0):.2%} | Avg MAE: {seg_diag.get('avg_mae', 0):.2f}")
+        
+        pooled_diag = diagnostics_suite.get_pooled_diagnostics()
+        print(f"\n[POOLED AGGREGATE]")
+        for k, v in pooled_diag.items():
+            print(f"  {k}: {v}")
+            
+        # Memory Cleanup
+        try:
             del fps_train
             del fps_eval
-            gc.collect()
-            torch.cuda.empty_cache()
+        except:
+            pass
+        gc.collect()
+        torch.cuda.empty_cache()
 
 if __name__ == "__main__":
     import multiprocessing

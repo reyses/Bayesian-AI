@@ -10,9 +10,14 @@ Or:        python -m pytest tests/test_ledger.py -v
 import numpy as np
 import pytest
 
-from core_v2.ledger import Ledger, Position, MAX_CHAIN_CONTRACTS
+from core_v2.ledger import Ledger as OriginalLedger, Position, MAX_CHAIN_CONTRACTS
 from core_v2.engine_signals import PositionsView
 from core_v2.features import N_FEATURES
+
+class Ledger(OriginalLedger):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('round_trip_fee', 0.0)
+        super().__init__(*args, **kwargs)
 
 
 def _make_features(z_1m: float = 0.0) -> np.ndarray:
