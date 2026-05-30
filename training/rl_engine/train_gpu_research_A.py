@@ -6,7 +6,14 @@ import os
 import glob
 import time
 import sys
+import gc
+import pandas as pd
 from tqdm import tqdm
+from collections import deque
+from datetime import datetime, timezone
+import threading
+import queue
+import ctypes
 
 from network_research_A import ResearchANetwork
 from vtrace_reconciliation import VTraceReconciliation
@@ -14,14 +21,30 @@ from curriculum_config import load_config, save_segment_metrics
 from curriculum_metrics import evaluate_curriculum_segment
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
+from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem, ForwardPassSystem
 
 def load_transfer_weights(master_net, pth_path, device):
-    """Injects the starter brain's LSTM weights into Research A."""
+    """Injects the starter brain's LSTM weights into Research A, ignoring shape mismatches."""
     print(f"[TRANSFER] Injecting Starter Brain: {pth_path}")
     state = torch.load(pth_path, map_location=device)
-    master_net.lstm.load_state_dict(state['lstm'])
-    print(f"[TRANSFER] LSTM Core successfully mapped.")
+    
+    src_state = state['heads'] if (isinstance(state, dict) and 'heads' in state) else state
+    dest_state = master_net.state_dict()
+    matched_state = {}
+    mismatched_keys = []
+    
+    for k, v in src_state.items():
+        if k in dest_state:
+            if v.shape == dest_state[k].shape:
+                matched_state[k] = v
+            else:
+                mismatched_keys.append(f"{k} (checkpoint: {v.shape}, model: {dest_state[k].shape})")
+                
+    if mismatched_keys:
+        print(f"[TRANSFER] Shape mismatches found and skipped:\n  " + "\n  ".join(mismatched_keys))
+        
+    master_net.load_state_dict(matched_state, strict=False)
+    print(f"[TRANSFER] LSTM Core and matching layers successfully mapped. Loaded {len(matched_state)} layers.")
 
 def get_available_chunks(features_root, chunk_size=5):
     l0_dir = os.path.join(features_root, 'L0')
@@ -30,98 +53,387 @@ def get_available_chunks(features_root, chunk_size=5):
     chunks = [all_days[i:i+chunk_size] for i in range(0, len(all_days), chunk_size)]
     return chunks
 
-def physics_proxy(actions, zfit, vr, patience):
-    # Dummy mock for actual NMP physics translation.
-    # Replace with real get_nmp_signals translation in full production.
-    N_AGENTS = actions.size(0)
-    device = actions.device
-    return torch.randint(0, 3, (N_AGENTS,), device=device), torch.randint(0, 2, (N_AGENTS,), dtype=torch.bool, device=device)
+def physics_proxy_research_A(grid_tensor, zfit_indices, vr_indices, patience_indices):
+    """
+    Translates the neural outputs of Research A into real physical signals.
+    grid_tensor: [N_AGENTS, 8, 60, 23]
+    zfit_indices: [N_AGENTS] (values 0..8)
+    vr_indices: [N_AGENTS] (values 0..8)
+    patience_indices: [N_AGENTS] (values 0..8)
+    
+    Returns:
+    direction: [N_AGENTS] (0: Hold, 1: Long, 2: Short)
+    exit_signal: [N_AGENTS] (bool tensor)
+    """
+    device = grid_tensor.device
+    N_AGENTS = grid_tensor.size(0)
+    
+    # 1. Parameter Mappings (9-Level Response Surfaces)
+    map_zfit = torch.linspace(1.5, 3.5, 9, device=device)
+    map_vr = torch.linspace(0.1, 0.9, 9, device=device)
+    
+    limit_zfit = map_zfit[zfit_indices]
+    limit_vr = map_vr[vr_indices]
+    
+    # 2. Extract Features from V2_Grid
+    current_z = torch.abs(grid_tensor[:, 0, -1, 0])
+    current_vr = grid_tensor[:, 0, -1, 2]
+    current_vel = torch.abs(grid_tensor[:, 1, -1, 3])
+    current_wick = grid_tensor[:, 2, -1, 2]
+    
+    # 3. Vectorized NMP Logic
+    is_extreme = current_z > limit_zfit
+    
+    # Nominal fallback limits for features not optimized by the network
+    limit_freight = torch.tensor(100.0, device=device).expand(N_AGENTS)
+    limit_wick = torch.tensor(0.83, device=device).expand(N_AGENTS)
+    
+    limit_vr_entry = limit_vr
+    limit_vr_max = torch.clamp(limit_vr + 0.2, max=0.95)
+    
+    is_calm = current_vr < limit_vr_entry
+    no_freight = current_vel < limit_freight
+    wick_reject = current_wick > limit_wick
+    
+    entry_signal = is_extreme & is_calm & no_freight & wick_reject
+    exit_signal = current_vr > limit_vr_max
+    
+    raw_z = grid_tensor[:, 0, -1, 0]
+    direction = torch.where(raw_z > 0, torch.tensor(2, device=device), torch.tensor(1, device=device))
+    direction = torch.where(entry_signal, direction, torch.tensor(0, device=device))
+    
+    return direction, exit_signal
 
-from collections import deque
-from datetime import datetime, timezone
+def learner_worker(learner_queue, master_net, optimizer, vtrace, temperature, device, epoch_diagnostics=None, meta_critic_multiplier=1.0):
+    """Background thread that continuously pulls trade batches and runs V-Trace backprop."""
+    while True:
+        item = learner_queue.get()
+        if item is None:  # Shutdown sentinel
+            break
+            
+        all_grids, all_l0s, all_params, all_pis, all_regrets = item
+        dataset_size = len(all_grids)
+        batch_size = 4096
+        indices = torch.randperm(dataset_size, device='cpu')
+        
+        master_net.train()
+        for idx_opt in range(0, dataset_size, batch_size):
+            idx = indices[idx_opt:idx_opt+batch_size]
+            b_grids = all_grids[idx].to(device)
+            b_l0s = all_l0s[idx].to(device)
+            b_params = all_params[idx].to(device)
+            b_pis = all_pis[idx].to(device)
+            b_regrets = all_regrets[idx].to(device)
+            
+            optimizer.zero_grad()
+            heads, _ = master_net(b_grids, b_l0s)
+            
+            joint_target_pi = torch.ones(len(idx), dtype=torch.float32, device=device)
+            head_loss_sum = 0.0
+            
+            # Log Scaling Regrets
+            log_regrets = torch.sign(b_regrets) * torch.log1p(torch.abs(b_regrets))
+            
+            for h_idx, head_q in enumerate(heads):
+                param_actions = b_params[:, h_idx]
+                current_q = head_q.gather(1, param_actions.unsqueeze(1)).squeeze(1)
+                target_probs = F.softmax(head_q / temperature, dim=1)
+                target_pi = target_probs.gather(1, param_actions.unsqueeze(1)).squeeze(1)
+                
+                joint_target_pi = joint_target_pi * target_pi
+                q_loss = F.mse_loss(current_q, log_regrets, reduction='none')
+                head_loss_sum += q_loss
+            
+            loss = vtrace.apply_gradient_correction(head_loss_sum / 4.0, joint_target_pi, b_pis)
+            loss = loss * meta_critic_multiplier
+            loss.backward()
+            total_norm = torch.nn.utils.clip_grad_norm_(master_net.parameters(), max_norm=1.0)
+            optimizer.step()
+            
+            if epoch_diagnostics is not None:
+                epoch_diagnostics["loss_sum"] += loss.item()
+                epoch_diagnostics["grad_norm_sum"] += total_norm.item()
+                epoch_diagnostics["batches"] += 1
 
-def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, N_AGENTS=1024, is_eval=False):
+def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_idx=0, N_AGENTS=128, is_eval=False, meta_critic_multiplier=1.0):
     if is_eval:
+        N_AGENTS = 1
         master_net.eval()
+        temperature = 1.0
     else:
         master_net.train()
+        base_epsilon = config.get("epsilon_start", 0.5) * (config.get("epsilon_decay", 0.95) ** epoch_idx)
+        epsilon_floor = config.get("epsilon_min", 0.05) + config.get("epsilon_offset", 0.0)
+        base_epsilon = max(base_epsilon, epsilon_floor)
+        temperature = max(0.1, 1.0 - (epoch_idx / 20.0))
         
     in_position = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
     directions = torch.zeros(N_AGENTS, dtype=torch.int32, device=device)
+    entry_prices = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
+    position_age = torch.zeros(N_AGENTS, dtype=torch.int32, device=device)
     
-    q1_mask = torch.arange(N_AGENTS, device=device) < 256
-    q2_mask = (torch.arange(N_AGENTS, device=device) >= 256) & (torch.arange(N_AGENTS, device=device) < 512)
-    q3_mask = (torch.arange(N_AGENTS, device=device) >= 512) & (torch.arange(N_AGENTS, device=device) < 768)
-    q4_mask = torch.arange(N_AGENTS, device=device) >= 768
+    # EFactor: Natural aggressiveness profile per agent N(1.0, 1.0) clamped to [0.05, 0.95] to prevent 100% clustering
+    efactor = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 0.95)
     
-    buffer_grids, buffer_l0s, buffer_regrets = [], [], []
+    # ECuriosity: Natural curiosity profile per agent (Epsilon modifier)
+    ecuriosity = torch.normal(mean=1.0, std=1.0, size=(N_AGENTS,), device=device).clamp(0.05, 1.95)
+    
+    if is_eval:
+        epsilon = torch.tensor(config.get("eval_epsilon", 0.0), device=device).expand(N_AGENTS)
+    else:
+        epsilon = (base_epsilon * ecuriosity).clamp(0.0, 1.0)
+        
+    if N_AGENTS >= 4:
+        q_size = N_AGENTS // 4
+        q1_mask = torch.arange(N_AGENTS, device=device) < q_size
+        q2_mask = (torch.arange(N_AGENTS, device=device) >= q_size) & (torch.arange(N_AGENTS, device=device) < (q_size * 2))
+        q3_mask = (torch.arange(N_AGENTS, device=device) >= (q_size * 2)) & (torch.arange(N_AGENTS, device=device) < (q_size * 3))
+        q4_mask = torch.arange(N_AGENTS, device=device) >= (q_size * 3)
+        param_indices = torch.zeros(N_AGENTS, dtype=torch.long, device=device)
+        param_indices[q2_mask] = 1
+        param_indices[q3_mask] = 2
+        param_indices[q4_mask] = 3
+    else:
+        q1_mask = torch.ones(N_AGENTS, dtype=torch.bool, device=device)
+        q2_mask = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+        q3_mask = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+        q4_mask = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+        param_indices = torch.zeros(N_AGENTS, dtype=torch.long, device=device)
+    trade_entry_grids = torch.zeros((N_AGENTS, 8, 60, 23), dtype=torch.float32, device=device)
+    trade_entry_l0s = torch.zeros((N_AGENTS, 60, 3), dtype=torch.float32, device=device)
+    trade_entry_params = torch.zeros((N_AGENTS, 4), dtype=torch.int64, device=device)
+    trade_entry_pis = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
+    
+    gross_profits = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
+    gross_losses = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
+    trade_counts = torch.zeros(N_AGENTS, dtype=torch.int32, device=device)
+    
+    learner_queue = None
+    learner_thread = None
+    epoch_diagnostics = {"loss_sum": 0.0, "grad_norm_sum": 0.0, "batches": 0} if not is_eval else None
+    if not is_eval:
+        # Maxsize=10 means at most ~20,000 trades buffered in RAM if Learner is too slow
+        learner_queue = queue.Queue(maxsize=10)
+        learner_thread = threading.Thread(
+            target=learner_worker, 
+            args=(learner_queue, master_net, optimizer, vtrace, temperature, device, epoch_diagnostics, meta_critic_multiplier)
+        )
+        learner_thread.start()
+        
+    buffer_grids, buffer_l0s, buffer_params, buffer_regrets, buffer_pis = [], [], [], [], []
     trade_pnls, trade_durations = [], []
     
-    state_queue = deque(maxlen=60)
-    
-    # 86400 ticks per day * 5 days = 432000 total approx
-    for bar_state in tqdm(fps, total=432000, desc="Simulating"):
-        v2_vec = bar_state.v2_vector
-        if len(v2_vec) < 185: continue
+    # Process ticks sequentially from FPS day by day
+    for day in tqdm(fps._days, desc="Evaluating Days" if is_eval else f"Training Epoch {epoch_idx+1} Days", leave=False):
+        try:
+            ticker = ForwardPassSystem(day=day, atlas_root=fps._atlas_root,
+                                       features_root=fps._features_root,
+                                       labels_csv=fps._labels_csv)
+        except FileNotFoundError:
+            continue
+            
+        ts_arr = ticker._feats['timestamp'].values.astype(np.int64)
+        N_BARS = len(ts_arr)
+        if N_BARS < 60:
+            continue
+            
+        v2_matrix = ticker._v2_matrix
+        sec_in_day = ts_arr % 86400
+        tod_norms = sec_in_day / 86400.0
         
-        dt = datetime.fromtimestamp(bar_state.timestamp, tz=timezone.utc)
-        day_norm = dt.weekday() / 4.0
-        sec_in_day = int(bar_state.timestamp) % 86400
-        tod_norm = sec_in_day / 86400.0
+        # weekday norm
+        dt_series = pd.to_datetime(ts_arr, unit='s', utc=True)
+        day_norms = dt_series.weekday.values / 4.0
         
-        l0 = [v2_vec[0], tod_norm, day_norm]
-        grid = v2_vec[1:185].reshape(8, 23)
-        state_queue.append((l0, grid))
-        if len(state_queue) < 60: continue
+        l0_all = np.column_stack([v2_matrix[:, 0], tod_norms, day_norms])
+        grid_all = v2_matrix[:, 1:185].reshape(-1, 8, 23)
         
-        l0_tensor = torch.tensor(np.array([s[0] for s in state_queue]), dtype=torch.float32).unsqueeze(0).to(device)
-        grid_tensor = torch.tensor(np.array([s[1] for s in state_queue]), dtype=torch.float32).unsqueeze(0).to(device)
-        grid_tensor = grid_tensor.permute(0, 2, 1, 3)
-        l0_tensor = torch.nan_to_num(l0_tensor, nan=0.0)
-        grid_tensor = torch.nan_to_num(grid_tensor, nan=0.0)
+        # Pre-compute price
+        is_1m_start = (ticker._ts1m[0] % 60 == 0) if len(ticker._ts1m) > 0 else False
+        search_ts_1m = ts_arr - 60 if is_1m_start else ts_arr
+        idx1 = np.searchsorted(ticker._ts1m, search_ts_1m, side='right') - 1
+        price_arr = np.zeros(N_BARS, dtype=np.float32)
+        valid_mask = (idx1 >= 0) & (idx1 < len(ticker._ts1m))
+        price_arr[valid_mask] = ticker._c1[idx1[valid_mask]]
         
-        with torch.set_grad_enabled(not is_eval):
-            heads, _ = master_net(grid_tensor, l0_tensor)
+        # Convert to GPU tensors once per day
+        l0_all_tensor = torch.tensor(l0_all, dtype=torch.float32, device=device)
+        grid_all_tensor = torch.tensor(grid_all, dtype=torch.float32, device=device)
+        
+        l0_all_tensor = torch.nan_to_num(l0_all_tensor, nan=0.0)
+        grid_all_tensor = torch.nan_to_num(grid_all_tensor, nan=0.0)
+        
+        for i in range(59, N_BARS):
+            current_price = float(price_arr[i])
+            sec = sec_in_day[i]
+            is_eod_maintenance = (75300 <= sec < 79200)
             
-            # Select max probability action for Head 0
-            best_actions = torch.argmax(heads[0], dim=1).expand(N_AGENTS)
+            # Slices are zero-copy views on GPU
+            grid_tensor = grid_all_tensor[i-59:i+1].permute(1, 0, 2).unsqueeze(0) # [1, 8, 60, 23]
+            l0_tensor = l0_all_tensor[i-59:i+1].unsqueeze(0) # [1, 60, 3]
             
-            # 4-Quadrant Routing
-            # Since physics_proxy is mocked, we simulate it
-            physics_entry, physics_exit = physics_proxy(best_actions, None, None, None)
-            
-            final_entry = torch.zeros(N_AGENTS, dtype=torch.int32, device=device)
-            final_entry = torch.where(q1_mask, physics_entry, final_entry)
-            final_entry = torch.where(q2_mask, best_actions, final_entry)
-            final_entry = torch.where(q3_mask, physics_entry, final_entry)
-            final_entry = torch.where(q4_mask, best_actions, final_entry)
-            
-            nn_wants_flat = (best_actions == 0) | ((directions == 1) & (best_actions == 2)) | ((directions == 2) & (best_actions == 1))
-            
-            final_exit = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
-            final_exit = torch.where(q1_mask, physics_exit, final_exit)
-            final_exit = torch.where(q2_mask, physics_exit, final_exit)
-            final_exit = torch.where(q3_mask, nn_wants_flat, final_exit)
-            final_exit = torch.where(q4_mask, nn_wants_flat, final_exit)
-            
-            if is_eval and np.random.rand() < 0.01:
-                trade_pnls.append(np.random.normal(0.5, 1.0))
-                trade_durations.append(np.random.randint(5, 50))
+            with torch.no_grad():
+                heads, _ = master_net(grid_tensor, l0_tensor)
                 
-            buffer_grids.append(grid_tensor)
-            buffer_l0s.append(l0_tensor)
+                joint_pi = torch.ones(N_AGENTS, dtype=torch.float32, device=device)
+                param_indices = torch.zeros((N_AGENTS, 4), dtype=torch.int64, device=device)
+                explore_mask = torch.rand(N_AGENTS, device=device) < epsilon
+                
+                # Action space is head 0 (size 3), parameters are heads 1, 2, 3 (size 9)
+                for h_idx, head_q in enumerate(heads):
+                    head_size = head_q.size(1)
+                    q_exp = head_q.expand(N_AGENTS, head_size)
+                    probs = F.softmax(q_exp / temperature, dim=1)
+                    random_acts = torch.randint(0, head_size, (N_AGENTS,), device=device)
+                    greedy_acts = torch.argmax(q_exp, dim=1)
+                    acts = torch.where(explore_mask, random_acts, greedy_acts)
+                    pi_val = torch.where(explore_mask, torch.tensor(1.0 / head_size, device=device), probs.gather(1, greedy_acts.unsqueeze(1)).squeeze(1))
+                    
+                    joint_pi = joint_pi * pi_val
+                    param_indices[:, h_idx] = acts
+                    
+            nn_action = param_indices[:, 0]
+            nn_wants_flat = (nn_action == 0) | ((directions == 1) & (nn_action == 2)) | ((directions == 2) & (nn_action == 1))
             
-            if not is_eval and len(buffer_grids) > 2000:
-                optimizer.zero_grad()
-                loss = torch.tensor(1.0, requires_grad=True, device=device) 
-                loss.backward()
-                optimizer.step()
+            # Evaluate dynamic physics signals
+            physics_entry, physics_exit = physics_proxy_research_A(grid_tensor.expand(N_AGENTS, -1, -1, -1), param_indices[:, 1], param_indices[:, 2], param_indices[:, 3])
+            
+            map_patience = torch.linspace(3, 27, 9, device=device)
+            limit_patience = map_patience[param_indices[:, 3]]
+            patience_exit = position_age > limit_patience
+            
+            # Route logic across 4 Quadrants
+            wants_entry_long = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+            wants_entry_short = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+            
+            wants_entry_long = torch.where(q1_mask | q3_mask, physics_entry == 1, wants_entry_long)
+            wants_entry_short = torch.where(q1_mask | q3_mask, physics_entry == 2, wants_entry_short)
+            
+            wants_entry_long = torch.where(q2_mask | q4_mask, nn_action == 1, wants_entry_long)
+            wants_entry_short = torch.where(q2_mask | q4_mask, nn_action == 2, wants_entry_short)
+            
+            custom_exit = torch.zeros(N_AGENTS, dtype=torch.bool, device=device)
+            custom_exit = torch.where(q1_mask | q2_mask, physics_exit | patience_exit, custom_exit)
+            custom_exit = torch.where(q3_mask | q4_mask, nn_wants_flat, custom_exit)
+            
+            # Check exits
+            if torch.any(in_position):
+                position_age[in_position] += 1
+                price_diff = current_price - entry_prices
+                pnl = torch.where(directions == 1, price_diff * 50.0, -price_diff * 50.0)
+                
+                hit_sl = pnl < -50.0
+                hit_tp = pnl > 100.0
+                eod_exit = torch.tensor(is_eod_maintenance, device=device).expand(N_AGENTS)
+                
+                exit_mask = in_position & (hit_sl | hit_tp | eod_exit | custom_exit)
+                
+                if torch.any(exit_mask):
+                    # Subtract $5.00 round-trip costs as requested
+                    exit_pnls = pnl[exit_mask] - 5.0
+                    exit_durs = position_age[exit_mask]
+                    agents_exiting = exit_mask.nonzero(as_tuple=True)[0]
+                    
+                    profits = torch.where(exit_pnls > 0, exit_pnls, torch.tensor(0.0, device=device))
+                    losses = torch.where(exit_pnls <= 0, torch.abs(exit_pnls), torch.tensor(0.0, device=device))
+                    gross_profits[agents_exiting] += profits
+                    gross_losses[agents_exiting] += losses
+                    trade_counts[agents_exiting] += 1
+                    
+                    regrets = torch.where(exit_pnls < 20.0, (exit_pnls * 10.0) - 500.0, exit_pnls)
+                    
+                    if not is_eval:
+                        buffer_grids.append(trade_entry_grids[exit_mask].clone().cpu())
+                        buffer_l0s.append(trade_entry_l0s[exit_mask].clone().cpu())
+                        buffer_params.append(trade_entry_params[exit_mask].clone().cpu())
+                        buffer_pis.append(trade_entry_pis[exit_mask].clone().cpu())
+                        buffer_regrets.append(regrets.clone().cpu())
+                    else:
+                        trade_pnls.extend(exit_pnls.cpu().numpy().tolist())
+                        trade_durations.extend(exit_durs.cpu().numpy().tolist())
+                        
+                    in_position[exit_mask] = False
+                    directions[exit_mask] = 0
+                    entry_prices[exit_mask] = 0.0
+                    position_age[exit_mask] = 0
+                    
+            # Check entries
+            if not is_eod_maintenance:
+                base_spawn = 1.0 if is_eval else epsilon
+                spawn_prob = base_spawn * efactor
+                dice = torch.rand(N_AGENTS, device=device)
+                authorized_to_enter = dice < spawn_prob
+                
+                entry_mask = (~in_position) & (wants_entry_long | wants_entry_short) & authorized_to_enter
+                if torch.any(entry_mask):
+                    in_position[entry_mask] = True
+                    directions[entry_mask] = torch.where(wants_entry_long[entry_mask], torch.tensor(1, dtype=torch.int32, device=device), torch.tensor(2, dtype=torch.int32, device=device))
+                    entry_prices[entry_mask] = current_price
+                    position_age[entry_mask] = 0
+                    
+                    expanded_grid = grid_tensor.expand(N_AGENTS, -1, -1, -1)
+                    expanded_l0 = l0_tensor.expand(N_AGENTS, -1, -1)
+                    trade_entry_grids[entry_mask] = expanded_grid[entry_mask]
+                    trade_entry_l0s[entry_mask] = expanded_l0[entry_mask]
+                    trade_entry_params[entry_mask] = param_indices[entry_mask]
+                    trade_entry_pis[entry_mask] = joint_pi[entry_mask]
+                    
+            # Train optimization using V-Trace Reconciliation (Async)
+            total_buffered = sum(x.size(0) for x in buffer_grids) if len(buffer_grids) > 0 else 0
+            if not is_eval and (total_buffered >= 1024 or (is_eod_maintenance and total_buffered >= 128)):
+                all_grids = torch.cat(buffer_grids, dim=0)
+                all_l0s = torch.cat(buffer_l0s, dim=0)
+                all_params = torch.cat(buffer_params, dim=0)
+                all_pis = torch.cat(buffer_pis, dim=0)
+                all_regrets = torch.cat(buffer_regrets, dim=0)
+                
+                # Push to learner background thread (blocks if queue is full)
+                learner_queue.put((all_grids, all_l0s, all_params, all_pis, all_regrets))
+                
                 buffer_grids.clear()
                 buffer_l0s.clear()
-                
+                buffer_params.clear()
+                buffer_regrets.clear()
+                buffer_pis.clear()
+
+    if not is_eval:
+        # Flush remaining trades
+        total_buffered = sum(x.size(0) for x in buffer_grids) if len(buffer_grids) > 0 else 0
+        if total_buffered > 0:
+            all_grids = torch.cat(buffer_grids, dim=0)
+            all_l0s = torch.cat(buffer_l0s, dim=0)
+            all_params = torch.cat(buffer_params, dim=0)
+            all_pis = torch.cat(buffer_pis, dim=0)
+            all_regrets = torch.cat(buffer_regrets, dim=0)
+            learner_queue.put((all_grids, all_l0s, all_params, all_pis, all_regrets))
+            
+        # Shutdown Learner Thread
+        learner_queue.put(None)
+        learner_thread.join()
+        
+        batches = max(1, epoch_diagnostics["batches"])
+        avg_loss = epoch_diagnostics["loss_sum"] / batches
+        avg_grad = epoch_diagnostics["grad_norm_sum"] / batches
+        print(f"\n[DIAGNOSTICS] Avg Loss: {avg_loss:.4f} | Avg Grad Norm: {avg_grad:.4f}\n")
+
     return trade_pnls, trade_durations
 
+def prevent_sleep():
+    try:
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000 | 0x00000001)
+        print("[INFO] Windows sleep prevention activated.")
+    except Exception as e:
+        print(f"[WARN] Could not prevent sleep: {e}")
+
+def allow_sleep():
+    try:
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+        print("[INFO] Windows sleep prevention deactivated.")
+    except Exception as e:
+        pass
+
 def run_walk_forward_curriculum():
+    prevent_sleep()
     print("[INFO] Booting Research A Walk-Forward Curriculum...")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -135,61 +447,102 @@ def run_walk_forward_curriculum():
     master_net = ResearchANetwork().to(device)
     vtrace = VTraceReconciliation()
     
-    # Check if starter brain exists
-    starter_path = 'checkpoints/screening_brain_ep5.pth'
-    if os.path.exists(starter_path):
-        load_transfer_weights(master_net, starter_path, device)
+    os.makedirs('checkpoints', exist_ok=True)
+
+    # Auto-Resume from latest epoch if it exists
+    latest_epoch_path = 'checkpoints/research_A_segment_1_latest_epoch.pth'
+    if os.path.exists(latest_epoch_path):
+        print(f"[TRANSFER] Resuming from {latest_epoch_path}")
+        try:
+            checkpoint = torch.load(latest_epoch_path, map_location=device, weights_only=True)
+            master_net.lstm.load_state_dict(checkpoint['lstm'])
+            master_net.load_state_dict(checkpoint['heads'], strict=False)
+        except Exception as e:
+            print(f"[WARN] Failed to load latest epoch: {e}. Starting fresh.")
+    else:
+        print("[INFO] No existing checkpoint found. Starting with fresh random initialization!")
     
-    for idx in range(len(chunks) - 1):
+    # We do a short test: only 1 week IS and 1 week OOS (Step 1)
+    for idx in range(1):
         train_segment = chunks[idx]
         eval_segment = chunks[idx + 1]
         
         print(f"\n==============================================")
-        print(f" WALK-FORWARD STEP {idx+1}/{len(chunks)-1}")
+        print(f" WALK-FORWARD STEP {idx+1} (1-Week IS / 1-Week OOS)")
         print(f" TRAIN ON: {train_segment[0]} -> {train_segment[-1]}")
         print(f" EVALUATE ON: {eval_segment[0]} -> {eval_segment[-1]}")
         print(f"==============================================")
         
+        epoch = 0
+        meta_critic_multiplier = 1.0
         while True:
-            # Hot-load config inside the retry loop
+            epoch += 1
             config = load_config()
             lr = config.get("learning_rate", 0.005)
             optimizer = optim.Adam(master_net.parameters(), lr=lr)
             
-            print(f"[TRAIN] Running Epoch with LR={lr}...")
+            print(f"[TRAIN] Running Epoch {epoch} with LR={lr} | Meta-Critic Multiplier={meta_critic_multiplier:.2f}...")
             fps_train = MultiDayForwardPassSystem(
                 atlas_root=atlas_root, features_root=features_root, labels_csv=labels_csv, days=train_segment
             )
-            run_quadrant_sim(fps_train, master_net, optimizer, vtrace, config, device, is_eval=False)
+            is_trade_pnls, is_trade_durations = run_quadrant_sim(fps_train, master_net, optimizer, vtrace, config, device, epoch_idx=epoch-1, is_eval=False, meta_critic_multiplier=meta_critic_multiplier)
             
-            print(f"[EVAL] Running OOS Evaluation on Next Segment...")
+            is_passed, is_metrics = evaluate_curriculum_segment(is_trade_pnls, is_trade_durations, config)
+            print(f"\n[IS EVAL] AUC: {is_metrics.get('auc', 0):.4f} | n: {is_metrics.get('metric_n', 0):.4f} | PnL: {is_metrics.get('total_pnl', 0):.2f} | PnL Mode CI: {is_metrics.get('pnl_mode_ci', (0,0))}")
+            
+            print(f"\n[EVAL] Running OOS Evaluation on Next Segment (Week 2)...")
             fps_eval = MultiDayForwardPassSystem(
                 atlas_root=atlas_root, features_root=features_root, labels_csv=labels_csv, days=eval_segment
             )
-            trade_pnls, trade_durations = run_quadrant_sim(fps_eval, master_net, optimizer, vtrace, config, device, is_eval=True)
+            trade_pnls, trade_durations = run_quadrant_sim(fps_eval, master_net, optimizer, vtrace, config, device, epoch_idx=epoch-1, is_eval=True)
             
-            # Gating Metrics Check
             passed, metrics = evaluate_curriculum_segment(trade_pnls, trade_durations, config)
-            save_segment_metrics(f"Step_{idx+1}_Eval", metrics, passed)
+            print(f"\n[OOS EVAL] AUC: {metrics.get('auc', 0):.4f} | n: {metrics.get('metric_n', 0):.4f} | PnL: {metrics.get('total_pnl', 0):.2f} | PnL Mode CI: {metrics.get('pnl_mode_ci', (0,0))}")
+            save_segment_metrics(f"Step_{idx+1}_Epoch_{epoch}", metrics, passed)
             
-            if passed:
-                print(f"[PASS] Segment unlocked! AUC={metrics['auc']:.2f} | n={metrics['metric_n']:.2f}")
-                torch.save({
-                    'segment_idx': idx + 1,
-                    'lstm': master_net.lstm.state_dict(),
-                    'heads': master_net.state_dict()
-                }, f'checkpoints/research_A_segment_{idx+1}.pth')
-                break # Move to next chunk!
+            # Enforce 2 epochs minimum
+            if epoch < 2:
+                print(f"[INFO] Epoch {epoch} complete (n={metrics.get('metric_n', 0):.4f}, AUC={metrics.get('auc', 0):.4f}). Minimum 2 epochs required. Continuing to Epoch 2...")
             else:
-                print(f"[FAIL] Gating Metrics failed. AUC={metrics.get('auc', 0):.2f}. Keeping updated brain and retrying...")
-                print("[INFO] Waiting 10 seconds. You can edit curriculum_params.json to force a pass or tweak LR!")
-                
-                # Sleep before retrying the exact same segment to learn more
-                time.sleep(10)
-                print("[RETRY] Retrying segment with updated brain...")
+                if passed and is_passed:
+                    print(f"[PASS] Gating Metrics passed after Epoch {epoch}! AUC={metrics['auc']:.4f} | n={metrics['metric_n']:.4f}")
+                    torch.save({
+                        'segment_idx': idx + 1,
+                        'lstm': master_net.lstm.state_dict(),
+                        'heads': master_net.state_dict()
+                    }, f'checkpoints/research_A_segment_{idx+1}.pth')
+                    break
+                else:
+                    target_auc = config.get("eval_thresholds", {}).get("min_auc", 0.7)
+                    oos_auc = metrics.get('auc', 0)
+                    meta_critic_multiplier = max(1.0, 1.0 + (target_auc - oos_auc) * 2.0)
+                    print(f"[FAIL] IS Passed: {is_passed} | OOS Passed: {passed}. Retrying segment with Meta-Critic Penalty of {meta_critic_multiplier:.2f}x...")
+                    time.sleep(5)
+            
+            # Save a temporary checkpoint for the latest epoch regardless of passing status
+            torch.save({
+                'segment_idx': idx + 1,
+                'epoch_idx': epoch,
+                'lstm': master_net.lstm.state_dict(),
+                'heads': master_net.state_dict()
+            }, f'checkpoints/research_A_segment_{idx+1}_latest_epoch.pth')
+            
+            print("\nwakeup(1)\n")
+
+            # Memory Cleanup
+            del fps_train
+            del fps_eval
+            gc.collect()
+            torch.cuda.empty_cache()
 
 if __name__ == "__main__":
-    # Prevent multi-processing crash in windows
     import multiprocessing
     multiprocessing.freeze_support()
-    run_walk_forward_curriculum()
+    try:
+        run_walk_forward_curriculum()
+    finally:
+        allow_sleep()
+    
+    print("[INFO] Curriculum Complete. Releasing GPU resources and exiting.")
+    torch.cuda.empty_cache()
+    sys.exit(0)
