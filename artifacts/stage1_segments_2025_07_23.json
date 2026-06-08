@@ -843,5 +843,20 @@
     "volatility_tier": 2,
     "status": "PRISTINE",
     "extraction_time_seconds": 9.573403596878052
+  },
+  {
+    "day": "2025_07_23",
+    "start_idx": 431,
+    "end_idx": 439,
+    "length": 8,
+    "active_grid_cells": [],
+    "surviving_terms_count": 0,
+    "surviving_polynomial_indices": [],
+    "beta_coefficients": [],
+    "max_residual": 9999.0,
+    "error_band_used": 0.325,
+    "volatility_tier": 99,
+    "status": "UNPROCESSED_CHAOS",
+    "extraction_time_seconds": 142.05138778686523
   }
 ]

@@ -13,10 +13,18 @@ except ImportError:
     def inject_prompt(msg): print(msg)
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--start-date', type=str, default=None, help="Format YYYY_MM_DD to skip directly to a specific date")
+    args = parser.parse_args()
+
     atlas_root = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
     l0_dir = os.path.join(atlas_root, 'FEATURES_5s_v2', 'L0')
     files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
     days = [os.path.basename(f).replace('.parquet', '') for f in files]
+    
+    if args.start_date:
+        days = [d for d in days if d >= args.start_date]
     
     print(f"[RUNNER] Found {len(days)} total days of ATLAS data to process.")
     
