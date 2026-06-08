@@ -85,27 +85,38 @@ def poly_expand_gpu(X_t):
 
 from core_v2.math.fista_gpu import group_lasso_fista_cv, elasticnet_fista_cv
 
-def screen_pipeline_gpu(X_raw_t, Y_t, groups):
-    """
-    GPU-accelerated screening pipeline using batched FISTA.
-    Returns: final_idx, best_group_reg, best_alpha
-    """
-    try:
-        w_gl, best_group_reg = group_lasso_fista_cv(X_raw_t, Y_t, groups, cv=3, alphas=50)
-    except:
-        return [], 0.01, 0.01
-        
-    active_idx = torch.where(torch.abs(w_gl) > 1e-5)[0]
-    if len(active_idx) == 0: 
-        return [], best_group_reg, 0.01
-        
-    X_surv_t = X_raw_t[:, active_idx]
+def screen_pipeline_cpu(X_raw, Y, groups):
+    from sklearn.exceptions import ConvergenceWarning
+    warnings.filterwarnings('ignore', category=ConvergenceWarning)
     
     try:
-        w_enet, best_alpha = elasticnet_fista_cv(X_surv_t, Y_t, l1_ratio=0.5, cv=3, alphas=50)
-        final_survivors = torch.where(torch.abs(w_enet) > 1e-6)[0]
+        grid = GroupLasso(groups=groups, group_reg=0.01, l1_reg=0.0, n_iter=100, tol=1e-2, fit_intercept=False, supress_warning=True)
+        grid.fit(X_raw, Y)
+        best_gl = grid
+        best_group_reg = 0.01
+    except:
+        best_gl = GroupLasso(groups=groups, group_reg=0.01, l1_reg=0.0, n_iter=50, tol=1e-1, fit_intercept=False, supress_warning=True)
+        try:
+            best_gl.fit(X_raw, Y)
+        except:
+            return [], 0.01, 0.01
+        best_group_reg = 0.01
+        
+    w = best_gl.coef_.flatten()
+    active_idx = np.where(np.abs(w) > 1e-5)[0]
+    
+    if len(active_idx) == 0: return [], best_group_reg, 0.01
+        
+    X_surv = X_raw[:, active_idx]
+    
+    matrix_mb = (X_surv.nbytes + Y.nbytes) / (1024 * 1024)
+    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=get_safe_n_jobs(matrix_mb), fit_intercept=False, max_iter=200, tol=1e-3)
+    try:
+        enet.fit(X_surv, Y)
+        w_enet = enet.coef_
+        final_survivors = np.where(np.abs(w_enet) > 1e-6)[0]
         final_idx = active_idx[final_survivors]
-        return final_idx.cpu().numpy().tolist(), best_group_reg, best_alpha
+        return final_idx, best_group_reg, enet.alpha_
     except:
         return [], best_group_reg, 0.01
 
@@ -195,20 +206,16 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     X_cpu = X_t.cpu().numpy()
     Y_cpu = Y_t.cpu().numpy().flatten()
     
-    active_idx, _, _ = screen_pipeline_gpu(X_t, Y_t, groups)
+    active_idx, _, _ = screen_pipeline_cpu(X_cpu, Y_cpu, groups)
     if len(active_idx) == 0:
         return 8, [], [], 9999.0, []
         
     X_sub_t = X_t[:, active_idx]
     X_poly_t = poly_expand_gpu(X_sub_t)
-    X_poly_cpu = X_poly_t.cpu().numpy()
     
-    matrix_mb = (X_poly_cpu.nbytes + Y_cpu.nbytes) / (1024 * 1024)
-    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=get_safe_n_jobs(matrix_mb), fit_intercept=False, max_iter=1000)
     try:
-        enet.fit(X_poly_cpu, Y_cpu)
-        w_enet = enet.coef_
-        fixed_terms = np.where(np.abs(w_enet) > 1e-6)[0]
+        w_enet, _ = elasticnet_fista_cv(X_poly_t, Y_t, l1_ratio=0.5, cv=3, alphas=50)
+        fixed_terms = torch.where(torch.abs(w_enet) > 1e-6)[0].cpu().numpy()
     except:
         return 8, [], [], 9999.0, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
         
