@@ -13,6 +13,7 @@ def init_default_config():
         "gamma": 0.99,
         "vtrace_clip_rho": 1.0,
         "vtrace_clip_c": 1.0,
+        "target_vram": 10500,
         "eval_thresholds": {
             "min_metric_n": 0.0,
             "min_auc": 0.5,

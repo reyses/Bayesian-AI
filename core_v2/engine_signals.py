@@ -4,7 +4,7 @@ Engine signal types — the contract between the engine and the ledger.
 This module exists to separate concerns:
   - Engine         — pure signal emitter. Reads features + a read-only
                      PositionsView. Returns a DecisionBatch. Owns no state.
-  - Ledger         — owns Position state (in core/ledger.py). Sole writer.
+  - Ledger         — owns Position state (in core_v2/ledger.py). Sole writer.
                      Calls engine.evaluate(...) with a snapshot.
   - Executors      — sim_executor.py walks bars in training; engine_v2.py
                      pumps NT8 messages in live. Both consume DecisionBatch

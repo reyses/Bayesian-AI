@@ -1,0 +1,15 @@
+{
+    "features": [
+        "L3_1m_hurst_15",
+        "L3_1m_reversion_prob_15",
+        "L3_1m_swing_noise_15",
+        "L3_1m_z_se_15",
+        "L1_1m_price_velocity_1b"
+    ],
+    "target_y": "forward_27_bar_return",
+    "regression_degree": 2,
+    "ridge_alpha": 1.0,
+    "r_adj_cutoff": 0.90,
+    "min_span_bars": 100,
+    "step_size_bars": 10
+}

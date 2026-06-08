@@ -12,12 +12,13 @@ from __future__ import annotations
 
 import os
 import glob
+import json
 from typing import Iterator, List, Optional
 
 import numpy as np
 import pandas as pd
 
-from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features)
+from core_v2.features import (FEATURE_NAMES, N_FEATURES, load_features, assemble_v2_grid)
 from .state import BarState, regime_to_idx
 
 
@@ -101,6 +102,35 @@ class ForwardPassSystem:
             if name in feat_cols:
                 v2_matrix[:, j] = feats[name].values.astype(np.float32)
         self._v2_matrix = v2_matrix
+        
+        # Load Risk Assessment Segments
+        seg_file = f'artifacts/stage2_segments_{day}.json'
+        self._segment_risk = np.zeros((self._n, 4), dtype=np.float32)
+        if os.path.exists(seg_file):
+            with open(seg_file, 'r') as f:
+                segments = json.load(f)
+            for seg in segments:
+                s_idx = seg.get('start_idx', 0)
+                e_idx = seg.get('end_idx', 0)
+                status = seg.get('status', 'UNCLASSIFIED')
+                
+                vol = seg.get('volatility_tier', 5)
+                if not isinstance(vol, (int, float)):
+                    vol = 5
+                
+                err_band = seg.get('error_band_width', 0.0)
+                
+                is_pris = 1.0 if status in ['PRISTINE', 'RECOVERED'] else 0.0
+                is_cha = 1.0 if status == 'PURE_CHAOS' else 0.0
+                vol_norm = float(vol) / 9.0
+                err_norm = min(float(err_band) / 50.0, 1.0)
+                
+                if s_idx < self._n:
+                    e_idx_clamp = min(e_idx, self._n - 1)
+                    self._segment_risk[s_idx:e_idx_clamp+1] = [is_pris, is_cha, vol_norm, err_norm]
+        
+        # Native Anti-Scramble Grid Parity
+        self._v2_grid = assemble_v2_grid(self._v2_matrix)
 
         # Pre-extract OHLCV arrays for fast searchsorted
         self._ts5s = self._ohlcv_5s['timestamp'].values.astype(np.int64)

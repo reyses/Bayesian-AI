@@ -25,31 +25,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 # ── Constants (also surfaced via tools/research/data.py) ──────────────────
 
-TF_HIERARCHY_V2 = ['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s']
+from core_v2.features import (
+    TF_HIERARCHY_V2,
+    FEATURE_NAMES_V2,
+    N_TFS_V2,
+    N_FEATURES_PER_TF_V2,
+    N_FLAT_FEATURES_V2,
+    assemble_v2_grid
+)
+
 TF_LABELS_V2 = ['d0_1D', 'd1_4h', 'd2_1h', 'd3_15m', 'd4_5m', 'd5_1m', 'd6_15s', 'd7_5s']
-
-# Per-TF feature names (window suffixes stripped). Order matters — must match
-# the order extract_per_tf_block() pulls columns out.
-FEATURE_NAMES_V2 = [
-    # L1 (6) — bar primitives
-    'price_velocity_1b', 'price_accel_1b',
-    'vol_velocity_1b',   'vol_accel_1b',
-    'bar_range', 'body',
-    # L2 (9) — rolling-window stats
-    'price_velocity_w', 'price_accel_w',
-    'vol_velocity_w',   'vol_accel_w',
-    'price_mean_w', 'price_sigma_w',
-    'vol_mean_w',   'vol_sigma_w',
-    'vwap_w',
-    # L3 (8) — approved exceptions
-    'z_se',  'z_high', 'z_low',
-    'SE_high', 'SE_low',
-    'hurst', 'reversion_prob', 'swing_noise',
-]
-
-N_TFS_V2 = len(TF_HIERARCHY_V2)             # 8
-N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 23
-N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 184
 
 # Per-TF L2/L3 window suffix used in raw column names. Matches core_v2 N_BASE.
 N_BASE_V2 = {
@@ -352,26 +337,22 @@ def reshape_v2_to_stack(features_aligned: pd.DataFrame) -> tuple[np.ndarray, np.
         l0_global: (N,) array of L0_time_of_day values
     """
     n = len(features_aligned)
-    stack = np.zeros((n, N_TFS_V2, N_FEATURES_PER_TF_V2), dtype=np.float64)
-
-    # Build column-name lookup for vectorized extraction (faster than per-row Series access)
-    col_map = {}  # (tf_idx, feat_idx) -> column name
-    for tf_idx, tf in enumerate(TF_HIERARCHY_V2):
-        for feat_idx, fname in enumerate(FEATURE_NAMES_V2):
-            if fname.endswith('_1b') or fname in ('bar_range', 'body'):
-                col = f'L1_{tf}_{fname}'
-            elif fname.endswith('_w'):
-                col = f'L2_{tf}_{fname}'
-            else:
-                col = f'L3_{tf}_{fname}_w'
-            col_map[(tf_idx, feat_idx)] = col
-
-    # Vectorized fill: pull each column's values directly
-    for (tf_idx, feat_idx), col in col_map.items():
-        if col in features_aligned.columns:
+    
+    # We must construct a flat matrix using core_v2.features.FEATURE_NAMES
+    # order so we can pass it to assemble_v2_grid, OR we can just implement the same mapping here.
+    # Actually, the user specifically wants single source of truth.
+    # Let's import the full canonical list from core_v2.features
+    from core_v2.features import FEATURE_NAMES, N_FEATURES
+    flat_matrix = np.zeros((n, N_FEATURES), dtype=np.float32)
+    
+    col_map = {name: i for i, name in enumerate(FEATURE_NAMES)}
+    for col in features_aligned.columns:
+        if col in col_map:
             vals = features_aligned[col].values
-            stack[:, tf_idx, feat_idx] = np.nan_to_num(vals, nan=0.0)
-
+            flat_matrix[:, col_map[col]] = np.nan_to_num(vals, nan=0.0)
+            
+    stack = assemble_v2_grid(flat_matrix)
+    
     if 'L0_time_of_day' in features_aligned.columns:
         l0_global = np.nan_to_num(features_aligned['L0_time_of_day'].values, nan=0.0)
     else:

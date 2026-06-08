@@ -4,10 +4,10 @@ Statistical Field Engine v2
 Computes per-layer features per spec v2 (139D total):
 
     L0 (1 global)    : time_of_day
-    L1 (6 per TF)    : window-free primitives
+    L1 (8 per TF)    : window-free primitives
                        - price_velocity_1b, price_accel_1b
                        - vol_velocity_1b, vol_accel_1b
-                       - bar_range, body
+                       - bar_range, body, upper_wick, lower_wick
     L2 (9 per TF)    : rolling-window smoothed
                        - price_velocity_N, price_accel_N
                        - vol_velocity_N, vol_accel_N
@@ -406,13 +406,15 @@ class StatisticalFieldEngine:
     def compute_L1(self, df: pd.DataFrame, tf: str) -> pd.DataFrame:
         """Window-free primitives for a single TF.
 
-        Features (6 per TF):
+        Features (8 per TF):
           - L1_{tf}_price_velocity_1b : close[t] - close[t-1]
           - L1_{tf}_price_accel_1b    : price_velocity_1b[t] - price_velocity_1b[t-1]
           - L1_{tf}_vol_velocity_1b   : volume[t] - volume[t-1]
           - L1_{tf}_vol_accel_1b      : vol_velocity_1b[t] - vol_velocity_1b[t-1]
           - L1_{tf}_bar_range         : high[t] - low[t]
           - L1_{tf}_body              : close[t] - open[t]
+          - L1_{tf}_upper_wick        : high[t] - max(open[t], close[t])
+          - L1_{tf}_lower_wick        : min(open[t], close[t]) - low[t]
 
         Lookahead: none. Each feature at bar t uses bars in {t-2, t-1, t} only.
 
@@ -420,7 +422,7 @@ class StatisticalFieldEngine:
             df: DataFrame with 'open', 'high', 'low', 'close', 'volume' columns.
             tf: TF label (used for column naming).
         Returns:
-            DataFrame of length len(df) with the 6 L1_{tf}_* columns.
+            DataFrame of length len(df) with the 8 L1_{tf}_* columns.
             Bars < 2 (for velocity) or < 3 (for acceleration) get NaN.
         """
         for col in ('open', 'high', 'low', 'close', 'volume'):
@@ -456,6 +458,10 @@ class StatisticalFieldEngine:
         # Spatial delta (same-bar)
         bar_range = high - low
         body = close - opn
+        
+        # One-sided wicks
+        upper_wick = high - np.maximum(opn, close)
+        lower_wick = np.minimum(opn, close) - low
 
         return pd.DataFrame({
             f'L1_{tf}_price_velocity_1b': price_v,
@@ -464,6 +470,8 @@ class StatisticalFieldEngine:
             f'L1_{tf}_vol_accel_1b':      vol_a,
             f'L1_{tf}_bar_range':         bar_range,
             f'L1_{tf}_body':              body,
+            f'L1_{tf}_upper_wick':        upper_wick,
+            f'L1_{tf}_lower_wick':        lower_wick,
         }, index=df.index)
 
     # ─── L2 ───────────────────────────────────────────────────────────────

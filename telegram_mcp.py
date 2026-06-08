@@ -3,9 +3,11 @@ import os
 import sys
 import time
 import threading
+import subprocess
 import requests
 import pyperclip
 import pyautogui
+import re
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
@@ -13,7 +15,9 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP("TelegramNotifier")
 
 from dotenv import load_dotenv
-load_dotenv() # Load variables from .env if present
+# Resolve .env against THIS script's directory, not the caller's cwd —
+# the IDE typically spawns MCP servers with an unrelated working dir.
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
@@ -40,7 +44,16 @@ def send_telegram_alert(message: str) -> str:
 
 @mcp.tool()
 def send_telegram_media(filepath: str, caption: str = "") -> str:
-    """Send a local file (image or document) to the user's Telegram."""
+    """Send a local file (image or document) to the user's Telegram.
+
+    Relative paths are resolved against the directory containing this
+    script (the repo root), so the agent can pass `oos_chart.png`
+    regardless of the MCP server's current working directory.
+    """
+    if not os.path.isabs(filepath):
+        resolved = str(Path(__file__).resolve().parent / filepath)
+        print(f"[send_telegram_media] '{filepath}' -> '{resolved}'", file=sys.stderr, flush=True)
+        filepath = resolved
     if not os.path.exists(filepath):
         return f"File not found: {filepath}"
     
@@ -62,6 +75,30 @@ def send_telegram_media(filepath: str, caption: str = "") -> str:
         return f"Media {endpoint} sent successfully."
     except Exception as e:
         return f"Failed to send media: {str(e)}"
+
+@mcp.tool()
+def run_autostats(arg: str) -> str:
+    """Run the autostats script with the given argument."""
+    script_path = str(DOWNLOAD_DIR.parent / "autostats.py")
+    try:
+        res = subprocess.run(["python", script_path, str(arg)], capture_output=True, text=True, check=True)
+        return f"autostats completed:\n{res.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"autostats failed (exit {e.returncode}):\n{e.stderr}"
+    except Exception as e:
+        return f"Failed to run autostats: {str(e)}"
+
+@mcp.tool()
+def run_autoplot(arg: str) -> str:
+    """Run the autoplot script with the given argument."""
+    script_path = str(DOWNLOAD_DIR.parent / "autoplot.py")
+    try:
+        res = subprocess.run(["python", script_path, str(arg)], capture_output=True, text=True, check=True)
+        return f"autoplot completed:\n{res.stdout}"
+    except subprocess.CalledProcessError as e:
+        return f"autoplot failed (exit {e.returncode}):\n{e.stderr}"
+    except Exception as e:
+        return f"Failed to run autoplot: {str(e)}"
 
 def inject_prompt(message):
     """Uses Pyperclip and PyAutoGUI to paste the message instantly."""
@@ -158,9 +195,25 @@ def poll_telegram():
                         inject_prompt(inject_str)
                         
                     elif text:
-                        print(f"[RECEIVED TEXT] {text}. Typing...", file=sys.stderr, flush=True)
-                        time.sleep(2)
-                        inject_prompt("Telegram: " + text)
+                        match_stats = re.match(r"(?i)^/?autostats\((.*?)\)$", text.strip())
+                        match_plot = re.match(r"(?i)^/?autoplot\((.*?)\)$", text.strip())
+                        
+                        if match_stats:
+                            arg = match_stats.group(1)
+                            print(f"[COMMAND] Intercepted autostats({arg})", file=sys.stderr, flush=True)
+                            script_path = str(DOWNLOAD_DIR.parent / "autostats.py")
+                            subprocess.Popen(["python", script_path, arg], cwd=str(DOWNLOAD_DIR.parent))
+                            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": f"Triggered autostats({arg})"})
+                        elif match_plot:
+                            arg = match_plot.group(1)
+                            print(f"[COMMAND] Intercepted autoplot({arg})", file=sys.stderr, flush=True)
+                            script_path = str(DOWNLOAD_DIR.parent / "autoplot.py")
+                            subprocess.Popen(["python", script_path, arg], cwd=str(DOWNLOAD_DIR.parent))
+                            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": f"Triggered autoplot({arg})"})
+                        else:
+                            print(f"[RECEIVED TEXT] {text}. Typing...", file=sys.stderr, flush=True)
+                            time.sleep(2)
+                            inject_prompt("Telegram: " + text)
                         
         except Exception as e:
             time.sleep(2)

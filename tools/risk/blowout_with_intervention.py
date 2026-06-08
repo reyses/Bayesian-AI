@@ -15,7 +15,7 @@ Plus a Python-vs-NT8 gap adjustment: Day 1 NT8 result implies +$680/day
 pessimism in Python sim. Add a constant per-trade or per-day shift.
 
 Usage:
-    python tools/blowout_with_intervention.py --csv reports/findings/zigzag_trail_sl10.csv
+    python tools/risk/blowout_with_intervention.py --csv reports/findings/zigzag_trail_sl10.csv
 """
 import argparse
 import os
