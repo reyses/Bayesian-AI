@@ -237,7 +237,7 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     tier = categorize_segment(Y_cpu, preds_cpu, E)
     max_residual = float(np.max(np.abs(Y_cpu - preds_cpu)))
     
-    return tier, fixed_terms.tolist(), beta_cpu, max_residual, active_idx.tolist()
+    return tier, fixed_terms.tolist(), beta_cpu, max_residual, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
 
 def main():
     parser = argparse.ArgumentParser()
