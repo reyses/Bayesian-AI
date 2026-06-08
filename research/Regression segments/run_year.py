@@ -28,9 +28,57 @@ def main():
     
     print(f"[RUNNER] Found {len(days)} total days of ATLAS data to process.")
     
+    import threading
+    import tkinter as tk
+    from tkinter import ttk
+
+    class ProgressBarWindow:
+        def __init__(self, total_days):
+            self.total_days = total_days
+            self.current_day = 0
+            self.root = None
+            self.thread = threading.Thread(target=self._run, daemon=True)
+            self.thread.start()
+
+        def _run(self):
+            self.root = tk.Tk()
+            self.root.title("Pipeline Progress")
+            self.root.geometry("400x120")
+            self.root.attributes('-topmost', True)
+            
+            self.label = tk.Label(self.root, text="Starting...", font=("Segoe UI", 12))
+            self.label.pack(pady=10)
+            
+            self.progress = ttk.Progressbar(self.root, orient="horizontal", length=300, mode="determinate")
+            self.progress.pack(pady=5)
+            
+            self.status = tk.Label(self.root, text="Initializing...", font=("Segoe UI", 9), fg="gray")
+            self.status.pack(pady=5)
+            
+            self._update_gui()
+            self.root.mainloop()
+
+        def _update_gui(self):
+            if self.root:
+                pct = (self.current_day / max(1, self.total_days)) * 100
+                self.progress["value"] = pct
+                self.label.config(text=f"Completed {self.current_day} / {self.total_days} days ({pct:.1f}%)")
+                self.root.after(1000, self._update_gui)
+
+        def update_progress(self, current_day, status_text=""):
+            self.current_day = current_day
+            if self.root and hasattr(self, 'status'):
+                try:
+                    self.status.config(text=status_text)
+                except:
+                    pass
+
+    pbar_win = ProgressBarWindow(len(days))
+    
     all_segments = []
     
-    for day in days:
+    for i, day in enumerate(days):
+        pbar_win.update_progress(i, status_text=f"Processing {day}...")
         stage2_file = f"artifacts/stage2_segments_{day}.json"
         
         if os.path.exists(stage2_file):
@@ -78,6 +126,7 @@ def main():
     print(f"\n[RUNNER] All {len(days)} days processed and combined into stage2_year_segments.json!")
     print(f"[RUNNER] Total segments collected: {len(all_segments)}")
     inject_prompt(f"System: FULL YEAR PROCESSING COMPLETE! Harvested {len(all_segments)} total segments.")
+    pbar_win.update_progress(len(days), status_text="Finished!")
 
 if __name__ == "__main__":
     main()
