@@ -223,7 +223,7 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     max_features = min(15, max_features)
     
     if len(fixed_terms) > max_features:
-        fixed_terms = np.argsort(np.abs(w_enet))[::-1][:max_features].copy()
+        fixed_terms = np.argsort(np.abs(w_enet.cpu().numpy()))[::-1][:max_features].copy()
         
     if len(fixed_terms) == 0:
         return 8, [], [], 9999.0, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
