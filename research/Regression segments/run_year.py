@@ -30,8 +30,7 @@ def main():
     
     all_segments = []
     
-    for i, day in enumerate(days):
-        pbar_win.update_progress(i, status_text=f"Processing {day}...")
+    for day in days:
         stage2_file = f"artifacts/stage2_segments_{day}.json"
         
         if os.path.exists(stage2_file):
@@ -79,7 +78,6 @@ def main():
     print(f"\n[RUNNER] All {len(days)} days processed and combined into stage2_year_segments.json!")
     print(f"[RUNNER] Total segments collected: {len(all_segments)}")
     inject_prompt(f"System: FULL YEAR PROCESSING COMPLETE! Harvested {len(all_segments)} total segments.")
-    pbar_win.update_progress(len(days), status_text="Finished!")
 
 if __name__ == "__main__":
     main()
