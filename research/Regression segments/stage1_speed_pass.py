@@ -9,18 +9,6 @@ import warnings
 import torch
 import psutil
 
-def get_safe_n_jobs(matrix_mb=0.1):
-    """Dynamically calculates safe thread count leaving 1GB free."""
-    worker_base_overhead_mb = 100  # Windows Python + Sklearn overhead
-    mb_per_worker = worker_base_overhead_mb + (matrix_mb * 20) # 20x for Joblib serialization + CV folds
-    
-    available_ram_mb = psutil.virtual_memory().available / (1024 * 1024)
-    safe_ram_mb = max(0, available_ram_mb - 1024)
-    max_workers_by_ram = max(1, int(safe_ram_mb / mb_per_worker))
-    max_workers_by_cpu = max(1, os.cpu_count() * 2)
-    safe_jobs = min(max_workers_by_ram, max_workers_by_cpu)
-    print(f"[MAIN] Dynamic RAM Logic: Matrix {matrix_mb:.2f}MB -> Worker Est {mb_per_worker:.0f}MB. Free RAM {available_ram_mb:.0f}MB. Spawning {safe_jobs} jobs.")
-    return safe_jobs
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import ElasticNetCV
@@ -109,8 +97,7 @@ def screen_pipeline_cpu(X_raw, Y, groups):
         
     X_surv = X_raw[:, active_idx]
     
-    matrix_mb = (X_surv.nbytes + Y.nbytes) / (1024 * 1024)
-    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=get_safe_n_jobs(matrix_mb), fit_intercept=False, max_iter=200, tol=1e-3)
+    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=1, fit_intercept=False, max_iter=200, tol=1e-3)
     try:
         enet.fit(X_surv, Y)
         w_enet = enet.coef_
