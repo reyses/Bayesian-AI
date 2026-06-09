@@ -358,14 +358,8 @@ def main():
     
     final_segments = [s for s in all_segments if s['status'] == 'PRISTINE']
     
-    import psutil
-    available_ram_mb = psutil.virtual_memory().available / (1024 * 1024)
-    safe_ram_mb = max(0, available_ram_mb - 1024) # Keep 1GB explicitly free
-    max_workers_by_ram = max(1, int(safe_ram_mb / 150)) # Assume ~150MB per worker
-    max_workers_by_cpu = max(1, os.cpu_count() * 2)
-    
-    num_workers = min(max_workers_by_ram, max_workers_by_cpu)
-    print(f"[MAIN] Dynamic Scaling: {available_ram_mb:.0f}MB Free RAM -> RAM Limit: {max_workers_by_ram} workers. CPU Limit: {max_workers_by_cpu}. Spawning {num_workers} workers.")
+    num_workers = max(1, os.cpu_count())
+    print(f"[MAIN] Day-Centric Chunking: Spawning {num_workers} workers for multiprocessing pool.")
     
     with Pool(processes=num_workers) as pool:
         results = pool.map(process_chaos_block, worker_args)

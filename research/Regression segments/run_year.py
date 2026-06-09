@@ -94,104 +94,36 @@ def main():
 
     phase1_reporter.clear()
     
-    # ---- PHASE 2: STAGE 2 (GLOBAL CHAOS BLOCKS) ----
+    # ---- PHASE 2: STAGE 2 (PER DAY) ----
     print(f"\n========================================")
-    print(f"[PHASE 2] Collecting all Chaos Blocks across the year...")
+    print(f"[PHASE 2] Resolving Chaos Blocks day-by-day...")
     print(f"========================================")
     
-    global_worker_args = []
     final_segments = []
-    groups = None
     
-    # Build the worker args by opening day features ONE at a time to save RAM
+    # Process stage 2 sequentially day by day to save RAM
     for day in days:
         stage1_file = f"artifacts/stage1_segments_{day}.json"
         stage2_file = f"artifacts/stage2_segments_{day}.json"
         
+        if not os.path.exists(stage1_file):
+            continue
+            
         if os.path.exists(stage2_file):
             with open(stage2_file, 'r') as f:
                 final_segments.extend(json.load(f))
             continue
-
-        if not os.path.exists(stage1_file):
-            continue
             
-        with open(stage1_file, 'r') as f:
-            all_segs = json.load(f)
-            
-        pristine = [s for s in all_segs if s['status'] == 'PRISTINE']
-        chaos = [s for s in all_segs if s['status'] == 'UNPROCESSED_CHAOS']
-        final_segments.extend(pristine)
+        print(f"\n[RUNNER] Starting STAGE 2 for {day}")
+        t1 = time.time()
+        subprocess.run([sys.executable, "research/Regression segments/stage2_parallel_chaos.py", "--day", day], check=True)
+        print(f"[RUNNER] Stage 2 finished in {(time.time() - t1)/60:.1f} mins.")
         
-        if len(chaos) > 0:
-            features_root = os.path.join(atlas_root, 'FEATURES_5s_v2')
-            try:
-                df = load_features([day], root=features_root)
-                ohlcv = pd.read_parquet(os.path.join(atlas_root, '5s', f'{day}.parquet'))
-            except:
-                print(f"[WARN] Failed to load data for {day}, skipping its chaos blocks.")
-                continue
+        if os.path.exists(stage2_file):
+            with open(stage2_file, 'r') as f:
+                final_segments.extend(json.load(f))
                 
-            min_len = min(len(df), len(ohlcv))
-            df = df.iloc[:min_len]
-            ohlcv = ohlcv.iloc[:min_len]
-            
-            features_cols = [c for c in df.columns if c != 'timestamp' and 'price_mean' not in c and 'vwap' not in c]
-            if groups is None:
-                groups = stage2_parallel_chaos.build_groups_from_columns(features_cols)
-                
-            scaler = StandardScaler()
-            X_global = scaler.fit_transform(df[features_cols].values)
-            
-            valid_idx = ~np.isnan(X_global).any(axis=1)
-            X_global = X_global[valid_idx]
-            close_prices = ohlcv['close'].values[valid_idx]
-            
-            for block in chaos:
-                s_idx = block['start_idx']
-                e_idx = block['end_idx']
-                X_chunk = X_global[s_idx:e_idx]
-                Y_chunk = close_prices[s_idx:e_idx]
-                global_worker_args.append((
-                    len(global_worker_args), 
-                    block, 
-                    day, 
-                    block['error_band_used'], 
-                    groups, 
-                    X_chunk, 
-                    Y_chunk
-                ))
-                
-            # GC drop the large dataframes
-            del df, ohlcv, X_global, close_prices
-            
-    print(f"[PHASE 2] Harvested {len(final_segments)} Pristine blocks directly.")
-    print(f"[PHASE 2] Aggregated {len(global_worker_args)} Global Chaos blocks to resolve.")
-    send_telegram_alert(f"🎯 Phase 1 Complete!\n\nHarvested {len(final_segments)} pristine blocks directly.\nNow pooling {len(global_worker_args)} scattered chaos gaps across {os.cpu_count()*2} CPU threads for Phase 2!")
-    
-    if len(global_worker_args) > 0:
-        available_ram_mb = psutil.virtual_memory().available / (1024 * 1024)
-        safe_ram_mb = max(0, available_ram_mb - 1024) # Keep 1GB explicitly free
-        max_workers_by_ram = max(1, int(safe_ram_mb / 150)) # Assume ~150MB per worker
-        max_workers_by_cpu = max(1, os.cpu_count() * 2)
-        
-        num_workers = min(max_workers_by_ram, max_workers_by_cpu)
-        print(f"[PHASE 2] Dynamic Scaling: {available_ram_mb:.0f}MB Free RAM -> Spawning {num_workers} global workers.")
-        
-        phase2_reporter = TelemetryReporter("phase2_progress")
-        
-        # Windows requires top-level module functions for Pool, so we use stage2_parallel_chaos.process_chaos_block
-        with Pool(processes=num_workers) as pool:
-            # We use imap_unordered for fast iteration and progress reporting
-            results = []
-            for i, res in enumerate(pool.imap_unordered(stage2_parallel_chaos.process_chaos_block, global_worker_args)):
-                results.append(res)
-                phase2_reporter.update(i+1, len(global_worker_args), f"Phase 2: Resolving Chaos Blocks")
-                
-        for res in results:
-            final_segments.extend(res)
-            
-        phase2_reporter.clear()
+        time.sleep(1) # Brief pause to allow OS memory reclamation
         
     final_segments.sort(key=lambda x: (x['day'], x['start_idx']))
     

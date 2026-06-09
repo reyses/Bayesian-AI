@@ -125,7 +125,7 @@ def screen_pipeline_cpu(X_raw, Y, groups):
     X_surv = X_raw[:, active_idx]
     
     matrix_mb = (X_surv.nbytes + Y.nbytes) / (1024 * 1024)
-    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=get_safe_n_jobs(matrix_mb), fit_intercept=False, max_iter=200, tol=1e-3)
+    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=1, fit_intercept=False, max_iter=200, tol=1e-3)
     try:
         enet.fit(X_surv, Y)
         w_enet = enet.coef_
