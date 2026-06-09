@@ -1,2 +1,0 @@
-feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
-L1_15s_price_velocity_1b,IS,2025_06_18,above_+3sigma,1750287155,1.08,3.3079855324286838,3.3079855324286838,23.5,25.5,-3.75,22,Wed

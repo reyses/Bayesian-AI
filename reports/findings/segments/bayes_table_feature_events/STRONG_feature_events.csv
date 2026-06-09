@@ -1,2 +1,0 @@
-feature,side,n_is,n_oos,P_up_IS,CI_IS_lo,CI_IS_hi,P_up_OOS,CI_OOS_lo,CI_OOS_hi,sign_match,mean_fwd_IS,mean_fwd_OOS,mean_dur_min,med_dur_min,IS_edge
-L2_15m_price_velocity_12,below_lower,229,67,0.5541,0.4898,0.6176,0.5362,0.4188,0.6517,1,0.89,4.44,60.7,29.92,0.05410000000000004

@@ -160,14 +160,21 @@ def elasticnet_fista_cv(X, y, l1_ratio=0.5, cv=3, alphas=100, eps=1e-3):
         XtX_tr = (X_tr.T @ X_tr) / len(train_idx)
         Xty_tr = (X_tr.T @ y_tr) / len(train_idx) # (p, 1)
         L = torch.linalg.norm(XtX_tr, ord=2).item()
-        step_size = 1.0 / (L + 1e-6)
-        
+
+        lam_l2 = alpha_path * (1.0 - l1_ratio) # (alphas,)
+        lam_l1 = (alpha_path * l1_ratio).unsqueeze(0) # (1, alphas)
+        # The smooth part is (1/2N)||Xz-y||^2 + (lam_l2/2)||z||^2, whose gradient
+        # has Lipschitz constant L + lam_l2 (lam_l2 enters the gradient via the
+        # z*lam_l2 term below, NOT the Gram diagonal). A scalar 1/L step ignored
+        # lam_l2, so high-alpha columns (large lam_l2) overshot the stability
+        # bound and diverged to NaN -> argmin(mean_mse) then returned the NaN
+        # column (alpha_max) and the final fit was all-zeros. Per-column step
+        # 1/(L + lam_l2) respects the true Lipschitz for every alpha at once.
+        step_size = (1.0 / (L + lam_l2 + 1e-6)).unsqueeze(0) # (1, alphas)
+
         w = torch.zeros((p, alphas), device=device)
         z = torch.zeros((p, alphas), device=device)
         t = 1.0
-        
-        lam_l2 = alpha_path * (1.0 - l1_ratio) # (alphas,)
-        lam_l1 = (alpha_path * l1_ratio).unsqueeze(0) # (1, alphas)
         
         for _ in range(500):
             w_old = w.clone()
@@ -190,9 +197,11 @@ def elasticnet_fista_cv(X, y, l1_ratio=0.5, cv=3, alphas=100, eps=1e-3):
         mse_path[:, i] = mse
             
     mean_mse = torch.mean(mse_path, dim=1)
+    # Defense in depth: a diverged/unstable column must never win the argmin.
+    mean_mse = torch.nan_to_num(mean_mse, nan=float('inf'), posinf=float('inf'))
     best_alpha_idx = torch.argmin(mean_mse)
     best_alpha = alpha_path[best_alpha_idx].item()
-    
+
     # Fit final model
     w_final = elasticnet_fista(X, y, best_alpha, l1_ratio, max_iter=1000)
     return w_final.squeeze(), best_alpha

@@ -1,3 +1,13 @@
+"""Stage 1 regime-segmentation speed pass.
+
+⚠️ NON-CAUSAL / DIAGNOSTIC ONLY. Every segment's betas, volatility_tier, status,
+and BOUNDARIES are fit in-sample over the whole segment (including bars in its
+own future), and features are StandardScaler-fit over the entire day. These
+labels describe which parts of a day turned out to be cleanly regress-able in
+hindsight. They are valid as a post-hoc diagnostic only. Do NOT feed
+volatility_tier / status / segment membership into any live decision or training
+target — doing so reintroduces lookahead (see MEMORY: lookahead artifacts).
+"""
 import os
 import sys
 import argparse
@@ -8,6 +18,19 @@ import pandas as pd
 import warnings
 import torch
 import psutil
+
+def get_safe_n_jobs(matrix_mb=0.1):
+    """Dynamically calculates safe thread count leaving 1GB free."""
+    worker_base_overhead_mb = 100  # Windows Python + Sklearn overhead
+    mb_per_worker = worker_base_overhead_mb + (matrix_mb * 20) # 20x for Joblib serialization + CV folds
+    
+    available_ram_mb = psutil.virtual_memory().available / (1024 * 1024)
+    safe_ram_mb = max(0, available_ram_mb - 1024)
+    max_workers_by_ram = max(1, int(safe_ram_mb / mb_per_worker))
+    max_workers_by_cpu = max(1, os.cpu_count() * 2)
+    safe_jobs = min(max_workers_by_ram, max_workers_by_cpu)
+    print(f"[MAIN] Dynamic RAM Logic: Matrix {matrix_mb:.2f}MB -> Worker Est {mb_per_worker:.0f}MB. Free RAM {available_ram_mb:.0f}MB. Spawning {safe_jobs} jobs.")
+    return safe_jobs
 
 
 from sklearn.preprocessing import StandardScaler
@@ -20,8 +43,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from core_v2.features import load_features
 
 # === PARAMETERS ===
-SEED_BARS = 30
-N_BOOTSTRAPS = 100
+SEED_BARS = 30                # bars in the initial probe block (~2.5 min at 5s)
+INITIAL_ERROR_BAND = 1.00     # price-point residual tolerance for the FIRST segment
+                             # (no prior segment delta exists yet to scale from)
+ERROR_BAND_FRACTION = 0.10    # subsequent error band = 10% of prior segment's price range
+                             # NOTE: this makes tiers path-dependent on processing
+                             # order; partial-day runs differ from full-day runs.
 
 def max_consecutive(arr):
     if not np.any(arr): return 0
@@ -71,7 +98,7 @@ def poly_expand_gpu(X_t):
     quad = X_t[:, idx_i] * X_t[:, idx_j]
     return torch.cat([X_t, quad], dim=1)
 
-from core_v2.math.fista_gpu import group_lasso_fista_cv, elasticnet_fista_cv
+from core_v2.math.fista_gpu import elasticnet_fista_cv
 
 def screen_pipeline_cpu(X_raw, Y, groups):
     from sklearn.exceptions import ConvergenceWarning
@@ -97,7 +124,8 @@ def screen_pipeline_cpu(X_raw, Y, groups):
         
     X_surv = X_raw[:, active_idx]
     
-    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=1, fit_intercept=False, max_iter=200, tol=1e-3)
+    matrix_mb = (X_surv.nbytes + Y.nbytes) / (1024 * 1024)
+    enet = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=get_safe_n_jobs(matrix_mb), fit_intercept=False, max_iter=200, tol=1e-3)
     try:
         enet.fit(X_surv, Y)
         w_enet = enet.coef_
@@ -273,6 +301,7 @@ def main():
     X_global = scaler.fit_transform(df[features_cols].values)
     
     valid_idx = ~np.isnan(X_global).any(axis=1)
+    raw_indices = np.where(valid_idx)[0]
     X_global = X_global[valid_idx]
     close_prices = ohlcv['close'].values[valid_idx]
     
@@ -284,18 +313,23 @@ def main():
     close_prices_t = torch.tensor(close_prices, dtype=torch.float32, device=device)
     groups = build_groups_from_columns(features_cols)
     
+    sys.path.append(r"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI")
+    from core_v2.telemetry.reporter import TelemetryReporter
+    day_reporter = TelemetryReporter(f"stage1_{day}")
+    
     seed_start = 0
     segments = []
     prev_segment_delta = None
     output_json = f"artifacts/stage1_segments_{day}.json"
     
     while seed_start + SEED_BARS < N_TOTAL:
+        day_reporter.update(seed_start, N_TOTAL, f"Day {day} (Stage 1)")
         t_seg0 = time.time()
         
         if prev_segment_delta is None:
-            error_band = 1.00
+            error_band = INITIAL_ERROR_BAND
         else:
-            error_band = 0.10 * prev_segment_delta
+            error_band = ERROR_BAND_FRACTION * prev_segment_delta
             
         print(f"[HUNT] Evaluating seed_start={seed_start} (E={error_band:.4f})")
             
@@ -329,6 +363,8 @@ def main():
                 'day': day,
                 'start_idx': seed_start,
                 'end_idx': seed_start + L_star,
+                'raw_start_idx': int(raw_indices[seed_start]),
+                'raw_end_idx': int(raw_indices[seed_start + L_star]) if (seed_start + L_star) < N_TOTAL else int(raw_indices[-1] + 1),
                 'length': L_star,
                 'active_grid_cells': active_idx,
                 'surviving_terms_count': len(fixed_terms),
@@ -375,6 +411,8 @@ def main():
                 'day': day,
                 'start_idx': seed_start,
                 'end_idx': seed_start + found_k,
+                'raw_start_idx': int(raw_indices[seed_start]),
+                'raw_end_idx': int(raw_indices[seed_start + found_k]) if (seed_start + found_k) < N_TOTAL else int(raw_indices[-1] + 1),
                 'length': found_k,
                 'active_grid_cells': [],
                 'surviving_terms_count': 0,
@@ -393,6 +431,8 @@ def main():
                 
             # DO NOT update prev_segment_delta with messy block values!
             seed_start += found_k
+            
+    day_reporter.clear()
 
 if __name__ == "__main__":
     main()

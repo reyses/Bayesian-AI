@@ -1,3 +1,16 @@
+"""Stage 2 chaos-gap re-segmentation (finer tiers 1-9).
+
+⚠️ NON-CAUSAL / DIAGNOSTIC ONLY — same caveat as stage1_speed_pass.py. Segment
+betas/tiers/boundaries are in-sample fits; never use them as a live feature or
+training target.
+
+NOTE: this stage deliberately uses CPU sklearn ElasticNetCV (not the GPU FISTA
+path used in stage1). Stage 2 fans chaos blocks across a multiprocessing Pool;
+sharing one CUDA context across forked workers causes PCIe/context thrashing
+(the same reason run_year hardcodes parallel days = 1). CPU solving per worker is
+the intentional trade-off. Consequence: tiers from stage1 and stage2 are not
+strictly solver-identical and should not be compared at the margin.
+"""
 import os
 import sys
 import json
@@ -326,8 +339,10 @@ def main():
     X_global = scaler.fit_transform(df[features_cols].values)
     
     valid_idx = ~np.isnan(X_global).any(axis=1)
+    raw_indices = np.where(valid_idx)[0]
     X_global = X_global[valid_idx]
     close_prices = ohlcv['close'].values[valid_idx]
+    N_TOTAL = len(X_global)
     
     groups = build_groups_from_columns(features_cols)
     
@@ -357,6 +372,12 @@ def main():
         
     for res in results:
         final_segments.extend(res)
+        
+    for seg in final_segments:
+        s = seg['start_idx']
+        e = seg['end_idx']
+        seg['raw_start_idx'] = int(raw_indices[s]) if s < N_TOTAL else int(raw_indices[-1] + 1)
+        seg['raw_end_idx'] = int(raw_indices[e]) if e < N_TOTAL else int(raw_indices[-1] + 1)
         
     # Sort them back chronologically
     final_segments.sort(key=lambda x: x['start_idx'])

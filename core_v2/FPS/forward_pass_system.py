@@ -110,8 +110,8 @@ class ForwardPassSystem:
             with open(seg_file, 'r') as f:
                 segments = json.load(f)
             for seg in segments:
-                s_idx = seg.get('start_idx', 0)
-                e_idx = seg.get('end_idx', 0)
+                s_idx = seg.get('raw_start_idx', seg.get('start_idx', 0))
+                e_idx = seg.get('raw_end_idx', seg.get('end_idx', 0))
                 status = seg.get('status', 'UNCLASSIFIED')
                 
                 vol = seg.get('volatility_tier', 5)

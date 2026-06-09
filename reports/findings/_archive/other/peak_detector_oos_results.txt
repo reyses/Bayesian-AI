@@ -1,8 +1,0 @@
-PeakDetector: 8,736 peaks in 1,731,443 bars (0.50%)
-  Skipped: warmup=60 no_flip=1425459 magnitude=247912 volume=49276
-
-Peaks: 8736 across 35 days (249.6/day)
-Direction split: 51.9% LONG
-Avg magnitude: 74.7 ticks
-Avg vol ratio: 0.189
-Avg std_price: 31.819

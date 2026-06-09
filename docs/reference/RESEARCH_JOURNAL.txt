@@ -4291,3 +4291,67 @@ filter.
 
 Suite report: reports/findings/trade_outcome_table/
 2026-05-22_trade_outcome_full_report.md
+
+================================================================================
+2026-06-08 -- Regression-segments audit + FISTA solver bug (core_v2/math)
+================================================================================
+Audited research/Regression segments/ (offline regime-segmentation pipeline:
+per-day polynomial fits of price-delta on V2 features, labeled PRISTINE /
+RECOVERED / PURE_CHAOS + volatility_tier). Labels are NON-CAUSAL / diagnostic
+only (in-sample betas/tiers/boundaries + whole-day StandardScaler) -- banner
+added; user confirmed diagnostic-only use. Fixed 3 breakages (run_year Phase-2
+missing numpy import; mothership packaging non-existent FEATURES_<day> paths;
+phase_d_mapping evaluating a Jan day against Feb segments). Added project.md.
+
+SOLVER QUESTION: stage1 selects polynomial terms with GPU FISTA
+(elasticnet_fista_cv); stage2 with CPU sklearn ElasticNetCV. Finished
+test_fista_parity.py to quantify the gap: added the missing Group-Lasso Jaccard
+and a REAL-DATA case that replays stage1's exact path with both solvers and
+reports the rate at which the choice flips the final TIER.
+ - Real data (2025_07_29, 8x120 blocks): term-selection Jaccard 0.762 but TIER
+   disagreement 0/8 (0%). The tier (the only consumed output) is robust to the
+   solver -> DO NOT unify; the split is cosmetic. Doc note kept.
+ - Group Lasso FISTA vs sklearn: perfect parity (Jaccard 1.000).
+
+BUG FOUND + FIXED in core_v2/math/fista_gpu.py :: elasticnet_fista_cv.
+ - Symptom: synthetic ElasticNet -> FISTA picked alpha exactly ~1000x sklearn's
+   (= 1/eps), kept 0 features, Jaccard 0.000.
+ - Root cause (instrumented sweep): smooth part (1/2N)||Xz-y||^2 +
+   (lam_l2/2)||z||^2 has gradient Lipschitz L + lam_l2, but step was scalar 1/L,
+   ignoring lam_l2 (it enters via the z*lam_l2 gradient term, not the Gram
+   diagonal -- so the non-CV elasticnet_fista, which adds lam_l2 to the diagonal
+   BEFORE computing L, was never affected). High-alpha columns (large lam_l2)
+   overshot stability -> diverged to NaN -> torch.argmin returned the NaN column
+   (= alpha_max) -> CV always chose max regularization -> all-zero final fit.
+ - DATA-DEPENDENT: triggers when alpha_max*(1-l1_ratio) is large vs Gram norm L,
+   i.e. strong-trend (PRISTINE-class) segments -- exactly what stage1 hunts.
+ - Fix: per-column step 1/(L + lam_l2 + 1e-6); nan_to_num(mean_mse, nan=+inf)
+   before argmin. Blast radius = stage1 only (sole importer besides the test).
+ - Verified: synthetic ElasticNet Jaccard 0.000 -> 0.981 (FISTA alpha now equals
+   sklearn to 5 dp); Group Lasso 1.000; real-data tier disagreement still 0/8.
+ - Re-running stage1 will now fit strong-trend segments that previously collapsed
+   to 0 terms -> expect more PRISTINE / fewer false chaos on trending days.
+   Existing artifacts are stale w.r.t. this fix.
+
+Tools: research/Regression segments/test_fista_parity.py (now the regression
+guard for this bug). Report: reports/findings/2026-06-08_fista_solver_parity.md.
+
+=======================================================================
+
+GLOBAL TWO-PHASE ARCHITECTURE & PCIE THRASHING (2026-06-08)
+===========================================================
+
+Catastrophic Bottleneck Discovery:
+- Attempted to process the entire year with a ThreadPoolExecutor in Phase 1 (`run_year.py`) to parallelize PyTorch FISTA across multiple days.
+- Result: Severe PCIe bus thrashing and GPU VRAM collision.
+- Processing times skyrocketed from an expected ~10 minutes per day up to 50+ minutes for single volatile days (e.g., 2025-08-14 which had 176 data segments).
+
+Architectural Pivot:
+- PyTorch Sequential Gating: Phase 1 (`run_year.py`) was restructured to enforce strict sequential execution (one day at a time) for PyTorch operations, completely eliminating the GPU collisions.
+- Joblib CPU Re-Injection: Restored `ElasticNetCV` parallel processing within `stage1_speed_pass.py` using `n_jobs=get_safe_n_jobs()`. The CPU now parallelizes internally *within* the single active PyTorch day. 
+- Phase 2 Decoupling: Phase 2 chaos recovery was fully decoupled and is now executed globally at the very end of Phase 1 via a `ProcessPoolExecutor` that spans the entire dataset using purely CPU resources.
+
+Results:
+- This hybrid (Sequential GPU + Parallel CPU) completely bypassed the bottleneck.
+- Average processing speed dropped back to an incredibly fast ~3 minutes per day without any deadlock or resource thrashing.
+- Also patched the telemetry GUI windows to launch silently on Windows using `subprocess.CREATE_NO_WINDOW`.

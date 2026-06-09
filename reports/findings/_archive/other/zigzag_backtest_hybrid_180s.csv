@@ -1,2 +1,0 @@
-R_pts,n_days_is,n_days_oos,total_legs,legs_per_day,theo_is_per_day_usd,theo_oos_per_day_usd,theo_is_day_wr_pct,theo_oos_day_wr_pct,real_is_per_day_usd,real_oos_per_day_usd,real_is_day_wr_pct,real_oos_day_wr_pct,real_is_trade_wr_pct,real_oos_trade_wr_pct,real_median_trade_usd,confirm_tf_seconds
-30.0,258,64,8900,27.63975155279503,1241.7112403100775,1357.390625,87.59689922480621,95.3125,-101.59668862513179,-244.33017739269667,38.372093023255815,37.5,35.508211273857086,33.83742911153119,-34.40692198082979,180

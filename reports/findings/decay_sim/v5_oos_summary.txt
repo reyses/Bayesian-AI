@@ -1,5 +1,0 @@
-=== v5_oos (PURE prob-gate; P_FIRE=0.55, target/stop=±20t) ===
-n_trades=290  L=280 S=10  days_active=40
-Total $153  $/day $3.8  mean $0.53  median $10.50
-win_rate(cnt) 52.1% (151W/139L)  PF-WR +0.045
-reasons {'stop': 139, 'target': 151}

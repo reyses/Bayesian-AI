@@ -1,3 +1,0 @@
-feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
-L1_5s_bar_range,IS,2025_02_04,above_+3sigma,1738706395,60.17,26.73031731846977,26.73031731846977,-28.5,0.0,-28.5,21,Tue
-L1_5s_bar_range,IS,2025_12_17,above_+3sigma,1766008795,60.18,9.319920522417824,9.319920522417824,28.75,28.75,0.0,21,Wed

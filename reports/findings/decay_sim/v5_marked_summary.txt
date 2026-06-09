@@ -1,6 +1,0 @@
-=== v5_marked (PURE prob-gate; P_FIRE=0.55, target/stop=±20t) ===
-n_trades=9  L=9 S=0  days_active=2
-Total $-112  $/day $-56.0  mean $-12.44  median $-19.50
-win_rate(cnt) 33.3% (3W/6L)  PF-WR -0.742
-reasons {'target': 3, 'stop': 6}
-capture -3% (sim $-112 / oracle $3308)

@@ -1,2 +1,0 @@
-feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
-L2_5s_price_accel_9,IS,2025_12_19,below_-3sigma,1766126269,1.05,4.778162334839644,-4.778162334839644,62.0,91.25,-10.0,6,Fri

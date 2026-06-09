@@ -1,9 +1,0 @@
-2026-03-25 20:49 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=27 | val_acc=51.1% | trades=5274 | WR=33.5% | PnL=$25,372 | $/day=$651
-2026-03-25 20:56 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=23 | val_acc=51.1% | trades=4462 | WR=32.2% | PnL=$25,694 | $/day=$659
-2026-03-25 21:06 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=20 | val_acc=51.3% | trades=4021 | WR=31.7% | PnL=$28,720 | $/day=$736
-2026-03-25 21:12 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=5 | val_acc=51.7% | trades=282 | WR=24.8% | PnL=$6,868 | $/day=$176
-2026-03-25 21:46 | feat=7D | model=RF | lookback=10 | trees=200 | val_acc=--% | trades=4 | WR=25.0% | PnL=$70 | $/day=$2
-2026-03-25 22:32 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=20 | val_acc=51.3% | trades=4021 | WR=31.7% | PnL=$28,720 | $/day=$736
-2026-03-25 23:37 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=2 | val_acc=51.6% | trades=0 | WR=0.0% | PnL=$0 | $/day=$0
-2026-03-25 23:45 | feat=7D | layers=conv=2,dense=1 | lookback=10 | epochs=26 | val_acc=51.3% | trades=4151 | WR=31.4% | PnL=$26,300 | $/day=$674
-2026-03-26 04:06 | feat=7D | model=TCN | lookback=30 | dilations=7 | ch=32 | val_acc=50.8% | trades=0 | WR=0.0% | PnL=$0 | $/day=$0

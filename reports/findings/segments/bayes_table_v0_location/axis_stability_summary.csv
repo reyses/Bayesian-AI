@@ -1,6 +1,0 @@
-axis,n_cells_with_oos,sign_stable_pct,mean_edge_when_stable
-slope,14,100.0,0.433
-curvature,10,100.0,0.4414
-z_close,10,100.0,0.4196
-sigma_rank,16,100.0,0.432
-r2adj_5m,20,100.0,0.4423

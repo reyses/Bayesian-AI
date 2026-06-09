@@ -1,5 +1,0 @@
-=== v5_unmarked (PURE prob-gate; P_FIRE=0.55, target/stop=±20t) ===
-n_trades=148  L=140 S=8  days_active=25
-Total $-228  $/day $-9.1  mean $-1.54  median $-10.00
-win_rate(cnt) 48.0% (71W/77L)  PF-WR -0.158
-reasons {'stop': 77, 'target': 71}

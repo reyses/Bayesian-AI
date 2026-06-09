@@ -97,45 +97,48 @@ def _ols_fit_kernel(y: np.ndarray, window: int):
     rm = np.full(n, np.nan)
     se = np.full(n, np.nan)
 
-    if n < window or window < 2:
+    if n < 1:
         return rm, se
 
-    # Precompute x-denominator (sum of squared deviations of [0..window-1])
-    x_mean = (window - 1) / 2.0
-    denom = 0.0
-    for k in range(window):
-        dx = k - x_mean
-        denom += dx * dx
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        
+        if w < 2:
+            rm[i] = y[i]
+            se[i] = 0.0
+            continue
 
-    if denom < 1e-12:
-        return rm, se
+        x_mean = (w - 1) / 2.0
+        denom = 0.0
+        for k in range(w):
+            dx = k - x_mean
+            denom += dx * dx
 
-    for i in prange(window - 1, n):
-        start = i - window + 1
+        if denom < 1e-12:
+            rm[i] = y[i]
+            se[i] = 0.0
+            continue
 
-        # Mean of y in window
         sum_y = 0.0
-        for k in range(window):
+        for k in range(w):
             sum_y += y[start + k]
-        y_mean = sum_y / window
+        y_mean = sum_y / w
 
-        # Slope via sum of (x-xmean)(y-ymean) / sum((x-xmean)^2)
         sum_xy_dev = 0.0
-        for k in range(window):
+        for k in range(w):
             sum_xy_dev += (k - x_mean) * (y[start + k] - y_mean)
         slope = sum_xy_dev / denom
         intercept = y_mean - slope * x_mean
 
-        # Fitted value at endpoint (k = window - 1)
-        rm[i] = intercept + slope * (window - 1)
+        rm[i] = intercept + slope * (w - 1)
 
-        # Residual std (ddof = 2 for OLS with 2 free parameters)
         sum_sq_res = 0.0
-        for k in range(window):
+        for k in range(w):
             fit = intercept + slope * k
             res = y[start + k] - fit
             sum_sq_res += res * res
-        se[i] = np.sqrt(sum_sq_res / max(window - 2, 1))
+        se[i] = np.sqrt(sum_sq_res / max(w - 2, 1))
 
     return rm, se
 
@@ -145,14 +148,16 @@ def _rolling_mean_kernel(y: np.ndarray, window: int) -> np.ndarray:
     """Rolling mean over trailing window. out[i] uses y[i-window+1 : i+1]."""
     n = len(y)
     out = np.full(n, np.nan)
-    if n < window or window < 1:
+    if n < 1:
         return out
 
-    for i in prange(window - 1, n):
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
         s = 0.0
-        for k in range(window):
-            s += y[i - window + 1 + k]
-        out[i] = s / window
+        for k in range(w):
+            s += y[start + k]
+        out[i] = s / w
     return out
 
 
@@ -161,21 +166,26 @@ def _rolling_std_kernel(y: np.ndarray, window: int) -> np.ndarray:
     """Rolling std (ddof=1) over trailing window."""
     n = len(y)
     out = np.full(n, np.nan)
-    if n < window or window < 2:
+    if n < 1:
         return out
 
-    for i in prange(window - 1, n):
-        start = i - window + 1
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        if w < 2:
+            out[i] = 0.0
+            continue
+            
         s = 0.0
-        for k in range(window):
+        for k in range(w):
             s += y[start + k]
-        mean = s / window
+        mean = s / w
 
         sq_sum = 0.0
-        for k in range(window):
+        for k in range(w):
             d = y[start + k] - mean
             sq_sum += d * d
-        out[i] = np.sqrt(sq_sum / (window - 1))
+        out[i] = np.sqrt(sq_sum / (w - 1))
     return out
 
 
@@ -184,24 +194,25 @@ def _vwap_kernel(prices: np.ndarray, volumes: np.ndarray, window: int) -> np.nda
     """VWAP over trailing window: sum(p*v) / sum(v) for bars [i-W+1, i]."""
     n = len(prices)
     out = np.full(n, np.nan)
-    if n < window or window < 1:
+    if n < 1:
         return out
 
-    for i in prange(window - 1, n):
-        start = i - window + 1
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        
         sum_pv = 0.0
         sum_v = 0.0
-        for k in range(window):
+        for k in range(w):
             sum_pv += prices[start + k] * volumes[start + k]
             sum_v += volumes[start + k]
         if sum_v > 0:
             out[i] = sum_pv / sum_v
         else:
-            # Fallback: equal-weighted mean when volumes are all zero
             s = 0.0
-            for k in range(window):
+            for k in range(w):
                 s += prices[start + k]
-            out[i] = s / window
+            out[i] = s / w
     return out
 
 
@@ -215,17 +226,23 @@ def _swing_noise_kernel(highs: np.ndarray, lows: np.ndarray,
     """
     n = len(highs)
     out = np.full(n, np.nan)
-    if n < window or window < 2:
+    if n < 1:
         return out
 
-    for i in prange(window - 1, n):
-        start = i - window + 1
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        
+        if w < 2:
+            out[i] = max((highs[i] - lows[i]) / tick, 1.0)
+            continue
+            
         run_hi = highs[start]
         run_lo = lows[start]
         max_dd = run_hi - lows[start]
         max_du = highs[start] - run_lo
 
-        for k in range(1, window):
+        for k in range(1, w):
             j = start + k
             if highs[j] > run_hi:
                 run_hi = highs[j]
@@ -254,16 +271,23 @@ def _hurst_rs_kernel(prices: np.ndarray, window: int) -> np.ndarray:
     """
     n = len(prices)
     out = np.full(n, 0.5)
-    if n < window or window < 8:
+    if n < 1:
         return out
 
-    # Four sub-window sizes
-    size_small = max(window // 8, 4)
-    size_mid1 = max(window // 4, 8)
-    size_mid2 = max(window // 2, 16)
-    size_large = window
+    for i in range(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        
+        if w < 8:
+            out[i] = 0.5
+            continue
 
-    for i in range(window - 1, n):
+        # Four sub-window sizes
+        size_small = max(w // 8, 4)
+        size_mid1 = max(w // 4, 8)
+        size_mid2 = max(w // 2, 16)
+        size_large = w
+
         log_n = np.zeros(4)
         log_rs = np.zeros(4)
         valid = 0
@@ -281,8 +305,8 @@ def _hurst_rs_kernel(prices: np.ndarray, window: int) -> np.ndarray:
             if sz > i + 1 or sz < 2:
                 continue
 
-            start = i - sz + 1
-            p_start = prices[start]
+            h_start = i - sz + 1
+            p_start = prices[h_start]
             p_end = prices[i]
             mean_ret = (p_end - p_start) / (sz - 1)
 
@@ -293,7 +317,7 @@ def _hurst_rs_kernel(prices: np.ndarray, window: int) -> np.ndarray:
             prev_p = p_start
 
             for k in range(1, sz):
-                curr_p = prices[start + k]
+                curr_p = prices[h_start + k]
                 ret = (curr_p - prev_p) - mean_ret
                 cum_dev += ret
                 if cum_dev > max_dev:
@@ -437,21 +461,21 @@ class StatisticalFieldEngine:
         n = len(close)
 
         # 1-bar velocity: uses close[t-1], close[t]
-        price_v = np.full(n, np.nan)
+        price_v = np.zeros(n)
         if n >= 2:
             price_v[1:] = close[1:] - close[:-1]
 
-        vol_v = np.full(n, np.nan)
+        vol_v = np.zeros(n)
         if n >= 2:
             vol_v[1:] = volume[1:] - volume[:-1]
 
         # 1-bar acceleration: uses velocity[t-1], velocity[t]
         # velocity[t-1] = close[t-1] - close[t-2], so accel[t] uses {t-2, t-1, t}
-        price_a = np.full(n, np.nan)
+        price_a = np.zeros(n)
         if n >= 3:
             price_a[2:] = price_v[2:] - price_v[1:-1]
 
-        vol_a = np.full(n, np.nan)
+        vol_a = np.zeros(n)
         if n >= 3:
             vol_a[2:] = vol_v[2:] - vol_v[1:-1]
 
@@ -514,31 +538,33 @@ class StatisticalFieldEngine:
         n = len(close)
 
         # Smoothed velocities (N-bar mean of 1-bar delta equals endpoint secant)
-        price_v_N = np.full(n, np.nan)
-        if n > N:
-            price_v_N[N:] = (close[N:] - close[:-N]) / N
+        price_v_N = np.zeros(n)
+        for i in range(1, n):
+            start = max(0, i - N)
+            price_v_N[i] = (close[i] - close[start]) / (i - start)
 
-        vol_v_N = np.full(n, np.nan)
-        if n > N:
-            vol_v_N[N:] = (volume[N:] - volume[:-N]) / N
+        vol_v_N = np.zeros(n)
+        for i in range(1, n):
+            start = max(0, i - N)
+            vol_v_N[i] = (volume[i] - volume[start]) / (i - start)
 
         # Smoothed accelerations = MA of 1-bar ddeltadelta
         # = (velocity_1b[t] - velocity_1b[t-N]) / N
-        # where velocity_1b[t] = close[t] - close[t-1]
-        # Needs bars [t-N-1, t] (N+1 values of close, N values of velocity_1b)
-        price_a_N = np.full(n, np.nan)
-        if n > N + 1:
-            v1b = np.empty(n)
-            v1b[0] = np.nan
+        price_a_N = np.zeros(n)
+        v1b = np.zeros(n)
+        if n >= 2:
             v1b[1:] = close[1:] - close[:-1]
-            price_a_N[N + 1:] = (v1b[N + 1:] - v1b[1:n - N]) / N
+        for i in range(2, n):
+            start = max(1, i - N)
+            price_a_N[i] = (v1b[i] - v1b[start]) / (i - start)
 
-        vol_a_N = np.full(n, np.nan)
-        if n > N + 1:
-            vv1b = np.empty(n)
-            vv1b[0] = np.nan
+        vol_a_N = np.zeros(n)
+        vv1b = np.zeros(n)
+        if n >= 2:
             vv1b[1:] = volume[1:] - volume[:-1]
-            vol_a_N[N + 1:] = (vv1b[N + 1:] - vv1b[1:n - N]) / N
+        for i in range(2, n):
+            start = max(1, i - N)
+            vol_a_N[i] = (vv1b[i] - vv1b[start]) / (i - start)
 
         # First statistical moments (rolling)
         price_mean_N = _rolling_mean_kernel(close, N)

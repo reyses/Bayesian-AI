@@ -23,7 +23,9 @@ def index():
 def get_job():
     l0_dir = os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2', 'L0')
     files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
-    all_days = [os.path.basename(f).replace('FEATURES_', '').replace('.parquet', '') for f in files]
+    # Per-day parquets are named "<day>.parquet" (no FEATURES_ prefix).
+    all_days = [os.path.basename(f).replace('.parquet', '') for f in files
+                if not f.endswith('.meta.json')]
     
     # Check completed
     completed_files = glob.glob(os.path.join(ARTIFACTS_DIR, 'stage2_segments_*.json'))
@@ -50,15 +52,23 @@ def get_job():
 def download_data(day):
     """Dynamically packages the 5s OHLCV and all feature layers for the requested day into a ZIP stream."""
     memory_file = io.BytesIO()
-    
+
+    # The V2 feature store is decoupled per layer-family: FEATURES_5s_v2/<family>/<day>.parquet
+    # where <family> is L0, L1_5s, L1_15s, ... L3_1D (one dir per layer x timeframe).
+    # Enumerate the family dirs dynamically so the drone gets exactly what
+    # load_features(root=FEATURES_5s_v2) will look for. (Was hardcoded to
+    # non-existent L0/L1/L2/L3 dirs with a bogus FEATURES_ filename prefix.)
     paths_to_zip = {
         f"DATA/ATLAS/5s/{day}.parquet": os.path.join(ATLAS_ROOT, '5s', f'{day}.parquet'),
-        f"DATA/ATLAS/FEATURES_5s_v2/L0/FEATURES_{day}.parquet": os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2', 'L0', f'FEATURES_{day}.parquet'),
-        f"DATA/ATLAS/FEATURES_5s_v2/L1/FEATURES_{day}.parquet": os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2', 'L1', f'FEATURES_{day}.parquet'),
-        f"DATA/ATLAS/FEATURES_5s_v2/L2/FEATURES_{day}.parquet": os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2', 'L2', f'FEATURES_{day}.parquet'),
-        f"DATA/ATLAS/FEATURES_5s_v2/L3/FEATURES_{day}.parquet": os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2', 'L3', f'FEATURES_{day}.parquet'),
     }
-    
+    features_root = os.path.join(ATLAS_ROOT, 'FEATURES_5s_v2')
+    for family_dir in sorted(glob.glob(os.path.join(features_root, '*'))):
+        if not os.path.isdir(family_dir):
+            continue
+        family = os.path.basename(family_dir)
+        arcname = f"DATA/ATLAS/FEATURES_5s_v2/{family}/{day}.parquet"
+        paths_to_zip[arcname] = os.path.join(family_dir, f'{day}.parquet')
+
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
         for arcname, abs_path in paths_to_zip.items():
             if os.path.exists(abs_path):

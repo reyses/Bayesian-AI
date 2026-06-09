@@ -15,9 +15,14 @@ from training.rl_engine.network_research_A import ResearchANetwork
 from training.rl_engine.vtrace_reconciliation import VTraceReconciliation
 from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
 
+# Month whose stage2 segments are evaluated. The forward pass is run only on
+# the first available day of this set (a "quick eval"), but the day MUST be one
+# whose segments are loaded below or every trade falls through to UNCLASSIFIED.
+SEGMENT_GLOB = 'artifacts/stage2_segments_2025_02_*.json'
+
 def load_segments():
     all_data = []
-    files = sorted(glob.glob('artifacts/stage2_segments_2025_02_*.json'))
+    files = sorted(glob.glob(SEGMENT_GLOB))
     for file in files:
         with open(file, 'r') as f:
             all_data.extend(json.load(f))
@@ -41,8 +46,16 @@ def main():
         print(f"WARNING: Checkpoint {ckpt_path} not found. Running with random weights.")
 
     segments_data, segment_files = load_segments()
-    days = ['2025_01_07']
-    print(f"Loaded {len(days)} days of segment data for quick evaluation.")
+    if not segment_files:
+        print(f"WARNING: No segment files matched {SEGMENT_GLOB}. Nothing to evaluate.")
+        return
+    # Evaluate the FIRST day actually present in the loaded segments, so the
+    # trade->segment lookup below can match (was hardcoded to a January day
+    # while February segments were loaded -> every trade was UNCLASSIFIED).
+    available_days = sorted({seg['day'] for seg in segments_data})
+    days = available_days[:1]
+    print(f"Loaded {len(segments_data)} segments across {len(available_days)} days; "
+          f"evaluating {days[0]} for quick evaluation.")
     
     # Initialize MultiDayForwardPassSystem
     fps = MultiDayForwardPassSystem(
@@ -121,8 +134,8 @@ def main():
         trade_vol = 'UNCLASSIFIED'
 
         for seg in day_segments:
-            s_idx = seg['start_idx']
-            e_idx = seg['end_idx']
+            s_idx = seg.get('raw_start_idx', seg['start_idx'])
+            e_idx = seg.get('raw_end_idx', seg['end_idx'])
             if s_idx <= entry_bar <= e_idx:
                 trade_status = seg['status']
                 vol_tier_raw = seg.get('volatility_tier', 'UNCLASSIFIED')
@@ -155,8 +168,8 @@ def main():
         
         day_segments = [seg for seg in segments_data if seg['day'] == day]
         for seg in day_segments:
-            s_idx = seg['start_idx']
-            e_idx = seg['end_idx']
+            s_idx = seg.get('raw_start_idx', seg['start_idx'])
+            e_idx = seg.get('raw_end_idx', seg['end_idx'])
             status = seg['status']
             vol_tier_raw = seg.get('volatility_tier', 'UNCLASSIFIED')
             

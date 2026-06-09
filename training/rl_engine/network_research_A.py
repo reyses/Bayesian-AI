@@ -19,8 +19,8 @@ class ResearchANetwork(nn.Module):
         self.lstm = nn.LSTM(input_size=lstm_input_dim, hidden_size=lstm_hidden, batch_first=True)
         
         # Quadrant Output Heads (Position-Aware)
-        # lstm_hidden (lstm) + 24 (delta) + 7 (scalar)
-        fc1_input_dim = lstm_hidden + 24 + 7
+        # lstm_hidden (lstm) + 24 (delta) + 3 (scalar)
+        fc1_input_dim = lstm_hidden + 24 + 3
         self.fc1 = nn.Linear(fc1_input_dim, 128)
         
         # Head 1: Direct Action Space (Hold, Long, Short)
@@ -61,7 +61,7 @@ class ResearchANetwork(nn.Module):
         if delta_features is None:
             delta_features = torch.zeros(batch_size, 24, device=device)
         if scalar_context is None:
-            scalar_context = torch.zeros(batch_size, 7, device=device)
+            scalar_context = torch.zeros(batch_size, 3, device=device)
             
         merged = torch.cat([final_step, delta_features, scalar_context], dim=-1) # [Batch, 155]
         

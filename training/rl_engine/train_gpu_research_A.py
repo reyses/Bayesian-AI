@@ -276,7 +276,7 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
     trade_entry_params = torch.full((N_AGENTS, 1), -1, dtype=torch.int64, device=device)
     trade_entry_pis = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
     trade_entry_deltas = torch.zeros((N_AGENTS, 24), dtype=torch.float32, device=device)
-    trade_entry_scalars = torch.zeros((N_AGENTS, 7), dtype=torch.float32, device=device)
+    trade_entry_scalars = torch.zeros((N_AGENTS, 3), dtype=torch.float32, device=device)
     
     gross_profits = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
     gross_losses = torch.zeros(N_AGENTS, dtype=torch.float32, device=device)
@@ -358,12 +358,10 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
                 lb = l0_windows[start_idx:end_idx]
                 
                 # Base scalar context for entries (no unl_pnl, no age)
-                # We inject the segment risk here!
-                risk_batch = segment_risk_tensor[start_idx:end_idx]
+                # Lookahead exposure (segment_risk_tensor) has been removed!
                 base_scalar = torch.zeros(end_idx - start_idx, 3, device=device)
-                full_scalar = torch.cat([base_scalar, risk_batch], dim=-1)
                 
-                q_act, _ = master_net(gb, lb, scalar_context=full_scalar)
+                q_act, _ = master_net(gb, lb, scalar_context=base_scalar)
                 all_q_actions.append(q_act)
         all_q_actions = torch.cat(all_q_actions, dim=0)
         if not is_eval:
@@ -410,8 +408,8 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
             unl_pnl_norm = torch.clamp(unl_pnl / 100.0, -2.0, 2.0) # Assume $100 TP target
             age_norm = torch.clamp(position_age.float() / 60.0, 0.0, 5.0)
             
-            risk_i = segment_risk_tensor[i].expand(N_AGENTS, -1)
-            scalar_context = torch.cat([torch.stack([dir_signed, unl_pnl_norm, age_norm], dim=-1), risk_i], dim=-1)
+            # Lookahead exposure (segment_risk_tensor) has been removed!
+            scalar_context = torch.stack([dir_signed, unl_pnl_norm, age_norm], dim=-1)
             # ------------------------------------------------
             
             with torch.no_grad():
@@ -962,6 +960,7 @@ def run_walk_forward_curriculum(start_segment=1, target_vram=10500, accum_steps=
             'eval_dates': f"{eval_segment[0]} -> {eval_segment[-1]}",
             'pnls': [float(x) for x in trade_pnls],
             'durations': [float(x) for x in trade_durations],
+            'metadata': trade_metadata
         }
         with open('oos_trade_data.json', 'w') as _f:
             _json.dump(_oos_dump, _f)

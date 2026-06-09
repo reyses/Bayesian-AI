@@ -1,2 +1,0 @@
-feature,split,day,side,start_ts,duration_min,max_abs_z,signed_max_z,fwd_ret,fwd_mfe,fwd_mae,tod_hour,dow
-L1_15s_vol_velocity_1b,IS,2025_06_19,above_+3sigma,1750297710,1.0,6.228372226380828,6.228372226380828,17.5,23.75,-21.75,1,Thu
