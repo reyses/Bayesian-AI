@@ -12,6 +12,7 @@ from network_research_A import ResearchANetwork
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
+from core_v2.features import assemble_v2_grid
 from core_v2.ledger import Ledger
 from core_v2.exits import default_exit_suite
 
@@ -115,27 +116,34 @@ def run_diagnostic(target, ckpt_path):
             tod_norm = sec_in_day / 86400.0
             
             l0 = [v2_vec[0], tod_norm, day_norm] # [3]
-            grid = v2_vec[1:185].reshape(8, 23) # [8, 23]
-            
-            state_queue.append((l0, grid))
-            
+            # Store the FULL raw v2 row (canonical FEATURE_NAMES order). The CNN grid
+            # is assembled via assemble_v2_grid (name-keyed placement) EXACTLY as the
+            # training path does (ticker._v2_grid) — NOT a raw reshape. A reshape
+            # scrambled the (tf, feature) mapping and used 23 features/TF instead of 25.
+            state_queue.append((l0, np.asarray(v2_vec, dtype=np.float32)))
+
             if len(state_queue) < 60:
                 continue
-            
+
             if ledger.is_flat:
-                # Build tensors
+                # Build tensors with train/serve parity
                 l0_tensor = torch.tensor(np.array([s[0] for s in state_queue]), dtype=torch.float32).unsqueeze(0).to(device)
-                grid_tensor = torch.tensor(np.array([s[1] for s in state_queue]), dtype=torch.float32).unsqueeze(0).to(device)
-                grid_tensor = grid_tensor.permute(0, 2, 1, 3)
-                
+
+                raw_window = np.stack([s[1] for s in state_queue])  # [60, N_FEATURES]
+                # TODO(perf): assemble_v2_grid does ~200 FEATURE_NAMES.index() lookups
+                # per call, and this runs on every flat bar. If OOS replay is slow,
+                # precompute the (tf_idx, feat_idx) -> flat_idx map once and reuse it.
+                window_grid = assemble_v2_grid(raw_window)           # [60, 8, 25]
+                # [60, 8, 25] -> [8, 60, 25] -> [1, 8, 60, 25] to match network input
+                grid_tensor = torch.tensor(window_grid, dtype=torch.float32).permute(1, 0, 2).unsqueeze(0).to(device)
+
                 l0_tensor = torch.nan_to_num(l0_tensor, nan=0.0)
                 grid_tensor = torch.nan_to_num(grid_tensor, nan=0.0)
                 
-                heads, _ = master_net(grid_tensor, l0_tensor)
-                
-                # Head 1 is the Directional Action Space
-                q_action = heads[0]
-                
+                # Network returns (q_action [B,3], hidden_state). Was written for an
+                # older multi-head API (heads[0] + argmax(dim=1)) which crashed.
+                q_action, _ = master_net(grid_tensor, l0_tensor)  # [1, 3]
+
                 # PURE EXPLOITATION: No probabilities, no multinomial, pure argmax.
                 action = q_action.argmax(dim=1).item()
                 
