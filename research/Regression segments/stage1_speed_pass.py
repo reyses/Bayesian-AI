@@ -18,6 +18,7 @@ import pandas as pd
 import warnings
 import torch
 import psutil
+from tqdm import tqdm
 
 def get_safe_n_jobs(matrix_mb=0.1):
     """Dynamically calculates safe thread count leaving 1GB free."""
@@ -228,9 +229,13 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     X_sub_t = X_t[:, active_idx]
     X_poly_t = poly_expand_gpu(X_sub_t)
     
+    X_poly_cpu = X_poly_t.cpu().numpy()
+    enet2 = ElasticNetCV(l1_ratio=0.5, cv=3, n_jobs=1, fit_intercept=False, max_iter=200, tol=1e-3)
+    
     try:
-        w_enet, _ = elasticnet_fista_cv(X_poly_t, Y_t, l1_ratio=0.5, cv=3, alphas=50)
-        fixed_terms = torch.where(torch.abs(w_enet) > 1e-6)[0].cpu().numpy()
+        enet2.fit(X_poly_cpu, Y_cpu)
+        w_enet = enet2.coef_
+        fixed_terms = np.where(np.abs(w_enet) > 1e-6)[0]
     except:
         return 8, [], [], 9999.0, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
         
@@ -238,7 +243,7 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     max_features = min(15, max_features)
     
     if len(fixed_terms) > max_features:
-        fixed_terms = np.argsort(np.abs(w_enet.cpu().numpy()))[::-1][:max_features].copy()
+        fixed_terms = np.argsort(np.abs(w_enet))[::-1][:max_features].copy()
         
     if len(fixed_terms) == 0:
         return 8, [], [], 9999.0, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
@@ -322,6 +327,8 @@ def main():
     prev_segment_delta = None
     output_json = f"artifacts/stage1_segments_{day}.json"
     
+    pbar = tqdm(total=N_TOTAL, desc=f"Scanning {day}", unit="bars")
+    
     while seed_start + SEED_BARS < N_TOTAL:
         day_reporter.update(seed_start, N_TOTAL, f"Day {day} (Stage 1)")
         t_seg0 = time.time()
@@ -385,6 +392,7 @@ def main():
             new_delta = float(torch.max(raw_clean_t) - torch.min(raw_clean_t))
             if new_delta > 0:
                 prev_segment_delta = new_delta
+            pbar.update(L_star)
             seed_start += L_star
             
         else:
