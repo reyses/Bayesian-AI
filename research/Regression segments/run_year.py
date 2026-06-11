@@ -126,6 +126,21 @@ def main():
     
     final_segments = []
     
+    # Track pending days per month for Stage 2
+    pending_by_month_s2 = {}
+    month_day_counts_s2 = {}
+    for d in days:
+        stage1_file = f"artifacts/stage1_segments_{d}.json"
+        stage2_file = f"artifacts/stage2_segments_{d}.json"
+        if os.path.exists(stage1_file) and not os.path.exists(stage2_file):
+            m = d[:7]
+            if m not in pending_by_month_s2:
+                pending_by_month_s2[m] = set()
+            pending_by_month_s2[m].add(d)
+            
+    for m, d_set in pending_by_month_s2.items():
+        month_day_counts_s2[m] = len(d_set)
+    
     # Process stage 2 sequentially day by day to save RAM
     for day in days:
         stage1_file = f"artifacts/stage1_segments_{day}.json"
@@ -143,6 +158,14 @@ def main():
         t1 = time.time()
         subprocess.run([sys.executable, "research/Regression segments/stage2_parallel_chaos.py", "--day", day], check=True)
         print(f"[RUNNER] Stage 2 finished in {(time.time() - t1)/60:.1f} mins.")
+        
+        # Track month progression
+        m = day[:7]
+        if m in pending_by_month_s2 and day in pending_by_month_s2[m]:
+            pending_by_month_s2[m].remove(day)
+            if len(pending_by_month_s2[m]) == 0:
+                days_count = month_day_counts_s2.get(m, 0)
+                send_telegram_alert(f"📬 *Month {m} Stage 2 chaos resolution completed!* (Processed {days_count} days)")
         
         if os.path.exists(stage2_file):
             with open(stage2_file, 'r') as f:
