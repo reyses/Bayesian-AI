@@ -2,6 +2,7 @@
 > Future topics backlog: see `docs/ROADMAP.md`
 > Daily interaction journals: `docs/daily/YYYY-MM-DD.md`
 > Shared-math gotcha: [reference_fista_gpu_cv_step_bug.md](reference_fista_gpu_cv_step_bug.md) — `core_v2/math/fista_gpu.py::elasticnet_fista_cv` had a CV step-size/NaN-argmin bug (fixed 2026-06-08); `research/Regression segments/test_fista_parity.py` is the guard.
+> CI methodology: [feedback_ci_pseudoreplication_effective_n.md](feedback_ci_pseudoreplication_effective_n.md) — outcome CIs count unique trades/days, not agent-votes; block-bootstrap by day (research_A IS-gate pseudoreplication, 2026-06-08).
 
 ## **HARD RULES — DO NOT SKIP**
 - **KEEP JOURNALS UPDATED**: At the start and end of EVERY session, update:
