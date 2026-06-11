@@ -27,19 +27,19 @@ from .state import BarState, regime_to_idx
 ANCHOR_PERIOD_S = 5
 
 
-_REGIME_CACHE: Optional[dict] = None
+_REGIME_CACHE: dict = {}
 
 
 def _load_regime_lookup(labels_csv: str) -> dict:
     global _REGIME_CACHE
-    if _REGIME_CACHE is None:
+    if labels_csv not in _REGIME_CACHE:
         try:
             df = pd.read_csv(labels_csv)
             df['date'] = df['date'].astype(str).str[:10]
-            _REGIME_CACHE = dict(zip(df['date'], df['regime_2d']))
+            _REGIME_CACHE[labels_csv] = dict(zip(df['date'], df['regime_2d']))
         except Exception:
-            _REGIME_CACHE = {}
-    return _REGIME_CACHE
+            _REGIME_CACHE[labels_csv] = {}
+    return _REGIME_CACHE[labels_csv]
 
 
 def _normalize_ts(df: pd.DataFrame) -> pd.DataFrame:
@@ -102,35 +102,9 @@ class ForwardPassSystem:
             if name in feat_cols:
                 v2_matrix[:, j] = feats[name].values.astype(np.float32)
         self._v2_matrix = v2_matrix
-        
-        # Load Risk Assessment Segments
-        seg_file = f'artifacts/stage2_segments_{day}.json'
-        self._segment_risk = np.zeros((self._n, 4), dtype=np.float32)
-        if os.path.exists(seg_file):
-            with open(seg_file, 'r') as f:
-                segments = json.load(f)
-            for seg in segments:
-                s_idx = seg.get('raw_start_idx', seg.get('start_idx', 0))
-                e_idx = seg.get('raw_end_idx', seg.get('end_idx', 0))
-                status = seg.get('status', 'UNCLASSIFIED')
-                
-                vol = seg.get('volatility_tier', 5)
-                if not isinstance(vol, (int, float)):
-                    vol = 5
-                
-                err_band = seg.get('error_band_width', 0.0)
-                
-                is_pris = 1.0 if status in ['PRISTINE', 'RECOVERED'] else 0.0
-                is_cha = 1.0 if status == 'PURE_CHAOS' else 0.0
-                vol_norm = float(vol) / 9.0
-                err_norm = min(float(err_band) / 50.0, 1.0)
-                
-                if s_idx < self._n:
-                    e_idx_clamp = min(e_idx, self._n - 1)
-                    self._segment_risk[s_idx:e_idx_clamp+1] = [is_pris, is_cha, vol_norm, err_norm]
-        
-        # Native Anti-Scramble Grid Parity
-        self._v2_grid = assemble_v2_grid(self._v2_matrix)
+        # Segment labels are non-causal (see research/Regression segments/project.md).
+        # Never load stage*_segments_* into the forward pass.
+
 
         # Pre-extract OHLCV arrays for fast searchsorted
         self._ts5s = self._ohlcv_5s['timestamp'].values.astype(np.int64)
@@ -210,6 +184,9 @@ class ForwardPassSystem:
                 ohlcv_1m = None
                 price = 0.0
 
+            if price == 0.0:
+                continue
+
             yield BarState(
                 timestamp=float(ts),
                 bar_idx=i,
@@ -268,7 +245,9 @@ class MultiDayForwardPassSystem:
                 ticker = ForwardPassSystem(day=day, atlas_root=self._atlas_root,
                                        features_root=self._features_root,
                                        labels_csv=self._labels_csv)
-            except FileNotFoundError:
+            except FileNotFoundError as e:
+                import logging
+                logging.warning(f"Skipping {day}: {e}")
                 continue
             for state in ticker:
                 yield state

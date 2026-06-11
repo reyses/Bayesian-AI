@@ -429,7 +429,7 @@ def main():
 
     print(f'\n{"="*60}')
     print(f'READY FOR LIVE')
-    print(f'  Run: python -m live.launcher')
+    print(f'  Run: python -m live.engine_v2')
     print(f'{"="*60}')
 
 

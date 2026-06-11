@@ -243,10 +243,10 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         agg, sfe, prev_vel, ts_last)
 
     if feat is not None:
-        z = feat[12]   # 1m z
-        vr = feat[14]  # 1m vr
+        z = feat[FEATURE_NAMES.index('L3_1m_z_se_15')]   # 1m z
+        rprob = feat[FEATURE_NAMES.index('L3_1m_reversion_prob_15')]  # 1m rprob
         tfs = list(states_by_tf.keys())
-        logger.info(f'  Last feature: z={z:.2f} vr={vr:.2f} TFs={tfs}')
+        logger.info(f'  Last feature: z={z:.2f} rprob={rprob:.2f} TFs={tfs}')
         logger.info(f'  Feature vector: {N_FEATURES} dims')
         n_1m = agg.get_bar_count('1m')
         logger.info(f'  SFE ready: {n_1m} 1m bars (need {SFE_MIN_BARS})')
@@ -299,7 +299,7 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
     ledger = open(ledger_path, 'w')
     cols = ['timestamp', 'ts_str', 'price', 'recv_delay_ms', 'feat_ms',
             'gap_s', 'gap_type',
-            'z', 'vr', 'vel', 'n_tfs'] + list(FEATURE_NAMES)
+            'z', 'rprob', 'vel', 'n_tfs'] + list(FEATURE_NAMES)
     ledger.write(','.join(cols) + '\n')
 
     logger.info(f'  Listening for live bars... (max {max_live_bars})')
@@ -369,9 +369,9 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
             continue
 
         feat_count += 1
-        z = feat[12]
-        vr = feat[14]
-        vel = feat[15]
+        z = feat[FEATURE_NAMES.index('L3_1m_z_se_15')]
+        rprob = feat[FEATURE_NAMES.index('L3_1m_reversion_prob_15')]
+        vel = feat[FEATURE_NAMES.index('L2_1m_price_velocity_15')]
         n_tfs = len(states_by_tf)
         latencies.append(feat_ms)
 
@@ -379,13 +379,13 @@ async def run_diagnostic(config, max_phase=4, max_live_bars=50000):
         row = [f'{bar_ts:.0f}', _ts_str(bar_ts), f'{bar["close"]:.2f}',
                f'{recv_delay:.0f}', f'{feat_ms:.1f}',
                f'{gap_s:.0f}', gap_type,
-               f'{z:.4f}', f'{vr:.4f}', f'{vel:.2f}', str(n_tfs)]
+               f'{z:.4f}', f'{rprob:.4f}', f'{vel:.2f}', str(n_tfs)]
         row += [f'{feat[i]:.6f}' for i in range(N_FEATURES)]
         ledger.write(','.join(row) + '\n')
 
         # ── Progress ──
         if feat_count <= 3 or feat_count % 200 == 0:
-            logger.info(f'  LIVE {feat_count}: z={z:>+5.2f} vr={vr:.2f} '
+            logger.info(f'  LIVE {feat_count}: z={z:>+5.2f} rprob={rprob:.2f} '
                         f'price={bar["close"]:.2f} feat={feat_ms:.0f}ms '
                         f'{_ts_str(bar_ts)}')
 

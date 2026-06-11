@@ -10,9 +10,10 @@ Or:        python -m pytest tests/test_ledger.py -v
 import numpy as np
 import pytest
 
-from core_v2.ledger import Ledger as OriginalLedger, Position, MAX_CHAIN_CONTRACTS
-from core_v2.engine_signals import PositionsView
+from core_v2.ledger import Ledger as OriginalLedger, Position, MAX_CHAIN_CONTRACTS, Z_IDX
+from core_v2.engine_signals import PositionsView, PositionDecision
 from core_v2.features import N_FEATURES
+from core_v2.exits import TimeStop
 
 class Ledger(OriginalLedger):
     def __init__(self, *args, **kwargs):
@@ -21,9 +22,9 @@ class Ledger(OriginalLedger):
 
 
 def _make_features(z_1m: float = 0.0) -> np.ndarray:
-    """Build a feature vector with a given 1m z_se (at index 12)."""
+    """Build a feature vector with a given 1m z_se."""
     feat = np.zeros(N_FEATURES, dtype=np.float32)
-    feat[12] = z_1m   # 1m z_se is index 12 in the canonical layout
+    feat[Z_IDX] = z_1m
     return feat
 
 
@@ -429,6 +430,31 @@ class TestContractIds:
         led.clear()
         pos = led.add_position('long', 25010.0, 1060.0, 'CASCADE', _make_features())
         assert pos.contract_id == 'P001'   # back to start
+
+
+class TestTimeStopIntegration:
+    def test_deterministic_time_stop(self):
+        led = Ledger()
+        # Entry at ts=1000
+        led.add_position('long', 25000.0, 1000.0, 'CASCADE', _make_features())
+        
+        time_stop = TimeStop(max_minutes=30)
+        
+        # Advance 29 minutes (1740 seconds)
+        led.update_bar(_make_features(), price=25000.0, ts=1000.0 + 1740.0)
+        assert led.primary.bars_held == 29
+        
+        snap = led.snapshot()
+        reason = time_stop.evaluate(None, snap.primary)
+        assert reason is None
+        
+        # Advance to 30 minutes (1800 seconds)
+        led.update_bar(_make_features(), price=25000.0, ts=1000.0 + 1800.0)
+        assert led.primary.bars_held == 30
+        
+        snap = led.snapshot()
+        reason = time_stop.evaluate(None, snap.primary)
+        assert reason == 'time_stop'
 
 
 if __name__ == '__main__':

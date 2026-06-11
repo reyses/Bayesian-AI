@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 from scipy.stats import pearsonr, spearmanr
 
+VALID_TIER_MAX = 9
+
 def analyze_tier_vs_pnl():
-    repo_root = r"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI"
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     oos_path = os.path.join(repo_root, "oos_trade_data.json")
     
     if not os.path.exists(oos_path):
@@ -51,18 +53,38 @@ def analyze_tier_vs_pnl():
     # Map each trade to its tier
     trade_results = []
     
+    has_warned_raw_idx = False
+    excluded_trades_count = 0
+    
     for pnl, meta in zip(pnls, metadata):
         day, entry_bar, exit_bar, agent_dir = meta
         segs = day_segments.get(day, [])
         
         assigned_tier = None
         tier_journey = []
+        unclassified_overlap_len = 0
+        pct_unclassified = 0.0
         
         if exit_bar == entry_bar:
             for s in segs:
-                if s['start_idx'] <= entry_bar < s['end_idx']:
-                    assigned_tier = float(s.get('volatility_tier', 99))
-                    tier_journey.append((int(assigned_tier), 1.0))
+                if not has_warned_raw_idx and 'raw_start_idx' not in s:
+                    print(f"Warning: segments for {day} predate raw-index fix — coordinates may be shifted; re-run stage2 for this day")
+                    has_warned_raw_idx = True
+                    
+                s_idx = s.get('raw_start_idx', s['start_idx'])
+                e_idx = s.get('raw_end_idx', s['end_idx'])
+
+                if s_idx <= entry_bar < e_idx:
+                    raw_tier = s.get('volatility_tier', 99)
+                    if isinstance(raw_tier, (int, float)) and raw_tier <= VALID_TIER_MAX:
+                        assigned_tier = float(raw_tier)
+                        tier_journey.append((int(assigned_tier), 1.0))
+                    else:
+                        unclassified_overlap_len = 1
+                        pct_unclassified = 1.0
+                        tier_journey.append(('?', 1.0))
+                        assigned_tier = None
+                        excluded_trades_count += 1
                     break
         else:
             weighted_tier_sum = 0.0
@@ -70,33 +92,58 @@ def analyze_tier_vs_pnl():
             journey_parts = []
             
             for s in segs:
-                overlap_start = max(entry_bar, s['start_idx'])
-                overlap_end = min(exit_bar, s['end_idx'])
+                if not has_warned_raw_idx and 'raw_start_idx' not in s:
+                    print(f"Warning: segments for {day} predate raw-index fix — coordinates may be shifted; re-run stage2 for this day")
+                    has_warned_raw_idx = True
+                    
+                s_idx = s.get('raw_start_idx', s['start_idx'])
+                e_idx = s.get('raw_end_idx', s['end_idx'])
+
+                overlap_start = max(entry_bar, s_idx)
+                overlap_end = min(exit_bar, e_idx)
                 
                 if overlap_start < overlap_end:
                     overlap_len = overlap_end - overlap_start
-                    overlap_sum += overlap_len
-                    tier_val = float(s.get('volatility_tier', 99))
-                    weighted_tier_sum += overlap_len * tier_val
-                    journey_parts.append((int(tier_val), overlap_len))
+                    raw_tier = s.get('volatility_tier', 99)
                     
-            if overlap_sum > 0:
-                assigned_tier = weighted_tier_sum / overlap_sum
-                # Convert lengths to percentages
-                tier_journey = [(t, length / overlap_sum) for t, length in journey_parts]
+                    if isinstance(raw_tier, (int, float)) and raw_tier <= VALID_TIER_MAX:
+                        overlap_sum += overlap_len
+                        tier_val = float(raw_tier)
+                        weighted_tier_sum += overlap_len * tier_val
+                        journey_parts.append((int(tier_val), overlap_len))
+                    else:
+                        unclassified_overlap_len += overlap_len
+                        journey_parts.append(('?', overlap_len))
+                        
+            total_trade_len = exit_bar - entry_bar
+            if total_trade_len > 0:
+                pct_unclassified = unclassified_overlap_len / total_trade_len
                 
-        if assigned_tier is not None:
-            journey_str = " -> ".join([f"T{t}({pct*100:.0f}%)" for t, pct in tier_journey])
-            
-            trade_results.append({
-                'day': day,
-                'entry_bar': entry_bar,
-                'exit_bar': exit_bar,
-                'tier': assigned_tier,
-                'pnl': pnl,
-                'is_win': 1 if pnl > 0 else 0,
-                'tier_journey': journey_str
-            })
+            if pct_unclassified > 0.5:
+                assigned_tier = None
+                excluded_trades_count += 1
+            elif overlap_sum > 0:
+                assigned_tier = weighted_tier_sum / overlap_sum
+                
+            total_covered = overlap_sum + unclassified_overlap_len
+            if total_covered > 0:
+                tier_journey = [(t, length / total_covered) for t, length in journey_parts]
+                
+        journey_str = " -> ".join([f"T{t}({pct*100:.0f}%)" if t != '?' else f"T?({(pct)*100:.0f}%)" for t, pct in tier_journey])
+        
+        trade_results.append({
+            'day': day,
+            'entry_bar': entry_bar,
+            'exit_bar': exit_bar,
+            'tier': assigned_tier,
+            'pct_unclassified': pct_unclassified,
+            'pnl': pnl,
+            'is_win': 1 if pnl > 0 else 0,
+            'tier_journey': journey_str
+        })
+        
+    if excluded_trades_count > 0:
+        print(f"Note: Excluded {excluded_trades_count} trades due to >50% unclassified overlap.")
             
     if not trade_results:
         print("Could not map any trades to segment tiers. Are the artifacts complete?")
@@ -113,11 +160,14 @@ def analyze_tier_vs_pnl():
     print("📊 TIER vs PNL DIAGNOSTIC REPORT")
     print("="*50)
     
+    # Filter out unclassified trades before correlations and summary
+    valid_df = df.dropna(subset=['tier']).copy()
+    
     # Aggregate by Tier (round weighted tiers to nearest integer for the grouping summary)
-    df['rounded_tier'] = df['tier'].round().astype(int)
+    valid_df['rounded_tier'] = valid_df['tier'].round().astype(int)
     summary = []
-    for tier in sorted(df['rounded_tier'].unique()):
-        tier_df = df[df['rounded_tier'] == tier]
+    for tier in sorted(valid_df['rounded_tier'].unique()):
+        tier_df = valid_df[valid_df['rounded_tier'] == tier]
         n_trades = len(tier_df)
         win_rate = tier_df['is_win'].mean() * 100
         avg_pnl = tier_df['pnl'].mean()
@@ -131,17 +181,24 @@ def analyze_tier_vs_pnl():
             'Net PnL': net_pnl
         })
         
-    summary_df = pd.DataFrame(summary).set_index('Rounded Tier')
-    print(summary_df.to_string(float_format=lambda x: f"{x:.2f}"))
-    
+    if summary:
+        summary_df = pd.DataFrame(summary).set_index('Rounded Tier')
+        print(summary_df.to_string(float_format=lambda x: f"{x:.2f}"))
+    else:
+        print("No valid trades remaining after tier exclusion.")
+        
     print("\n" + "="*50)
     print("📈 CORRELATION METRICS")
     print("="*50)
     
+    if len(valid_df) < 2:
+        print("Not enough valid trades for correlation.")
+        return
+        
     # Calculate Correlation between Tier (x) and PnL (y)
     # A negative correlation means Higher Tier (more chaos) = Lower PnL
-    tiers = df['tier'].values
-    pnls_array = df['pnl'].values
+    tiers = valid_df['tier'].values
+    pnls_array = valid_df['pnl'].values
     
     pearson_corr, p_p = pearsonr(tiers, pnls_array)
     spearman_corr, p_s = spearmanr(tiers, pnls_array)

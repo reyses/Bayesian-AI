@@ -20,6 +20,16 @@ from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
 # whose segments are loaded below or every trade falls through to UNCLASSIFIED.
 SEGMENT_GLOB = 'artifacts/stage2_segments_2025_02_*.json'
 
+def vol_bucket(tier_raw):
+    if not isinstance(tier_raw, (int, float)):
+        return str(tier_raw) if tier_raw in ('UNCLASSIFIED',) else 'UNCLASSIFIED'
+    t = int(tier_raw)
+    if t <= 3:  return 'LOW'
+    if t <= 6:  return 'MEDIUM'
+    if t <= 8:  return 'HIGH'
+    if t == 9:  return 'EXTREME'
+    return 'UNCLASSIFIED'   # 99 sentinel and anything else
+
 def load_segments():
     all_data = []
     files = sorted(glob.glob(SEGMENT_GLOB))
@@ -136,20 +146,10 @@ def main():
         for seg in day_segments:
             s_idx = seg.get('raw_start_idx', seg['start_idx'])
             e_idx = seg.get('raw_end_idx', seg['end_idx'])
-            if s_idx <= entry_bar <= e_idx:
+            if s_idx <= entry_bar < e_idx:
                 trade_status = seg['status']
                 vol_tier_raw = seg.get('volatility_tier', 'UNCLASSIFIED')
-                if isinstance(vol_tier_raw, int):
-                    if vol_tier_raw <= 3:
-                        trade_vol = 'LOW'
-                    elif vol_tier_raw <= 6:
-                        trade_vol = 'MEDIUM'
-                    elif vol_tier_raw <= 9:
-                        trade_vol = 'HIGH'
-                    else:
-                        trade_vol = 'EXTREME'
-                else:
-                    trade_vol = vol_tier_raw
+                trade_vol = vol_bucket(vol_tier_raw)
                 break
         
         metrics_by_type[trade_status]['pnl'].append(pnl)
@@ -172,18 +172,10 @@ def main():
             e_idx = seg.get('raw_end_idx', seg['end_idx'])
             status = seg['status']
             vol_tier_raw = seg.get('volatility_tier', 'UNCLASSIFIED')
-            
-            trade_vol = 'UNCLASSIFIED'
-            if isinstance(vol_tier_raw, int):
-                if vol_tier_raw <= 3: trade_vol = 'LOW'
-                elif vol_tier_raw <= 6: trade_vol = 'MEDIUM'
-                elif vol_tier_raw <= 9: trade_vol = 'HIGH'
-                else: trade_vol = 'EXTREME'
-            else:
-                trade_vol = vol_tier_raw
+            trade_vol = vol_bucket(vol_tier_raw)
 
             p_start = max(0, s_idx - start_idx)
-            p_end = min(len(probs), e_idx - start_idx + 1)
+            p_end = min(len(probs), e_idx - start_idx)
             
             if p_start < p_end:
                 segment_probs = probs[p_start:p_end]

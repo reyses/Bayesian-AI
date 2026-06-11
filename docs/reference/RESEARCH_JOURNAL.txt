@@ -4355,3 +4355,60 @@ Results:
 - This hybrid (Sequential GPU + Parallel CPU) completely bypassed the bottleneck.
 - Average processing speed dropped back to an incredibly fast ~3 minutes per day without any deadlock or resource thrashing.
 - Also patched the telemetry GUI windows to launch silently on Windows using `subprocess.CREATE_NO_WINDOW`.
+
+================================================================================
+2026-06-08 -- research_A RL-variant audit + CI / effective-N methodology
+================================================================================
+(Segmentation / regime-cloud design from this session is tracked separately in
+SEGMENT_OPTIMIZATION.md + PLAN_regime_cloud_phases.md; not duplicated here.)
+
+Audited training/rl_engine/{network,train_gpu,evaluate,evaluate_oos}_research_A.py.
+
+CRITICAL bug FIXED -- both standalone evaluators were non-functional:
+ - They built the CNN grid via v2_vec[1:185].reshape(8,23). Two faults:
+   (1) wrong feature count -- the net needs 25 feat/TF (cnn_out=64*21=1344,
+       lstm input=1347); 23 -> 1219 -> LSTM dim crash.
+   (2) scrambled mapping -- the canonical grid is NAME-KEYED via
+       core_v2/features.assemble_v2_grid (explicit anti-scramble), not a
+       contiguous reshape.
+   Plus a stale multi-head return: heads,_=net(...); heads[0].argmax(dim=1)
+   -> IndexError (net returns a single q_action[B,3]).
+ - FIX: store the full raw row, assemble the 60-bar window via assemble_v2_grid
+   (train/serve parity, same as ticker._v2_grid), fix return handling. Both
+   compile. (TODO(perf): assemble_v2_grid does ~200 FEATURE_NAMES.index/call.)
+ - IMPLICATION: any OOS number previously attributed to these standalone
+   evaluators is suspect -- they crashed before producing a trade. The in-loop
+   OOS path (run_quadrant_sim is_eval=True) was correct (uses ticker._v2_grid).
+
+Trainer bugs FLAGGED (not fixed -- user runs training):
+ - get_dynamic_n_agents(fps_oos) passes an FPS object where an int is expected
+   (swallowed by bare except -> returns 4; benign only because is_eval forces N=1).
+ - del fps_eval -> NameError -> fps_oos never freed between segments.
+ - dead physics_proxy_research_A; hardcoded lr=0.00015 overrides load_config().
+ - async learner thread shares ONE live master_net with the main inference loop
+   (race / torn weights; IMPALA-style but no weight copy).
+ - MFE over a post-exit H_LOOKAHEAD=27 window feeds the IS gate (hindsight in a
+   gate; bias conservative, noted).
+
+CI PSEUDOREPLICATION (durable methodology finding):
+ - evaluate_is_mastery_gate uses stderr = std/sqrt(raw_N). But IS training runs
+   up to 128 agents sharing ONE network -> deterministic greedy -> many agents
+   take byte-identical trades (same day/entry/exit/dir). raw_N >> effective_N
+   (unique trades, computed via set(metadata) then IGNORED). stderr understated
+   ~sqrt(raw/eff)x -> CI too narrow -> mastery gate passes on noise -> curriculum
+   advances prematurely. (Automated decision, not just a printed number.)
+
+Generalizable principle (ties to the metric-definitions hard rule):
+ - Unit of independence for an OUTCOME CI = the unique market trade, NOT
+   agent-votes. A diverse agent fleet helps only by producing more DISTINCT
+   trades (coverage), never by re-voting the same one.
+ - Same-entry / different-exit trades are NOT independent -- they ride one
+   realized price path (correlated). The honest independent unit climbs to the
+   ENTRY, and in a historical backtest (one fixed path) ultimately the DAY ->
+   block-bootstrap by day, consistent with the canonical $/day metric (4000
+   resamples over days).
+ - Gate fix (NOT yet applied): dedup/cluster to unique entries, or block-bootstrap
+   by day, and use effective_N.
+
+Files touched: evaluate_research_A.py, evaluate_oos_research_A.py (grid-assembly +
+return-handling fixes; both compile). Trainer + gate fixes flagged, not applied.

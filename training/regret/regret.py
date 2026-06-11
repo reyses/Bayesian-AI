@@ -210,8 +210,9 @@ def simulate_exit(pnl_path: np.ndarray,
     tp_usd = tp_pts * 2.0
     sl_usd = -abs(sl_pts) * 2.0
     armed = False
-    peak = -float('inf')
-    cap = min(time_stop_bars, n - 1)
+    peak = -1e18
+    cap_bars = time_stop_bars * 12
+    cap = min(cap_bars, n - 1)
 
     for i in range(cap + 1):
         v = float(pnl_path[i])

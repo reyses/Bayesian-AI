@@ -11,7 +11,9 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
-sys.path.append(r"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI")
+# Dynamically locate repository root
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(repo_root)
 try:
     from telegram_mcp import send_telegram_alert, inject_prompt
 except ImportError:
@@ -26,7 +28,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 import stage2_parallel_chaos
 
 def get_safe_parallel_days():
-    return 1 # Hardcoded to 1 to prevent PCIe/CUDA context thrashing across multiple PyTorch instances
+    return 16  # Scale to match the 16 vCPUs of the g2-standard-16 instance
 
 def process_day_stage1(day):
     from datetime import datetime
@@ -54,7 +56,7 @@ def main():
     parser.add_argument('--start-date', type=str, default=None, help="Format YYYY_MM_DD")
     args = parser.parse_args()
 
-    atlas_root = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
+    atlas_root = os.path.join(repo_root, "DATA", "ATLAS")
     l0_dir = os.path.join(atlas_root, 'FEATURES_5s_v2', 'L0')
     files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
     days = [os.path.basename(f).replace('.parquet', '') for f in files]
@@ -64,7 +66,11 @@ def main():
 
     print(f"[RUNNER] Found {len(days)} total days of ATLAS data.")
     
-    subprocess.Popen([sys.executable, "core_v2/telemetry/gui.py"], creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    try:
+        import tkinter
+        subprocess.Popen([sys.executable, "core_v2/telemetry/gui.py"], creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+    except ImportError:
+        print("[RUNNER] Tkinter not available, skipping GUI spawning. Progress can be monitored via CLI telemetry watcher.")
     
     # ---- PHASE 1: STAGE 1 (PARALLEL DAYS) ----
     max_days = get_safe_parallel_days()
@@ -76,6 +82,20 @@ def main():
     phase1_reporter = TelemetryReporter("phase1_progress")
     completed_days = 0
     
+    # Track pending days per month to send summary alerts instead of daily spam
+    pending_by_month = {}
+    month_day_counts = {}
+    for d in days:
+        stage1_file = f"artifacts/stage1_segments_{d}.json"
+        if not os.path.exists(stage1_file):
+            m = d[:7]  # YYYY_MM
+            if m not in pending_by_month:
+                pending_by_month[m] = set()
+            pending_by_month[m].add(d)
+            
+    for m, d_set in pending_by_month.items():
+        month_day_counts[m] = len(d_set)
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_days) as executor:
         futures = {executor.submit(process_day_stage1, day): day for day in days}
         for future in concurrent.futures.as_completed(futures):
@@ -86,9 +106,14 @@ def main():
                 day_res, success, t_start, t_end, dur_str = future.result()
                 if success:
                     print(f"  -> Finished Stage 1 for {day} ({dur_str})")
-                    # If it was skipped, don't spam Telegram. Only alert on actual processed days.
+                    # Track month progression
                     if t_start != "Skipped":
-                        send_telegram_alert(f"✔️ Day {day} finished! ({completed_days}/{len(days)})\n⏱️ {t_start} -> {t_end}\n⏳ Duration: {dur_str}")
+                        m = day[:7]
+                        if m in pending_by_month and day in pending_by_month[m]:
+                            pending_by_month[m].remove(day)
+                            if len(pending_by_month[m]) == 0:
+                                days_count = month_day_counts.get(m, 0)
+                                send_telegram_alert(f"📬 *Month {m} Stage 1 scan completed!* (Processed {days_count} days)")
             except Exception as e:
                 print(f"[ERROR] Day {day} failed Stage 1: {e}")
 

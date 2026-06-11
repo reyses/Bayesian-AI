@@ -3,10 +3,13 @@ import glob
 import time
 import zipfile
 import io
+import re
 from flask import Flask, jsonify, request, send_file
 import werkzeug
 
 app = Flask(__name__)
+
+DAY_RE = re.compile(r'^\d{4}_\d{2}_\d{2}$')
 
 ATLAS_ROOT = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
 ARTIFACTS_DIR = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/artifacts"
@@ -51,6 +54,9 @@ def get_job():
 @app.route('/download/<day>', methods=['GET'])
 def download_data(day):
     """Dynamically packages the 5s OHLCV and all feature layers for the requested day into a ZIP stream."""
+    if not DAY_RE.match(day):
+        return jsonify({"error": "invalid day format"}), 400
+        
     memory_file = io.BytesIO()
 
     # The V2 feature store is decoupled per layer-family: FEATURES_5s_v2/<family>/<day>.parquet
@@ -87,6 +93,9 @@ def download_data(day):
 
 @app.route('/submit/<day>', methods=['POST'])
 def submit_job(day):
+    if not DAY_RE.match(day):
+        return jsonify({"error": "invalid day format"}), 400
+        
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
         

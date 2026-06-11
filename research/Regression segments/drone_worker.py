@@ -6,6 +6,9 @@ import subprocess
 import shutil
 import argparse
 import sys
+import re
+
+DAY_RE = re.compile(r'^\d{4}_\d{2}_\d{2}$')
 
 def main():
     parser = argparse.ArgumentParser()
@@ -33,6 +36,11 @@ def main():
             if not day:
                 print(f"[DRONE] No jobs available right now. Sleeping for 60 seconds...")
                 time.sleep(60)
+                continue
+                
+            if not DAY_RE.match(day):
+                print(f"[DRONE] ERROR: Invalid day format received '{day}'. Skipping.")
+                time.sleep(10)
                 continue
                 
             print(f"\n[DRONE] >>> RECEIVED JOB FOR {day} <<<")

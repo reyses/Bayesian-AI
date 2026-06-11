@@ -53,3 +53,8 @@ Known issues / decisions (audit 2026-06-08):
   by design (multiprocessing) — tiers not strictly comparable at the margin.
 - Error band is path-dependent on processing order: partial-day runs
   (`--hours`, `--start-date`) produce different tiers than full-day runs.
+- **Convention**: All segment ranges are half-open `[start_idx, end_idx)` and
+  `[raw_start_idx, raw_end_idx)`. `raw_end_idx` is the raw index of the first
+  bar AFTER the segment.
+- Stage 1 `STRIDE` hunt-forward is an optimization. Changing `STRIDE` without
+  the exact backward-refine step alters boundaries and tier path-dependence.

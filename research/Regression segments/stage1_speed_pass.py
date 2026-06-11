@@ -51,29 +51,7 @@ ERROR_BAND_FRACTION = 0.10    # subsequent error band = 10% of prior segment's p
                              # NOTE: this makes tiers path-dependent on processing
                              # order; partial-day runs differ from full-day runs.
 
-def max_consecutive(arr):
-    if not np.any(arr): return 0
-    padded = np.pad(arr, (1, 1), mode='constant')
-    diff = np.diff(padded.astype(int))
-    starts = np.where(diff == 1)[0]
-    ends = np.where(diff == -1)[0]
-    return np.max(ends - starts)
-
-def categorize_segment(Y_clean, preds, E):
-    residuals = np.abs(Y_clean - preds)
-    max_res = np.max(residuals)
-    
-    if max_res <= 1.5 * E:
-        out_10 = residuals > 1.0 * E
-        if max_consecutive(out_10) < 3:
-            return 1
-            
-    if max_res <= 2.0 * E:
-        out_15 = residuals > 1.5 * E
-        if max_consecutive(out_15) < 3:
-            return 2
-            
-    return 3
+from tiering import classify_tier, max_consecutive
 
 def build_groups_from_columns(columns):
     groups = []
@@ -196,17 +174,7 @@ def batched_ols_scan_pytorch(X_t, Y_t, min_bars, max_bars, E):
         max_res = torch.max(residuals).item()
         
         res_cpu = residuals.squeeze().cpu().numpy()
-        if max_res <= 1.5 * E:
-            if max_consecutive(res_cpu > 1.0 * E) < 3:
-                tier = 1
-            elif max_res <= 2.0 * E and max_consecutive(res_cpu > 1.5 * E) < 3:
-                tier = 2
-            else:
-                tier = 3
-        elif max_res <= 2.0 * E and max_consecutive(res_cpu > 1.5 * E) < 3:
-            tier = 2
-        else:
-            tier = 3
+        tier = classify_tier(res_cpu, E, max_tier=2)
         
         tiers_dict[L] = tier
         max_residuals[L] = max_res
@@ -261,8 +229,9 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     preds_t = X_poly_fixed_t @ beta_t
     preds_cpu = preds_t.cpu().numpy().flatten()
     
-    tier = categorize_segment(Y_cpu, preds_cpu, E)
-    max_residual = float(np.max(np.abs(Y_cpu - preds_cpu)))
+    residuals_cpu = np.abs(Y_cpu - preds_cpu)
+    tier = classify_tier(residuals_cpu, E, max_tier=2)
+    max_residual = float(np.max(residuals_cpu))
     
     return tier, fixed_terms.tolist(), beta_cpu, max_residual, active_idx.tolist() if hasattr(active_idx, "tolist") else active_idx
 
@@ -270,7 +239,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--day', type=str, required=True, help="Format YYYY_MM_DD")
     parser.add_argument('--hours', type=int, default=24, help="Hours to process")
-    parser.add_argument('--atlas_root', type=str, default="C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS", help="Path to ATLAS root")
+    parser.add_argument('--atlas_root', type=str, default=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "DATA", "ATLAS")), help="Path to ATLAS root")
     args = parser.parse_args()
     
     day = args.day
@@ -318,7 +287,10 @@ def main():
     close_prices_t = torch.tensor(close_prices, dtype=torch.float32, device=device)
     groups = build_groups_from_columns(features_cols)
     
-    sys.path.append(r"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI")
+    # Dynamically locate repository root
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    if repo_root not in sys.path:
+        sys.path.append(repo_root)
     from core_v2.telemetry.reporter import TelemetryReporter
     day_reporter = TelemetryReporter(f"stage1_{day}")
     
@@ -402,13 +374,37 @@ def main():
             
             print(f"  -> [MESSY] Initial seed was Tier {tier}. Hunting forward for Tier 1 or 2...")
             
-            for k in range(1, max_hunt):
-                tier_k, _, _, _, _ = evaluate_block(
-                    seed_start + k, SEED_BARS, error_band, X_global_t, close_prices_t, groups
-                )
-                if tier_k in [1, 2]:
-                    found_k = k
-                    break
+            STRIDE = 5
+            if max_hunt <= STRIDE:
+                for k in range(1, max_hunt):
+                    tier_k, _, _, _, _ = evaluate_block(
+                        seed_start + k, SEED_BARS, error_band, X_global_t, close_prices_t, groups
+                    )
+                    if tier_k in [1, 2]:
+                        found_k = k
+                        break
+            else:
+                found_coarse = None
+                for k in range(STRIDE, max_hunt, STRIDE):
+                    tier_k, _, _, _, _ = evaluate_block(
+                        seed_start + k, SEED_BARS, error_band, X_global_t, close_prices_t, groups
+                    )
+                    if tier_k in [1, 2]:
+                        found_coarse = k
+                        break
+                        
+                if found_coarse is None:
+                    found_k = max(1, max_hunt)
+                else:
+                    found_k = found_coarse
+                    for k in range(found_coarse - 1, max(found_coarse - STRIDE, 0), -1):
+                        tier_k, _, _, _, _ = evaluate_block(
+                            seed_start + k, SEED_BARS, error_band, X_global_t, close_prices_t, groups
+                        )
+                        if tier_k in [1, 2]:
+                            found_k = k
+                        else:
+                            break
                     
             if found_k is None:
                 found_k = max(1, max_hunt)

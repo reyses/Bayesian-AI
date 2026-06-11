@@ -32,28 +32,7 @@ from core_v2.features import load_features
 
 SEED_BARS = 30
 
-def max_consecutive(arr):
-    if not np.any(arr): return 0
-    padded = np.pad(arr, (1, 1), mode='constant')
-    diff = np.diff(padded.astype(int))
-    starts = np.where(diff == 1)[0]
-    ends = np.where(diff == -1)[0]
-    return np.max(ends - starts)
-
-def categorize_chaos_segment(residuals, E):
-    max_res = np.max(residuals)
-    
-    # Check all tiers up to Tier 8 (45-50%)
-    if max_res <= 1.5 * E and max_consecutive(residuals > 1.0 * E) < 3: return 1
-    if max_res <= 2.0 * E and max_consecutive(residuals > 1.5 * E) < 3: return 2
-    if max_res <= 2.5 * E and max_consecutive(residuals > 2.0 * E) < 3: return 3
-    if max_res <= 3.0 * E and max_consecutive(residuals > 2.5 * E) < 3: return 4
-    if max_res <= 3.5 * E and max_consecutive(residuals > 3.0 * E) < 3: return 5
-    if max_res <= 4.0 * E and max_consecutive(residuals > 3.5 * E) < 3: return 6
-    if max_res <= 4.5 * E and max_consecutive(residuals > 4.0 * E) < 3: return 7
-    if max_res <= 5.0 * E and max_consecutive(residuals > 4.5 * E) < 3: return 8
-    
-    return 9 # Pure Chaos
+from tiering import classify_tier, max_consecutive
 
 def build_groups_from_columns(columns):
     groups = []
@@ -162,7 +141,7 @@ def batched_ols_scan_pytorch(X_t, Y_t, min_bars, max_bars, E):
         residuals = torch.abs(Y_sub - preds)
         res_cpu = residuals.squeeze().cpu().numpy()
         
-        tier = categorize_chaos_segment(res_cpu, E)
+        tier = classify_tier(res_cpu, E, max_tier=8)
         
         tiers_dict[L] = tier
         max_residuals[L] = float(torch.max(residuals).item())
@@ -217,7 +196,7 @@ def evaluate_block(start_idx, length, E, X_global_t, close_prices_t, groups):
     preds_cpu = preds_t.cpu().numpy().flatten()
     
     residuals = np.abs(Y_cpu - preds_cpu)
-    tier = categorize_chaos_segment(residuals, E)
+    tier = classify_tier(residuals, E, max_tier=8)
     max_residual = float(np.max(residuals))
     
     return tier, fixed_terms.tolist(), beta_cpu, max_residual, active_idx.tolist()
@@ -305,7 +284,7 @@ def process_chaos_block(args):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--day', type=str, required=True)
-    parser.add_argument('--atlas_root', type=str, default="C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS")
+    parser.add_argument('--atlas_root', type=str, default=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "DATA", "ATLAS")))
     args = parser.parse_args()
     
     print(f"[MAIN] Stage 2 Chaos Processor starting for {args.day}")

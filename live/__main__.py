@@ -1,4 +1,5 @@
 """Allow running as: python -m live"""
-from live.launcher import main
+from live.engine_v2 import main
 
-main()
+if __name__ == '__main__':
+    main()

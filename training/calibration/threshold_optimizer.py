@@ -34,7 +34,7 @@ TP_GRID = [15.0, 25.0, 40.0, 60.0, 100.0, 200.0, 999.0]   # POINTS (1pt=$2)
 SL_GRID = [3.0,  5.0,  8.0,  12.5, 20.0, 999.0]
 GB_MIN_GRID = [15.0, 30.0, 60.0, 999.0]                       # $; 999 = disabled
 GB_KEEP_GRID = [0.3, 0.5, 0.7]
-TIME_STOP_GRID = [60, 180, 360, 540, 720]                       # 5s bars
+TIME_STOP_GRID = [5, 15, 30, 45, 60]                         # whole minutes
 
 # Hierarchical fallback thresholds
 MIN_N_CELL = 60      # below this, use tier-only optimum
@@ -44,7 +44,7 @@ MIN_N_TIER = 30      # below this, use universal optimum
 DEFAULT_THRESHOLDS = {
     'tp_pts': 60.0, 'sl_pts': 12.5,
     'gb_min': 30.0, 'gb_keep': 0.5,
-    'time_stop_bars': 360,
+    'time_stop_bars': 30,
 }
 
 
@@ -75,7 +75,8 @@ def _simulate_one(path: np.ndarray, tp_usd: float, sl_usd: float,
         return 0.0
     armed = False
     peak = -1e18
-    cap = time_stop_bars if time_stop_bars < n else n - 1
+    cap_bars = time_stop_bars * 12
+    cap = cap_bars if cap_bars < n else n - 1
 
     for i in range(cap + 1):
         v = path[i]

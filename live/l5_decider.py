@@ -30,12 +30,13 @@ import logging
 import os
 import pickle
 import time
+import numpy as np
+import math
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Callable
 
-import numpy as np
 import pandas as pd
 
 from core_v2.engine_signals import (

@@ -18,7 +18,7 @@ seeing and recording the action.
 Spec: docs/JULES_ENGINE_DECOUPLE_ORDERS.md
 """
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import numpy as np
 
 
@@ -45,7 +45,7 @@ class PositionView:
     is_chain: bool              # False for the primary, True for chain rows
 
     # Runtime tracking (updated each bar by the ledger)
-    bars_held: int
+    bars_held: int  # Time held in whole minutes, NOT 5s bars.
     peak_pnl: float
 
     # Entry-context snapshots (captured at open, frozen for the life of the trade)
@@ -78,6 +78,7 @@ class PositionView:
     # Sticky flags / misc
     slow_flip_active: bool
     peak_volume: float
+    extras: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

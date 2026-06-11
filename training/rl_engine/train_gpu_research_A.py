@@ -37,7 +37,7 @@ from curriculum_metrics import evaluate_is_metrics, OOSDiagnosticsSuite
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem, ForwardPassSystem
-from core_v2.features import TF_HIERARCHY_V2, FEATURE_NAMES_V2
+from core_v2.features import TF_HIERARCHY_V2, FEATURE_NAMES_V2, assemble_v2_grid
 
 DELTA_FEATURE_NAMES = [
     'z_se', 'hurst', 'reversion_prob', 'swing_noise', 'z_high', 'z_low', 'SE_high', 'SE_low',
@@ -321,7 +321,7 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
         l0_all = np.column_stack([v2_matrix[:, 0], tod_norms, day_norms])
         
         # Native Anti-Scramble Grid Parity
-        grid_all = ticker._v2_grid
+        grid_all = assemble_v2_grid(v2_matrix)
         
         # Pre-compute price
         is_1m_start = (ticker._ts1m[0] % 60 == 0) if len(ticker._ts1m) > 0 else False
@@ -334,11 +334,9 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
         # Convert to GPU tensors once per day
         l0_all_tensor = torch.tensor(l0_all, dtype=torch.float32, device=device)
         grid_all_tensor = torch.tensor(grid_all, dtype=torch.float32, device=device)
-        segment_risk_tensor = torch.tensor(ticker._segment_risk, dtype=torch.float32, device=device)
         
         l0_all_tensor = torch.nan_to_num(l0_all_tensor, nan=0.0)
         grid_all_tensor = torch.nan_to_num(grid_all_tensor, nan=0.0)
-        segment_risk_tensor = torch.nan_to_num(segment_risk_tensor, nan=0.0)
         
         # --- VECTORIZED GPU FORWARD PASS ---
         # Unfold the sequence to create sliding windows of length 60
@@ -505,18 +503,7 @@ def run_quadrant_sim(fps, master_net, optimizer, vtrace, config, device, epoch_i
                     penalty = -KAPPA * ((torch.abs(unl_pnl[deep_losers]) - DEADBAND) / SCALE)**P
                     r_t[deep_losers] += penalty
                 
-                pristine_mask = (segment_risk_tensor[i, 0] == 1.0)
-                chaos_mask = (segment_risk_tensor[i, 1] == 1.0)
-                
                 inactivity_penalty = torch.full_like(r_t, -0.001)
-                
-                # Heavy penalty for sitting out Pristine trends
-                if pristine_mask:
-                    inactivity_penalty -= 0.005
-                
-                # Small reward for staying out of Chaos
-                if chaos_mask:
-                    inactivity_penalty += 0.001
                 
                 r_t = torch.where(~in_position, inactivity_penalty, r_t)
                 

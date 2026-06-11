@@ -20,7 +20,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, List, Dict
 
-from training.utils.state import BarState, REGIME_VOCAB
+from core_v2.FPS.state import BarState, REGIME_VOCAB
 from core_v2.ledger import Position
 from training.utils.v2_cols import (z_se_w, swing_noise_w, price_velocity_w,
                                           reversion_prob_w)
@@ -34,8 +34,8 @@ TAKE_PROFIT_USD = 60.0      # +$60 per contract
 GIVEBACK_MIN_PEAK = 30.0    # arm giveback only if peak > $30
 GIVEBACK_KEEP = 0.5         # keep 50% of peak; trigger if pnl < peak*0.5
 
-# Time stop — 5s bars
-MAX_HOLD_BARS = 360         # 30 min  (360 * 5s)
+# Time stop — whole minutes
+MAX_HOLD_MINUTES = 30         # 30 min
 
 # z_se reversal — fade thesis dies when 1m z_se crosses 0
 Z_REVERSAL_THRESHOLD = 0.0   # cross past 0 in opposite direction
@@ -120,15 +120,18 @@ class Giveback(ExitRule):
 
 
 class TimeStop(ExitRule):
-    """Reads `time_stop_bars` from position.extras['thresholds']."""
+    """Reads `time_stop_bars` from position.extras['thresholds'].
+    NOTE: 'bars_held' and 'time_stop_bars' are legacy names but the underlying
+    unit has been changed to minutes.
+    """
     name = 'time_stop'
 
-    def __init__(self, max_bars: int = MAX_HOLD_BARS):
-        self.max_bars = max_bars
+    def __init__(self, max_minutes: int = 60):
+        self.max_minutes = max_minutes
 
     def evaluate(self, state, position):
-        max_bars = _thr(position, 'time_stop_bars', self.max_bars)
-        if position.bars_held >= int(max_bars):
+        max_minutes = _thr(position, 'time_stop_bars', self.max_minutes)
+        if position.bars_held >= int(max_minutes):
             return self.name
         return None
 
@@ -489,7 +492,7 @@ def default_exit_suite(mfe_targets: Optional[Dict] = None,
         OUReversionDecay(tf='1m', decay_factor=0.6),
         ZSeReversal(tf='1m'),
         SwingNoiseSpike(tf='1m'),
-        TimeStop(max_bars=720),
+        TimeStop(max_minutes=60),
     ]
 
 

@@ -4,7 +4,9 @@ import time
 import json
 import sys
 
-sys.path.append(r"C:\Users\reyse\OneDrive\Desktop\Bayesian-AI")
+# Dynamically locate repository root
+repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+sys.path.append(repo_root)
 try:
     from telegram_mcp import send_telegram_alert, inject_prompt
 except ImportError:
