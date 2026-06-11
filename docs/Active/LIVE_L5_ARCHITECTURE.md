@@ -143,6 +143,8 @@ The lazy `v2_getter` means we only pay the V2 compute cost on bars that
 need it -- a handful per day. Streaming V2 was never the right pattern;
 this is.
 
+**Note on B9 K=5 clock skew:** Live `_PosTraj.entry_bar_count` snapshots when the ledger first SEES the position (post-FILL), so B9 fires ~1 bar later than the backtest's entry-bar anchor. Magnitude: one 5s bar. This is expected and a future 1-bar B9 timing discrepancy should not be chased as a bug.
+
 ## Parity test contract
 
 `tools/test_live_v2_parity.py` replays a recorded day through

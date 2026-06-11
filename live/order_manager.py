@@ -113,6 +113,7 @@ class OrderManager:
         self._daily_loss_limit_hit = False
         self.last_exit_info: dict = {}  # filled on exit FILL (entry_px, exit_px, side)
         self.exit_rejected = False     # set True when a close order is rejected
+        self._close_seq = 0            # sequence counter for BAY_CLOSE records
         # Most-recent reconciliation mismatch (for dashboard surfacing)
         self.last_reconcile_error: str = ''
 
@@ -138,6 +139,12 @@ class OrderManager:
     @property
     def nt8_side(self) -> str:
         return self._nt8_side
+
+    def _resolve_rec(self, oid: str) -> Optional[OrderRecord]:
+        """Map order ID to OrderRecord, resolving BAY_CLOSE to the latest sequence."""
+        if oid == 'BAY_CLOSE' and self._close_seq > 0:
+            return self._orders.get(f'BAY_CLOSE#{self._close_seq}')
+        return self._orders.get(oid)
 
     # ── Public API ────────────────────────────────────────────────────
 
@@ -381,6 +388,8 @@ class OrderManager:
         else:
             close_side = 'SELL' if self._nt8_side == 'LONG' else 'BUY'
         n = self._ledger.n_contracts if self._ledger else self._nt8_qty
+        self._close_seq += 1
+        seq_key = f'BAY_CLOSE#{self._close_seq}'
         rec = OrderRecord(
             order_id='BAY_CLOSE',
             side=close_side, qty=n,
@@ -389,7 +398,7 @@ class OrderManager:
             state=OrderState.PENDING,
             submit_time=time.time(),
         )
-        self._orders['BAY_CLOSE'] = rec
+        self._orders[seq_key] = rec
 
         self.exit_rejected = False
         self._refresh_pending_flags()
@@ -435,7 +444,7 @@ class OrderManager:
         Advances the rec from PENDING -> SENT so the watchdog knows the bridge
         has had the order since this moment (for ACK timeout).
         """
-        rec = self._orders.get(order_id)
+        rec = self._resolve_rec(order_id)
         if rec and rec.state == OrderState.PENDING:
             rec.state = OrderState.SENT
             rec.sent_time = time.time()
@@ -456,7 +465,7 @@ class OrderManager:
         last_reconcile_error so the engine can alert the user.
         """
         oid = msg.get('order_id', '')
-        rec = self._orders.get(oid)
+        rec = self._resolve_rec(oid)
 
         side = msg.get('side', '')
         fill_px = float(msg['fill_price'])
@@ -600,7 +609,7 @@ class OrderManager:
         marks the order TIMED_OUT and refuses dependent orders.
         """
         oid = msg.get('order_id', '')
-        rec = self._orders.get(oid)
+        rec = self._resolve_rec(oid)
         if rec:
             if rec.state in (OrderState.PENDING, OrderState.SENT):
                 rec.state = OrderState.ACKED
@@ -637,7 +646,7 @@ class OrderManager:
         """Handle an ORDER_STATUS message from NT8."""
         oid = msg.get('order_id', '')
         status = msg.get('status', '')
-        rec = self._orders.get(oid)
+        rec = self._resolve_rec(oid)
         if rec:
             if status in ('Cancelled', 'Rejected'):
                 rec.state = OrderState(status.upper())

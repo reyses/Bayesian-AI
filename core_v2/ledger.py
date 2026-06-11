@@ -26,7 +26,9 @@ from typing import List, Optional, Dict, Any
 import numpy as np
 
 from core_v2.engine_signals import PositionView, PositionsView, PositionDecision
-from core_v2.features import N_FEATURES
+from core_v2.features import N_FEATURES, FEATURE_NAMES
+
+Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
 
 
 # Chain-depth ceiling — how many parallel contracts can be stacked on one
@@ -83,7 +85,7 @@ class Position:
     is_chain: bool = False
 
     # Runtime tracking (updated every bar by update_bar)
-    bars_held: int = 0
+    bars_held: int = 0  # Time held in whole minutes, NOT 5s bars.
     peak_pnl: float = 0.0
 
     # Entry-context snapshots (captured at open, frozen for trade lifetime)
@@ -153,6 +155,7 @@ class Position:
             current_amplitude=self.current_amplitude,
             slow_flip_active=self.slow_flip_active,
             peak_volume=self.peak_volume,
+            extras=self.extras,
         )
 
 
@@ -267,7 +270,9 @@ class Ledger:
                      entry_velocity: float = 0.0,
                      entry_h1_z: float = 0.0,
                      entry_vol_rel: float = 0.0,
-                     ride_exit_bars: int = 0) -> Position:
+                     ride_exit_bars: int = 0,
+                     restore_peak_pnl: float = 0.0,
+                     restore_extras: dict = None) -> Position:
         """Add a position to the ledger.
 
         If is_chain=False, this becomes the primary. Raises if a primary
@@ -304,10 +309,8 @@ class Ledger:
 
         # Initialize oscillation tracker from entry features if we have them
         z_sign_init = 0.0
-        if entry_features is not None and len(entry_features) > 12:
-            # z_se for 1m lives at index 12 in the canonical 91-D layout.
-            # This matches how BlendedEngine._open_trade computed _z_sign.
-            z_1m = float(entry_features[12])
+        if entry_features is not None and len(entry_features) > Z_IDX:
+            z_1m = float(entry_features[Z_IDX])
             z_sign_init = 1.0 if z_1m > 0 else -1.0
 
         pos = Position(
@@ -325,11 +328,13 @@ class Ledger:
             entry_h1_z=entry_h1_z,
             entry_vol_rel=entry_vol_rel,
             ride_exit_bars=ride_exit_bars,
+            peak_pnl=restore_peak_pnl,
+            extras=restore_extras or {},
             z_sign=z_sign_init,
-            z_peak=abs(float(entry_features[12])) if len(entry_features) > 12 else 0.0,
-            z_trough=abs(float(entry_features[12])) if len(entry_features) > 12 else 0.0,
-            peak_amplitude=abs(float(entry_features[12])) if len(entry_features) > 12 else 0.0,
-            current_amplitude=abs(float(entry_features[12])) if len(entry_features) > 12 else 0.0,
+            z_peak=abs(float(entry_features[Z_IDX])) if len(entry_features) > Z_IDX else 0.0,
+            z_trough=abs(float(entry_features[Z_IDX])) if len(entry_features) > Z_IDX else 0.0,
+            peak_amplitude=abs(float(entry_features[Z_IDX])) if len(entry_features) > Z_IDX else 0.0,
+            current_amplitude=abs(float(entry_features[Z_IDX])) if len(entry_features) > Z_IDX else 0.0,
         )
 
         if is_chain:
@@ -417,8 +422,8 @@ class Ledger:
         if self._primary is None:
             return
 
-        # z_se for 1m is feature index 12 in the canonical layout
-        z = float(features[12]) if len(features) > 12 else 0.0
+        # Oscillation tracker
+        z = float(features[Z_IDX]) if len(features) > Z_IDX else 0.0
 
         # Update every open position (primary + chains) with the same market snapshot.
         for pos in [self._primary] + self._chains:
