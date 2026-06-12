@@ -22,7 +22,7 @@ from typing import Optional, List, Dict
 
 from core_v2.FPS.state import BarState, REGIME_VOCAB
 from core_v2.ledger import Position
-from training.utils.v2_cols import (z_se_w, swing_noise_w, price_velocity_w,
+from archive.training.utils.v2_cols import (z_se_w, swing_noise_w, price_velocity_w,
                                           reversion_prob_w)
 
 

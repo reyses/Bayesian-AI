@@ -22,7 +22,7 @@ import json
 import os
 from typing import Dict, Optional, Set, Tuple
 
-from training.utils.state import BarState
+from archive.training.utils.state import BarState
 from training.strategies.base import EntrySignal
 from training.strategies.regime_aware import RegimeAwareReversion, DEFAULT_FLIP_CELLS
 

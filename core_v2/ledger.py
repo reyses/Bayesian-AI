@@ -392,6 +392,7 @@ class Ledger:
             'exit_features': (exit_features.tolist()
                               if exit_features is not None and hasattr(exit_features, 'tolist')
                               else (list(exit_features) if exit_features is not None else [])),
+            'extras': pos.extras,
         }
         self._closed_trades.append(record)
 

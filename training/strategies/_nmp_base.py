@@ -19,8 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Dict
 
-from training.utils.state import BarState, REGIME_VOCAB, is_trend_too_fast
-from training.utils.v2_cols import z_se_w, reversion_prob_w, price_velocity_w
+from archive.training.utils.state import BarState, REGIME_VOCAB, is_trend_too_fast
+from archive.training.utils.v2_cols import z_se_w, reversion_prob_w, price_velocity_w
 from training.strategies.base import EntrySignal, Strategy
 
 

@@ -189,15 +189,18 @@ def _write_family(df: pd.DataFrame, path: str, schema_version: int):
 def _compute_tf_features_all_history(sfe: StatisticalFieldEngine,
                                       tf: str,
                                       tf_bars: pd.DataFrame) -> dict:
-    """Compute L1/L2/L3 for a TF over the FULL cross-day history.
+    """Compute L1/L2/L3/L4 for a TF over the FULL cross-day history.
 
-    Returns dict with keys 'L1', 'L2', 'L3', each a DataFrame aligned to
+    Returns dict with keys 'L1', 'L2', 'L3', 'L4', each a DataFrame aligned to
     tf_bars (same length, same row index).
     """
     l1 = sfe.compute_L1(tf_bars, tf=tf)
     l2 = sfe.compute_L2(tf_bars, tf=tf)
     l3 = sfe.compute_L3(tf_bars, tf=tf)
-    return {'L1': l1, 'L2': l2, 'L3': l3}
+    N = sfe.windows.get(tf, 12)
+    z_se = l3[f'L3_{tf}_z_se_{N}'].values
+    l4 = sfe.compute_L4_NMP(tf_bars, tf=tf, z_se=z_se)
+    return {'L1': l1, 'L2': l2, 'L3': l3, 'L4': l4}
 
 
 def _align_to_anchor(tf_ts: np.ndarray,
@@ -365,15 +368,15 @@ def run(
         print(f"  loaded {len(tf_bars):,} {tf} bars ({len(tf_files)} files)")
 
         # Compute features for the entire history
-        print(f"  computing L1/L2/L3 ...")
+        print(f"  computing L1/L2/L3/L4 ...")
         features = _compute_tf_features_all_history(sfe, tf, tf_bars)
 
         # For each day, load that day's 5s anchor and step-fill the features onto it
         for day in tqdm(days, desc=f"  writing {tf}", ncols=80):
-            # Skip if all 3 layer outputs already exist and we allow it
+            # Skip if all 4 layer outputs already exist and we allow it
             if skip_existing and all(
                 os.path.exists(_family_path(atlas_root, f'{lyr}_{tf}', day))
-                for lyr in ('L1', 'L2', 'L3')
+                for lyr in ('L1', 'L2', 'L3', 'L4')
             ):
                 continue
 
@@ -383,7 +386,7 @@ def run(
                 continue
             anchor_ts = anchor['timestamp'].values.astype(np.int64)
 
-            for layer in ('L1', 'L2', 'L3'):
+            for layer in ('L1', 'L2', 'L3', 'L4'):
                 _build_layer_family_for_day(
                     atlas_root=atlas_root,
                     tf=tf,

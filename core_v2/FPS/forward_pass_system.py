@@ -69,10 +69,12 @@ class ForwardPassSystem:
 
     def __init__(self, day: str, atlas_root: str,
                  features_root: str,
-                 labels_csv: str):
+                 labels_csv: str,
+                 tfs: Optional[list[str]] = None,
+                 layers: Optional[list[str]] = None):
         self.day = day
         # Load V2 features (185 cols + timestamp). Anchor cadence = 5s.
-        feats = load_features(days=[day], root=features_root)
+        feats = load_features(days=[day], root=features_root, tfs=tfs, layers=layers, require_all=False)
         if feats.empty:
             raise FileNotFoundError(f'No V2 features for {day} under {features_root}')
         feats = _normalize_ts(feats).sort_values('timestamp').reset_index(drop=True)

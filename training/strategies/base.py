@@ -13,7 +13,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Dict, Any
 
-from training.utils.state import BarState
+from archive.training.utils.state import BarState
 
 
 @dataclass

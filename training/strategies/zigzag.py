@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from training.utils.state import BarState
+from archive.training.utils.state import BarState
 from training.strategies.base import EntrySignal, Strategy
 
 

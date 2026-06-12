@@ -47,6 +47,9 @@ from core_v2.FPS.forward_pass_system import ForwardPassSystem
 from training.strategies.base import Strategy
 from training.strategies.zigzag import (
     ZigzagStrategy, ATR_MULT_DEFAULT, MIN_BARS_5S_DEFAULT, TICK_SIZE)
+from training.strategies.nmp_baseline import NMPFadeRaw
+from core_v2.ledger import Ledger
+from core_v2.exits import default_exit_suite
 
 
 TICK_VALUE = 0.50            # $/tick/contract (MNQ)
@@ -59,7 +62,9 @@ def make_strategy(name: str, min_reversal_ticks: int) -> Strategy:
     if name == 'zigzag':
         return ZigzagStrategy(min_reversal_ticks=min_reversal_ticks,
                               min_bars_5s=MIN_BARS_5S_DEFAULT)
-    raise ValueError(f'Unknown strategy: {name!r}. Registered: zigzag')
+    if name == 'nmp_fade_raw':
+        return NMPFadeRaw(retune=True)
+    raise ValueError(f'Unknown strategy: {name!r}. Registered: zigzag, nmp_fade_raw')
 
 
 # ── Atlas / output paths ──────────────────────────────────────────────
@@ -120,67 +125,83 @@ def run_day(day: str, atlas_root: str, features_root: str,
     try:
         fps = ForwardPassSystem(day=day, atlas_root=atlas_root,
                                 features_root=features_root,
-                                labels_csv=LABELS_CSV)
+                                labels_csv=LABELS_CSV,
+                                tfs=['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s'],
+                                layers=['L0', 'L1', 'L2', 'L3', 'L4'])
     except FileNotFoundError:
         return []
 
     trades = []
-    # Single-position tracker (one contract, reverse-on-flip).
-    pos_dir: Optional[str] = None   # 'long' | 'short' | None
-    pos_entry_ts: Optional[int] = None
-    pos_entry_price: Optional[float] = None
-    last_state = None
+    ledger = Ledger()
+    exit_suite = default_exit_suite() if strategy_name != 'zigzag' else []
 
+    last_state = None
     for state in fps:
         last_state = state
-        sig = strategy.evaluate(state)
-        if sig is None:
-            continue
-
         close_5s = state.ohlcv_5s.get('close', state.price) if state.ohlcv_5s else state.price
+        volume = state.ohlcv_5s.get('volume', 0.0) if state.ohlcv_5s else 0.0
 
-        # Close existing position (if any) at the 5s close where the flip fired
-        if pos_dir is not None:
-            sign = 1 if pos_dir == 'long' else -1
-            pnl_pts = (close_5s - pos_entry_price) * sign
-            pnl_usd = pnl_pts * DOLLAR_PER_POINT - 2 * COMMISSION_PER_SIDE
-            trades.append({
-                'day': day,
-                'entry_ts': pos_entry_ts,
-                'leg_dir': 'LONG' if pos_dir == 'long' else 'SHORT',
-                'entry_price': pos_entry_price,
-                'exit_ts': int(state.timestamp),
-                'exit_price': close_5s,
-                'pnl_pts': pnl_pts,
-                'pnl_usd': pnl_usd,
-                'r_price': r_price,
-                'atr_pts': atr_pts,
-            })
+        # Update position states
+        ledger.update_bar(state.v2_vector, close_5s, state.timestamp, current_volume=volume)
 
-        # Open new position in the flipped direction
-        pos_dir = sig.direction
-        pos_entry_ts = int(state.timestamp)
-        pos_entry_price = close_5s
+        # Check exits
+        pos = ledger.primary
+        if pos is not None:
+            if strategy_name == 'zigzag':
+                sig = strategy.evaluate(state)
+                if sig is not None and sig.direction != pos.direction:
+                    ledger.remove_position(pos.contract_id, close_5s, state.timestamp, 'flip', state.v2_vector)
+                    ledger.add_position(sig.direction, close_5s, state.timestamp, sig.tier, state.v2_vector, restore_extras=sig.extras)
+            else:
+                exit_reason = None
+                for rule in exit_suite:
+                    exit_reason = rule.evaluate(state, pos)
+                    if exit_reason:
+                        break
+                if exit_reason:
+                    ledger.remove_position(pos.contract_id, close_5s, state.timestamp, exit_reason, state.v2_vector)
+        
+        # Check entries
+        if ledger.is_flat and strategy_name != 'zigzag':
+            sig = strategy.evaluate(state)
+            if sig is not None:
+                ledger.add_position(sig.direction, close_5s, state.timestamp, sig.tier, state.v2_vector, restore_extras=sig.extras)
+        elif ledger.is_flat and strategy_name == 'zigzag':
+            sig = strategy.evaluate(state)
+            if sig is not None:
+                ledger.add_position(sig.direction, close_5s, state.timestamp, sig.tier, state.v2_vector, restore_extras=sig.extras)
 
-    # 4. Day-end: force-close any open position at the last bar's 5s close
-    if pos_dir is not None and last_state is not None:
-        close_5s = last_state.ohlcv_5s.get('close', last_state.price) \
-                   if last_state.ohlcv_5s else last_state.price
-        sign = 1 if pos_dir == 'long' else -1
-        pnl_pts = (close_5s - pos_entry_price) * sign
-        pnl_usd = pnl_pts * DOLLAR_PER_POINT - 2 * COMMISSION_PER_SIDE
-        trades.append({
+    # Day-end force close
+    if not ledger.is_flat and last_state is not None:
+        close_5s = last_state.ohlcv_5s.get('close', last_state.price) if last_state.ohlcv_5s else last_state.price
+        pos = ledger.primary
+        ledger.remove_position(pos.contract_id, close_5s, last_state.timestamp, 'end_of_day', last_state.v2_vector)
+
+    # Map Ledger trades to expected schema
+    for t in ledger.closed_trades:
+        leg_dir = 'LONG' if t['dir'] == 'long' else 'SHORT'
+        pnl_usd = t['pnl']
+        pnl_pts = t['exit_price'] - t['entry_price']
+        if leg_dir == 'SHORT':
+            pnl_pts = -pnl_pts
+            
+        mapped = {
             'day': day,
-            'entry_ts': pos_entry_ts,
-            'leg_dir': 'LONG' if pos_dir == 'long' else 'SHORT',
-            'entry_price': pos_entry_price,
-            'exit_ts': int(last_state.timestamp),
-            'exit_price': close_5s,
+            'entry_ts': t['entry_ts'],
+            'leg_dir': leg_dir,
+            'entry_price': t['entry_price'],
+            'exit_ts': t['exit_ts'],
+            'exit_price': t['exit_price'],
             'pnl_pts': pnl_pts,
             'pnl_usd': pnl_usd,
             'r_price': r_price,
             'atr_pts': atr_pts,
-        })
+            'exit_reason': t.get('exit_reason', 'unknown'),
+        }
+        if 'extras' in t and t['extras']:
+            for k, v in t['extras'].items():
+                mapped[f'extra_{k}'] = v
+        trades.append(mapped)
 
     return trades
 
@@ -188,7 +209,7 @@ def run_day(day: str, atlas_root: str, features_root: str,
 def main():
     ap = argparse.ArgumentParser(
         description='Run a registered Strategy through V2 ForwardPass; write trades CSV.')
-    ap.add_argument('--strategy', default='zigzag', choices=['zigzag'])
+    ap.add_argument('--strategy', default='zigzag', choices=['zigzag', 'nmp_fade_raw'])
     ap.add_argument('--target', choices=['is', 'oos'], required=True)
     ap.add_argument('--atr-mult', type=float, default=ATR_MULT_DEFAULT)
     ap.add_argument('--days', nargs='*', default=None,
@@ -251,7 +272,9 @@ def main():
             print('\nRunning trade-outcome probability suite (--source strategy_run)...')
             suite_script = 'tools/suites/trade_outcome_suite/trade_outcome_suite/run_all.py'
             subprocess.run([sys.executable, suite_script,
-                            '--source', 'strategy_run', '--rebuild'],
+                            '--source', 'strategy_run', '--rebuild',
+                            '--tfs', '1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s',
+                            '--layers', 'L0', 'L1', 'L2', 'L3', 'L4'],
                            check=False)
 
 

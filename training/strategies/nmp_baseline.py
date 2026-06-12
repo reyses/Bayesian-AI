@@ -1,24 +1,15 @@
 """Diagnostic baseline tiers — used to test whether downstream filters help.
 
 NMP_FADE_RAW : pure NMP seed, fade direction, no velocity/wick filter
-NMP_RIDE_RAW : NMP seed + regime-flip-cell membership ONLY (ride direction),
-                no velocity filter
-
-Compare these against the 9 filtered tiers in the iso pipeline:
-    - If NMP_FADE_RAW $/day >> sum(FADE_*, KILL_SHOT, CASCADE, FADE_AGAINST)
-      $/day, the velocity / wick filters are subtractive.
-    - If NMP_RIDE_RAW $/day >> sum(RIDE_*) $/day, the velocity calm/momentum
-      split is subtractive.
 
 This is a DIAGNOSTIC, not a deploy candidate.
 """
 from __future__ import annotations
 from typing import Optional
 
-from training.utils.state import BarState
+from archive.training.utils.state import BarState
 from training.strategies.base import EntrySignal
 from training.strategies._nmp_base import NMPBaseStrategy, NMPSeed
-from training.strategies.regime_aware import DEFAULT_FLIP_CELLS
 
 
 class NMPFadeRaw(NMPBaseStrategy):
@@ -47,19 +38,6 @@ class NMPFadeRaw(NMPBaseStrategy):
     def _qualify(self, state: BarState, seed: NMPSeed) -> Optional[EntrySignal]:
         return EntrySignal(direction=seed.direction, tier=self.name,
                               extras={'z_se': seed.z,
-                                          'reversion_prob': seed.rprob})
-
-
-class NMPRideRaw(NMPBaseStrategy):
-    """NMP seed + flip-cell membership only. No velocity gate."""
-    name = 'NMP_RIDE_RAW'
-
-    def _qualify(self, state: BarState, seed: NMPSeed) -> Optional[EntrySignal]:
-        if (int(state.regime_idx), seed.direction) not in DEFAULT_FLIP_CELLS:
-            return None
-        new_dir = 'short' if seed.direction == 'long' else 'long'
-        return EntrySignal(direction=new_dir, tier=self.name,
-                              extras={'z_se': seed.z,
                                           'reversion_prob': seed.rprob,
-                                          'flipped_from': seed.direction,
-                                          'regime_2d': state.regime_2d})
+                                          'entry_lambda_t': state.get('L4_1m_lambda_t_12', 0.0),
+                                          'entry_lambda_hat': state.get('L4_1m_lambda_hat_12', 0.0)})
