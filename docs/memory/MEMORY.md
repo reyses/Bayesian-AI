@@ -1,4 +1,5 @@
 # Bayesian-AI Project Memory
+> **ACTIVE PROGRAM (2026-06-11→): λ-completion** — master living roadmap at repo root `ROADMAP_LAMBDA_COMPLETION.md` (read it at session start; stages/gates/prohibitions/log live there). Companion: `docs/Active/NMP_V2_FEATURE_MAP.md`.
 > Future topics backlog: see `docs/ROADMAP.md`
 > Daily interaction journals: `docs/daily/YYYY-MM-DD.md`
 > Shared-math gotcha: [reference_fista_gpu_cv_step_bug.md](reference_fista_gpu_cv_step_bug.md) — `core_v2/math/fista_gpu.py::elasticnet_fista_cv` had a CV step-size/NaN-argmin bug (fixed 2026-06-08); `research/Regression segments/test_fista_parity.py` is the guard.

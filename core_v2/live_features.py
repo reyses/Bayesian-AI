@@ -8,8 +8,13 @@ import time
 import numpy as np
 import pandas as pd
 
-from core_v2.statistical_field_engine import StatisticalFieldEngine
+from core_v2.statistical_field_engine import StatisticalFieldEngine, N_BASE
 from core_v2.features import TF_ORDER, TF_SECONDS, FEATURE_NAMES
+
+PROXY_MAP = {
+    '5s': '1m', '15s': '5m', '1m': '15m', '5m': '1h',
+    '15m': '4h', '1h': '1D', '4h': '1D', '1D': None
+}
 
 logger = logging.getLogger(__name__)
 
@@ -153,10 +158,29 @@ class LiveFeatureEngine:
             l2 = self._sfe.compute_L2(tf_df, tf)
             l3 = self._sfe.compute_L3(tf_df, tf)
             
+            z_se = l3[f'L3_{tf}_z_se_{N_BASE[tf]}'].values
+            l4 = self._sfe.compute_L4_NMP(tf_df, tf, z_se=z_se)
+            
             # Extract last row
             for col in l1.columns: vector_dict[col] = l1[col].iloc[-1]
             for col in l2.columns: vector_dict[col] = l2[col].iloc[-1]
             for col in l3.columns: vector_dict[col] = l3[col].iloc[-1]
+            for col in l4.columns: vector_dict[col] = l4[col].iloc[-1]
+            
+        # Add cross-TF vr_proxy
+        for tf in TF_ORDER:
+            slow_tf = PROXY_MAP.get(tf)
+            if slow_tf is not None:
+                fast_n = N_BASE[tf]
+                slow_n = N_BASE[slow_tf]
+                fast_sig = vector_dict.get(f'L2_{tf}_price_sigma_{fast_n}', np.nan)
+                slow_sig = vector_dict.get(f'L2_{slow_tf}_price_sigma_{slow_n}', np.nan)
+                
+                if not np.isnan(fast_sig) and not np.isnan(slow_sig) and slow_sig > 1e-10:
+                    vector_dict[f'L4_{tf}_vr_proxy'] = fast_sig / slow_sig
+                else:
+                    vector_dict[f'L4_{tf}_vr_proxy'] = np.nan
+
             
         # Build strict ordered 1D array
         try:

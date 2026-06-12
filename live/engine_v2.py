@@ -2344,7 +2344,7 @@ def main():
 
         def _run_dashboard():
             try:
-                from visualization.dashboard_v2 import TradingDashboard
+                from live.dashboard_v2 import TradingDashboard
 
                 root = tk.Tk()
                 popup = TradingDashboard(root, gui_queue, shared_state=shared_state)

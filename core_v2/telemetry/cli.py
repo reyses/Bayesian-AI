@@ -26,7 +26,7 @@ def main():
             if not files:
                 clear_screen()
                 print("No active telemetry streams found. Waiting...")
-                time.sleep(1.0)
+                time.sleep(3.0)
                 continue
                 
             lines_to_print = []
@@ -96,7 +96,8 @@ def main():
                 clear_screen()
                 print("\n".join(lines_to_print))
             
-            time.sleep(1.0)
+            # Slowed down from 1.0 to 3.0 to stop updating the terminal so fast!
+            time.sleep(3.0)
     except KeyboardInterrupt:
         print("\nExiting telemetry viewer.")
 

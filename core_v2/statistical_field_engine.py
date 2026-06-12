@@ -144,6 +144,69 @@ def _ols_fit_kernel(y: np.ndarray, window: int):
 
 
 @njit(parallel=True, cache=True)
+def _ols_slope_kernel(y: np.ndarray, window: int):
+    """OLS slope over trailing window, returning (slope, se_slope, t_stat).
+    
+    Used specifically for computing lambda_hat (stability exponent).
+    """
+    n = len(y)
+    slope_out = np.full(n, np.nan)
+    se_out = np.full(n, np.nan)
+    t_out = np.full(n, np.nan)
+
+    if n < 1:
+        return slope_out, se_out, t_out
+
+    for i in prange(n):
+        start = max(0, i - window + 1)
+        w = i - start + 1
+        
+        if w < 3:
+            continue
+
+        x_mean = (w - 1) / 2.0
+        x_var_sum = 0.0
+        for k in range(w):
+            dx = k - x_mean
+            x_var_sum += dx * dx
+
+        if x_var_sum < 1e-12:
+            continue
+
+        sum_y = 0.0
+        for k in range(w):
+            sum_y += y[start + k]
+        y_mean = sum_y / w
+
+        cov = 0.0
+        for k in range(w):
+            cov += (k - x_mean) * (y[start + k] - y_mean)
+            
+        slope = cov / x_var_sum
+        intercept = y_mean - slope * x_mean
+
+        sum_sq_res = 0.0
+        for k in range(w):
+            fit = intercept + slope * k
+            res = y[start + k] - fit
+            sum_sq_res += res * res
+            
+        var_resid = sum_sq_res / (w - 2)
+        if var_resid > 0:
+            se_k = np.sqrt(var_resid / x_var_sum)
+            t_stat = slope / se_k
+        else:
+            se_k = 0.0
+            t_stat = 0.0
+            
+        slope_out[i] = slope
+        se_out[i] = se_k
+        t_out[i] = t_stat
+
+    return slope_out, se_out, t_out
+
+
+@njit(parallel=True, cache=True)
 def _rolling_mean_kernel(y: np.ndarray, window: int) -> np.ndarray:
     """Rolling mean over trailing window. out[i] uses y[i-window+1 : i+1]."""
     n = len(y)
@@ -684,6 +747,72 @@ class StatisticalFieldEngine:
             f'L3_{tf}_swing_noise_{N}':    swing,
         }, index=df.index)
 
+    # ─── L4 (NMP State) ───────────────────────────────────────────────────
+
+    def compute_L4_NMP(self, df: pd.DataFrame, tf: str, z_se: np.ndarray | None = None) -> pd.DataFrame:
+        """Nightmare Protocol (NMP) State feature layer (Principle 8).
+
+        Features (11 per TF):
+          - L4_{tf}_vr_exact            : Rolling 10/60 std ratio of raw closes
+          - L4_{tf}_z_21                : Exact 21-bar linear regression standardization
+          - L4_{tf}_lambda_hat_{12/21/30} : OLS slope of log(|z_se| + 0.1) over k bars
+          - L4_{tf}_lambda_se_{12/21/30}  : Standard error of the lambda slope
+          - L4_{tf}_lambda_t_{12/21/30}   : T-statistic of the lambda slope
+
+        Lookahead: none. All windows are trailing.
+
+        Args:
+            df: DataFrame with 'close' column.
+            tf: TF label.
+            z_se: (Optional) Precomputed z_se array. If not provided, computes it on the fly.
+        """
+        for col in ('close',):
+            if col not in df.columns:
+                raise ValueError(f"compute_L4_NMP requires '{col}' column in df")
+
+        close = df['close'].values.astype(np.float64)
+        n = len(close)
+
+        # 1. vr_exact
+        std_fast = _rolling_std_kernel(close, 10)
+        std_slow = _rolling_std_kernel(close, 60)
+        
+        vr_exact = np.full(n, np.nan)
+        mask_v = std_slow > 1e-10
+        vr_exact[mask_v] = std_fast[mask_v] / std_slow[mask_v]
+
+        # 2. z_21
+        rm_21, se_21 = _ols_fit_kernel(close, 21)
+        z_21 = np.full(n, np.nan)
+        mask_z21 = se_21 > 1e-10
+        z_21[mask_z21] = (close[mask_z21] - rm_21[mask_z21]) / se_21[mask_z21]
+
+        # 3. lambda_hat
+        if z_se is None:
+            # Need N_BASE for z_se computation to be perfectly aligned with L3
+            N = self.windows.get(tf, 12)
+            rm_close, se_close = _ols_fit_kernel(close, N)
+            z_se = np.full(n, np.nan)
+            mask_z = se_close > 1e-10
+            z_se[mask_z] = (close[mask_z] - rm_close[mask_z]) / se_close[mask_z]
+
+        log_z = np.log(np.abs(z_se) + 0.1)
+        
+        lambda_cols = {}
+        for k in (12, 21, 30):
+            slope, se, t = _ols_slope_kernel(log_z, k)
+            lambda_cols[f'L4_{tf}_lambda_hat_{k}'] = slope
+            lambda_cols[f'L4_{tf}_lambda_se_{k}'] = se
+            lambda_cols[f'L4_{tf}_lambda_t_{k}'] = t
+
+        res = {
+            f'L4_{tf}_vr_exact': vr_exact,
+            f'L4_{tf}_z_21': z_21,
+        }
+        res.update(lambda_cols)
+        
+        return pd.DataFrame(res, index=df.index)
+
     # ─── Convenience wrappers ─────────────────────────────────────────────
 
     def batch_compute_states(self, df: pd.DataFrame, tf: str,
@@ -706,6 +835,11 @@ class StatisticalFieldEngine:
             self.compute_L2(df, tf, N),
             self.compute_L3(df, tf, N),
         ]
+        
+        # Extract z_se to avoid recomputation in L4
+        z_se = parts[-1][f'L3_{tf}_z_se_{N}'].values
+        parts.append(self.compute_L4_NMP(df, tf, z_se=z_se))
+        
         return pd.concat(parts, axis=1)
 
     def feed_bar(self, *args, **kwargs):

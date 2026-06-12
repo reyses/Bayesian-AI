@@ -356,3 +356,6 @@ telegram_inbox.txt
 # Zip handoff / snapshot bundles (regenerable, not source)
 *.zip
 artifacts/
+
+# Archive folder (obsolete files, not tracked)
+archive/

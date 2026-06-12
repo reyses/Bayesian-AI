@@ -133,6 +133,22 @@ def _l3_names(tf: str, N: int | None = None) -> list[str]:
     ]
 
 
+def _l4_nmp_names(tf: str) -> list[str]:
+    """L4: Nightmare Protocol variables."""
+    names = [
+        f'L4_{tf}_vr_exact',
+        f'L4_{tf}_z_21',
+    ]
+    for k in (12, 21, 30):
+        names.extend([
+            f'L4_{tf}_lambda_hat_{k}',
+            f'L4_{tf}_lambda_se_{k}',
+            f'L4_{tf}_lambda_t_{k}',
+        ])
+    names.append(f'L4_{tf}_vr_proxy')
+    return names
+
+
 # ─── Canonical feature name list ───────────────────────────────────────────
 # Order (so columns in FEATURES_5s_v2 parquets are deterministic):
 #   L0 global (1)
@@ -144,11 +160,12 @@ for tf in TF_ORDER:
     FEATURE_NAMES.extend(_l1_names(tf))
     FEATURE_NAMES.extend(_l2_names(tf))
     FEATURE_NAMES.extend(_l3_names(tf))
+    FEATURE_NAMES.extend(_l4_nmp_names(tf))
 
-# Expected: 1 (L0) + (8 + 9 + 8) * len(TF_ORDER) = 1 + 25 * N_TFS
-# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 201
+# Expected: 1 (L0) + (8 + 9 + 8 + 12) * len(TF_ORDER) = 1 + 37 * N_TFS
+# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 297
 N_FEATURES = len(FEATURE_NAMES)
-_expected = 1 + 25 * N_TFS
+_expected = 1 + 37 * N_TFS
 assert N_FEATURES == _expected, (
     f"Expected {_expected} features for {N_TFS} TFs, got {N_FEATURES}. "
     f"Check the _l0/_l1/_l2/_l3_names generators."

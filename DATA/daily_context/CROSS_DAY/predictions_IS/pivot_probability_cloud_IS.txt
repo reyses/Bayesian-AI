@@ -1,0 +1,65 @@
+==============================================================================
+PIVOT PROBABILITY CLOUD  (Bohr-model composite, NT8 OOS, 32 days)
+  Density bins: [0,1m]  (1,3m]  (3,5m]  (5,10m]  (10m+]
+  computed from B1 K-series — no new training
+==============================================================================
+Bars: 282,669   Days: 277
+
+--- ZONE DISTRIBUTION + actual TTP per zone (the calibration test) ---
+  zone                 n   % bars   actual_med   actual_p25   actual_p75   %_pivot<5m
+  AT_PIVOT         1,161     0.4%        3.50m        1.50m        6.50m        64.7%
+  NEAR_PIVOT      43,722    15.5%        3.50m        1.50m        7.50m        59.0%
+  IMMINENT         6,608     2.3%        4.50m        1.50m       10.50m        50.1%
+  NEAR_3m          3,416     1.2%        3.50m        1.50m        7.50m        58.7%
+  NEAR_5m          5,051     1.8%        4.50m        2.50m        8.50m        56.1%
+  WIDE_ZONE        1,187     0.4%        5.50m        2.50m       11.38m        44.2%
+  WATCH           24,277     8.6%        6.50m        2.50m       11.50m        42.5%
+  CLEAR          197,247    69.8%       16.50m        6.50m       37.50m        18.8%
+
+Interpretation (Bohr-style probability cloud):
+  AT_PIVOT    -> B4 W=60 strong: we are AT a pivot (forward+back within 1m)
+  NEAR_PIVOT  -> B4 W=120 strong: we are within 2m of a pivot
+  IMMINENT    -> B1 K=1 strong: pivot expected in <1m forward
+  NEAR_3m     -> B1 K=3 strong: pivot in 1-3m forward
+  NEAR_5m     -> B1 K=5 strong: pivot in 3-5m forward
+  WIDE_ZONE   -> B4 W=300 strong: we are inside a 5-min pivot zone
+  WATCH       -> coarse forward 10m / wide zone hint
+  CLEAR       -> all signals weak, no pivot nearby
+  - actual_med should MATCH the zone bin range.
+  - If actual_med >> zone bin, classifier overcalls; tighten threshold.
+
+--- TRAJECTORY STATE (cloud sharpening vs dissolving) ---
+  state=RISING      n= 89,346  median actual TTP =   9.50m   pct < 5m = 32.4%
+  state=FLAT        n= 88,455  median actual TTP =   7.50m   pct < 5m = 36.8%
+  state=DECAYING    n=104,868  median actual TTP =  14.50m   pct < 5m = 20.9%
+
+--- ZONE x CLOUD_STATE composite (the actionable joint) ---
+  zone          state             n    ttp_med    %<5m
+  AT_PIVOT      RISING          620      3.50m   64.6%
+  AT_PIVOT      FLAT            498      3.50m   65.9%
+  AT_PIVOT      DECAYING         43      4.50m   51.2%
+  NEAR_PIVOT    RISING       14,757      4.50m   57.5%
+  NEAR_PIVOT    FLAT         22,534      3.50m   62.4%
+  NEAR_PIVOT    DECAYING      6,431      4.50m   50.7%
+  IMMINENT      RISING        3,038      4.50m   50.6%
+  IMMINENT      FLAT          2,769      4.50m   51.4%
+  IMMINENT      DECAYING        801      6.50m   43.9%
+  NEAR_3m       RISING          681      3.50m   59.2%
+  NEAR_3m       FLAT          1,990      3.50m   61.3%
+  NEAR_3m       DECAYING        745      4.50m   51.5%
+  NEAR_5m       RISING        1,079      4.50m   56.1%
+  NEAR_5m       FLAT          2,565      4.50m   58.3%
+  NEAR_5m       DECAYING      1,407      4.50m   51.9%
+  WIDE_ZONE     RISING          454      5.50m   41.5%
+  WIDE_ZONE     FLAT            456      5.50m   49.2%
+  WIDE_ZONE     DECAYING        277      6.50m   40.1%
+  WATCH         RISING        6,654      5.50m   44.7%
+  WATCH         FLAT          8,959      5.50m   44.3%
+  WATCH         DECAYING      8,664      6.50m   39.0%
+  CLEAR         RISING       62,063     15.50m   22.7%
+  CLEAR         FLAT         48,684     16.00m   19.5%
+  CLEAR         DECAYING     86,500     18.00m   15.5%
+
+Sharpest signal:  zone=IMMINENT + state=RISING
+Slowest signal:   zone=CLEAR + state=DECAYING
+"Pivot just happened" diagnostic: zone=IMMINENT + state=DECAYING

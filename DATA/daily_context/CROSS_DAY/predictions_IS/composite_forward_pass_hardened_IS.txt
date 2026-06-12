@@ -1,0 +1,10 @@
+==============================================================================
+HARDENED IS FORWARD PASS — features at R-trigger bar (no pivot peek)
+==============================================================================
+Days: 275   Legs: 17,767
+Friction per leg: $6.00
+
+  flat                total $   189,776  $/day     +690  median $   +332  pos 195/275
+  gbm_ev              total $   400,429  $/day    +1456  median $   +780  pos 213/275
+  gbm_quantile        total $   413,481  $/day    +1504  median $   +905  pos 220/275
+  hand_aggressive     total $   300,258  $/day    +1092  median $   +560  pos 210/275
