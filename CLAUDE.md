@@ -52,9 +52,9 @@ fully purged.
 > `rl_whitepaper.md` (repo root) documents the RL architecture. `AGENTS.ini` is the maintained file-layout index.
 
 ## Active Work
+> **MANDATORY**: Always check the `docs/Active/` directory at the start of a session to see the current active roadmaps, feature maps, and objectives.
 > Canonical "what's broken / what's still TBD" lives in `AGENTS.ini [known_issues]`.
-> Historical "Active Work" snapshots (blended 9-tier pipeline, 3 CNNs, ISO consolidation,
-> VizEngine migration) moved to `docs/daily/` journals from their respective dates.
+> Historical "Active Work" snapshots moved to `docs/daily/` journals.
 
 - **RL engine training (PW-CRL)** — mid-curriculum (`EXIT_NMP → ENTRY_NMP → YOLO`).
   Current focus: Composite Brain dual normal curves + `N_AGENTS=1` pure-OOS evaluation
