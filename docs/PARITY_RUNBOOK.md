@@ -125,7 +125,7 @@ Exit codes:
 Once all three layers PASS for a clean session:
 1. Engine is proven faithful to backtest
 2. Now safe to add post-parity items from todo (guard bands, exit improvements, etc.)
-3. Each new physics change requires re-running parity to confirm it doesn't break anything
+3. Each new model change requires re-running parity to confirm it doesn't break anything
 
 ## Workflow summary
 
@@ -148,5 +148,5 @@ Post-session:
 ```
 
 If step 10 returns PASS, the engine is faithful and you can iterate on
-physics improvements. If WARN or FAIL, fix the divergence before
+model improvements. If WARN or FAIL, fix the divergence before
 adding anything new.
