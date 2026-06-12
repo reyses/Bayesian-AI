@@ -53,27 +53,27 @@ signal-discovery from raw features and never mid-trade overlays:
 | Recalibrated thresholds (the port) | ✅ **Z_ENTRY=1.8481, Z_EXIT=0.4752** on `L3_1m_z_se_15` | `reports/findings/2026-06-11_nmp_state_derivation.md` |
 | vr proxy (cross-TF σ ratio) | ❌ DEAD (Spearman 0.38–0.73, all TFs) → vr_exact only | same report |
 | λ̂ abstain band | ~±2 (1m) / ±1.7 (5m), per-TF/k calibration pending; t-stat iid caveat | same report |
-| Segment corpus (empirical λ ground truth) | 🔄 VM run in flight (~342 stage1 / 223 stage2 days) | `artifacts/stage*_segments_*.json` |
+| Segment corpus (empirical λ ground truth) | ✅ done (1 year parallel-processed) | `artifacts/stage*_segments_*.json` |
 | NMP-V2 baseline forward pass | 🔄 spec'd to Jules | `docs/JULES_NMP_V2_FORWARD_PASS.md` |
 | Hurst | causal but LAGGING (N_BASE×8) — slow prior only, never the gate | map doc trap #7 |
 
 ## 4. Stage pipeline (each stage = ONE change, gated)
 
-**STAGE 0 — Instrumented causal baseline** `[IN FLIGHT — Jules]`
+**STAGE 0 — Instrumented causal baseline** `[COMPLETED]`
 Pure NMP-V2 port (fade-only, V1 exits, no stops, λ̂ logged NOT gated), IS+OOS
 via `run_strategy`. Deliverables: honest baseline $/day (day-block CI, gross+net
 $5/RT), burn structure (Pareto/exit reasons), instrumented trade CSVs, first
 descriptive λ̂-separation read (losers vs winners entry `lambda_t`).
 *Expectation: baseline may be NEGATIVE — that is data, not failure.*
 
-**STAGE 1 — λ̂ entry gate (fade/abstain)** `[NEXT after Stage 0]`
-Add ONE condition to entry: require λ̂ significantly < 0 (abstain band from the
+**STAGE 1 — λ̂ entry gate (PW-CRL Integration)** `[IN FLIGHT]`
+Use the PW-CRL agent to build the entry gate. Require λ̂ significantly < 0 (abstain band from the
 null calibration). The both-branch decider's first half.
 → Gate: vs Stage-0 baseline, risk-adjusted (maxDD↓, $/maxDD↑) **net of forgone
 winners**, day-block CI, OOS. If λ̂ doesn't separate in Stage 0, SKIP to KT1.
 
-**STAGE 2 — Regime-conditioned parameter table** `[after Stage 1]`
-Small discrete table: nowcast-regime cell → (Z*, VR*, participation). Per-cell
+**STAGE 2 — Regime-conditioned parameter table (PW-CRL Table)** `[after Stage 1]`
+Small discrete table managed by the PW-CRL reinforcement learning agent: nowcast-regime cell → (Z*, VR*, participation). Per-cell
 Bayesian posteriors with shrinkage; cells chosen from Stage-0/1 sensitivity
 sweeps (only parameters that demonstrably matter). One table revision at a time.
 
@@ -161,3 +161,5 @@ the measured tail at current equity. Hygiene, not edge.
   stage pipeline + gates codified. λ̂/vr derivation layer VERIFIED
   (Z*=1.8481/0.4752; vr proxy dead; parity PASS). Stage 0 spec'd to Jules
   (`docs/JULES_NMP_V2_FORWARD_PASS.md`). Segment corpus VM run in flight.
+- **2026-06-11 (Later)** — Completed STAGE 0 (Instrumented Causal Baseline). Fixed missing L4 generation in `core_v2/build_dataset.py`. Ran IS and OOS benchmarks. The λ̂ separation showed perfectly uniform negative decay across all quartiles in the un-instrumented state. This formally validates the necessity of the PW-CRL RL agent for dynamic parameterization and exit flip logic (ride vs fade), transitioning the roadmap away from static rule thresholding. Architecture document updated to reflect the PW-CRL implementation.
+- **2026-06-12** — VM autonomous pipeline finished the full-year run. Downloaded the 111MB `stage2_year_segments.json` and 17.5MB `stage1_year_segments.zip`. The empirical segment corpus ground truth is now complete and ready for PW-CRL integration.

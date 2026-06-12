@@ -38,7 +38,6 @@ The advanced ML and diagnostic tools layered on top of the V2 Core.
 | `training/rl_engine/` | Parallel Worlds Curriculum Reinforcement Learning (PW-CRL) implementation: CNN+LSTM DQN engine featuring V-trace and hindsight-regret shadow queues. |
 | `tools/convert_nt8_atlas.py` | Data ingestion utility that converts raw broker exports to the internal Parquet ATLAS format. |
 | `tools/trade_visualizer.py` | Trade inspection tool displaying chart segments overlaid with entry/exit points and regime bounds. |
-| `tools/parity_validate.py` | Verifies the output parity between historical `build_dataset.py` forward-passes and `engine_v2.py` live logs. |
 
 ## Dependency Flow
 
@@ -68,7 +67,7 @@ training/rl_engine/train_historical.py
 ```text
 Raw NT8 Export → tools/convert_nt8_atlas.py → ATLAS Parquet
   → core_v2/build_dataset.py (SFE) → Multi-TF Feature Parquets
-  → training/rl_engine/train_historical.py (DQN) 
+  → training/rl_engine/train_historical.py (PW-CRL DQN)
   → core_v2/sim_executor.py (Ledger & Exits) → Evaluator Logs
 ```
 

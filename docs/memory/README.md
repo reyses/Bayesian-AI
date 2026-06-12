@@ -1,5 +1,7 @@
 # Project Memory — `docs/memory/`
 
+> **CONDENSED 2026-06-12.** `MEMORY.md` is the condensed, load-on-start knowledge base (9 sections: program / hard rules / metric formulas / traps / graveyard / wins / architecture / user / pointers). The pre-condense originals of every file here are preserved verbatim in `archive/` (`*_pre-condense_2026-06-12.md`); `PROJECT_HISTORY.md` now opens with a chronological era arc.
+
 Durable, non-chronological knowledge that future sessions need to load fast.
 Where the journals (`docs/daily/`) record *what happened*, memory records
 *what's true now* and *the rules to follow*.
