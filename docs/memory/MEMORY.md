@@ -84,6 +84,7 @@
 - **SUDO** = accept and execute the instruction, but ALWAYS present a risk assessment (what breaks, blast radius, rollback) + ≥1 alternative FIRST, then proceed.
 - **Thinks topic-at-a-time** — sequential questions only; configurable defaults over preemptive engineering ("we won't know if we don't try"). Format: mode > mean; honest-floor $-framing; always show CIs.
 - **Metaphor scope (2026-06-12)**: "the metaphors are for communication, not for the code" — use his physics vocabulary (Roche limit, nightmare field, three-body) in chat/design discussion; code, labels, chart titles stay statistical-only. Two layers, no contradiction.
+- **Plain-language rule (2026-06-12)**: AVOID the trading-jargon words "fade" and "reversal" — user finds them unclear. Use price-vs-mean language: fade → "snap-back bet" / "bet price returns to the mean"; ride → "run bet" / "bet price keeps running"; reversal → "the turn" / "price snaps back". (Code/labels may still use precise terms with a definition; this is for chat/explanation.)
 - **Hardware**: Ryzen 5 5600X, 16GB RAM, RTX 3060 12GB VRAM — VRAM is the binding constraint (hence FPS OOM hardening). Local-LLM capacity ≈ 8B Q4 with CUDA offload.
 - Detail: `USER_PERSONA_AND_PROTOCOL.md` (cognitive style, collaboration protocol, headroom/nesting framework, VP zone-map trading manual, schedule, specs). Full feedback corpus: `AGENT_FEEDBACK_RULES.md`.
 
