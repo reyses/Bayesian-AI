@@ -34,6 +34,7 @@ AGG_FROM_1S = [
     ('1s', '5s', 5),
     ('1s', '15s', 15),
     ('1s', '30s', 30),
+    ('1s', '1m', 60),
 ]
 AGG_FROM_1M = [
     ('1m', '5m', 5),
@@ -211,7 +212,7 @@ def main():
         if not SKIP_1S:
             print('Aggregating from 1s:')
             for src, tgt, n in AGG_FROM_1S:
-                tf_secs = {'5s': 5, '15s': 15, '30s': 30}
+                tf_secs = {'5s': 5, '15s': 15, '30s': 30, '1m': 60}
                 build_tf(src, tgt, tf_secs[tgt])
 
         # Build from 1m
