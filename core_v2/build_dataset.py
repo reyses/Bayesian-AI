@@ -150,6 +150,17 @@ def _load_anchor_day(atlas_root: str, day: str) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def _load_1s_day(atlas_root: str, day: str) -> pd.DataFrame:
+    """Load a single day's 1s bars — the SOURCE for the L5 intra-bar distribution.
+
+    L5 is within-bar-only (no cross-day trailing window), so per-day 1s is
+    sufficient and correct (unlike L1-L4 which need all-history for warmup)."""
+    path = os.path.join(_atlas_tf_dir(atlas_root, '1s'), f'{day}.parquet')
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Missing 1s file: {path}")
+    return pd.read_parquet(path)
+
+
 # ─── Per-day write helpers ────────────────────────────────────────────────
 
 def _output_root(atlas_root: str) -> str:
@@ -412,6 +423,35 @@ def run(
         l0 = sfe.compute_L0(anchor)
         l0.insert(0, 'timestamp', anchor['timestamp'].values.astype(np.int64))
         _write_family(l0, _family_path(atlas_root, 'L0', day), SCHEMA_VERSION)
+
+    # 6. L5 (intra-bar 1s distribution — sourced from raw 1s, grouped per TF)
+    #    Load each day's 1s ONCE, compute all TFs from it. Within-bar-only, so no
+    #    cross-day warmup needed. Step-fill uses period=TF_SECONDS[tf] on the L5
+    #    bar_ts (last-closed rule), EXACTLY like L1-L4 — NOT period=5/1 (= lookahead).
+    print(f"\n--- L5 (intra-bar 1s distribution) ---")
+    for day in tqdm(days, desc="  writing L5", ncols=80):
+        if skip_existing and all(
+            os.path.exists(_family_path(atlas_root, f'L5_{tf}', day))
+            for tf in include_tfs
+        ):
+            continue
+        try:
+            anchor = _load_anchor_day(atlas_root, day)
+            df_1s = _load_1s_day(atlas_root, day)
+        except FileNotFoundError:
+            continue  # no anchor or no 1s for this day -> L1-L4 still built above
+        anchor_ts = anchor['timestamp'].values.astype(np.int64)
+        for tf in include_tfs:
+            if skip_existing and os.path.exists(_family_path(atlas_root, f'L5_{tf}', day)):
+                continue
+            l5 = sfe.compute_L5_ldist(df_1s, tf)
+            if len(l5) == 0:
+                continue
+            l5_ts = l5['bar_ts'].to_numpy(np.int64)
+            l5_feat = l5.drop(columns=['bar_ts']).reset_index(drop=True)
+            aligned = _align_to_anchor(l5_ts, l5_feat, anchor_ts, TF_SECONDS[tf])
+            aligned.insert(0, 'timestamp', anchor_ts)
+            _write_family(aligned, _family_path(atlas_root, f'L5_{tf}', day), SCHEMA_VERSION)
 
     print(f"\nDone. Wrote {len(days)} days to {_output_root(atlas_root)}")
 

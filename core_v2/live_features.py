@@ -123,10 +123,17 @@ class LiveFeatureEngine:
         to the StatisticalFieldEngine, and extracts the final row into a 1D vector.
         """
         self._flush_new_bars()
-        
+
         if len(self._df_5s) == 0:
             return None
-            
+
+        # LOOKAHEAD FIX (offline parity): decision anchor = start of the 5s bar AFTER the
+        # latest CLOSED 5s bar (= "now"). A higher-TF bar is usable only when its
+        # open + period <= anchor (mirrors build_dataset._last_closed_idx). Before this,
+        # df.resample().iloc[-1] returned the still-FORMING higher-TF bar, leaking intra-bar
+        # info into every TF>5s and diverging from the offline-trained features.
+        anchor_ts = int(self._df_5s['timestamp'].iloc[-1]) + TF_SECONDS['5s']
+
         vector_dict = {}
         
         # 1. L0 (Global)
@@ -150,9 +157,13 @@ class LiveFeatureEngine:
                     'volume': 'sum'
                 }).dropna().reset_index(drop=True)
                 
+            # LOOKAHEAD FIX: keep only CLOSED bars (open+period <= anchor); drops the
+            # still-forming bar. Mirrors build_dataset._last_closed_idx for offline parity.
+            tf_df = tf_df[tf_df['timestamp'] <= anchor_ts - tf_secs].reset_index(drop=True)
+
             if len(tf_df) == 0:
                 continue
-                
+
             # Compute layers
             l1 = self._sfe.compute_L1(tf_df, tf)
             l2 = self._sfe.compute_L2(tf_df, tf)

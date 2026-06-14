@@ -77,6 +77,81 @@ TICK_SIZE = 0.25
 # OU first-passage boundary (standard value used in v1; matches erfi-based formula)
 OU_BOUNDARY = 3.0
 
+# ─── L5 (intra-bar 1s distribution / "ldist") config ──────────────────────
+# NOTE: "L5" here is the FEATURE LAYER; do NOT confuse with the live L5 zigzag
+# decision engine (live/l5_decider.py) — different namespace, no symbol clash.
+# Seconds-per-TF (local to the SFE to avoid a circular import with features.py).
+TF_SECONDS = {'5s': 5, '15s': 15, '1m': 60, '5m': 300, '15m': 900,
+              '1h': 3600, '4h': 14400, '1D': 86400}
+L5_OUTLIER_K = 2.0             # outlier_pct band = mean ± k*sigma (named, not a literal)
+L5_MIN_SAMPLES_MOMENTS = 4     # n < this -> NaN skew/kurtosis/outlier (3rd/4th moment unstable)
+L5_QUANTILE_METHOD = 'linear'  # PINNED: offline & live must match EXACTLY for byte-parity
+L5_EPS = 1e-9
+
+
+def _ldist_group_stats(bar_ts: int, c: np.ndarray, x: np.ndarray, tf: str) -> dict:
+    """Descriptive statistics of ONE tf-bar's within-bar 1s closes.
+
+    THE single per-group implementation — called identically offline (build) and
+    live, so offline==live by construction. Pure numpy (no scipy) with PINNED
+    conventions for byte-parity.
+
+    Args:
+        bar_ts: the tf-bar's label (group key).
+        c: 1s closes inside the bar (np.float64).
+        x: within-bar position with x=0 at BAR END (= ts - (bar_ts+period-1)),
+           so the OLS `level` is the de-noised end-of-bar price.
+        tf: TF label for column naming.
+    Returns:
+        dict {'bar_ts', 'L5_{tf}_ldist_*': value} — one row.
+    """
+    p = f'L5_{tf}_ldist_'
+    n = int(c.size)
+    out = {'bar_ts': int(bar_ts), p + 'n': n}
+    keys = ('min', 'q1', 'median', 'q3', 'max', 'mean', 'std',
+            'skew', 'kurtosis', 'level', 'outlier_pct')
+    if n == 0:
+        for k in keys:
+            out[p + k] = np.nan
+        return out
+
+    # 5-number box plot (pinned interpolation)
+    q = np.quantile(c, [0.0, 0.25, 0.5, 0.75, 1.0], method=L5_QUANTILE_METHOD)
+    out[p + 'min'], out[p + 'q1'], out[p + 'median'], out[p + 'q3'], out[p + 'max'] = q
+
+    mean = float(c.mean())
+    out[p + 'mean'] = mean
+    out[p + 'std'] = float(c.std(ddof=1)) if n >= 2 else 0.0   # ddof=1, matches L2 sigma
+
+    # moments: Fisher EXCESS kurtosis + population-moment skew (numpy/scipy bias=True
+    # convention). n<L5_MIN_SAMPLES_MOMENTS or flat -> NaN (mirror the OLS n<2 guard).
+    if n >= L5_MIN_SAMPLES_MOMENTS:
+        dev = c - mean
+        m2 = float(np.mean(dev * dev))
+        if m2 > L5_EPS:
+            m3 = float(np.mean(dev ** 3))
+            m4 = float(np.mean(dev ** 4))
+            out[p + 'skew'] = m3 / (m2 ** 1.5)
+            out[p + 'kurtosis'] = m4 / (m2 * m2) - 3.0
+            out[p + 'outlier_pct'] = float(np.mean(np.abs(dev) > L5_OUTLIER_K * np.sqrt(m2)) * 100.0)
+        else:
+            out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = np.nan
+    else:
+        out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = np.nan
+
+    # level = OLS fitted value at bar end (x=0) over (x, close); intercept a = ȳ - slope·x̄.
+    if n >= 2:
+        xm = float(x.mean())
+        xv = float(np.sum((x - xm) ** 2))
+        if xv > L5_EPS:
+            slope = float(np.sum((x - xm) * (c - mean)) / xv)
+            out[p + 'level'] = mean - slope * xm
+        else:
+            out[p + 'level'] = float(c[-1])
+    else:
+        out[p + 'level'] = float(c[-1])
+    return out
+
 
 # ─── Numba kernels ─────────────────────────────────────────────────────────
 # All kernels use parallel trailing-window semantics.
@@ -487,6 +562,64 @@ class StatisticalFieldEngine:
         ts = df['timestamp'].values.astype(np.float64)
         tod = (ts % 86400.0) / 86400.0
         return pd.DataFrame({'L0_time_of_day': tod}, index=df.index)
+
+    # ─── L5 (intra-bar 1s distribution / "ldist") ──────────────────────────
+
+    def compute_L5_ldist(self, df_1s: pd.DataFrame, tf: str) -> pd.DataFrame:
+        """Descriptive statistics of each tf-bar's WITHIN-BAR 1s-close distribution.
+
+        SOURCE RULE: aggregated ONLY from raw 1s (df_1s), grouped to the target TF
+        via integer floor bar_ts = (ts // period) * period. NEVER from coarser
+        aggregates. This is the cornerstone — call it identically offline (build)
+        and live so offline==live by construction (single `_ldist_group_stats`).
+
+        RETURN: ONE ROW PER CLOSED TF BAR (NOT identical-length to the 1s input —
+        diverges from L1-L4 on purpose; L1-L4 are fed coarse-TF bars 1-in-1-out,
+        L5 is fed raw 1s and AGGREGATES). Columns: bar_ts + L5_{tf}_ldist_* battery
+        (min,q1,median,q3,max,mean,std,skew,kurtosis,n,level,outlier_pct).
+
+        CAUSALITY: this method is within-bar only (no cross-bar window). The caller
+        (build_dataset) step-fills the returned per-tf-bar frame onto the 5s anchor
+        with period=TF_SECONDS[tf] and tf_ts=the returned bar_ts (last-closed rule),
+        EXACTLY like L1-L4. (Do NOT step-fill with period=5 or 1 — that is lookahead.)
+
+        Args:
+            df_1s: raw 1-second OHLCV for ONE day/session (cols incl. timestamp, close).
+            tf: target TF label (period derived from TF_SECONDS[tf]).
+        Returns:
+            DataFrame, one row per closed tf-bar, sorted by bar_ts. Empty df -> empty.
+        """
+        for col in ('timestamp', 'close'):
+            if col not in df_1s.columns:
+                raise ValueError(f"compute_L5_ldist requires '{col}' column in df_1s")
+        period = TF_SECONDS[tf]
+
+        ts = df_1s['timestamp'].to_numpy(np.int64)
+        if ts.size == 0:
+            return pd.DataFrame()
+        order = np.argsort(ts, kind='mergesort')   # stable; df_1s usually already sorted
+        ts = ts[order]
+        close = df_1s['close'].to_numpy(np.float64)[order]
+
+        if tf == '1D':
+            # One bar per session FILE (matches build_1d_from_1m), labelled by first ts.
+            # Epoch-floor 86400 would split a session that straddles UTC midnight.
+            bar_ts = np.full(ts.size, int(ts[0]), dtype=np.int64)
+        else:
+            bar_ts = (ts // period) * period
+
+        # Contiguous groups (ts is sorted -> bar_ts is non-decreasing).
+        uniq, starts = np.unique(bar_ts, return_index=True)
+        ends = np.append(starts[1:], ts.size)
+        rows = []
+        for b, s, e in zip(uniq, starts, ends):
+            c = close[s:e]
+            x = ts[s:e].astype(np.float64) - (float(b) + period - 1.0)  # x=0 at bar end
+            rows.append(_ldist_group_stats(int(b), c, x, tf))
+        # PERF NOTE: pure-python group loop. Fine per-day (offline); for very fast TFs
+        # (5s/15s = many tiny groups) over full history this is the slowest layer — a
+        # Numba grouped-quantile kernel is the future optimisation (see L5 addendum).
+        return pd.DataFrame(rows)
 
     # ─── L1 ───────────────────────────────────────────────────────────────
 

@@ -18,16 +18,23 @@ import os
 import sys
 import glob
 import gc
+import argparse
 import numpy as np
 import pandas as pd
 from datetime import datetime, timezone
 from tqdm import tqdm
 
-ATLAS = 'DATA/ATLAS'
+parser = argparse.ArgumentParser()
+parser.add_argument('--skip-1s', action='store_true')
+parser.add_argument('--validate-only', action='store_true')
+parser.add_argument('--atlas-root', type=str, default='DATA/ATLAS')
+args = parser.parse_args()
+
+ATLAS = args.atlas_root
 TICK = 0.25
 
-SKIP_1S = '--skip-1s' in sys.argv
-VALIDATE_ONLY = '--validate-only' in sys.argv
+SKIP_1S = args.skip_1s
+VALIDATE_ONLY = args.validate_only
 
 # Aggregation rules: (source_tf, target_tf, bars_per_target)
 AGG_FROM_1S = [

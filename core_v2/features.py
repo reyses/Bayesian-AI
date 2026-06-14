@@ -149,6 +149,22 @@ def _l4_nmp_names(tf: str) -> list[str]:
     return names
 
 
+def _l5_ldist_names(tf: str) -> list[str]:
+    """L5: within-bar 1s distribution ("ldist") — descriptive stats of each tf-bar's
+    constituent 1-second closes (box plot + moments + n + level).
+
+    NOTE: 'L5' here is the FEATURE LAYER; do NOT confuse with the live L5 zigzag
+    decision engine (live/l5_decider.py) — different namespace, no symbol clash.
+
+    Order matches SFE.compute_L5_ldist output (minus its 'bar_ts' key). NO _{N}
+    window suffix (within-bar, no rolling window).
+    """
+    base = f'L5_{tf}_ldist_'
+    return [base + s for s in
+            ('n', 'min', 'q1', 'median', 'q3', 'max', 'mean', 'std',
+             'skew', 'kurtosis', 'outlier_pct', 'level')]
+
+
 # ─── Canonical feature name list ───────────────────────────────────────────
 # Order (so columns in FEATURES_5s_v2 parquets are deterministic):
 #   L0 global (1)
@@ -203,6 +219,17 @@ for _tf in TF_ORDER:
         'is_per_tf': True,
         'tf': _tf,
         'features': _l3_names(_tf),
+        'schema_version': 1,
+    }
+    # L5 (intra-bar 1s distribution). STAGE A: registered as a storage/loader family
+    # ONLY — deliberately NOT added to FEATURE_NAMES yet (that would trip the
+    # N_FEATURES assert and force L5 into every consumer). Materialize + edge-test
+    # first; promote to FEATURE_NAMES in Stage B. (L4 is likewise in FEATURE_NAMES
+    # but not load-default; here L5 is the inverse: a family, not yet a grid feature.)
+    LAYER_FAMILIES[f'L5_{_tf}'] = {
+        'is_per_tf': True,
+        'tf': _tf,
+        'features': _l5_ldist_names(_tf),
         'schema_version': 1,
     }
 
@@ -298,6 +325,25 @@ def load_features(
         if frames and day_ts is not None:
             day_df = pd.concat(frames, axis=1)
             day_df.insert(0, 'timestamp', day_ts.values)
+
+            # --- Seam Masking ---
+            manifest_path = os.path.join(os.path.dirname(root), 'roll_manifest.csv')
+            if os.path.exists(manifest_path):
+                manifest = pd.read_csv(manifest_path)
+                # handle both v1 and v2 manifest column names ('session_day' vs 'day')
+                day_col = 'day' if 'day' in manifest.columns else 'session_day'
+                rolled_days = set(manifest[manifest['rolled'] == True][day_col])
+                
+                if day in rolled_days:
+                    day_start_ts = day_ts.iloc[0]
+                    for tf in tfs:
+                        tf_cols = [c for c in day_df.columns if c.startswith(f'L2_{tf}_') or c.startswith(f'L3_{tf}_') or c.startswith(f'L4_{tf}_')]
+                        if tf_cols:
+                            N = N_BASE.get(tf, 12)
+                            warmup_seconds = N * TF_SECONDS[tf]
+                            mask = day_df['timestamp'] < (day_start_ts + warmup_seconds)
+                            day_df.loc[mask, tf_cols] = np.nan
+
             per_day_frames.append(day_df)
 
     if not per_day_frames:
