@@ -61,7 +61,7 @@ TF_SECONDS = {
 # MUST be used when assembling the grid to prevent timeframe scrambling.
 TF_HIERARCHY_V2 = ['1D', '4h', '1h', '15m', '5m', '1m', '15s', '5s']
 
-# The ordered features per TF (25 total). This defines the feature axis in the CNN.
+# The ordered features per TF (37 total). This defines the feature axis in the CNN.
 FEATURE_NAMES_V2 = [
     # L1 (8) — bar primitives
     'price_velocity_1b', 'price_accel_1b',
@@ -77,11 +77,14 @@ FEATURE_NAMES_V2 = [
     'z_se',  'z_high', 'z_low',
     'SE_high', 'SE_low',
     'hurst', 'reversion_prob', 'swing_noise',
+    # L5 (12) — intra-bar 1s point cloud
+    'ldist_n', 'ldist_min', 'ldist_q1', 'ldist_median', 'ldist_q3', 'ldist_max',
+    'ldist_mean', 'ldist_std', 'ldist_skew', 'ldist_kurtosis', 'ldist_outlier_pct', 'ldist_level',
 ]
 
 N_TFS_V2 = len(TF_HIERARCHY_V2)               # 8
-N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 25
-N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 200
+N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 37
+N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 296
 
 # ─── Feature name generators ───────────────────────────────────────────────
 
@@ -177,11 +180,12 @@ for tf in TF_ORDER:
     FEATURE_NAMES.extend(_l2_names(tf))
     FEATURE_NAMES.extend(_l3_names(tf))
     FEATURE_NAMES.extend(_l4_nmp_names(tf))
+    FEATURE_NAMES.extend(_l5_ldist_names(tf))
 
-# Expected: 1 (L0) + (8 + 9 + 8 + 12) * len(TF_ORDER) = 1 + 37 * N_TFS
-# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 297
+# Expected: 1 (L0) + (8 + 9 + 8 + 12 + 12) * len(TF_ORDER) = 1 + 49 * N_TFS
+# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 393
 N_FEATURES = len(FEATURE_NAMES)
-_expected = 1 + 37 * N_TFS
+_expected = 1 + 49 * N_TFS
 assert N_FEATURES == _expected, (
     f"Expected {_expected} features for {N_TFS} TFs, got {N_FEATURES}. "
     f"Check the _l0/_l1/_l2/_l3_names generators."
@@ -273,7 +277,7 @@ def load_features(
     if tfs is None:
         tfs = list(TF_ORDER)
     if layers is None:
-        layers = ['L0', 'L1', 'L2', 'L3']
+        layers = ['L0', 'L1', 'L2', 'L3', 'L5']
 
     layers = list(layers)
     tfs = list(tfs)
@@ -414,6 +418,8 @@ def assemble_v2_grid(flat_v2_matrix: np.ndarray) -> np.ndarray:
             elif fname.endswith('_w'):
                 # L2 windowed features (strip _w, add N_BASE)
                 col = f'L2_{tf}_{fname[:-2]}_{N_BASE[tf]}'
+            elif fname.startswith('ldist_'):
+                col = f'L5_{tf}_{fname}'
             else:
                 # L3 features (add N_BASE)
                 col = f'L3_{tf}_{fname}_{N_BASE[tf]}'

@@ -92,6 +92,7 @@ class VizEngine:
         # UI State
         self.show_ohlc = True
         self._tool_patches = []
+        self._price_lines = []
         
         has_ind = getattr(self.plugin, 'requires_indicator_panel', False)
         

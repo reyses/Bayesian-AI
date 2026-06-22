@@ -1,0 +1,41 @@
+tid,day,split,dir,arch,net_usd,mfe_pts,mae_pts,dur_min,proposed_entry,proposed_exit,proposed_note,verify_gemini,verify_claude,verify_human,plot
+3663,2025_07_23,OOS_25_26,LONG,CLEAN_RIDE,294.0,163.8,-2.2,367.0,ok,ok,"caught a real move, kept most of it",,,,trade_03663_CLEAN_RIDE.png
+378,2024_04_19,IS,LONG,CLEAN_RIDE,308.5,235.5,-17.0,612.4,ok,ok,"caught a real move, kept most of it",,,,trade_00378_CLEAN_RIDE.png
+4041,2025_10_17,OOS_25_26,SHORT,CLEAN_RIDE,486.0,325.0,-17.2,351.4,ok,ok,"caught a real move, kept most of it",,,,trade_04041_CLEAN_RIDE.png
+2475,2025_03_20,OOS_25_26,SHORT,CLEAN_RIDE,426.0,293.8,-14.8,105.1,ok,ok,"caught a real move, kept most of it",,,,trade_02475_CLEAN_RIDE.png
+1742,2024_12_24,OOS_H2_24,LONG,CLEAN_RIDE,539.0,274.0,-36.0,671.4,ok,ok,"caught a real move, kept most of it",,,,trade_01742_CLEAN_RIDE.png
+2252,2025_03_04,OOS_25_26,LONG,CLEAN_RIDE,250.5,207.5,-15.5,50.8,ok,ok,"caught a real move, kept most of it",,,,trade_02252_CLEAN_RIDE.png
+3529,2025_06_13,OOS_25_26,SHORT,GAVE_BACK,45.0,117.2,-15.5,71.3,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_03529_GAVE_BACK.png
+581,2024_06_20,IS,LONG,GAVE_BACK,76.0,118.8,-1.5,681.0,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_00581_GAVE_BACK.png
+4174,2025_11_04,OOS_25_26,SHORT,GAVE_BACK,66.0,114.5,-9.2,86.5,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_04174_GAVE_BACK.png
+4912,2026_02_05,OOS_25_26,LONG,GAVE_BACK,68.0,115.5,-46.8,43.4,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_04912_GAVE_BACK.png
+2074,2025_02_11,OOS_25_26,SHORT,GAVE_BACK,104.5,134.2,-0.8,768.1,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_02074_GAVE_BACK.png
+3000,2025_04_14,OOS_25_26,LONG,GAVE_BACK,75.5,118.5,-28.5,289.0,ok-but-late,too-wide (79pt trail),"real move, surrendered most of peak",,,,trade_03000_GAVE_BACK.png
+19,2024_01_09,IS,LONG,CHOP,-10.5,4.2,-7.2,59.7,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_00019_CHOP.png
+235,2024_03_13,IS,SHORT,CHOP,-84.0,3.8,-42.8,87.5,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_00235_CHOP.png
+3483,2025_06_05,OOS_25_26,LONG,CHOP,-40.5,6.5,-24.5,57.2,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_03483_CHOP.png
+1050,2024_08_16,OOS_H2_24,SHORT,CHOP,-4.0,8.5,-18.2,61.8,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_01050_CHOP.png
+4227,2025_11_09,OOS_25_26,SHORT,CHOP,-33.0,4.5,-37.0,21.1,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_04227_CHOP.png
+5034,2026_02_13,OOS_25_26,LONG,CHOP,-39.5,9.5,-20.5,53.1,questionable,n/a,never developed (MFE<10pt) — likely a false-start entry,,,,trade_05034_CHOP.png
+5255,2026_03_05,OOS_25_26,SHORT,STOPPED,-103.5,12.0,-50.5,58.2,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_05255_STOPPED.png
+1743,2024_12_26,OOS_H2_24,SHORT,STOPPED,-102.5,13.2,-50.0,245.4,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_01743_STOPPED.png
+5243,2026_03_04,OOS_25_26,SHORT,STOPPED,-111.5,3.0,-54.5,0.6,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_05243_STOPPED.png
+2848,2025_04_09,OOS_25_26,LONG,STOPPED,-103.5,35.5,-50.5,1.0,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_02848_STOPPED.png
+2028,2025_02_03,OOS_25_26,LONG,STOPPED,-103.0,0.0,-50.2,3.3,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_02028_STOPPED.png
+4505,2025_12_04,OOS_25_26,LONG,STOPPED,-106.0,6.8,-51.8,18.6,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_04505_STOPPED.png
+118,2024_02_07,IS,LONG,SMALL_WIN,32.5,27.8,-49.2,238.1,ok?,ok?,marginal,,,,trade_00118_SMALL_WIN.png
+5404,2026_03_15,OOS_25_26,LONG,SMALL_WIN,18.5,91.0,-2.0,50.0,ok?,ok?,marginal,,,,trade_05404_SMALL_WIN.png
+1963,2025_01_28,OOS_25_26,LONG,SMALL_WIN,208.0,185.0,-4.5,45.5,ok?,ok?,marginal,,,,trade_01963_SMALL_WIN.png
+3738,2025_08_07,OOS_25_26,SHORT,SMALL_WIN,131.0,147.0,-8.2,118.3,ok?,ok?,marginal,,,,trade_03738_SMALL_WIN.png
+3984,2025_10_13,OOS_25_26,SHORT,SMALL_WIN,9.0,86.8,-6.2,10.5,ok?,ok?,marginal,,,,trade_03984_SMALL_WIN.png
+2795,2025_04_09,OOS_25_26,LONG,SMALL_WIN,134.0,148.5,-33.5,6.0,ok?,ok?,marginal,,,,trade_02795_SMALL_WIN.png
+5257,2026_03_05,OOS_25_26,SHORT,SMALL_LOSS,-71.5,47.5,-34.5,50.5,ok?,ok?,marginal,,,,trade_05257_SMALL_LOSS.png
+5020,2026_02_13,OOS_25_26,LONG,SMALL_LOSS,-19.5,71.0,-8.5,4.5,ok?,ok?,marginal,,,,trade_05020_SMALL_LOSS.png
+1860,2025_01_13,OOS_25_26,SHORT,SMALL_LOSS,-47.5,58.0,-41.2,21.5,ok?,ok?,marginal,,,,trade_01860_SMALL_LOSS.png
+4270,2025_11_14,OOS_25_26,SHORT,SMALL_LOSS,-56.0,53.0,-26.8,38.9,ok?,ok?,marginal,,,,trade_04270_SMALL_LOSS.png
+3449,2025_06_02,OOS_25_26,SHORT,SMALL_LOSS,-89.5,36.2,-43.5,13.2,ok?,ok?,marginal,,,,trade_03449_SMALL_LOSS.png
+3423,2025_05_29,OOS_25_26,LONG,SMALL_LOSS,-1.0,82.8,-20.8,179.6,ok?,ok?,marginal,,,,trade_03423_SMALL_LOSS.png
+1938,2025_01_27,OOS_25_26,SHORT,CLEAN_RIDE,1557.5,859.8,-7.0,612.5,ok,ok,"caught a real move, kept most of it",,,,trade_01938_CLEAN_RIDE.png
+3041,2025_04_15,OOS_25_26,LONG,STOPPED,-454.0,33.8,-225.8,189.5,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_03041_STOPPED.png
+4101,2025_10_27,OOS_25_26,LONG,CLEAN_RIDE,523.5,285.2,-21.0,1387.3,ok,ok,"caught a real move, kept most of it",,,,trade_04101_CLEAN_RIDE.png
+1257,2024_09_18,OOS_H2_24,SHORT,STOPPED,-253.5,0.0,-125.5,0.0,questionable,stop (mechanically ok),reversed to -50pt stop; check if bad entry,,,,trade_01257_STOPPED.png

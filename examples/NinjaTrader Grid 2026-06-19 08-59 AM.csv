@@ -1,0 +1,7 @@
+NinjaScript File,Error,Code,Line,Column,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' does not exist in the namespace 'NinjaTrader.NinjaScript.Indicators' (are you missing an assembly reference?),CS0234,1489,21,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' does not exist in the namespace 'NinjaTrader.NinjaScript.Indicators' (are you missing an assembly reference?),CS0234,1494,21,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' does not exist in the namespace 'NinjaTrader.NinjaScript.Indicators' (are you missing an assembly reference?),CS0234,1505,21,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' does not exist in the namespace 'NinjaTrader.NinjaScript.Indicators' (are you missing an assembly reference?),CS0234,1510,21,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' could not be found (are you missing a using directive or an assembly reference?),CS0246,1480,26,
+3-BayesianBridge_v7\1\0-RC.cs,The type or namespace name 'BayesianBridge' could not be found (are you missing a using directive or an assembly reference?),CS0246,1480,46,

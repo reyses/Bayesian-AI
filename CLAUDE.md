@@ -153,6 +153,16 @@ reports, not the bare bootstrap.
 - **Save analysis tools**: When building a research/analysis script, always save it as
   a reusable file in `tools/` (not as throwaway inline code). Name it descriptively.
   Add it to `tools/` inventory in MEMORY.md so future sessions know it exists.
+- **Research folder organization — MANDATORY (effective 2026-06-22)**: a research effort gets
+  ONE dedicated project folder `research/<topic>/` with code in SUBFOLDERS — `pipeline/` (core
+  engine), `builders/` (data/feature builders), `tools/` (analysis + orchestration) — plus
+  `reports/` (findings `.md` + `assets/`) and a `README.md` index (what each script is, how to run,
+  where the data lives). Do NOT dump scripts flat in one folder, and do NOT mix a project's reports
+  into the shared `reports/findings/`. Keep large/gitignored data (parquets, `artifacts/`) at the
+  repo root and reference it from the README; scripts stay repo-root-relative (run from root). The
+  user navigates by folder — a flat pile or a shared dump means they get lost. Set this up at the
+  START: reorganizing later is a path-fixing refactor (sys.path depth, cross-imports, output paths).
+  Reference: `research/fspace_cadence/` is the canonical example of this layout.
 
 ## Baseline Management — MANDATORY
 When a pipeline run achieves a new OOS $/day record:

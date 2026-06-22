@@ -73,9 +73,22 @@ FEATURES_V2_SUBDIR = 'FEATURES_5s_v2'
 # Schema version embedded in each layer-family parquet (for drift detection)
 SCHEMA_VERSION = 1
 
-# The anchor TF from which 5s timestamps come
+# The anchor TF from which timestamps come
 ANCHOR_TF = '5s'
 ANCHOR_PERIOD = 5  # seconds
+
+def set_anchor_globals(anchor_tf: str):
+    global FEATURES_V2_SUBDIR, ANCHOR_TF, ANCHOR_PERIOD
+    if anchor_tf == '1s':
+        FEATURES_V2_SUBDIR = 'FEATURES_1s_v2'
+        ANCHOR_TF = '1s'
+        ANCHOR_PERIOD = 1
+    elif anchor_tf == '5s':
+        FEATURES_V2_SUBDIR = 'FEATURES_5s_v2'
+        ANCHOR_TF = '5s'
+        ANCHOR_PERIOD = 5
+    else:
+        raise ValueError(f"Unsupported anchor: {anchor_tf}")
 
 
 # ─── Lookahead-safe alignment (THE critical invariant) ────────────────────
@@ -263,6 +276,7 @@ def run(
     fresh: bool = False,
     skip_existing: bool = True,
     include_tfs: list[str] | None = None,
+    anchor: str = '5s',
 ):
     """Build v2 feature parquets under {atlas_root}/FEATURES_5s_v2/.
 
@@ -276,7 +290,9 @@ def run(
         skip_existing: if True, skip days whose output parquets already exist
                        (useful for resume). Overridden to False by fresh.
         include_tfs: list of TF labels to process. Default: all TF_ORDER.
+        anchor: '1s' or '5s'
     """
+    set_anchor_globals(anchor)
     print(f"ATLAS root: {atlas_root}")
     print(f"Output:     {_output_root(atlas_root)}")
 
@@ -474,6 +490,8 @@ def _parse_args():
                     help='Overwrite existing parquets (default is skip)')
     ap.add_argument('--tfs', type=str, nargs='+', default=None,
                     help=f'Which TFs to build (default: all of {TF_ORDER})')
+    ap.add_argument('--anchor', type=str, default='5s', choices=['1s', '5s'],
+                    help='Anchor timeline (1s or 5s). Default: 5s')
     return ap.parse_args()
 
 
@@ -487,4 +505,5 @@ if __name__ == '__main__':
         fresh=args.fresh,
         skip_existing=not args.no_skip_existing,
         include_tfs=args.tfs,
+        anchor=args.anchor,
     )
