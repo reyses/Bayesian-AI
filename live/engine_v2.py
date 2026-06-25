@@ -115,12 +115,16 @@ class LiveEngineV2:
         gui_queue=None,
         shared_state=None,
         mock_client=None,
+        strategy: str = "l5",
+        llm_mode: str = "off",
     ):
         self._cfg = config
         self._skip_check = skip_check
         self._skip_build = skip_build
         self._mock_client = mock_client  # MockBridge instance, or None for real NT8
         self._shared_state = shared_state or {}
+        self._strategy = strategy
+        self._llm_mode = (llm_mode == "on")
 
         self._asset = SYMBOL_MAP.get(config.asset_ticker)
         if self._asset is None:
@@ -536,13 +540,22 @@ class LiveEngineV2:
 
         from live.l5_decider import L5Decider, L5Context
 
-        pivot_source = getattr(self._cfg, "pivot_source", "stream")
-        l5_ctx = L5Context.load(pivot_source=pivot_source)
-        self._engine = L5Decider(l5_ctx)
-        logger.info(f"  Engine: L5Decider (pivot_source={pivot_source})")
-        if pivot_source == "stream":
-            if "1m" in self._lfe._bars and len(self._lfe._bars["1m"]) > 0:
-                self._engine.prime_atr_from_history(self._lfe._bars["1m"])
+        if self._strategy == "mamba":
+            from live.mamba_decider import MambaDecider
+            # Hardcode checkpoint path to the one built during training
+            self._engine = MambaDecider(
+                checkpoint_path="training/mamba_engine/mamba_checkpoint.pth",
+                llm_mode=self._llm_mode
+            )
+            logger.info(f"  Engine: MambaDecider (llm_mode={self._llm_mode})")
+        else:
+            pivot_source = getattr(self._cfg, "pivot_source", "stream")
+            l5_ctx = L5Context.load(pivot_source=pivot_source)
+            self._engine = L5Decider(l5_ctx)
+            logger.info(f"  Engine: L5Decider (pivot_source={pivot_source})")
+            if pivot_source == "stream":
+                if "1m" in self._lfe._bars and len(self._lfe._bars["1m"]) > 0:
+                    self._engine.prime_atr_from_history(self._lfe._bars["1m"])
 
         # Save pre-loaded end timestamp for gap check in Step 4
         self._preloaded_end_ts = self._last_ts
@@ -1312,7 +1325,11 @@ class LiveEngineV2:
             # Hand the V2 getter to L5Decider (called lazily,
             # only when B7/B9 need V2 features).
             eval_state["v2_getter"] = getattr(self._lfe, "get_v2_vector", None)
-            batch = self._engine.evaluate(eval_state)
+            
+            if hasattr(self._engine, "evaluate_async"):
+                batch = await self._engine.evaluate_async(eval_state)
+            else:
+                batch = self._engine.evaluate(eval_state)
 
             # 3. Apply counter updates (does NOT close/open positions)
             for pd in batch.position_decisions:
@@ -1526,7 +1543,10 @@ class LiveEngineV2:
             #    for entry on the same bar (mirrors sim_executor behavior).
             if not was_flat and self._pos_ledger.is_flat:
                 eval_state["positions"] = self._pos_ledger.snapshot()
-                batch2 = self._engine.evaluate(eval_state)
+                if hasattr(self._engine, "evaluate_async"):
+                    batch2 = await self._engine.evaluate_async(eval_state)
+                else:
+                    batch2 = self._engine.evaluate(eval_state)
                 if (
                     batch2.entry is not None
                     and self._pos_ledger.is_flat
@@ -2317,6 +2337,18 @@ def main():
         default=None,
         help="NT8 account (e.g. Sim101, Playback101). Prompted at startup if omitted.",
     )
+    parser.add_argument(
+        "--strategy",
+        choices=["l5", "mamba"],
+        default="l5",
+        help="Trading engine logic to run. Default: l5",
+    )
+    parser.add_argument(
+        "--llm-mode",
+        choices=["on", "off"],
+        default="off",
+        help="Enable/disable the LLM cortex for Mamba. Default: off",
+    )
     args = parser.parse_args()
 
     account = _resolve_account(args)
@@ -2376,6 +2408,8 @@ def main():
         gui_queue=gui_queue,
         shared_state=shared_state,
         mock_client=mock_client,
+        strategy=args.strategy,
+        llm_mode=args.llm_mode,
     )
     asyncio.run(engine.run())
 

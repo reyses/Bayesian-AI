@@ -147,7 +147,7 @@ reports, not the bare bootstrap.
   (3) what to look for in the next run, (4) expected impact on metrics. This survives
   context loss — future sessions can read the report instead of reconstructing intent.
 - **Tool outputs to file**: Any standalone research script or analysis tool MUST write
-  its results to a file (e.g. `reports/findings/` or a tool-specific output path),
+  its results to a file (in the research project's `research/<topic>/reports/`, or a tool-specific path),
   not just print to stdout. This lets Claude read results directly instead of relying
   on the user to paste terminal output.
 - **Save analysis tools**: When building a research/analysis script, always save it as
@@ -158,18 +158,22 @@ reports, not the bare bootstrap.
   engine), `builders/` (data/feature builders), `tools/` (analysis + orchestration) — plus
   `reports/` (findings `.md` + `assets/`) and a `README.md` index (what each script is, how to run,
   where the data lives). Do NOT dump scripts flat in one folder, and do NOT mix a project's reports
-  into the shared `reports/findings/`. Keep large/gitignored data (parquets, `artifacts/`) at the
+  into the shared top-level `reports/`. Keep large/gitignored data (parquets, `artifacts/`) at the
   repo root and reference it from the README; scripts stay repo-root-relative (run from root). The
   user navigates by folder — a flat pile or a shared dump means they get lost. Set this up at the
   START: reorganizing later is a path-fixing refactor (sys.path depth, cross-imports, output paths).
   Reference: `research/fspace_cadence/` is the canonical example of this layout.
+  **REPORTS ROUTING (effective 2026-06-22)**: research reports → `research/<topic>/reports/`;
+  training/baseline reports → `training/reports/` (live with `training/`); the top-level `reports/`
+  is ONLY for standalone/cross-cutting reports tied to NEITHER a research project NOR a training run.
+  Never write research or training reports to the top-level `reports/`.
 
 ## Baseline Management — MANDATORY
 When a pipeline run achieves a new OOS $/day record:
 1. **Tag it**: `git tag vXXX -m "BASELINE: OOS $XXX/day on YY days"`
 2. **Safety branch**: `git branch safe/vXXX` and push to remote
 3. **Track the model artifact(s) needed to reproduce the OOS number.** Check size first: anything >50MB needs LFS or `.gitignore` + a documented regeneration recipe. Historical: `git add -f training/output/nn/cnn_*.pt` (~700KB each, legacy supervised stack). RL: `training/rl_engine/*.pth` checkpoints and `*.h5` experience buffers are gitignored (multi-GB); the ONNX export (`master_net.onnx` when produced by `train_historical.py`) is the deployable artifact.
-4. **Report auto-generated**: pipeline saves to `reports/findings/baseline_*.md`
+4. **Report auto-generated**: pipeline saves to `training/reports/baseline_*.md` (training-run reports live with `training/`, not the top-level `reports/`)
 5. **Journal entry**: detailed breakdown with IS/OOS summary, tier table, exit table
 6. **Update baseline_best.json**: pipeline does this automatically
 7. **One change at a time**: when modifying from a baseline, change ONE thing, run pipeline,

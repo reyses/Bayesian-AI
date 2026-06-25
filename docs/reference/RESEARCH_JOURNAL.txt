@@ -4412,3 +4412,10 @@ Generalizable principle (ties to the metric-definitions hard rule):
 
 Files touched: evaluate_research_A.py, evaluate_oos_research_A.py (grid-assembly +
 return-handling fixes; both compile). Trainer + gate fixes flagged, not applied.
+
+
+2026-06-23: Isolated Mamba pipeline to research folder. Handled missing holiday data and checkpoint file lock crashes. Successfully ran full 604-day dataset. Baseline loss is stable (~0.19) with extreme outlier spikes up to 1.65. Next step is wiring LLM to intercept the loss spikes.
+
+### 2026-06-23: Mamba Naked RL Overfit
+Migrated the Mamba RL agent from a fully generalized 5-day curriculum with strict rule-based safety nets to a raw, 'naked' 1-day overfit curriculum. Removed all structural stop losses, trailing stops, and target-reached logic from the V2 exit suite within mamba_env.py to force the neural network to absorb the raw causal consequences of the price structure. Additionally enforced a strict 1-minute DURATION_THRESHOLD lockout on both the SCRATCH and REVERSE actions, forcing the agent to physically ride its entry choice for 12 bars before being allowed to exit or flip. Fixed a minor duration calculation bug in the RL reporter (Ledger was returning minutes, Env now correctly tracks exactly 5s bars elapsed).
+

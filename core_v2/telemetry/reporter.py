@@ -26,10 +26,9 @@ class TelemetryReporter:
         
         # Write to temp file then rename for atomic swap
         temp_path = self.filepath + ".tmp"
-        with open(temp_path, "w") as f:
-            json.dump(data, f)
-            
         try:
+            with open(temp_path, "w") as f:
+                json.dump(data, f)
             os.replace(temp_path, self.filepath)
         except OSError:
             pass # On Windows, if file is locked for read, it's fine to skip one frame

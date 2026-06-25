@@ -24,7 +24,7 @@ through the mailbox (`comms/mailbox.md`, protocol in `comms/README.md`).
   are the arbiters, not rank.
 - **Close every exchange with a SUMMARY + LOCATION.** Whoever executes a comms task ends their reply
   with a brief (2–4 line) summary of what was done/found AND the exact path(s) to the research,
-  report, script, or sub-codebase produced or touched (`reports/findings/…`, `research/…`,
+  report, script, or sub-codebase produced or touched (`research/<topic>/reports/…`, `research/…`,
   `artifacts/…`, a module path). A result with no location pointer is a lost result.
 
 ## Read these to get current (in order)
@@ -76,6 +76,6 @@ join trade CSVs to features and return a summary table. Claude will verify and d
 Each research effort = ONE dedicated `research/<topic>/` folder with code in SUBFOLDERS (`pipeline/` core
 engine, `builders/` data/feature builders, `tools/` analysis+orchestration) + `reports/` (findings `.md` +
 `assets/`) + a `README.md` index. NEVER dump scripts flat in one folder; NEVER mix a project's reports into the
-shared `reports/findings/`. Large/gitignored data (parquets, `artifacts/`) stays at repo root, referenced from
+shared top-level `reports/`. Large/gitignored data (parquets, `artifacts/`) stays at repo root, referenced from
 the README; scripts run from repo root. Set it up at the START. Canonical example: `research/fspace_cadence/`.
-(Also in `research_discipline` skill v2 + project CLAUDE.md.)
+(Also in `research_discipline` skill v2 + project CLAUDE.md.) Reports routing: research -> research/<topic>/reports/; training/baseline -> training/reports/; top-level reports/ = ONLY standalone reports tied to neither a research project nor a training run.

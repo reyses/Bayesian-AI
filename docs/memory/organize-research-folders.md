@@ -1,6 +1,6 @@
 ---
 name: organize-research-folders
-description: "Keep each research effort in ONE organized research/<topic>/ folder (code in pipeline/ builders/ tools/ subfolders + reports/ + a README); never flat, never mixed into the shared reports/findings — the user navigates by folder and gets lost otherwise. Set it up from the START."
+description: "Keep each research effort in ONE organized research/<topic>/ folder (code in pipeline/ builders/ tools/ subfolders + reports/ + a README); never flat, never mixed into the shared top-level reports/ — the user navigates by folder and gets lost otherwise. Set it up from the START."
 metadata: 
   node_type: memory
   type: feedback
@@ -19,7 +19,7 @@ he can't find anything. Organization is a first-class requirement, not cosmetic.
 - ONE dedicated `research/<topic>/` folder. Code in SUBFOLDERS: `pipeline/` (core engine), `builders/`
   (data/feature builders), `tools/` (analysis + orchestration). Plus `reports/` (findings `.md` + `assets/`)
   and a `README.md` index — what each script is, how to run, where the data lives.
-- NEVER dump scripts flat in one folder; NEVER mix a project's reports into the shared `reports/findings/`
+- NEVER dump scripts flat in one folder; NEVER mix a project's reports into the shared top-level `reports/`
   (that dir holds *other* research — leave it).
 - Large/gitignored data (parquets, `artifacts/`) stays at the repo root; reference it from the README; scripts
   stay repo-root-relative (run from root).
@@ -29,3 +29,5 @@ he can't find anything. Organization is a first-class requirement, not cosmetic.
 Canonical example: `research/fspace_cadence/` (pipeline/ builders/ tools/ reports/ + README). Codified in project
 CLAUDE.md (Conventions) and the Gemini `research_discipline` skill v2 + `comms/CONTEXT_FOR_GEMINI.md`.
 See [[report-distributions-and-mode]] (same spirit: make outputs legible to the user).
+
+**REPORTS ROUTING (effective 2026-06-22):** Reports routing: research -> research/<topic>/reports/; training/baseline -> training/reports/; top-level reports/ = ONLY standalone reports tied to neither a research project nor a training run.
