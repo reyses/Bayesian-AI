@@ -215,7 +215,8 @@ class MultiDayForwardPassSystem:
                  labels_csv: str,
                  days: Optional[List[str]] = None,
                  start_date: Optional[str] = None,
-                 end_date: Optional[str] = None):
+                 end_date: Optional[str] = None,
+                 layers: Optional[List[str]] = None):
         if days is None:
             l0_dir = os.path.join(features_root, 'L0')
             files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
@@ -228,6 +229,7 @@ class MultiDayForwardPassSystem:
                                 if d.replace('_', '-') <= end_date]
             days = day_list
         self._days = list(days)
+        self._layers = layers
         self._atlas_root = atlas_root
         self._features_root = features_root
         self._labels_csv = labels_csv
@@ -246,7 +248,8 @@ class MultiDayForwardPassSystem:
             try:
                 ticker = ForwardPassSystem(day=day, atlas_root=self._atlas_root,
                                        features_root=self._features_root,
-                                       labels_csv=self._labels_csv)
+                                       labels_csv=self._labels_csv,
+                                       layers=self._layers)
             except FileNotFoundError as e:
                 import logging
                 logging.warning(f"Skipping {day}: {e}")

@@ -4424,3 +4424,5 @@ Migrated the Mamba RL agent from a fully generalized 5-day curriculum with stric
 
 --- 2026-06-27 ---
 SFE Audit completed: L4 reintegrated without scramble, strict NaN warm-up bleed excluded, and mid-session flat edge cases fixed.
+
+[2026-06-27] Phase 2 Ablation Study completed. The delta proxy purchase gate failed conclusively. R2 degraded by 0.15 when adding delta features, and sub-period stability tests proved it overfit. We will not purchase 2024 Databento data.
