@@ -20,8 +20,23 @@ logger = logging.getLogger(__name__)
 
 def e_exit_preflight_ram(required_gb=16):
     """E-Exit RAM Pre-flight check (cgroup aware if on Linux)"""
+    # Use psutil as baseline
     mem = psutil.virtual_memory()
     available_gb = mem.available / (1024**3)
+    
+    # Cgroup override if present
+    if os.path.exists('/sys/fs/cgroup/memory/memory.limit_in_bytes'):
+        try:
+            with open('/sys/fs/cgroup/memory/memory.limit_in_bytes', 'r') as f:
+                limit = int(f.read().strip())
+            with open('/sys/fs/cgroup/memory/memory.usage_in_bytes', 'r') as f:
+                usage = int(f.read().strip())
+            if limit < 1e15: # Not unlimited
+                cgroup_avail = (limit - usage) / (1024**3)
+                available_gb = min(available_gb, cgroup_avail)
+        except Exception:
+            pass
+
     if available_gb < required_gb:
         logger.error(f"[E-EXIT] RAM Pre-flight failed. Required {required_gb}GB, Available {available_gb:.2f}GB")
         sys.exit(88)
@@ -87,12 +102,17 @@ def train_mamba_rl():
     )
 
     model = MambaRLTradingNetwork().to(device)
-    if os.path.exists("mamba_rl_checkpoint.pth"):
-        state_dict = torch.load("mamba_rl_checkpoint.pth")
-        new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in state_dict.items()}
-        model.load_state_dict(new_state_dict)
-
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+
+    if os.path.exists("mamba_rl_checkpoint.pth"):
+        checkpoint = torch.load("mamba_rl_checkpoint.pth")
+        if 'model' in checkpoint and 'optimizer' in checkpoint:
+            model.load_state_dict(checkpoint['model'])
+            optimizer.load_state_dict(checkpoint['optimizer'])
+        else:
+            # Fallback for old state_dict-only checkpoints
+            new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in checkpoint.items()}
+            model.load_state_dict(new_state_dict)
     reporter = TelemetryReporter("Mamba_RL_PPO")
     from epoch_summary import plot_epoch_summary, plot_learning_curve
 
@@ -138,21 +158,27 @@ def train_mamba_rl():
                 torch.cuda.empty_cache()
                 sys.exit(88)
 
-            v2_grid, l0_feature, ledger_state, macro_tensor = state
+            v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day = state
             
             v2_grid_t = torch.nan_to_num(torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device), 0)
             l0_feature_t = torch.nan_to_num(torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device), 0)
             ledger_state_t = torch.nan_to_num(torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device), 0)
             macro_tensor_t = torch.nan_to_num(torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device), 0)
+            time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), 0)
 
             # Forward pass explicitly tracks hidden_states
-            policy_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, hidden_states)
+            policy_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             
             probs = torch.softmax(policy_logits, dim=-1)
             dist = torch.distributions.Categorical(probs)
             action = dist.sample()
             
             next_state, reward, done, info = env.step(action.item(), 0.0)
+            
+            # Session Boundary Reset (Decoupled from 'done')
+            if info.get('session_reset', False):
+                hidden_states = None
+                
             episode_reward += reward
             
             if info.get('trade_closed', False):
@@ -167,7 +193,8 @@ def train_mamba_rl():
                     n_l0_t = torch.nan_to_num(torch.tensor(next_state[1], dtype=torch.float32).unsqueeze(0).to(device), 0)
                     n_ledg_t = torch.nan_to_num(torch.tensor(next_state[2], dtype=torch.float32).unsqueeze(0).to(device), 0)
                     n_macro_t = torch.nan_to_num(torch.tensor(next_state[3], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, hidden_states)
+                    n_tod_t = torch.nan_to_num(torch.tensor(next_state[4], dtype=torch.float32).unsqueeze(0).to(device), 0)
+                    _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
             else:
                 next_value = torch.tensor([[0.0]], device=device)
 
@@ -205,11 +232,11 @@ def train_mamba_rl():
                                 f"Ep {epoch}/{total_epochs} | Rwd: {episode_reward:.2f}")
 
             # Memory cleanup
-            del v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t
+            del v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t
             del policy_logits, value, probs, dist, action
             del log_prob, entropy, step_loss
             if not done and next_state is not None:
-                del n_v2_t, n_l0_t, n_ledg_t, n_macro_t, next_value
+                del n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, next_value
 
         epoch_end_time = time.time()
         print(f"Epoch {epoch} | Reward: {episode_reward:.2f} | Duration: {epoch_end_time - epoch_start_time:.2f}s")
@@ -221,8 +248,9 @@ def train_mamba_rl():
         plot_epoch_summary(epoch, epoch_trades)
         plot_learning_curve(history_rewards, history_mean_pnls, history_mean_entropies)
         
-        torch.save(model.state_dict(), "mamba_rl_checkpoint.pth")
-        torch.save(model.state_dict(), f"mamba_rl_checkpoint_ep{epoch}.pth")
+        checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
+        torch.save(checkpoint_data, "mamba_rl_checkpoint.pth")
+        torch.save(checkpoint_data, f"mamba_rl_checkpoint_ep{epoch}.pth")
         
         try:
             print(f"TELEGRAM_TRIGGER: epoch_{epoch}_summary.png and mamba_learning_curve.png are ready!")

@@ -82,20 +82,20 @@ class MambaRLTradingNetwork(nn.Module):
         super(MambaRLTradingNetwork, self).__init__()
         
         # 1. Unblurred Flat Feed Dimensions
-        # V2 Grid provides 37 features per timeframe. 8 timeframes total.
-        self.grid_flat_dim = 8 * 37  # 296
+        # V2 Grid provides 40 features per timeframe. 8 timeframes total.
+        self.grid_flat_dim = 8 * 40  # 320
         
-        # 2. Macro Sub-Encoder (Top-M Top-TF Causal Bank Tensor)
-        # Tensor is 5 TFs * 4 slots * 5 features = 100 dim
+        # 2. Macro Sub-Encoder (5 TFs * 40 features)
+        # Tensor is 5 timeframes * 40 features = 200 dim
         self.macro_encoder = nn.Sequential(
-            nn.Linear(100, 64),
+            nn.Linear(200, 64),
             nn.SiLU(),
             nn.Linear(64, 32)
         )
         
         # 3. State Injection
-        # L0 (1) + Ledger State (4) + Macro Encoded (32)
-        self.mamba_input_dim = self.grid_flat_dim + 1 + 4 + 32  # 333
+        # L0 (1) + Ledger State (4) + Macro Encoded (32) + Time of Day (4)
+        self.mamba_input_dim = self.grid_flat_dim + 1 + 4 + 32 + 4  # 361
         
         # 4. Temporal Sequence (Mamba)
         self.input_norm = nn.LayerNorm(self.mamba_input_dim)
@@ -117,12 +117,13 @@ class MambaRLTradingNetwork(nn.Module):
         # Critic: State Value Estimate
         self.critic_head = nn.Linear(mamba_d_model, 1)
 
-    def forward(self, v2_grid, l0_feature, ledger_state, macro_tensor, hidden_states=None):
+    def forward(self, v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day, hidden_states=None):
         """
-        v2_grid: [Batch, 8 (TFs), Seq, 37 (Features)]
+        v2_grid: [Batch, 8 (TFs), Seq, 40 (Features)]
         l0_feature: [Batch, Seq, 1]
         ledger_state: [Batch, Seq, 4]
-        macro_tensor: [Batch, Seq, 100]
+        macro_tensor: [Batch, Seq, 200]
+        time_of_day: [Batch, Seq, 4]
         hidden_states: list of tensors, one per Mamba layer
         """
         batch_size = v2_grid.size(0)
@@ -131,15 +132,15 @@ class MambaRLTradingNetwork(nn.Module):
         # --- Unblurred Flat Feed ---
         # Permute: [Batch, Seq, TFs, Features]
         x = v2_grid.permute(0, 2, 1, 3).contiguous()
-        # Flatten TFs and Features: [Batch, Seq, 8 * 37] -> [Batch, Seq, 296]
+        # Flatten TFs and Features: [Batch, Seq, 8 * 40] -> [Batch, Seq, 320]
         x = x.view(batch_size, seq_len, -1)
         
         # --- Macro Sub-Encoder Fusion ---
         macro_encoded = self.macro_encoder(macro_tensor) # [Batch, Seq, 32]
         
         # --- State Injection ---
-        # Concatenate L0 (1) + Ledger (4) + Macro (32): [Batch, Seq, 333]
-        x = torch.cat([x, l0_feature, ledger_state, macro_encoded], dim=-1)
+        # Concatenate L0 (1) + Ledger (4) + Macro (32) + Time of Day (4): [Batch, Seq, 361]
+        x = torch.cat([x, l0_feature, ledger_state, macro_encoded, time_of_day], dim=-1)
         
         # --- Input Normalization ---
         x = self.input_norm(x)

@@ -849,6 +849,18 @@ class StatisticalFieldEngine:
         mask_l = se_low > 1e-10
         z_low_out[mask_l] = (low[mask_l] - rm_low[mask_l]) / se_low[mask_l]
 
+        # --- New Z-Space Band Geometry ---
+        z_close_vs_high = np.full(n, np.nan)
+        z_close_vs_high[mask_h] = (close[mask_h] - rm_high[mask_h]) / se_high[mask_h]
+
+        z_close_vs_low = np.full(n, np.nan)
+        z_close_vs_low[mask_l] = (close[mask_l] - rm_low[mask_l]) / se_low[mask_l]
+
+        band_pos = np.full(n, np.nan)
+        band_width = rm_high - rm_low
+        mask_w = band_width > 1e-10
+        band_pos[mask_w] = (close[mask_w] - rm_low[mask_w]) / band_width[mask_w]
+
         # Hurst over larger window (multi-scale R/S needs more samples)
         N_hurst = N * N_HURST_MULT
         hurst = _hurst_rs_kernel(close, N_hurst)
@@ -878,6 +890,9 @@ class StatisticalFieldEngine:
             f'L3_{tf}_hurst_{N}':          hurst,
             f'L3_{tf}_reversion_prob_{N}': reversion,
             f'L3_{tf}_swing_noise_{N}':    swing,
+            f'L3_{tf}_z_close_vs_high_{N}': z_close_vs_high,
+            f'L3_{tf}_z_close_vs_low_{N}':  z_close_vs_low,
+            f'L3_{tf}_band_pos_{N}':        band_pos,
         }, index=df.index)
 
     # ─── L4 (NMP State) ───────────────────────────────────────────────────

@@ -73,18 +73,19 @@ FEATURE_NAMES_V2 = [
     'price_mean_w', 'price_sigma_w',
     'vol_mean_w',   'vol_sigma_w',
     'vwap_w',
-    # L3 (8) — approved exceptions
+    # L3 (11) — approved exceptions
     'z_se',  'z_high', 'z_low',
     'SE_high', 'SE_low',
     'hurst', 'reversion_prob', 'swing_noise',
+    'z_close_vs_high', 'z_close_vs_low', 'band_pos',
     # L5 (12) — intra-bar 1s point cloud
     'ldist_n', 'ldist_min', 'ldist_q1', 'ldist_median', 'ldist_q3', 'ldist_max',
     'ldist_mean', 'ldist_std', 'ldist_skew', 'ldist_kurtosis', 'ldist_outlier_pct', 'ldist_level',
 ]
 
 N_TFS_V2 = len(TF_HIERARCHY_V2)               # 8
-N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 37
-N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 296
+N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 40
+N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 320
 
 # ─── Feature name generators ───────────────────────────────────────────────
 
@@ -133,6 +134,9 @@ def _l3_names(tf: str, N: int | None = None) -> list[str]:
         f'L3_{tf}_hurst_{N}',
         f'L3_{tf}_reversion_prob_{N}',
         f'L3_{tf}_swing_noise_{N}',
+        f'L3_{tf}_z_close_vs_high_{N}',
+        f'L3_{tf}_z_close_vs_low_{N}',
+        f'L3_{tf}_band_pos_{N}',
     ]
 
 
@@ -182,10 +186,10 @@ for tf in TF_ORDER:
     FEATURE_NAMES.extend(_l4_nmp_names(tf))
     FEATURE_NAMES.extend(_l5_ldist_names(tf))
 
-# Expected: 1 (L0) + (8 + 9 + 8 + 12 + 12) * len(TF_ORDER) = 1 + 49 * N_TFS
-# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 393
+# Expected: 1 (L0) + (8 + 9 + 11 + 12 + 12) * len(TF_ORDER) = 1 + 52 * N_TFS
+# With TF_ORDER = ['5s','15s','1m','5m','15m','1h','4h','1D']  (N_TFS=8): 417
 N_FEATURES = len(FEATURE_NAMES)
-_expected = 1 + 49 * N_TFS
+_expected = 1 + 52 * N_TFS
 assert N_FEATURES == _expected, (
     f"Expected {_expected} features for {N_TFS} TFs, got {N_FEATURES}. "
     f"Check the _l0/_l1/_l2/_l3_names generators."
@@ -382,7 +386,7 @@ def describe_feature_count() -> str:
         f"  L0 (global)       : {l0}\n"
         f"  L1 ({N_TFS} TFs x 8) : {l1}\n"
         f"  L2 ({N_TFS} TFs x 9) : {l2}\n"
-        f"  L3 ({N_TFS} TFs x 8) : {l3}\n"
+        f"  L3 ({N_TFS} TFs x 11) : {l3}\n"
         f"  TF order          : {TF_ORDER}\n"
         f"  N_BASE windows    : {N_BASE}\n"
     )

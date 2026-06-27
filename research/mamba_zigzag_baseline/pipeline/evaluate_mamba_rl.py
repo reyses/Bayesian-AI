@@ -29,7 +29,11 @@ def main():
 
     checkpoint_path = args.checkpoint
     if os.path.exists(checkpoint_path):
-        policy_net.load_state_dict(torch.load(checkpoint_path, map_location=device, weights_only=True))
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=True)
+        if 'model' in checkpoint:
+            policy_net.load_state_dict(checkpoint['model'])
+        else:
+            policy_net.load_state_dict(checkpoint)
         print(f"Loaded checkpoint {checkpoint_path}")
     else:
         print(f"Error: Could not find {checkpoint_path}")
@@ -43,19 +47,25 @@ def main():
     
     step_count = 0
     start_time = time.time()
+    hidden_states = None
     while not done:
         with torch.no_grad():
-            s_g = torch.tensor(state[0]).unsqueeze(0).to(device)
-            s_l0 = torch.tensor(state[1]).unsqueeze(0).to(device)
-            s_ls = torch.tensor(state[2]).unsqueeze(0).to(device)
+            s_g = torch.tensor(state[0], dtype=torch.float32).unsqueeze(0).to(device)
+            s_l0 = torch.tensor(state[1], dtype=torch.float32).unsqueeze(0).to(device)
+            s_ls = torch.tensor(state[2], dtype=torch.float32).unsqueeze(0).to(device)
+            s_macro = torch.tensor(state[3], dtype=torch.float32).unsqueeze(0).to(device)
+            s_tod = torch.tensor(state[4], dtype=torch.float32).unsqueeze(0).to(device)
             
-            logits, exp_val = policy_net(s_g, s_l0, s_ls)
+            logits, exp_val, hidden_states = policy_net(s_g, s_l0, s_ls, s_macro, s_tod, hidden_states)
             
             probs = torch.softmax(logits, dim=-1)
             action = torch.argmax(probs).item()
             exp_val = exp_val.item()
 
         next_state, reward, done, info = env.step(action, exp_val)
+        
+        if info.get('session_reset', False):
+            hidden_states = None
         
         if info.get('trade_closed', False):
             epoch_trades.append({
