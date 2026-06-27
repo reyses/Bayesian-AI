@@ -529,8 +529,8 @@ class StatisticalFieldEngine:
         sfe = StatisticalFieldEngine()
         l0 = sfe.compute_L0(df)
         l1 = sfe.compute_L1(df, tf='1m')
-        l2 = sfe.compute_L2(df, tf='1m')       # uses N_BASE['1m'] = 15
-        l3 = sfe.compute_L3(df, tf='1m')       # uses N_BASE['1m'] = 15
+        l2 = sfe.compute_L2(df, tf='1m')       # uses N_BASE['1m'] = 30
+        l3 = sfe.compute_L3(df, tf='1m')       # uses N_BASE['1m'] = 30
     """
 
     def __init__(self, windows: dict | None = None, use_gpu: bool | None = None):

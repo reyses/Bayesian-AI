@@ -74,17 +74,21 @@ class MambaRLTradingEnv:
         self.last_hour_ts = None
         self.last_hour_equity = 0.0
         
+        self.warmup_cleared = False
+        
         # Warmup: we need `seq_len` bars of valid features
         try:
             while len(self.state_queue) < self.seq_len:
                 bar_state = next(self.iterator)
-                if bar_state.v2_vector is not None and not np.isnan(bar_state.v2_vector).any():
-                    self.current_bar = bar_state
-                    self._enqueue_bar_state(bar_state)
-                else:
-                    self.current_bar = bar_state
+                if bar_state.v2_vector is not None:
+                    if not np.isnan(bar_state.v2_vector).any():
+                        self.current_bar = bar_state
+                        self._enqueue_bar_state(bar_state)
+                        self.warmup_cleared = True
+                    elif self.warmup_cleared:
+                        raise RuntimeError(f"Mid-session NaN detected at {bar_state.timestamp} after warm-up cleared.")
         except StopIteration:
-            raise ValueError(f"Dataset exhausted during warm-up. No valid non-NaN bars found to satisfy seq_len={self.seq_len}.")
+            raise ValueError(f"Dataset exhausted. No valid non-NaN bars found to satisfy seq_len={self.seq_len}.")
             
         return self._get_observation()
 
@@ -92,11 +96,19 @@ class MambaRLTradingEnv:
         self.state_queue.append(bar_state.v2_vector)
         self.l0_queue.append(bar_state.v2_vector[0:1])
         
-        # Extract Macro Tensor (5 TFs: 1D, 4h, 1h, 15m, 5m). 
-        # assemble_v2_grid puts these first (0 to 4) due to TF_HIERARCHY_V2
-        # grid shape is [1, 8, 40], so we take [0, :5, :] and flatten -> [200]
+        # Extract Macro Tensor dynamically using explicitly requested slow TFs
+        # assemble_v2_grid puts channels in TF_HIERARCHY_V2 order
         grid = assemble_v2_grid(np.array([bar_state.v2_vector], dtype=np.float32))
-        macro = grid[0, :5, :].flatten()
+        
+        macro_tfs = ['1D', '4h', '1h', '15m', '5m']
+        from core_v2.features import TF_HIERARCHY_V2
+        macro_indices = [TF_HIERARCHY_V2.index(tf) for tf in macro_tfs]
+        
+        # Guard: prove to the user that these indices correspond to the exact labels they requested
+        macro_labels = [TF_HIERARCHY_V2[i] for i in macro_indices]
+        assert macro_labels == macro_tfs, f"Macro labels mismatch! Expected {macro_tfs}, got {macro_labels}"
+        
+        macro = grid[0, macro_indices, :].flatten()
         self.macro_queue.append(macro)
         
         # Compute Time of Day (Exchange Local Time)
@@ -254,12 +266,22 @@ class MambaRLTradingEnv:
 
         # 5. Advance Time
         try:
-            bar_state = next(self.iterator)
-            while bar_state.v2_vector is None or np.isnan(bar_state.v2_vector).any():
+            while True:
                 bar_state = next(self.iterator)
-                
-            self.current_bar = bar_state
-            self._enqueue_bar_state(bar_state)
+                if bar_state.v2_vector is None:
+                    continue
+                if not np.isnan(bar_state.v2_vector).any():
+                    break
+                # If we get here, it's a NaN
+                if self.warmup_cleared:
+                    raise RuntimeError(f"Mid-session NaN detected at {bar_state.timestamp} after warm-up cleared.")
+        except StopIteration:
+            done = True
+            info['exhausted'] = True
+            return self._get_observation(), reward, done, info
+            
+        self.current_bar = bar_state
+        self._enqueue_bar_state(bar_state)
             
             # Check 22:00 Session Boundary Reset (Decoupled from 'done')
             ts = pd.to_datetime(bar_state.timestamp, unit='s', utc=True)

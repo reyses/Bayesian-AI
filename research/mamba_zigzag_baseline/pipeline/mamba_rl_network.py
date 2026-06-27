@@ -75,18 +75,18 @@ class PureMambaBlock(nn.Module):
 class MambaRLTradingNetwork(nn.Module):
     """
     Unified State-Aware Mamba-RL Trading Engine (Actor-Critic).
-    Ingests Unblurred Flat Feed (8 timeframes flattened side-by-side) + Macro Sub-Encoder.
+    Ingests Unblurred Flat Feed (8 timeframes * 52 features = 416) + Macro Sub-Encoder (5 timeframes * 52 features = 260).
     Outputs: Policy Logits (Actor), Value Estimate (Critic), and hidden_states.
     """
     def __init__(self, sequence=30, mamba_d_model=128):
         super(MambaRLTradingNetwork, self).__init__()
         
         # 1. Unblurred Flat Feed Dimensions
-        # V2 Grid provides 52 features per timeframe. 8 timeframes total.
+        # V2 Grid provides 416 features per timeframe sequence.
         self.grid_flat_dim = 8 * 52  # 416
         
         # 2. Macro Sub-Encoder (5 TFs * 52 features)
-        # Tensor is 5 timeframes * 52 features = 260 dim
+        # Tensor is 260 dim
         self.macro_encoder = nn.Sequential(
             nn.Linear(260, 64),
             nn.SiLU(),
@@ -119,10 +119,10 @@ class MambaRLTradingNetwork(nn.Module):
 
     def forward(self, v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day, hidden_states=None):
         """
-        v2_grid: [Batch, 8 (TFs), Seq, 40 (Features)]
+        v2_grid: [Batch, 8 (TFs), Seq, 52 (Features)]
         l0_feature: [Batch, Seq, 1]
         ledger_state: [Batch, Seq, 4]
-        macro_tensor: [Batch, Seq, 200]
+        macro_tensor: [Batch, Seq, 260]
         time_of_day: [Batch, Seq, 4]
         hidden_states: list of tensors, one per Mamba layer
         """
@@ -132,7 +132,7 @@ class MambaRLTradingNetwork(nn.Module):
         # --- Unblurred Flat Feed ---
         # Permute: [Batch, Seq, TFs, Features]
         x = v2_grid.permute(0, 2, 1, 3).contiguous()
-        # Flatten TFs and Features: [Batch, Seq, 8 * 40] -> [Batch, Seq, 320]
+        # Flatten TFs and Features: [Batch, Seq, 8 * 52] -> [Batch, Seq, 416]
         x = x.view(batch_size, seq_len, -1)
         
         # --- Macro Sub-Encoder Fusion ---
