@@ -34,7 +34,7 @@ class PureMambaBlock(nn.Module):
         self.D = nn.Parameter(torch.ones(self.d_inner))
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
         
-    def forward(self, x):
+    def forward(self, x, h=None):
         B, L, D = x.shape
         x_and_res = self.in_proj(x)
         x_m, res = x_and_res.split(self.d_inner, dim=-1)
@@ -50,7 +50,9 @@ class PureMambaBlock(nn.Module):
         dt = F.softplus(self.dt_proj(dt))
         A = -torch.exp(self.A_log)
         
-        h = torch.zeros((B, self.d_inner, self.d_state), device=x.device)
+        if h is None:
+            h = torch.zeros((B, self.d_inner, self.d_state), device=x.device)
+            
         y = []
         for t in range(L):
             dt_t = dt[:, t, :].unsqueeze(-1)
@@ -67,14 +69,14 @@ class PureMambaBlock(nn.Module):
         y = y + x_m * self.D
         y = y * F.silu(res)
         out = self.out_proj(y)
-        return out
+        return out, h
 
 
 class MambaRLTradingNetwork(nn.Module):
     """
     Unified State-Aware Mamba-RL Trading Engine (Actor-Critic).
-    Ingests Unblurred Flat Feed (8 timeframes flattened side-by-side).
-    Outputs: Policy Logits (Actor) and Value Estimate (Critic).
+    Ingests Unblurred Flat Feed (8 timeframes flattened side-by-side) + Macro Sub-Encoder.
+    Outputs: Policy Logits (Actor), Value Estimate (Critic), and hidden_states.
     """
     def __init__(self, sequence=30, mamba_d_model=128):
         super(MambaRLTradingNetwork, self).__init__()
@@ -83,41 +85,45 @@ class MambaRLTradingNetwork(nn.Module):
         # V2 Grid provides 37 features per timeframe. 8 timeframes total.
         self.grid_flat_dim = 8 * 37  # 296
         
-        # 2. State Injection
-        # L0 (1) + Ledger State (4)
-        self.mamba_input_dim = self.grid_flat_dim + 1 + 4  # 301
+        # 2. Macro Sub-Encoder (Top-M Top-TF Causal Bank Tensor)
+        # Tensor is 5 TFs * 4 slots * 5 features = 100 dim
+        self.macro_encoder = nn.Sequential(
+            nn.Linear(100, 64),
+            nn.SiLU(),
+            nn.Linear(64, 32)
+        )
         
-        # 3. Temporal Sequence (Mamba)
+        # 3. State Injection
+        # L0 (1) + Ledger State (4) + Macro Encoded (32)
+        self.mamba_input_dim = self.grid_flat_dim + 1 + 4 + 32  # 333
+        
+        # 4. Temporal Sequence (Mamba)
+        self.input_norm = nn.LayerNorm(self.mamba_input_dim)
         self.embedding = nn.Linear(self.mamba_input_dim, mamba_d_model)
         
         self.layers = nn.ModuleList()
         for _ in range(2):
             if MAMBA_AVAILABLE:
-                self.layers.append(
-                    Mamba(
-                        d_model=mamba_d_model,
-                        d_state=16,
-                        d_conv=4,
-                        expand=2
-                    )
-                )
+                pass
             else:
                 self.layers.append(PureMambaBlock(d_model=mamba_d_model, d_state=16, d_conv=4, expand=2))
                 
         self.norm = nn.LayerNorm(mamba_d_model)
         
-        # 4. PPO Heads (Actor & Critic)
+        # 5. PPO Heads (Actor & Critic)
         # Actor: 0=HOLD, 1=LONG, 2=SHORT, 3=SCRATCH
         self.actor_head = nn.Linear(mamba_d_model, 4)
         
         # Critic: State Value Estimate
         self.critic_head = nn.Linear(mamba_d_model, 1)
 
-    def forward(self, v2_grid, l0_feature, ledger_state):
+    def forward(self, v2_grid, l0_feature, ledger_state, macro_tensor, hidden_states=None):
         """
-        v2_grid: [Batch, 8 (TFs), 30 (Seq), 37 (Features)]
-        l0_feature: [Batch, 30 (Seq), 1]
-        ledger_state: [Batch, 30 (Seq), 4]
+        v2_grid: [Batch, 8 (TFs), Seq, 37 (Features)]
+        l0_feature: [Batch, Seq, 1]
+        ledger_state: [Batch, Seq, 4]
+        macro_tensor: [Batch, Seq, 100]
+        hidden_states: list of tensors, one per Mamba layer
         """
         batch_size = v2_grid.size(0)
         seq_len = v2_grid.size(2)
@@ -128,24 +134,37 @@ class MambaRLTradingNetwork(nn.Module):
         # Flatten TFs and Features: [Batch, Seq, 8 * 37] -> [Batch, Seq, 296]
         x = x.view(batch_size, seq_len, -1)
         
+        # --- Macro Sub-Encoder Fusion ---
+        macro_encoded = self.macro_encoder(macro_tensor) # [Batch, Seq, 32]
+        
         # --- State Injection ---
-        # Concatenate L0 (1) + Ledger (4): [Batch, Seq, 301]
-        x = torch.cat([x, l0_feature, ledger_state], dim=-1)
+        # Concatenate L0 (1) + Ledger (4) + Macro (32): [Batch, Seq, 333]
+        x = torch.cat([x, l0_feature, ledger_state, macro_encoded], dim=-1)
+        
+        # --- Input Normalization ---
+        x = self.input_norm(x)
         
         # --- Mamba Temporal Pass ---
-        # Project 301 -> mamba_d_model (128)
+        # Project 333 -> mamba_d_model (128)
         x = self.embedding(x)
         
-        for layer in self.layers:
-            x = layer(x)
+        next_hidden_states = []
+        if hidden_states is None:
+            hidden_states = [None] * len(self.layers)
+            
+        for i, layer in enumerate(self.layers):
+            x, h = layer(x, hidden_states[i])
+            next_hidden_states.append(h)
                 
         x = self.norm(x)
         
-        # Extract the final timestep for the decision
+        # Extract the final timestep for the decision (or keep all if needed)
+        # For sequence-to-sequence TBPTT, we typically return the whole sequence.
+        # But for compatibility with single-step Actor-Critic stepping, we extract the last.
         latest_step = x[:, -1, :] 
         
         # --- Output Heads (PPO) ---
         policy_logits = self.actor_head(latest_step)
         value_estimate = self.critic_head(latest_step)
         
-        return policy_logits, value_estimate
+        return policy_logits, value_estimate, next_hidden_states
