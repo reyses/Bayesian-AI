@@ -78,13 +78,13 @@ class MambaRLTradingEnv:
         try:
             while len(self.state_queue) < self.seq_len:
                 bar_state = next(self.iterator)
-                if bar_state.v2_vector is not None and len(bar_state.v2_vector) >= 185:
+                if bar_state.v2_vector is not None and not np.isnan(bar_state.v2_vector).any():
                     self.current_bar = bar_state
                     self._enqueue_bar_state(bar_state)
                 else:
                     self.current_bar = bar_state
         except StopIteration:
-            raise ValueError(f"Dataset too small to warmup {self.seq_len} bars.")
+            raise ValueError(f"Dataset exhausted during warm-up. No valid non-NaN bars found to satisfy seq_len={self.seq_len}.")
             
         return self._get_observation()
 
@@ -255,7 +255,7 @@ class MambaRLTradingEnv:
         # 5. Advance Time
         try:
             bar_state = next(self.iterator)
-            while bar_state.v2_vector is None or len(bar_state.v2_vector) < 185:
+            while bar_state.v2_vector is None or np.isnan(bar_state.v2_vector).any():
                 bar_state = next(self.iterator)
                 
             self.current_bar = bar_state

@@ -82,20 +82,20 @@ class MambaRLTradingNetwork(nn.Module):
         super(MambaRLTradingNetwork, self).__init__()
         
         # 1. Unblurred Flat Feed Dimensions
-        # V2 Grid provides 40 features per timeframe. 8 timeframes total.
-        self.grid_flat_dim = 8 * 40  # 320
+        # V2 Grid provides 52 features per timeframe. 8 timeframes total.
+        self.grid_flat_dim = 8 * 52  # 416
         
-        # 2. Macro Sub-Encoder (5 TFs * 40 features)
-        # Tensor is 5 timeframes * 40 features = 200 dim
+        # 2. Macro Sub-Encoder (5 TFs * 52 features)
+        # Tensor is 5 timeframes * 52 features = 260 dim
         self.macro_encoder = nn.Sequential(
-            nn.Linear(200, 64),
+            nn.Linear(260, 64),
             nn.SiLU(),
             nn.Linear(64, 32)
         )
         
         # 3. State Injection
         # L0 (1) + Ledger State (4) + Macro Encoded (32) + Time of Day (4)
-        self.mamba_input_dim = self.grid_flat_dim + 1 + 4 + 32 + 4  # 361
+        self.mamba_input_dim = self.grid_flat_dim + 1 + 4 + 32 + 4  # 457
         
         # 4. Temporal Sequence (Mamba)
         self.input_norm = nn.LayerNorm(self.mamba_input_dim)

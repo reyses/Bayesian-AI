@@ -28,7 +28,7 @@ import numpy as np
 from core_v2.engine_signals import PositionView, PositionsView, PositionDecision
 from core_v2.features import N_FEATURES, FEATURE_NAMES
 
-Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
+Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_30')
 
 
 # Chain-depth ceiling — how many parallel contracts can be stacked on one

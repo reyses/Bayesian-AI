@@ -78,14 +78,20 @@ FEATURE_NAMES_V2 = [
     'SE_high', 'SE_low',
     'hurst', 'reversion_prob', 'swing_noise',
     'z_close_vs_high', 'z_close_vs_low', 'band_pos',
+    # L4 (12) — NMP variables
+    'vr_exact', 'z_21',
+    'lambda_hat_12', 'lambda_se_12', 'lambda_t_12',
+    'lambda_hat_21', 'lambda_se_21', 'lambda_t_21',
+    'lambda_hat_30', 'lambda_se_30', 'lambda_t_30',
+    'vr_proxy',
     # L5 (12) — intra-bar 1s point cloud
     'ldist_n', 'ldist_min', 'ldist_q1', 'ldist_median', 'ldist_q3', 'ldist_max',
     'ldist_mean', 'ldist_std', 'ldist_skew', 'ldist_kurtosis', 'ldist_outlier_pct', 'ldist_level',
 ]
 
 N_TFS_V2 = len(TF_HIERARCHY_V2)               # 8
-N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 40
-N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 320
+N_FEATURES_PER_TF_V2 = len(FEATURE_NAMES_V2)  # 52
+N_FLAT_FEATURES_V2 = N_TFS_V2 * N_FEATURES_PER_TF_V2  # 416
 
 # ─── Feature name generators ───────────────────────────────────────────────
 
@@ -229,6 +235,12 @@ for _tf in TF_ORDER:
         'features': _l3_names(_tf),
         'schema_version': 1,
     }
+    LAYER_FAMILIES[f'L4_{_tf}'] = {
+        'is_per_tf': True,
+        'tf': _tf,
+        'features': _l4_nmp_names(_tf),
+        'schema_version': 1,
+    }
     # L5 (intra-bar 1s distribution). STAGE A: registered as a storage/loader family
     # ONLY — deliberately NOT added to FEATURE_NAMES yet (that would trip the
     # N_FEATURES assert and force L5 into every consumer). Materialize + edge-test
@@ -281,7 +293,7 @@ def load_features(
     if tfs is None:
         tfs = list(TF_ORDER)
     if layers is None:
-        layers = ['L0', 'L1', 'L2', 'L3', 'L5']
+        layers = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5']
 
     layers = list(layers)
     tfs = list(tfs)
@@ -381,12 +393,14 @@ def describe_feature_count() -> str:
     l1 = len([n for n in FEATURE_NAMES if n.startswith('L1_')])
     l2 = len([n for n in FEATURE_NAMES if n.startswith('L2_')])
     l3 = len([n for n in FEATURE_NAMES if n.startswith('L3_')])
+    l4 = len([n for n in FEATURE_NAMES if n.startswith('L4_')])
     return (
         f"v2 feature vector: {N_FEATURES} total\n"
         f"  L0 (global)       : {l0}\n"
         f"  L1 ({N_TFS} TFs x 8) : {l1}\n"
         f"  L2 ({N_TFS} TFs x 9) : {l2}\n"
         f"  L3 ({N_TFS} TFs x 11) : {l3}\n"
+        f"  L4 ({N_TFS} TFs x 12) : {l4}\n"
         f"  TF order          : {TF_ORDER}\n"
         f"  N_BASE windows    : {N_BASE}\n"
     )
@@ -424,6 +438,8 @@ def assemble_v2_grid(flat_v2_matrix: np.ndarray) -> np.ndarray:
                 col = f'L2_{tf}_{fname[:-2]}_{N_BASE[tf]}'
             elif fname.startswith('ldist_'):
                 col = f'L5_{tf}_{fname}'
+            elif fname in ('vr_exact', 'z_21', 'vr_proxy') or fname.startswith('lambda_'):
+                col = f'L4_{tf}_{fname}'
             else:
                 # L3 features (add N_BASE)
                 col = f'L3_{tf}_{fname}_{N_BASE[tf]}'

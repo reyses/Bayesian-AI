@@ -55,18 +55,18 @@ logger = logging.getLogger(__name__)
 #  5m: 3 x 15m /  5m =  9    | 15m: 3 x  1h / 15m = 12    | 1h: 3 x  4h / 1h = 12
 #  4h: 3 x  1D /  4h = 18    |  1D: 3 x  5D /  1D =  5
 N_BASE = {
-    '5s':  9,
-    '15s': 12,
-    '1m':  15,
-    '5m':  9,
-    '15m': 12,
-    '1h':  12,
-    '4h':  18,
-    '1D':  5,
+    '5s':  30,
+    '15s': 30,
+    '1m':  30,
+    '5m':  30,
+    '15m': 30,
+    '1h':  30,
+    '4h':  30,
+    '1D':  30,
 }
 
 # Multiplier applied to N_BASE for multi-scale estimators that require more samples
-N_HURST_MULT = 8         # Hurst R/S needs ~100 samples for stable estimate
+N_HURST_MULT = 4         # Hurst R/S needs ~100 samples for stable estimate
 
 # Fixed window for swing noise (in bars - matches v1 convention, used for exit giveback)
 SWING_NOISE_WINDOW = 30
@@ -179,9 +179,7 @@ def _ols_fit_kernel(y: np.ndarray, window: int):
         start = max(0, i - window + 1)
         w = i - start + 1
         
-        if w < 2:
-            rm[i] = y[i]
-            se[i] = 0.0
+        if w < window:
             continue
 
         x_mean = (w - 1) / 2.0
@@ -236,7 +234,7 @@ def _ols_slope_kernel(y: np.ndarray, window: int):
         start = max(0, i - window + 1)
         w = i - start + 1
         
-        if w < 3:
+        if w < window:
             continue
 
         x_mean = (w - 1) / 2.0
@@ -292,6 +290,8 @@ def _rolling_mean_kernel(y: np.ndarray, window: int) -> np.ndarray:
     for i in prange(n):
         start = max(0, i - window + 1)
         w = i - start + 1
+        if w < window:
+            continue
         s = 0.0
         for k in range(w):
             s += y[start + k]
@@ -310,8 +310,7 @@ def _rolling_std_kernel(y: np.ndarray, window: int) -> np.ndarray:
     for i in prange(n):
         start = max(0, i - window + 1)
         w = i - start + 1
-        if w < 2:
-            out[i] = 0.0
+        if w < window:
             continue
             
         s = 0.0
@@ -339,6 +338,9 @@ def _vwap_kernel(prices: np.ndarray, volumes: np.ndarray, window: int) -> np.nda
         start = max(0, i - window + 1)
         w = i - start + 1
         
+        if w < window:
+            continue
+
         sum_pv = 0.0
         sum_v = 0.0
         for k in range(w):
@@ -371,8 +373,7 @@ def _swing_noise_kernel(highs: np.ndarray, lows: np.ndarray,
         start = max(0, i - window + 1)
         w = i - start + 1
         
-        if w < 2:
-            out[i] = max((highs[i] - lows[i]) / tick, 1.0)
+        if w < window:
             continue
             
         run_hi = highs[start]
@@ -405,10 +406,10 @@ def _hurst_rs_kernel(prices: np.ndarray, window: int) -> np.ndarray:
     For each i >= window-1, computes R/S at 4 sub-scales
     (window/8, window/4, window/2, window) and fits log(R/S) = H log(n) + c.
 
-    Uses bars [i-window+1, i]. Default 0.5 (random walk) for i < window-1.
+    Uses bars [i-window+1, i]. Default np.nan for i < window-1.
     """
     n = len(prices)
-    out = np.full(n, 0.5)
+    out = np.full(n, np.nan)
     if n < 1:
         return out
 
@@ -416,8 +417,7 @@ def _hurst_rs_kernel(prices: np.ndarray, window: int) -> np.ndarray:
         start = max(0, i - window + 1)
         w = i - start + 1
         
-        if w < 8:
-            out[i] = 0.5
+        if w < window:
             continue
 
         # Four sub-window sizes
@@ -838,27 +838,37 @@ class StatisticalFieldEngine:
 
         # Band z-scores (each uses its own series' OLS fit - corrected from v1)
         z_se = np.full(n, np.nan)
-        mask = se_close > 1e-10
+        mask_valid = ~np.isnan(se_close)
+        z_se[mask_valid] = 0.0
+        mask = mask_valid & (se_close > 1e-10)
         z_se[mask] = (close[mask] - rm_close[mask]) / se_close[mask]
 
         z_high_out = np.full(n, np.nan)
-        mask_h = se_high > 1e-10
+        mask_valid_h = ~np.isnan(se_high)
+        z_high_out[mask_valid_h] = 0.0
+        mask_h = mask_valid_h & (se_high > 1e-10)
         z_high_out[mask_h] = (high[mask_h] - rm_high[mask_h]) / se_high[mask_h]
 
         z_low_out = np.full(n, np.nan)
-        mask_l = se_low > 1e-10
+        mask_valid_l = ~np.isnan(se_low)
+        z_low_out[mask_valid_l] = 0.0
+        mask_l = mask_valid_l & (se_low > 1e-10)
         z_low_out[mask_l] = (low[mask_l] - rm_low[mask_l]) / se_low[mask_l]
 
         # --- New Z-Space Band Geometry ---
         z_close_vs_high = np.full(n, np.nan)
+        z_close_vs_high[mask_valid_h] = 0.0
         z_close_vs_high[mask_h] = (close[mask_h] - rm_high[mask_h]) / se_high[mask_h]
 
         z_close_vs_low = np.full(n, np.nan)
+        z_close_vs_low[mask_valid_l] = 0.0
         z_close_vs_low[mask_l] = (close[mask_l] - rm_low[mask_l]) / se_low[mask_l]
 
         band_pos = np.full(n, np.nan)
+        mask_valid_w = ~np.isnan(rm_high)
+        band_pos[mask_valid_w] = 0.5
         band_width = rm_high - rm_low
-        mask_w = band_width > 1e-10
+        mask_w = mask_valid_w & (band_width > 1e-10)
         band_pos[mask_w] = (close[mask_w] - rm_low[mask_w]) / band_width[mask_w]
 
         # Hurst over larger window (multi-scale R/S needs more samples)
@@ -926,13 +936,17 @@ class StatisticalFieldEngine:
         std_slow = _rolling_std_kernel(close, 60)
         
         vr_exact = np.full(n, np.nan)
-        mask_v = std_slow > 1e-10
+        mask_valid_v = ~np.isnan(std_slow)
+        vr_exact[mask_valid_v] = 1.0  # ratio of 0/0 is 1.0 (same variance)
+        mask_v = mask_valid_v & (std_slow > 1e-10)
         vr_exact[mask_v] = std_fast[mask_v] / std_slow[mask_v]
 
         # 2. z_21
         rm_21, se_21 = _ols_fit_kernel(close, 21)
         z_21 = np.full(n, np.nan)
-        mask_z21 = se_21 > 1e-10
+        mask_valid_z21 = ~np.isnan(se_21)
+        z_21[mask_valid_z21] = 0.0
+        mask_z21 = mask_valid_z21 & (se_21 > 1e-10)
         z_21[mask_z21] = (close[mask_z21] - rm_21[mask_z21]) / se_21[mask_z21]
 
         # 3. lambda_hat
@@ -941,7 +955,9 @@ class StatisticalFieldEngine:
             N = self.windows.get(tf, 12)
             rm_close, se_close = _ols_fit_kernel(close, N)
             z_se = np.full(n, np.nan)
-            mask_z = se_close > 1e-10
+            mask_valid_z = ~np.isnan(se_close)
+            z_se[mask_valid_z] = 0.0
+            mask_z = mask_valid_z & (se_close > 1e-10)
             z_se[mask_z] = (close[mask_z] - rm_close[mask_z]) / se_close[mask_z]
 
         log_z = np.log(np.abs(z_se) + 0.1)
