@@ -63,6 +63,14 @@ When aggressive buyers flood the market (True Delta > 0), they push the price up
 ![Wick Correlation Heatmap](wick_correlation_heatmap.png)
 ![Wick Quadrant Analysis](wick_quadrant_analysis.png)
 
+### Main Effects & Interaction
+To visualize the non-linear absorption edge, we mapped the forward 5m returns (scaled) using a standard Design of Experiments layout:
+
+![Main Effects Plot](main_effects_plot.png)
+![Interaction Plot](interaction_plot.png)
+
+The Main Effects plot shows the marginal contribution of True Delta and Price Move. However, the Interaction Plot perfectly illustrates the absorption edge: the lines cross heavily. When Price moves UP but True Delta is Selling (-), we get massive downside reversion (absorption).
+
 ### Forward Returns (Mean Reversion Magnitude)
 The tables below show the mean forward return (scaled by 10000) for each quadrant.
 
