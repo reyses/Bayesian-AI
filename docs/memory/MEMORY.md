@@ -31,6 +31,7 @@
 - **Anti-doom-cascade**: don't treat Python-sim point estimates as ground truth (Python-vs-NT8 gap ~$680/day); report deployment risk under MULTIPLE gap assumptions (0/30/60/100%); assume realistic intervention (halt-after-N, drawdown caps, EOD review); don't compound pessimism into a 99.6% doom number. Tool: `tools/risk/blowout_with_intervention.py`.
 - **$/day lift framing**: frame against the HONEST FLOOR (post-caveat number), not the headline; translate to $/year; weight tail-risk reduction separately; sizing layers (per-leg × per-hour × per-day) MULTIPLY, not add.
 - **CI pseudoreplication / effective-N**: N agents sharing one net make byte-identical trades; the unit of independence = unique trade → entry → day. Day-block bootstrap. (research_A IS-gate, 2026-06-08)
+- **Signal-magnitude bar** (2026-06-23, user/Telegram): edge >= 0.10 = REAL signal; 0.05-0.10 = CONDITIONAL; < ~0.05 (e.g. 0.00079, a 0.008 AUC gap) = NOT signal/noise. Applies to AUC-over-0.5 gap / OOS-R2 / correlation / null-anchored gaps; pair with CI + null. See [[signal-threshold-magnitudes]].
 
 ## 3. STATISTICAL TRAPS (one line each + why)
 - **THE LOOKAHEAD FAMILY (central scar)**: the +$454/day offline-zigzag baseline is HINDSIGHT — offline zigzag connects true highs/lows after the fact (zero whipsaw); the causal streaming detector eats the whipsaws → causal = −$100 to −$185/day. Replay(+$417) vs stream(−$185) through the SAME harness = the ~$600/day swing IS the lookahead.

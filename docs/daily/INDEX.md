@@ -1,3 +1,4 @@
+| 2026-06-27 (Order Flow DEAD) | order-flow, ablation, causal-inference | Lift +0.0079 is below 0.05 threshold; Order Flow edge officially DEAD. |
 | 2026-06-27 (Stage 1 Exhaustion Ablation) | order-flow, ablation, causal-inference | Layer 3 Exhaustion target passes Fourier Null; Tick Data purchase authorized. |
 # Daily Journal Index (condensed 2026-06-12)
 - 2026-06-17 — F-space continuous(B2C) vs tiled(B2T) controlled A/B on 2024 IS: 73% vs 5% pristine; ZOH confirmed but edge plausibly autocorrelation/param artifact → forward-predictive test next.
