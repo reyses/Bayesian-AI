@@ -68,9 +68,9 @@ When aggressive buyers flood the market (True Delta > 0), they push the price up
 To visualize the non-linear absorption edge, we mapped the forward 5m returns (scaled) using a standard Design of Experiments layout:
 
 ![Main Effects Plot](main_effects_plot.png)
-![Interaction Plot](interaction_plot.png)
+![Interaction Plot Matrix for Means](minitab_interaction_matrix.png)
 
-The Main Effects plot shows the marginal contribution of True Delta and Price Move. However, the Interaction Plot perfectly illustrates the absorption edge: the lines cross heavily. When Price moves UP but True Delta is Selling (-), we get massive downside reversion (absorption).
+The Main Effects plot shows the marginal contribution of True Delta and Price Move. However, the Minitab-style Interaction Plot Matrix perfectly illustrates the absorption edge across all combinations of factors. When lines cross or diverge severely, an interaction is present. For instance, when Price moves UP but True Delta is Selling (-), we get massive downside reversion (absorption).
 
 ### Forward Returns (Mean Reversion Magnitude)
 The tables below show the mean forward return (scaled by 10000) for each quadrant.
