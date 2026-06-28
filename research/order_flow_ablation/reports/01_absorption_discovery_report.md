@@ -58,7 +58,11 @@ To prove *how* the limit orders trap the aggressive flow, we correlated True Del
 - **True Delta correlates NEGATIVELY (-0.064) with the Lower Wick Ratio.**
 
 **Mechanical Interpretation:** 
-When aggressive buyers flood the market (True Delta > 0), they push the price up into passive limit sellers. The limit sellers absorb the aggressive flow, halting the advance, and the price falls back down before the 5s bar closes. This intra-bar rejection creates a long **upper wick**. Aggressive buying *creates the wick that rejects it*. Conversely, aggressive selling (True Delta < 0) creates the long **lower wick** that rejects it.
+Because the direction of the absorption flips depending on whether the market is aggressively buying or selling, we unified the wicks into a single feature: **Opposing Wick Ratio**.
+- When aggressive buyers get trapped (True Delta > 0), the limit sellers create an **upper wick**. This becomes the Opposing Wick.
+- When aggressive sellers get trapped (True Delta < 0), the limit buyers create a **lower wick**. This becomes the Opposing Wick.
+
+Aggressive order flow *creates the wick that rejects it*.
 
 ![Wick Correlation Heatmap](wick_correlation_heatmap.png)
 ![Continuous Interaction Matrix (PairPlot)](interaction_matrix_plot.png)

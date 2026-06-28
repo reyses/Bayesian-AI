@@ -28,9 +28,22 @@ def create_minitab_interaction_matrix():
     merged['upper_wick_ratio'] = merged['upper_wick'] / (merged['total_range'] + epsilon)
     merged['lower_wick_ratio'] = merged['lower_wick'] / (merged['total_range'] + epsilon)
 
+    # Unified Wick Signals based on True Delta direction
+    merged['opposing_wick_ratio'] = np.where(
+        merged['delta'] > 0, 
+        merged['upper_wick_ratio'], 
+        merged['lower_wick_ratio']
+    )
+    
+    merged['confirming_wick_ratio'] = np.where(
+        merged['delta'] > 0,
+        merged['lower_wick_ratio'],
+        merged['upper_wick_ratio']
+    )
+
     merged['fwd_ret_5m'] = (merged['close'].shift(-60) - merged['close']) * 10000
 
-    cols_to_keep = ['delta', 'facsimile', 'upper_wick_ratio', 'lower_wick_ratio', 'fwd_ret_5m', 'volume']
+    cols_to_keep = ['delta', 'facsimile', 'opposing_wick_ratio', 'confirming_wick_ratio', 'fwd_ret_5m', 'volume']
     df_clean = merged.dropna(subset=cols_to_keep).copy()
     
     # Filter 0 volume
@@ -45,8 +58,8 @@ def create_minitab_interaction_matrix():
     factors = {
         'delta': 'True Delta',
         'facsimile': 'Facsimile',
-        'upper_wick_ratio': 'Upper Wick',
-        'lower_wick_ratio': 'Lower Wick'
+        'opposing_wick_ratio': 'Opposing Wick',
+        'confirming_wick_ratio': 'Confirming Wick'
     }
     
     for col, nice_name in factors.items():

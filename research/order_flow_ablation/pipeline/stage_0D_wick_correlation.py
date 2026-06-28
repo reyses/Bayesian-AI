@@ -26,11 +26,24 @@ def run_wick_analysis():
     merged['body_size'] = np.abs(merged['price_delta'])
     merged['total_range'] = merged['high'] - merged['low']
     
-    # Normalize wicks by total range to get 'wick ratio'
-    # Adding epsilon to prevent division by zero
     epsilon = 1e-8
     merged['upper_wick_ratio'] = merged['upper_wick'] / (merged['total_range'] + epsilon)
     merged['lower_wick_ratio'] = merged['lower_wick'] / (merged['total_range'] + epsilon)
+
+    # Unified Wick Signals based on True Delta direction
+    # Opposing wick: Upper wick if Delta > 0, Lower wick if Delta < 0
+    merged['opposing_wick_ratio'] = np.where(
+        merged['delta'] > 0, 
+        merged['upper_wick_ratio'], 
+        merged['lower_wick_ratio']
+    )
+    
+    # Confirming wick: Lower wick if Delta > 0, Upper wick if Delta < 0
+    merged['confirming_wick_ratio'] = np.where(
+        merged['delta'] > 0,
+        merged['lower_wick_ratio'],
+        merged['upper_wick_ratio']
+    )
 
     merged.dropna(subset=['delta', 'facsimile', 'volume', 'upper_wick'], inplace=True)
     merged = merged[merged['volume'] > 0].copy()
@@ -45,8 +58,7 @@ def run_wick_analysis():
     # Correlations
     cols_to_correlate = [
         'delta', 'facsimile', 'price_delta', 'volume', 
-        'upper_wick', 'lower_wick', 'body_size', 'total_range',
-        'upper_wick_ratio', 'lower_wick_ratio'
+        'opposing_wick_ratio', 'confirming_wick_ratio', 'body_size'
     ]
     
     corr_matrix = merged[cols_to_correlate].corr()
@@ -55,7 +67,7 @@ def run_wick_analysis():
     print(corr_matrix[['delta', 'facsimile', 'price_delta']].to_string())
     
     print("\n--- Wick Stats by Quadrant ---")
-    wick_stats = merged.groupby('quadrant')[['upper_wick', 'lower_wick', 'upper_wick_ratio', 'lower_wick_ratio', 'body_size']].mean()
+    wick_stats = merged.groupby('quadrant')[['opposing_wick_ratio', 'confirming_wick_ratio', 'body_size']].mean()
     print(wick_stats)
 
     os.makedirs('research/order_flow_ablation/reports', exist_ok=True)
@@ -63,22 +75,16 @@ def run_wick_analysis():
     # Save correlation heatmap
     plt.figure(figsize=(10, 8))
     sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".2f", vmin=-1, vmax=1)
-    plt.title('Correlation Matrix: True Delta, Facsimile, and Wick Sizes')
+    plt.title('Correlation Matrix: True Delta, Facsimile, and Unified Wicks')
     plt.tight_layout()
     plt.savefig('research/order_flow_ablation/reports/wick_correlation_heatmap.png')
     
     # Save quadrant wick bar chart
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-    
-    wick_stats[['upper_wick', 'lower_wick', 'body_size']].plot(kind='bar', ax=axes[0])
-    axes[0].set_title('Absolute Wick & Body Size by Quadrant')
-    axes[0].set_ylabel('Points')
-    axes[0].tick_params(axis='x', rotation=45)
-    
-    wick_stats[['upper_wick_ratio', 'lower_wick_ratio']].plot(kind='bar', ax=axes[1])
-    axes[1].set_title('Wick Ratio (Wick / Total Range) by Quadrant')
-    axes[1].set_ylabel('Ratio')
-    axes[1].tick_params(axis='x', rotation=45)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    wick_stats[['opposing_wick_ratio', 'confirming_wick_ratio']].plot(kind='bar', ax=ax, color=['#e74c3c', '#2ecc71'])
+    ax.set_title('Unified Wick Ratios by Quadrant')
+    ax.set_ylabel('Wick / Total Range')
+    ax.tick_params(axis='x', rotation=45)
     
     plt.tight_layout()
     plt.savefig('research/order_flow_ablation/reports/wick_quadrant_analysis.png')
