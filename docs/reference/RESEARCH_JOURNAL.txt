@@ -4426,3 +4426,8 @@ Migrated the Mamba RL agent from a fully generalized 5-day curriculum with stric
 SFE Audit completed: L4 reintegrated without scramble, strict NaN warm-up bleed excluded, and mid-session flat edge cases fixed.
 
 [2026-06-27] Phase 2 Ablation Study completed. The delta proxy purchase gate failed conclusively. R2 degraded by 0.15 when adding delta features, and sub-period stability tests proved it overfit. We will not purchase 2024 Databento data.
+
+--- 2026-06-27: Order Flow Ablation ---
+Investigated Order Flow Absorption. Conducted full EDA (Quadrant Analysis, Minitab Main Effects / Interaction Plots, Continuous KDE PairGrid) which structurally confirmed that wicks map to passive limit absorption of aggressive flow (True Delta). Ran a Stage 1 predictive ablation against the forward 1-minute directional continuation target using an XGBClassifier with rigorous causal gates (Fourier phase-randomized surrogate, OOS split). The test failed the causal rigor gates: while AUC spiked to 0.5542 at t+1, it only offered a negligible +0.0012 lift over the randomized null, meaning the limit order structural footprint lacks orthogonal predictive continuation alpha. The direction hypothesis is officially DEAD, pending a pivot to the Exhaustion (reversal) target for the true test.
+
+2026-06-27: Stage 1 Exhaustion Ablation completed. Layer 3 (True Delta) passed the Fourier Null for the Exhaustion target (0.6326 vs 0.6273). Free wicks (Layer 2) degraded the model. Databento tick data purchase authorized. Reward thesis created in research/reward_design/THESIS_reward_design.md to penalize exhaustion-holding.
