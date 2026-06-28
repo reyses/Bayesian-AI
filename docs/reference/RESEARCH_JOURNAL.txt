@@ -4432,3 +4432,4 @@ Investigated Order Flow Absorption. Conducted full EDA (Quadrant Analysis, Minit
 
 2026-06-27: Stage 1 Exhaustion Ablation completed. Layer 3 (True Delta) passed the Fourier Null for the Exhaustion target (0.6326 vs 0.6273). Free wicks (Layer 2) degraded the model. Databento tick data purchase authorized. Reward thesis created in research/reward_design/THESIS_reward_design.md to penalize exhaustion-holding.
 2026-06-27 (UPDATE): The +0.0079 AUC lift produced by Layer 3 was an order of magnitude smaller than the +0.05 conditional approval threshold. The entire order flow hypothesis is declared DEAD. Tick data purchase is rejected. 416D macro baseline is sufficient.
+2026-06-28 (Final Gauntlet): Stage 1 Exhaustion Ablation re-run with 5-Fold Temporal Walk-Forward Split and corrected path tracking. True Delta (L3) failed the Fourier Phase-Randomized Null test. Verdict is BREAK. Tick data purchase is REJECTED. Reward thesis updated to use 416D baseline.
