@@ -203,6 +203,14 @@ The script `stage_1_profiling.py` has successfully mapped the candle anatomies a
 The profiles have been fully built without crossing the layers or testing hypotheses. Ready for collaborative review to determine where the structural signals live.
 """
 
+for tf in TFS.keys():
+    summary_md += f"\n## Visual Profiles: {tf}\n"
+    summary_md += f"### Histograms\n![{tf} Histograms](./{tf}_histograms.png)\n"
+    summary_md += f"### Correlations\n![{tf} Correlations](./{tf}_correlations.png)\n"
+    summary_md += f"### Joint: Wick vs Wick\n![{tf} Wick vs Wick](./{tf}_joint_wick_vs_wick.png)\n"
+    summary_md += f"### Joint: Range vs Volume\n![{tf} Range vs Vol](./{tf}_joint_range_vs_volume.png)\n"
+    summary_md += f"### Temporal (ACF)\n![{tf} ACF](./{tf}_autocorr.png)\n"
+
 with open(OUTPUT_DIR / "profiling_summary.md", "w") as f:
     f.write(summary_md)
 
