@@ -61,6 +61,7 @@ To prove *how* the limit orders trap the aggressive flow, we correlated True Del
 When aggressive buyers flood the market (True Delta > 0), they push the price up into passive limit sellers. The limit sellers absorb the aggressive flow, halting the advance, and the price falls back down before the 5s bar closes. This intra-bar rejection creates a long **upper wick**. Aggressive buying *creates the wick that rejects it*. Conversely, aggressive selling (True Delta < 0) creates the long **lower wick** that rejects it.
 
 ![Wick Correlation Heatmap](wick_correlation_heatmap.png)
+![Continuous Interaction Matrix (PairPlot)](interaction_matrix_plot.png)
 ![Wick Quadrant Analysis](wick_quadrant_analysis.png)
 
 ### Main Effects & Interaction
