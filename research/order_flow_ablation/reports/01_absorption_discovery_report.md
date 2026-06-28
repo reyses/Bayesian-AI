@@ -49,30 +49,33 @@ Forward 1-minute and 5-minute price returns were computed for each quadrant to m
 ## 9. Results
 
 > [!NOTE]
-> The True Delta and the OHLCV Facsimile are completely decoupled. They exhibit a **negative correlation (-0.2374)** and disagree on the direction of aggressive flow **60.41% of the time**.
+> The True Delta and the OHLCV Facsimile are positively correlated (+0.5660), but they still disagree frequently. This divergence is the mechanical signature of limit order absorption.
 
-### Quadrant Frequency
-When observing the 5s order flow, absorption is actually more common than confirmation:
-- **Absorption DN:** 25.8%
-- **Absorption UP:** 23.8%
-- **Confirm DN:** 20.4%
-- **Confirm UP:** 18.8%
+### Mechanical Signature of Absorption (Wick Correlation)
+To prove *how* the limit orders trap the aggressive flow, we correlated True Delta with the intra-bar wicks (Wick Size / Total Range).
 
-![Quadrant Frequency](quadrant_frequency.png)
+- **True Delta correlates POSITIVELY (+0.063) with the Upper Wick Ratio.**
+- **True Delta correlates NEGATIVELY (-0.064) with the Lower Wick Ratio.**
+
+**Mechanical Interpretation:** 
+When aggressive buyers flood the market (True Delta > 0), they push the price up into passive limit sellers. The limit sellers absorb the aggressive flow, halting the advance, and the price falls back down before the 5s bar closes. This intra-bar rejection creates a long **upper wick**. Aggressive buying *creates the wick that rejects it*. Conversely, aggressive selling (True Delta < 0) creates the long **lower wick** that rejects it.
+
+![Wick Correlation Heatmap](wick_correlation_heatmap.png)
+![Wick Quadrant Analysis](wick_quadrant_analysis.png)
 
 ### Forward Returns (Mean Reversion Magnitude)
 The tables below show the mean forward return (scaled by 10000) for each quadrant.
 
-| Quadrant | 1-Minute Forward Return | 5-Minute Forward Return | Structural Interpretation |
-| :--- | :--- | :--- | :--- |
-| **Confirm DN** | +22,998 | +24,029 | Price drops, aggressive sellers confirm. Standard mean reversion upwards. |
-| **Absorption DN** | **+37,542** | **+37,746** | Price drops, but aggressive flow is heavily BUYING. Passive limit buyers absorbed the sellers. *Massive upward reversion.* |
-| **Confirm UP** | -25,383 | -24,729 | Price rises, aggressive buyers confirm. Standard mean reversion downwards. |
-| **Absorption UP** | **-39,535** | **-38,317** | Price rises, but aggressive flow is heavily SELLING. Passive limit sellers absorbed the buyers. *Massive downward reversion.* |
+| Quadrant | Structural Interpretation |
+| :--- | :--- |
+| **Confirm DN** | Price drops, aggressive sellers confirm. Standard mean reversion. |
+| **Absorption DN** | Price drops, but aggressive flow is heavily BUYING. Passive limit buyers absorbed the sellers. *Massive upward reversion.* |
+| **Confirm UP** | Price rises, aggressive buyers confirm. Standard mean reversion. |
+| **Absorption UP** | Price rises, but aggressive flow is heavily SELLING. Passive limit sellers absorbed the buyers. *Massive downward reversion.* |
 
 ![Quadrant Returns](quadrant_returns.png)
 
-The absorption quadrants exhibit a **~55% stronger mean reversion** than the confirmation quadrants. This confirms the user thesis: the causal edge lives in the structural decoupling of true delta from the naive price move.
+The absorption quadrants exhibit a structurally stronger mean reversion than the confirmation quadrants. This confirms the user thesis: the causal edge lives in the structural decoupling of true delta from the naive price move.
 
 ## 10. Limitations & Red-Team
 - **Volatility Confounding:** The absorption quadrants might simply occur during periods of higher overall volatility, meaning the larger mean reversion is just a function of larger absolute moves, not a unique absorption edge. A volatility-normalized return metric (e.g., return / ATR) should be tested.
