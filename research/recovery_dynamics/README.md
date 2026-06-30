@@ -103,6 +103,18 @@ WIDE the oscillations are.
 - This curve = the live "normal envelope" setter. START of a framework — the causal trailing estimator
   of this knob + validation that envelope-breach predicts the runaway is the unbuilt rest.
 
+## Detrended oscillation — the zigzag persists while climbing (`oscillation_detrended.md`)
+Gap fixed: the fixed anchor misses oscillation that rides a drifting mean (a trend zigzags up around
+a MOVING center). Measure crossings of a 30-min rolling mean instead. **price = drift + oscillation.**
+- **No "no-return" anymore** — 66k cycles, every one crosses the mean. The 7% "trend" was a
+  fixed-reference artifact; oscillation is EVERYWHERE, inside trends included.
+- **The clock keeps ticking in trends**: median period chop 3m vs trend 5m (same order; fast <3m wiggle
+  dominates both). But trend cycles are BIGGER (amp 3→11pt) and skew longer (31% are 15-60m vs 10%).
+  Caveat: part of the bigger amplitude is regime-coupling (trends ride the wide-amplitude regime), not
+  proven causation.
+- **Corrected model**: a "trend" is drift in the mean, NOT absence of the cycle. The normal envelope
+  lives around the MOVING mean, not a fixed level. Decomposition depends on the chosen trend scale (W_MA).
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
