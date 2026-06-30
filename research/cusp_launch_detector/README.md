@@ -17,7 +17,20 @@ picks (`DATA/cusp_picks/`) are ground truth.
 - **No cross-day edge is demonstrated.** But only **4 labeled days** in the CSV → underpowered;
   "unproven," not "disproven."
 
-## Next (to make it conclusive)
-1. **Label more days** — ≥15-20 disjoint days before any AUC here is trustworthy.
-2. **Retarget to "the launch paid"** (MFE/MAE already recorded) instead of "matches a human pick."
-3. Then re-run `eval_oos.py` (day-disjoint stays the rule).
+## Scale-ready harness (current)
+`eval_oos.py` now: day-group CV (LODO ≤6 days, else k=5), **day-block bootstrap CI**, and **two
+targets** — `target` (matches a human pick) and `paid` (objective forward MFE from price). Built so
+that when the labeler grows the day count, the SAME run yields a conclusive CI.
+
+### Honest scorecard (4 days — still underpowered; NEITHER is a green light)
+- **human-match**: OOS AUC 0.453, CI [0.42, 0.70] → **NOISE** (full coverage; genuine non-result).
+- **MFE-paid**: OOS AUC 0.654, CI [0.57, 0.74] → looks "REAL" but is **NOT trustworthy**:
+  - 85% base rate (5-pt MFE in 60 min is trivially hit — an easy, near-constant target);
+  - **24% coverage bug**: 2024-01-01 is a holiday (parquet missing, 234 lost) and candidates span
+    multi-day windows while the MFE loader read only the single start-date parquet → biased subset.
+
+### Fixes before any MFE number is trustworthy
+1. **Coverage**: load a continuous multi-day price series spanning each candidate's window (not the
+   single start-date parquet); skip/curate holidays.
+2. **Harder target**: MFE ≥ ~15-20 pt, or MFE/MAE ≥ 2 (a real launch), so base rate isn't ~85%.
+3. **Label more days** — ≥15-20 disjoint. Then re-run (day-disjoint stays the rule).
