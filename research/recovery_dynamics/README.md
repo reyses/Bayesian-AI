@@ -29,6 +29,17 @@ python research/recovery_dynamics/tools/opportunity_cost.py --day 2024_02_20
 
 (First single-day pass — `opportunity_cost.md` reports — agreed: mode 2 foregone / 6 min, 41 never.)
 
+## Feature attribution — what describes a DEATH event (`event_features.md`)
+- Target: wrong trade that does NOT return to breakeven within **60 min** of going underwater
+  (fixed horizon — a first version used "never same-day" and time_of_day faked AUC 0.642 via EOD
+  **censoring**; the fix dropped it to the honest number).
+- **OOS (train 2024 → test 2025): AUC 0.572, gap +0.072 → CONDITIONAL** (weak, not a green light).
+- **VOL describes death, weakly; TREND/ADVERSE ~zero.** Counterintuitive sign: HIGHER vol → LESS death
+  (the killer is the LOW-vol slow grind that won't snap back in the window; high vol whipsaws back).
+  My "trends-against-you kills it" hypothesis was WRONG OOS.
+- **Implication:** at ENTRY, death is barely describable. The real signal is likely DURING the trade —
+  elapsed-underwater-time vs the current period (the recovery clock as a live feature). Next test.
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
