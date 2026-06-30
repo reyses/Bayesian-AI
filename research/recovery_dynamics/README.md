@@ -77,7 +77,15 @@ level = one oscillation period, sampled everywhere (~644k anchors). Empirical OU
 - Bulk resolved into sensible buckets (share): 2-3m **25%** (mode), 3-5m 21% (→46% revert <5m),
   5-8m 13%, 8-15m 12% (→**71% revert <15m**), 15-30m 9%, 30-60m 6%, 1-2h 4%, 2-6h 4%, **TREND 7.2%**.
   Smooth monotonic decay; **2024≈2025 every bucket to <0.3%** — a structural market constant, not a regime.
-  (cached: `artifacts/anchor_period_cache.npz`; `--fresh` to recompute.)
+  (cached: `artifacts/anchor_period_cache_v2.npz`; `--fresh` to recompute.)
+- **Amplitude inside each period bucket (the 2nd dimension)** — peak excursion per anchor:
+  - **Period & amplitude are tightly coupled**: 2-3m≈2-3pt, 8-15m≈8-12pt, 1-2h≈33-45pt, 2-6h≈53-71pt.
+  - **Super-diffusive**: amp/√period RISES (1.4→3.4 in 2024) — longer oscillations swing WIDER than a
+    random walk (√t) would give → momentum inside the longer cycles, not mean-reversion damping.
+  - **DECOMPOSITION**: period (timing) is the market CONSTANT; amplitude (size) is the REGIME — 2025 is
+    **30-50% wider amplitude at every period** vs 2024, while the period buckets are identical.
+    "A fixed clock with a volume knob." This EXPLAINS the earlier bogus "period non-stationarity": a
+    fixed-pt drawdown gate let 2025's bigger amplitude leak into the conditioned period. Period≠amplitude.
 - **STABLE across years: 5m vs 5m, 7.2% vs 7.3%.** This CORRECTS the earlier `period_evolution`/
   `recovery_2024_2025` claim that the clock was non-stationary (27m vs 15m) — that divergence was an
   ARTIFACT of conditioning on a ≥5pt drawdown (regime-sensitive selection). Unconditional period is stable.

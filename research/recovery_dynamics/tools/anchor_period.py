@@ -28,22 +28,25 @@ MAXLOOK = 360     # forward cap (min); beyond this = no-return (censored = trend
 
 def day_periods(close):
     n = len(close)
-    periods, noreturn, total = [], 0, 0
+    periods, amps, noreturn, total = [], [], 0, 0
     for a in range(0, n - 2, STRIDE):
         P = close[a]
         fwd = close[a + 1:a + 1 + MAXLOOK]
         if fwd.size < 2:
             break
-        side = np.sign(fwd[0] - P)
+        rel = fwd - P
+        side = np.sign(rel[0])
         if side == 0:
             continue                                   # flat next bar -> no defined excursion
         total += 1
-        crossed = np.where((fwd - P) * side <= 0)[0]   # first return THROUGH the anchor level
+        crossed = np.where(rel * side <= 0)[0]         # first return THROUGH the anchor level
         if crossed.size:
-            periods.append(int(crossed[0] + 1))        # +1: fwd starts at bar a+1
+            c = int(crossed[0])
+            periods.append(c + 1)                      # +1: fwd starts at bar a+1
+            amps.append(float(np.abs(rel[:c + 1]).max()))   # peak excursion reached before return
         else:
             noreturn += 1
-    return periods, noreturn, total
+    return periods, amps, noreturn, total
 
 
 BUCKETS = [(2, 3, "2-3 min   (mode)"), (3, 5, "3-5 min"), (5, 8, "5-8 min"),
@@ -65,6 +68,28 @@ def bucket_report(per, noreturn, total):
     return out
 
 
+AMP_BUCKETS = [(0, 2), (2, 5), (5, 10), (10, 20), (20, 40), (40, 1e9)]   # peak excursion, pts
+
+
+def period_amp_table(per, amp):
+    """Amplitude (peak excursion) distribution WITHIN each period bucket. Each row sums to 100%."""
+    per = np.asarray(per); amp = np.asarray(amp)
+    cols = "".join(f"{(str(lo)+'-'+('inf' if hi>1e8 else str(int(hi)))):>8}" for lo, hi in AMP_BUCKETS)
+    out = [f"{'period bucket':<17}| med amp | amp/sqrt(min) |{cols}",
+           "-" * (44 + 8 * len(AMP_BUCKETS))]
+    for plo, phi, plabel in BUCKETS:
+        m = (per >= plo) & (per < phi)
+        if m.sum() == 0:
+            continue
+        sub = amp[m]
+        med = float(np.median(sub))
+        pc = (plo + phi) / 2.0                                   # period bucket center (min)
+        ratio = med / np.sqrt(pc)                                # ~const => diffusive; falling => mean-revert
+        shares = "".join(f"{((sub>=alo)&(sub<ahi)).mean():>7.0%}" for alo, ahi in AMP_BUCKETS)
+        out.append(f"{plabel:<17}|{med:>5.0f}pt  |{ratio:>10.2f}    |{shares}")
+    return out
+
+
 def hist(vals, width, cap=24):
     nb = min(int(max(vals) // width) + 1, cap)
     c = [0] * nb
@@ -79,27 +104,28 @@ def hist(vals, width, cap=24):
     return out
 
 
-CACHE = os.path.join(ROOT, "artifacts", "anchor_period_cache.npz")   # gitignored
+CACHE = os.path.join(ROOT, "artifacts", "anchor_period_cache_v2.npz")   # gitignored (v2: + amplitude)
 
 
 def load_or_compute(fresh):
     if os.path.exists(CACHE) and not fresh:
         z = np.load(CACHE)
-        return {y: (z[f"per_{y}"], int(z[f"nr_{y}"]), int(z[f"tot_{y}"])) for y in ("2024", "2025")}
+        return {y: (z[f"per_{y}"], z[f"amp_{y}"], int(z[f"nr_{y}"]), int(z[f"tot_{y}"]))
+                for y in ("2024", "2025")}
     data = {}
     for year in ("2024", "2025"):
-        per, nr, tot = [], 0, 0
+        per, amp, nr, tot = [], [], 0, 0
         for f in tqdm(sorted(glob.glob(os.path.join(ONE_M, f"{year}_*.parquet"))), desc=year, unit="day"):
             try:
                 close = pd.read_parquet(f)["close"].to_numpy(np.float64)
             except Exception:
                 continue
-            p, n_, t = day_periods(close)
-            per += p; nr += n_; tot += t
-        data[year] = (np.array(per), nr, tot)
+            p, am, n_, t = day_periods(close)
+            per += p; amp += am; nr += n_; tot += t
+        data[year] = (np.array(per), np.array(amp), nr, tot)
     os.makedirs(os.path.dirname(CACHE), exist_ok=True)
-    np.savez(CACHE, **{f"per_{y}": data[y][0] for y in data},
-             **{f"nr_{y}": data[y][1] for y in data}, **{f"tot_{y}": data[y][2] for y in data})
+    np.savez(CACHE, **{f"per_{y}": data[y][0] for y in data}, **{f"amp_{y}": data[y][1] for y in data},
+             **{f"nr_{y}": data[y][2] for y in data}, **{f"tot_{y}": data[y][3] for y in data})
     return data
 
 
@@ -114,7 +140,7 @@ def main():
     w(f"STRIDE={STRIDE} bar(s), forward cap {MAXLOOK} min (beyond = no-return/censored = trend). "
       f"Pure measurement — no positions.\n")
     for year in ("2024", "2025"):
-        per, nr, tot = rep[year]
+        per, amp, nr, tot = rep[year]
         vals, counts = np.unique(per, return_counts=True)
         mode = int(vals[counts.argmax()])
         w(f"## {year}: {tot} anchors")
@@ -123,11 +149,13 @@ def main():
         w(f"- mode period ~{mode}m | median {int(np.median(per))}m | mean {np.mean(per):.0f}m")
         w("```")
         w("\n".join(bucket_report(per, nr, tot)))
+        w("\nAMPLITUDE (peak excursion, pt) WITHIN each period bucket (rows sum to 100%):")
+        w("\n".join(period_amp_table(per, amp)))
         w("```\n")
     if "2024" in rep and "2025" in rep:
         w("## 2024 vs 2025")
         w(f"- median period: {int(np.median(rep['2024'][0]))}m vs {int(np.median(rep['2025'][0]))}m")
-        w(f"- no-return (trend) share: {rep['2024'][1]/rep['2024'][2]:.1%} vs {rep['2025'][1]/rep['2025'][2]:.1%}")
+        w(f"- no-return (trend) share: {rep['2024'][2]/rep['2024'][3]:.1%} vs {rep['2025'][2]/rep['2025'][3]:.1%}")
     w("\n## Read")
     w("This is the period field: how long price takes to return to an arbitrary level (the oscillation")
     w("timescale), with the no-return share = the trend (censored) fraction. It is a measurement of the")
