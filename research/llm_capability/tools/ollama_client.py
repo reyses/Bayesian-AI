@@ -17,8 +17,17 @@ VISION_MODEL = "gemma4:e2b"    # 5.1B multimodal — chart reading
 
 
 def chat(prompt, system=None, model=TEXT_MODEL, images=None, temperature=0.0,
-         num_predict=512, timeout=180):
-    """One causal call. Returns (text, latency_s). temperature=0 for reproducibility."""
+         num_predict=512, timeout=180, fmt=None, think=False):
+    """One causal call. Returns (text, latency_s). temperature=0 for reproducibility.
+
+    fmt: optional JSON schema (dict) for Ollama CONSTRAINED DECODING. When given, Ollama
+    grammar-constrains the output to conform — the decoder cannot emit invalid JSON. This
+    isolates the model's REASONING from its (poor) free-form formatting ability.
+
+    think: gemma4 is a REASONING model — by default it spends its token budget on a hidden
+    chain-of-thought (returned in message.thinking, NOT message.content), which starves the
+    actual answer and ~7x's latency. We default think=False for structured tasks: straight to
+    the answer, valid JSON, ~1.5s instead of ~10-22s. Set think=True to study the reasoning."""
     msg = {"role": "user", "content": prompt}
     if images:
         msg["images"] = [_b64(p) for p in images]
@@ -26,8 +35,11 @@ def chat(prompt, system=None, model=TEXT_MODEL, images=None, temperature=0.0,
         "model": model,
         "messages": ([{"role": "system", "content": system}] if system else []) + [msg],
         "stream": False,
+        "think": think,
         "options": {"temperature": temperature, "num_predict": num_predict, "seed": 0},
     }
+    if fmt is not None:
+        body["format"] = fmt
     data = json.dumps(body).encode()
     req = urllib.request.Request(OLLAMA_URL, data=data,
                                  headers={"Content-Type": "application/json"})
@@ -35,6 +47,14 @@ def chat(prompt, system=None, model=TEXT_MODEL, images=None, temperature=0.0,
     with urllib.request.urlopen(req, timeout=timeout) as r:
         out = json.loads(r.read())
     return out.get("message", {}).get("content", ""), time.time() - t0
+
+
+def schema(props, required=None):
+    """Build a JSON-schema object for constrained decoding.
+    props: {name: [enum,...]  ->  string enum;  name: 'string' -> free string}."""
+    p = {k: ({"type": "string", "enum": list(v)} if isinstance(v, (list, tuple))
+             else {"type": "string"}) for k, v in props.items()}
+    return {"type": "object", "properties": p, "required": required or list(props)}
 
 
 def _b64(path):

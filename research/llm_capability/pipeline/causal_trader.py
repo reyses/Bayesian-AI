@@ -21,7 +21,9 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tools"))
-from ollama_client import chat, extract_json, TEXT_MODEL  # noqa: E402
+from ollama_client import chat, extract_json, schema, TEXT_MODEL  # noqa: E402
+
+ACTION_SCHEMA = schema({"action": ["LONG", "SHORT", "CLOSE", "HOLD"], "reason": "string"})
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 REPORT_DIR = os.path.join(ROOT, "research", "llm_capability", "reports")
@@ -81,7 +83,7 @@ def main():
         cur = df.at[t, "close"]
         unreal = (cur - entry) * pos * POINT_VALUE if pos else 0.0
         prompt = _build_prompt(df, t, W, pos, entry, unreal)
-        reply, dt = chat(prompt, system=SYSTEM, model=TEXT_MODEL, num_predict=120)
+        reply, dt = chat(prompt, system=SYSTEM, model=TEXT_MODEL, num_predict=120, fmt=ACTION_SCHEMA)
         lat.append(dt)
         js = extract_json(reply)
         action = str(js.get("action", "")).upper().strip() if js else ""

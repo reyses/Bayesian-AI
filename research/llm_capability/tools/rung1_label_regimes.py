@@ -14,7 +14,9 @@ import sys
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
-from ollama_client import chat, extract_json, TEXT_MODEL  # noqa: E402
+from ollama_client import chat, extract_json, schema, TEXT_MODEL  # noqa: E402
+
+SCHEMA = schema({"direction": ["UP", "DOWN", "FLAT"], "variation": ["SMOOTH", "CHOPPY"]})
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 CSV = os.path.join(ROOT, "DATA", "ATLAS", "regime_labels_2d.csv")
@@ -58,7 +60,7 @@ def main():
     w(f"{'date':>10} | truth dir/var | pred dir/var | dir var")
     w("-" * 60)
     for _, row in df.iterrows():
-        reply, dt = chat(fmt(row), system=SYSTEM)
+        reply, dt = chat(fmt(row), system=SYSTEM, fmt=SCHEMA)
         lat.append(dt)
         js = extract_json(reply)
         if not js or "direction" not in js or "variation" not in js:

@@ -11,13 +11,15 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
-from ollama_client import chat, extract_json, VISION_MODEL  # noqa: E402
+from ollama_client import chat, extract_json, schema, VISION_MODEL  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 IMG_DIR = os.path.join(ROOT, "research", "edge_case_triage", "reports")
 REPORT = os.path.join(ROOT, "research", "llm_capability", "reports", "rung3_vision_chart.md")
 
 LABELS = ["CLEAN_RIDE", "GAVE_BACK", "CHOP", "SMALL_WIN", "STOP_LOSS", "BIG_WIN", "BIG_LOSS"]
+
+VSCHEMA = schema({"archetype": LABELS, "direction": ["up", "down"], "reason": "string"})
 
 SYSTEM = (
     "You are shown a candlestick chart of one futures trade with entry/exit markers. "
@@ -51,7 +53,7 @@ def main():
     for p in imgs:
         truth = truth_of(p)
         reply, dt = chat("Classify this trade chart.", system=SYSTEM, model=VISION_MODEL,
-                         images=[p], num_predict=200)
+                         images=[p], num_predict=200, fmt=VSCHEMA)
         lat.append(dt)
         js = extract_json(reply)
         if reply and ("up" in reply.lower() or "down" in reply.lower()):
