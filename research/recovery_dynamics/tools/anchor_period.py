@@ -46,6 +46,25 @@ def day_periods(close):
     return periods, noreturn, total
 
 
+BUCKETS = [(2, 3, "2-3 min   (mode)"), (3, 5, "3-5 min"), (5, 8, "5-8 min"),
+           (8, 15, "8-15 min"), (15, 30, "15-30 min"), (30, 60, "30-60 min"),
+           (60, 120, "1-2 h"), (120, 361, "2-6 h")]
+
+
+def bucket_report(per, noreturn, total):
+    parr = np.array(per)
+    out = [f"{'bucket':<24}| share | cum  |"]
+    cum = 0.0
+    for lo, hi, lbl in BUCKETS:
+        sh = int(((parr >= lo) & (parr < hi)).sum()) / total
+        cum += sh
+        out.append(f"{lbl:<24}|{sh:>6.1%} |{cum:>5.0%} |{'#'*int(round(46*sh))}")
+    sh = noreturn / total
+    cum += sh
+    out.append(f"{'NO RETURN (TREND)':<24}|{sh:>6.1%} |{cum:>5.0%} |{'#'*int(round(46*sh))}")
+    return out
+
+
 def hist(vals, width, cap=24):
     nb = min(int(max(vals) // width) + 1, cap)
     c = [0] * nb
@@ -60,14 +79,14 @@ def hist(vals, width, cap=24):
     return out
 
 
-def main():
-    rep = {}
-    L = []
-    def w(s):
-        print(s.encode("ascii", "replace").decode()); L.append(s)
-    w("# Oscillation period — first-return time, anchored (almost) every bar")
-    w(f"STRIDE={STRIDE} bar(s), forward cap {MAXLOOK} min (beyond = no-return/censored = trend). "
-      f"Pure measurement — no positions.\n")
+CACHE = os.path.join(ROOT, "artifacts", "anchor_period_cache.npz")   # gitignored
+
+
+def load_or_compute(fresh):
+    if os.path.exists(CACHE) and not fresh:
+        z = np.load(CACHE)
+        return {y: (z[f"per_{y}"], int(z[f"nr_{y}"]), int(z[f"tot_{y}"])) for y in ("2024", "2025")}
+    data = {}
     for year in ("2024", "2025"):
         per, nr, tot = [], 0, 0
         for f in tqdm(sorted(glob.glob(os.path.join(ONE_M, f"{year}_*.parquet"))), desc=year, unit="day"):
@@ -77,14 +96,33 @@ def main():
                 continue
             p, n_, t = day_periods(close)
             per += p; nr += n_; tot += t
-        rep[year] = (per, nr, tot)
+        data[year] = (np.array(per), nr, tot)
+    os.makedirs(os.path.dirname(CACHE), exist_ok=True)
+    np.savez(CACHE, **{f"per_{y}": data[y][0] for y in data},
+             **{f"nr_{y}": data[y][1] for y in data}, **{f"tot_{y}": data[y][2] for y in data})
+    return data
+
+
+def main():
+    import argparse
+    fresh = "--fresh" in sys.argv
+    rep = load_or_compute(fresh)
+    L = []
+    def w(s):
+        print(s.encode("ascii", "replace").decode()); L.append(s)
+    w("# Oscillation period — first-return time, anchored (almost) every bar")
+    w(f"STRIDE={STRIDE} bar(s), forward cap {MAXLOOK} min (beyond = no-return/censored = trend). "
+      f"Pure measurement — no positions.\n")
+    for year in ("2024", "2025"):
+        per, nr, tot = rep[year]
+        vals, counts = np.unique(per, return_counts=True)
+        mode = int(vals[counts.argmax()])
         w(f"## {year}: {tot} anchors")
         w(f"- returned (finite period): {len(per)}/{tot} = {len(per)/tot:.1%}")
         w(f"- NO return within {MAXLOOK}m (censored = trend): {nr}/{tot} = {nr/tot:.1%}")
-        w(f"- mode period ~{max(set(per), key=per.count)}m | median {int(np.median(per))}m | "
-          f"mean {np.mean(per):.0f}m")
+        w(f"- mode period ~{mode}m | median {int(np.median(per))}m | mean {np.mean(per):.0f}m")
         w("```")
-        w("\n".join(hist(per, 10)))
+        w("\n".join(bucket_report(per, nr, tot)))
         w("```\n")
     if "2024" in rep and "2025" in rep:
         w("## 2024 vs 2025")

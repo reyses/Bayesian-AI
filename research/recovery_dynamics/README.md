@@ -74,6 +74,10 @@ regime-driven → the one prediction with a real chance. That is the next build.
 Pure measurement (no positions): anchor at each bar's price, time the FIRST RETURN through that
 level = one oscillation period, sampled everywhere (~644k anchors). Empirical OU first-return-time.
 - **mode ~2m, median 5m, mean 20m**; heavy right-skew; **no-return (trend) share ~7.2%**.
+- Bulk resolved into sensible buckets (share): 2-3m **25%** (mode), 3-5m 21% (→46% revert <5m),
+  5-8m 13%, 8-15m 12% (→**71% revert <15m**), 15-30m 9%, 30-60m 6%, 1-2h 4%, 2-6h 4%, **TREND 7.2%**.
+  Smooth monotonic decay; **2024≈2025 every bucket to <0.3%** — a structural market constant, not a regime.
+  (cached: `artifacts/anchor_period_cache.npz`; `--fresh` to recompute.)
 - **STABLE across years: 5m vs 5m, 7.2% vs 7.3%.** This CORRECTS the earlier `period_evolution`/
   `recovery_2024_2025` claim that the clock was non-stationary (27m vs 15m) — that divergence was an
   ARTIFACT of conditioning on a ≥5pt drawdown (regime-sensitive selection). Unconditional period is stable.
