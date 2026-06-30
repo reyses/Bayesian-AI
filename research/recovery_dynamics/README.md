@@ -70,6 +70,16 @@ the death study, and the kicker all reduce to a single discrimination: **is this
 catch the kicker) or a RUNAWAY (cut now)?** Unlike direction (91% noise), this is symmetric and
 regime-driven → the one prediction with a real chance. That is the next build.
 
+## Cleanest period measurement — anchor every bar (`anchor_period.md`)
+Pure measurement (no positions): anchor at each bar's price, time the FIRST RETURN through that
+level = one oscillation period, sampled everywhere (~644k anchors). Empirical OU first-return-time.
+- **mode ~2m, median 5m, mean 20m**; heavy right-skew; **no-return (trend) share ~7.2%**.
+- **STABLE across years: 5m vs 5m, 7.2% vs 7.3%.** This CORRECTS the earlier `period_evolution`/
+  `recovery_2024_2025` claim that the clock was non-stationary (27m vs 15m) — that divergence was an
+  ARTIFACT of conditioning on a ≥5pt drawdown (regime-sensitive selection). Unconditional period is stable.
+- **Nuance:** period is a FUNCTION of amplitude scale — raw returns ~5m (stable, micro-wiggle);
+  amplitude-gated (≥5pt excursion) ~15–27m (regime-sensitive). Trend fraction ~7% either way.
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
