@@ -115,6 +115,16 @@ a MOVING center). Measure crossings of a 30-min rolling mean instead. **price = 
 - **Corrected model**: a "trend" is drift in the mean, NOT absence of the cycle. The normal envelope
   lives around the MOVING mean, not a fixed level. Decomposition depends on the chosen trend scale (W_MA).
 
+## Price returns to the anchor WHILE TRENDING (`anchor_drift_conditional.md`)
+Moises' point: because we anchor EVERY bar, the within-trend zigzag already shows as returns to recent
+anchors — no detrending needed. Verified by conditioning the every-bar return on trailing drift:
+- return rate barely drops across the whole trend spectrum: **calmest 93.7% → most-trending 91.1%**
+  (drift up to 48 pt/min), and **median period is 5 min at EVERY drift level** (invariant to drift).
+- So the 7% no-return = the trend's **abandoned trailing levels (footprint)**, not "trending time with no
+  oscillation." The fixed every-bar anchor already contains the within-trend oscillation.
+- **Period is invariant to drift** — a deeper constant than cross-year stability: the clock doesn't notice
+  the trend. (The `oscillation_detrended.py` MA version gave a consistent answer but was an unneeded param.)
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
