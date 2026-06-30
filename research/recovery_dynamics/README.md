@@ -40,6 +40,23 @@ python research/recovery_dynamics/tools/opportunity_cost.py --day 2024_02_20
 - **Implication:** at ENTRY, death is barely describable. The real signal is likely DURING the trade —
   elapsed-underwater-time vs the current period (the recovery clock as a live feature). Next test.
 
+## Better mechanism — TRADES UNLOCKED by cutting in time (`cut_in_time.md`)
+Period-to-recovery is self-trapping (a 12h bleed scores as "a long period"). New unit = TRADES:
+if a wrong trade hasn't bounced within H min, cut it, and count tradeable swings (good+bad) from the
+cut to where it would have recovered = trades you UNLOCK. Opportunity baseline ~6 swings/hour.
+
+| cut at | bounced in time (no cut) | still stuck (cut helps) | trades unlocked (stuck): median / mean / 90th |
+|---|---|---|---|
+| 15 min | 49% | 51% | 4 / 18 / 58 |
+| 30 min | 63% | 37% | 6 / 23 / 72 |
+| **60 min** | **74%** | **26%** | **11 / 29 / 84** |
+
+- The cut-timing tradeoff, in trades: cut **early** → you cut ~half (many were about to bounce → churn);
+  cut **late (60m)** → only the genuinely-stuck **26%** get cut, and each frees a **median 11 / mean 29**
+  trades (90th pct **84** — the multi-hour bleeders, now measured as forgone TRADES, not "a long time").
+- Heavy-tailed: most stuck trades free few; the tail frees dozens. Cutting in time is tail protection.
+- "Unlocked" = capacity freed (good+bad swings), not guaranteed profit. Preliminary; thresholds tunable.
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
