@@ -92,6 +92,17 @@ level = one oscillation period, sampled everywhere (~644k anchors). Empirical OU
 - **Nuance:** period is a FUNCTION of amplitude scale — raw returns ~5m (stable, micro-wiggle);
   amplitude-gated (≥5pt excursion) ~15–27m (regime-sensitive). Trend fraction ~7% either way.
 
+## Amplitude regime over time — the volume knob (`amplitude_evolution.md`)
+Sliding-window (21d) per-day amplitude scale across 518 days. Period is the fixed clock; this is how
+WIDE the oscillations are.
+- Typical 10-min swing swings **~4×: 5.5pt (calm, Jun-2024) → ~20pt (Apr-2025)**, with clear vol
+  events; the two scale measures (ref-amp & amp/√period) track perfectly (robust).
+- **Slow & persistent** (week-scale regimes, smooth transitions) → estimable CAUSALLY with low lag.
+- **Trend share is comparatively stable (~6-8%)** — trend FREQUENCY ≈ constant; AMPLITUDE is the regime.
+- Complete decomposition: **fixed period clock · stable ~7% trend rate · slow 4×-breathing amplitude knob.**
+- This curve = the live "normal envelope" setter. START of a framework — the causal trailing estimator
+  of this knob + validation that envelope-breach predicts the runaway is the unbuilt rest.
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
