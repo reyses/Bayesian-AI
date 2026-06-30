@@ -57,6 +57,19 @@ cut to where it would have recovered = trades you UNLOCK. Opportunity baseline ~
 - Heavy-tailed: most stuck trades free few; the tail frees dozens. Cutting in time is tail protection.
 - "Unlocked" = capacity freed (good+bad swings), not guaranteed profit. Preliminary; thresholds tunable.
 
+## The kicker — second half of the oscillation (`oscillation_kicker.md`)
+A full oscillation is away→back→away(other side)→back; the first return to zero is the MIDDLE. For
+adverse-first ("wrong") trades that come back to zero (91%): the SECOND leg is **KICKER 47% + JACKPOT
+5% = 52% favorable**, median **18pt ($35)**, with **A2/A1 = 1.13** (symmetric, mildly favorable).
+Cutting at breakeven discards the paying half. BUT 49% STALL (coin-flip) and **9% never come back =
+adverse runaway/death** — the tail that ruins "hold for the kicker."
+
+## SYNTHESIS — the whole arc collapses to ONE question
+Upside of holding = kicker (~52%, 18pt, symmetric). Downside = adverse runaway (~9%, →∞). Cut-in-time,
+the death study, and the kicker all reduce to a single discrimination: **is this an OSCILLATOR (hold →
+catch the kicker) or a RUNAWAY (cut now)?** Unlike direction (91% noise), this is symmetric and
+regime-driven → the one prediction with a real chance. That is the next build.
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
