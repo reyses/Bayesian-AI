@@ -16,13 +16,18 @@ python research/recovery_dynamics/tools/opportunity_cost.py --day 2024_02_20
 ```
 
 ## Status / findings
-- First pass (2024_02_20, 1-min): mode **2** trades foregone / **6 min** dead-hold; median 2 / 21 min;
-  median depth 12.5pt ($25). 418 recovered, **41 never recovered**. Worst case: 139pt ($278) underwater,
-  **298 min** to crawl back, **48 swings** missed.
-- **The cost is bimodal:** most wrong trades bounce back cheap (median ~21 min, ~2 swings) — so blanket
-  "cut the loser" would just churn the cheap bounces. The damage is the **tail + the never-recovers**.
-- This gives a **recovery clock**: median recovery ~21 min → a trade still underwater well past that is
-  entering the expensive tail. That is "realize you're wrong *in time*" made quantitative.
+**Multi-year (536 days, 2024+2025, ~21k random seeded wrong trades)** — `recovery_2024_2025.md`:
+- **Return-to-zero = one full oscillation** of price around the entry level (Moises). The period
+  distribution is heavily right-skewed: **MODE ~5 min** (most wrong trades bounce fast) with a long
+  tail to hours. ~2 trades foregone (mode & median) per wrong trade, depth ~12–14pt ($25–28).
+- **The clock is NOT a fixed constant** — it shifts by regime/year: median oscillation **2024 = 27 min
+  vs 2025 = 15 min** (2025 reverts faster but kills more: never-recovered **11% vs 7%**). The MODE is
+  stable (~5 min); the median/tail are not. So a fixed "cut at N min" rule is unsafe — the cut clock
+  must be **adaptive to the current period**, which is itself a readable environment variable.
+- **The genuinely-wrong tail = 7–11% never recover same-day** — the population where cutting actually
+  matters. The other ~90% bounce, mostly fast; blanket cutting churns those.
+
+(First single-day pass — `opportunity_cost.md` reports — agreed: mode 2 foregone / 6 min, 41 never.)
 
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).

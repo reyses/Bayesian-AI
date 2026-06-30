@@ -1,142 +1,159 @@
-"""THE EXERCISE: what does holding a WRONG trade back to breakeven actually cost?
+"""THE EXERCISE (multi-year): the cost — and the PERIOD — of holding a wrong trade to breakeven.
 
-Per Moises: pick a long/short, let it go underwater, hold until PnL returns to ZERO, and
-measure how many OTHER trades we could have taken in that dead-hold window — the opportunity
-cost of not realizing we were wrong.
+Per Moises: pick a RANDOM entry (bar + long/short), let it go underwater, hold until PnL returns
+to ZERO. Key insight: returning to zero = price left the entry level and came back = **ONE FULL
+OSCILLATION** of the local cycle. So bars-to-breakeven IS the market's oscillation-period sample,
+and the swings missed in that window are the opportunity cost of not realizing we were wrong.
 
-Method (causal-honest; the grader sees the path, the 'trade' does not predict it):
-  - sample candidate entries across a real day; evaluate BOTH long and short.
-  - a side is a WRONG trade if it draws down >= MIN_ADVERSE_PTS before it ever profits.
-  - hold it until PnL first returns to >= 0 (back to breakeven) -> that's the dead-hold window.
-    If it never returns within the day -> 'never recovered' bucket (the genuinely dead trade).
-  - within [entry, back-to-zero], count tradeable swings (>= SWING_PTS legs) = trades foregone.
+Run across ALL 2024 + 2025 days, random seeded entries, split by year.
 
-Output: mode-first histograms (dead-hold minutes, trades foregone, drawdown depth) + a worked
-example + the never-recovered tail. 1-min bars => bars == minutes.
+Causal-honest: the grader sees the forward path; the 'trade' predicts nothing.
+  - random (bar, dir). WRONG trade = draws down >= MIN_ADVERSE_PTS before it ever profits.
+  - oscillation period = bars from entry to first return to >= 0 PnL. Never within day -> censored/never.
+  - foregone = tradeable swings (>= SWING_PTS) inside that window.
 """
+import glob
 import os
-import sys
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
-REPORT = os.path.join(ROOT, "research", "recovery_dynamics", "reports", "opportunity_cost.md")
+ONE_M = os.path.join(ROOT, "DATA", "ATLAS", "1m")
+REPORT = os.path.join(ROOT, "research", "recovery_dynamics", "reports", "recovery_2024_2025.md")
 
-# --- tunable thresholds (named, not magic; sensitivity is a TODO) ---
-MIN_ADVERSE_PTS = 5.0    # a trade is "wrong/underwater" once it draws down >= this from entry
-PROFIT_FIRST_PTS = 5.0   # if it profits >= this BEFORE drawing down, it's a "right" trade -> skip
-SWING_PTS = 8.0          # a foregone swing must travel >= this to count as a tradeable opportunity
-ENTRY_STEP = 3           # sample a candidate entry every N bars (both long & short each)
-POINT_VALUE = 2.0        # MNQ $ per point (tick 0.25 * $0.50)
+# --- tunable thresholds (named, not magic) ---
+MIN_ADVERSE_PTS = 5.0    # "wrong/underwater" once it draws down >= this from entry
+PROFIT_FIRST_PTS = 5.0   # profits >= this BEFORE drawing down -> a 'right' trade -> skip
+SWING_PTS = 8.0          # a foregone swing must travel >= this to count
+N_PER_DAY = 80           # random entries sampled per day
+ENTRY_FRAC = 0.85        # only sample entries in the first 85% of the day (leave recovery room)
+SEED = 0                 # reproducible RNG
+POINT_VALUE = 2.0        # MNQ $ per point
 
 
 def swing_legs(closes, lo, hi, thresh):
-    """Count directional legs >= thresh within [lo,hi] — a simple zigzag swing count.
-    Each confirmed thresh-sized reversal = one tradeable swing."""
     seg = closes[lo:hi + 1]
     if len(seg) < 2:
         return 0
     legs, direction, last_pivot, extreme = 0, 0, seg[0], seg[0]
     for p in seg[1:]:
-        if direction == 0:                      # establishing the first leg
+        if direction == 0:
             if p - last_pivot >= thresh:
                 direction = 1; extreme = p; legs += 1
             elif last_pivot - p >= thresh:
                 direction = -1; extreme = p; legs += 1
-        elif direction == 1:                    # in an up-leg
+        elif direction == 1:
             if p > extreme:
                 extreme = p
-            elif extreme - p >= thresh:          # reversed down -> new down leg
+            elif extreme - p >= thresh:
                 legs += 1; direction = -1; last_pivot = extreme; extreme = p
-        else:                                   # in a down-leg
+        else:
             if p < extreme:
                 extreme = p
-            elif p - extreme >= thresh:          # reversed up -> new up leg
+            elif p - extreme >= thresh:
                 legs += 1; direction = 1; last_pivot = extreme; extreme = p
     return legs
+
+
+def process_day(close, rng):
+    n = len(close)
+    hi_entry = int(n * ENTRY_FRAC)
+    out = {"period": [], "foregone": [], "depth": [], "never": 0}
+    if hi_entry < 5:
+        return out
+    for e in rng.integers(0, hi_entry, size=N_PER_DAY):
+        e = int(e)
+        d = 1 if rng.random() < 0.5 else -1
+        pnl = d * (close[e + 1:] - close[e])
+        if pnl.size < 2:
+            continue
+        adv = np.where(pnl <= -MIN_ADVERSE_PTS)[0]
+        pro = np.where(pnl >= PROFIT_FIRST_PTS)[0]
+        if len(adv) == 0:
+            continue                                  # never underwater
+        if len(pro) and pro[0] < adv[0]:
+            continue                                  # profited first -> right trade
+        back = np.where(pnl[adv[0]:] >= 0)[0]
+        if len(back) == 0:
+            out["never"] += 1
+            continue
+        zero_bar = adv[0] + back[0]
+        out["period"].append(int(zero_bar + 1))       # oscillation period (min)
+        out["depth"].append(float(-pnl[:zero_bar + 1].min()))
+        out["foregone"].append(swing_legs(close, e, e + zero_bar + 1, SWING_PTS))
+    return out
 
 
 def hist(vals, width, label, unit):
     if not vals:
         return [f"  (no {label})"]
-    vmax = max(vals)
-    nb = int(vmax // width) + 1
+    nb = int(max(vals) // width) + 1
     counts = [0] * nb
     for v in vals:
         counts[min(int(v // width), nb - 1)] += 1
     peak = max(counts) or 1
+    cap = min(nb, 22)
     mode_bin = counts.index(peak)
-    out = [f"{label} (mode bin = {mode_bin*width:.0f}-{(mode_bin+1)*width:.0f} {unit}, n={len(vals)})"]
-    for i, c in enumerate(counts):
-        bar = "#" * int(round(40 * c / peak))
-        out.append(f"{i*width:>4.0f}-{(i+1)*width:<4.0f}{unit} |{bar} {c}")
+    out = [f"{label} (mode {mode_bin*width:.0f}-{(mode_bin+1)*width:.0f}{unit}, "
+           f"median {int(np.median(vals))}{unit}, n={len(vals)})"]
+    for i in range(cap):
+        bar = "#" * int(round(40 * counts[i] / peak))
+        out.append(f"{i*width:>4.0f}-{(i+1)*width:<4.0f}{unit} |{bar} {counts[i]}")
+    if nb > cap:
+        out.append(f"   >{cap*width:.0f}{unit} |  (+{sum(counts[cap:])} in tail)")
     return out
 
 
 def main():
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--day", default="2024_02_20")
-    a = ap.parse_args()
-    close = pd.read_parquet(os.path.join(ROOT, "DATA", "ATLAS", "1m",
-                                          f"{a.day}.parquet"))["close"].to_numpy(np.float64)
-    n = len(close)
-
-    dead_min, foregone, depth, never = [], [], [], 0
-    examples = []   # (foregone, bars_to_zero, depth, entry, dir)
-    for e in range(0, n - 5, ENTRY_STEP):
-        p0 = close[e]
-        for d in (+1, -1):
-            pnl = d * (close[e + 1:] - p0)          # path of PnL (points) from next bar
-            # classify: did it profit first (right) or draw down first (wrong)?
-            adv = np.where(pnl <= -MIN_ADVERSE_PTS)[0]
-            pro = np.where(pnl >= PROFIT_FIRST_PTS)[0]
-            if len(adv) == 0:
-                continue                            # never went underwater -> not a wrong trade
-            t_adv = adv[0]
-            if len(pro) and pro[0] < t_adv:
-                continue                            # profited before underwater -> a 'right' trade
-            # WRONG trade: hold until PnL returns to >= 0
-            back = np.where(pnl[t_adv:] >= 0)[0]
-            mae = float(-pnl[:].min()) if pnl.size else 0.0
-            if len(back) == 0:
-                never += 1
+    rng = np.random.default_rng(SEED)
+    years = {"2024": sorted(glob.glob(os.path.join(ONE_M, "2024_*.parquet"))),
+             "2025": sorted(glob.glob(os.path.join(ONE_M, "2025_*.parquet")))}
+    agg = {y: {"period": [], "foregone": [], "depth": [], "never": 0, "days": 0} for y in years}
+    for y, files in years.items():
+        for f in tqdm(files, desc=f"{y}", unit="day"):
+            try:
+                close = pd.read_parquet(f)["close"].to_numpy(np.float64)
+            except Exception:
                 continue
-            zero_bar = t_adv + back[0]              # bars after entry+1 to breakeven
-            bars_to_zero = int(zero_bar + 1)        # +1 (path started at e+1)
-            trough = float(-pnl[:zero_bar + 1].min())
-            fg = swing_legs(close, e, e + bars_to_zero, SWING_PTS)
-            dead_min.append(bars_to_zero); foregone.append(fg); depth.append(trough)
-            examples.append((fg, bars_to_zero, trough, e, d))
+            r = process_day(close, rng)
+            for k in ("period", "foregone", "depth"):
+                agg[y][k] += r[k]
+            agg[y]["never"] += r["never"]
+            agg[y]["days"] += 1
 
     L = []
     def w(s):
         print(s); L.append(s)
-    w(f"# Opportunity cost of holding a WRONG trade to breakeven | {a.day}")
-    w(f"thresholds: underwater>={MIN_ADVERSE_PTS}pt, swing>={SWING_PTS}pt, entry every {ENTRY_STEP} bars\n")
-    w(f"wrong trades that DID return to zero: {len(dead_min)} | never recovered (held to EOD): {never}\n")
-    if dead_min:
-        w(f"MODE dead-hold time: ~{max(set(dead_min), key=dead_min.count)} min | "
-          f"MODE trades foregone: ~{max(set(foregone), key=foregone.count)}")
-        w(f"median dead-hold {int(np.median(dead_min))} min | median foregone {int(np.median(foregone))} | "
-          f"median depth {np.median(depth):.1f}pt (${np.median(depth)*POINT_VALUE:.0f})\n")
-        w("```")
-        w("\n".join(hist(foregone, 2, "TRADES FOREGONE while waiting to break even", "")))
+    w("# Oscillation period & opportunity cost of holding a WRONG trade to breakeven")
+    w(f"2024 + 2025, 1-min, RANDOM seeded entries ({N_PER_DAY}/day). "
+      f"Return-to-zero = ONE FULL OSCILLATION around the entry level.")
+    w(f"thresholds: underwater>={MIN_ADVERSE_PTS}pt, swing>={SWING_PTS}pt, entry<={ENTRY_FRAC:.0%} of day\n")
+    for y in years:
+        a = agg[y]
+        tot = len(a["period"]) + a["never"]
+        w(f"## {y}  ({a['days']} days, {tot} wrong trades, "
+          f"{a['never']} never-recovered = {a['never']/max(tot,1):.0%})")
+        if a["period"]:
+            w(f"- MODE oscillation period ~{max(set(a['period']), key=a['period'].count)} min | "
+              f"median {int(np.median(a['period']))} min")
+            w(f"- MODE foregone ~{max(set(a['foregone']), key=a['foregone'].count)} | "
+              f"median {int(np.median(a['foregone']))} trades | median depth {np.median(a['depth']):.1f}pt "
+              f"(${np.median(a['depth'])*POINT_VALUE:.0f})")
+            w("```")
+            w("\n".join(hist(a["period"], 15, "OSCILLATION PERIOD (entry->breakeven)", "m")))
+            w("")
+            w("\n".join(hist(a["foregone"], 2, "TRADES FOREGONE in that window", "")))
+            w("```")
         w("")
-        w("\n".join(hist(dead_min, 15, "DEAD-HOLD TIME (min underwater -> back to zero)", "m")))
-        w("")
-        w("\n".join(hist(depth, 5, "DRAWDOWN DEPTH (max underwater)", "pt")))
-        w("```")
-        # worked example: the most painful (most trades foregone)
-        ex = max(examples, key=lambda x: x[0])
-        w(f"\n## Worked example (worst opportunity cost)")
-        w(f"- {'LONG' if ex[4]>0 else 'SHORT'} entry at bar {ex[3]} (price {close[ex[3]]:.2f})")
-        w(f"- went {ex[2]:.1f}pt (${ex[2]*POINT_VALUE:.0f}) underwater, took {ex[1]} min to crawl back to $0")
-        w(f"- in that window: {ex[0]} tradeable swings (>= {SWING_PTS}pt) went by — uncaptured")
-    w("\n## Read")
-    w("Even the trades that 'came back' cost real money: the dead-hold window is time + foregone")
-    w("trades, not a free round-trip. The never-recovered bucket is the pure loss on top.")
+    # year comparison
+    if agg["2024"]["period"] and agg["2025"]["period"]:
+        m24, m25 = np.median(agg["2024"]["period"]), np.median(agg["2025"]["period"])
+        w(f"## 2024 vs 2025\n- median oscillation period: 2024 **{int(m24)} min** vs 2025 **{int(m25)} min**")
+        w(f"- never-recovered rate: 2024 {agg['2024']['never']/max(len(agg['2024']['period'])+agg['2024']['never'],1):.0%}"
+          f" vs 2025 {agg['2025']['never']/max(len(agg['2025']['period'])+agg['2025']['never'],1):.0%}")
+        w("- => the recovery CLOCK is stable across years iff these medians agree (the cut-threshold's validity).")
     os.makedirs(os.path.dirname(REPORT), exist_ok=True)
     open(REPORT, "w").write("\n".join(L) + "\n")
     print(f"\nwrote {REPORT}")
