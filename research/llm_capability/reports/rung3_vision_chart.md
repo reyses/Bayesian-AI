@@ -2,18 +2,18 @@
 
                               file |       truth |        pred | ok
 ------------------------------------------------------------------------------
-              trade_00019_CHOP.png |        CHOP |   <no-json> | !
-         trade_00118_SMALL_WIN.png |   SMALL_WIN |   <no-json> | !
-         trade_00200_GAVE_BACK.png |   GAVE_BACK |   <no-json> | !
-        trade_00208_CLEAN_RIDE.png |  CLEAN_RIDE |   <no-json> | !
-              trade_00235_CHOP.png |        CHOP |   <no-json> | !
-         trade_00263_SMALL_WIN.png |   SMALL_WIN |   <no-json> | !
-        trade_00378_CLEAN_RIDE.png |  CLEAN_RIDE |   <no-json> | !
-         trade_00581_GAVE_BACK.png |   GAVE_BACK |   <no-json> | !
-        trade_00774_CLEAN_RIDE.png |  CLEAN_RIDE |   <no-json> | !
-        trade_00822_SMALL_LOSS.png |  SMALL_LOSS |   <no-json> | !
+              trade_00019_CHOP.png |        CHOP |  CLEAN_RIDE | n
+         trade_00118_SMALL_WIN.png |   SMALL_WIN |  CLEAN_RIDE | n
+         trade_00200_GAVE_BACK.png |   GAVE_BACK |  CLEAN_RIDE | n
+        trade_00208_CLEAN_RIDE.png |  CLEAN_RIDE |  CLEAN_RIDE | Y
+              trade_00235_CHOP.png |        CHOP |  CLEAN_RIDE | n
+         trade_00263_SMALL_WIN.png |   SMALL_WIN |  CLEAN_RIDE | n
+        trade_00378_CLEAN_RIDE.png |  CLEAN_RIDE |  CLEAN_RIDE | Y
+         trade_00581_GAVE_BACK.png |   GAVE_BACK |  CLEAN_RIDE | n
+        trade_00774_CLEAN_RIDE.png |  CLEAN_RIDE |  CLEAN_RIDE | Y
+        trade_00822_SMALL_LOSS.png |  SMALL_LOSS |  CLEAN_RIDE | n
 
-ARCHETYPE accuracy: 0/10 = 0%
-'read the chart' (mentions direction): 0/10 = 0%
-JSON-format failures: 10/10 = 100%
-latency/call: mean 6.5s
+ARCHETYPE accuracy: 3/10 = 30%
+'read the chart' (mentions direction): 10/10 = 100%
+JSON-format failures: 0/10 = 0%
+latency/call: mean 2.0s
