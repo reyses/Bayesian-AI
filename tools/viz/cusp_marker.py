@@ -55,9 +55,9 @@ import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
-from tools.research.data import load_atlas_tf
+from archive.tools.research.data import load_atlas_tf
 
 plt.switch_backend('TkAgg')
 
@@ -281,18 +281,23 @@ def compute_anchor(tf: str, target_ts: np.ndarray, t_start: float, t_end: float,
 
 # ── Marker UI (peak-style) ──────────────────────────────────────────────────
 
+import pickle
+from tools.viz.core.feature_utils import compute_primitive_arrays
+from tools.viz.core.cubic_utils import find_raw_turns
+
 class CuspMarker:
     """Peak-style single-click marker. Snaps to bar H or L, auto-detects
     direction from local trend, captures anchor snapshot, measures forward
     MFE/MAE over a fixed horizon at 1s resolution."""
 
     def __init__(self, df, date_str, tf='1m', anchors=None, fwd_mins=60,
-                  loaded_trades=None):
+                  loaded_trades=None, cubic_n=20):
         self.df = df
         self.date_str = date_str
         self.tf = tf
         self.anchors = anchors or {}
         self.fwd_mins = fwd_mins
+        self.cubic_n = cubic_n
         self._cache_1s = {}
         # Loaded trades from --load-trades (read-only overlay, distinct from user picks)
         self.loaded_trades = loaded_trades or []
@@ -304,6 +309,18 @@ class CuspMarker:
         self.timestamps = df['timestamp'].values.astype(float)
         self.dt_stamps = [datetime.fromtimestamp(t, tz=timezone.utc) for t in self.timestamps]
 
+        # Load candidate filter classifier
+        self._classifier_model = None
+        self._classifier_scaler = None
+        self._classifier_features = None
+        self._load_classifier()
+        
+        # Pre-compute cubic candidates
+        self.cubic_turns = []
+        self.cubic_curve = None
+        self.cubic_features = None
+        self._compute_cubic_candidates()
+
         self.picks = []
         self._pick_artists = []   # one per pick: (scatter, label) tuple
         # Auto-load existing picks for this date (persistence across launches)
@@ -311,13 +328,46 @@ class CuspMarker:
 
         # Load persisted overlay visibility (default: all on)
         self._settings = load_settings()
+        self._last_geometry = None
         ov = self._settings.get('overlays', {})
         self.show_15s = ov.get('15s', True)
         self.show_1m = ov.get('1m', True)
         self.show_15m = ov.get('15m', True)
         self.show_1h_hl = ov.get('1h_hl', True)
         self.show_loaded = ov.get('loaded', True)
-        self._overlay_artists = {'15s': [], '1m': [], '15m': [], '1h_hl': []}
+        self.show_cubic = ov.get('cubic', True)
+        self._overlay_artists = {'15s': [], '1m': [], '15m': [], '1h_hl': [], 'cubic': []}
+
+        # 2-click state machine
+        self._pending_entry_x = None
+        self._pending_entry_y = None
+        self._pending_vline = None
+
+    # ── Candidate Classifier & Cubic Generation ────────────────────────────
+
+    def _load_classifier(self):
+        path = 'DATA/cusp_picks/model.pkl'
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                data = pickle.load(f)
+                self._classifier_model = data['model']
+                self._classifier_scaler = data.get('scaler')
+                self._classifier_features = data['features']
+            print(f"  [load_classifier] restored candidate filter (trained on {len(self._classifier_features)} features)")
+        else:
+            print(f"  [load_classifier] no model found at {path}, candidates will not be scored.")
+
+    def _compute_cubic_candidates(self):
+        print(f"  [cubic] computing candidates for {self.date_str} (N={self.cubic_n})...")
+        turns, price_smooth, slope, curv = find_raw_turns(self.close, self.cubic_n)
+        self.cubic_curve = price_smooth
+        self.cubic_turns = turns
+        
+        # Only compute primitive arrays if we have a model to score them
+        if self._classifier_model:
+            self.cubic_features = compute_primitive_arrays(self.close, self.anchors)
+        else:
+            self.cubic_features = None
 
     # ── Auto-load existing picks for this date ─────────────────────────────
 
@@ -367,7 +417,7 @@ class CuspMarker:
         ts_end = ts_pick + self.fwd_mins * 60.0
         df_1s = load_1s_window(ts_pick, ts_end, self._cache_1s)
         if len(df_1s) < 5:
-            return 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 0.0
         p = df_1s['close'].values.astype(float)
         ts = df_1s['timestamp'].values.astype(float)
         entry = p[0]
@@ -381,7 +431,8 @@ class CuspMarker:
         mfe = float(fav[mfe_idx])
         mae = float(np.max(adv[:mfe_idx + 1])) if mfe_idx > 0 else 0.0
         time_to_mfe = float(ts[mfe_idx] - ts[0]) / 60.0
-        return mfe, mae, time_to_mfe
+        end_pnl = float(fav[-1])
+        return mfe, mae, time_to_mfe, end_pnl
 
     # ── Direction auto-detect: STRUCTURAL PRIORITY (per user 2026-05-11) ──
     # The previous version used local trend (rising→SHORT, falling→LONG),
@@ -501,24 +552,33 @@ class CuspMarker:
     def _draw_pick(self, pick, idx):
         color = '#00C853' if pick['direction'] == 'LONG' else '#FF1744'
         marker = '^' if pick['direction'] == 'LONG' else 'v'
-        sc = self.ax.scatter([self.dt_stamps[pick['bar_index']]], [pick['price']],
+        start_dt = self.dt_stamps[pick['bar_index']]
+        
+        sc = self.ax.scatter([start_dt], [pick['price']],
                                  color=color, s=200, zorder=10, marker=marker,
                                  edgecolors='black', linewidth=1.5)
-        rr = pick['mfe_ticks'] / pick['mae_ticks'] if pick['mae_ticks'] > 0 else 0.0
+        
+        # Highlight the forward measurement window (fwd_mins)
+        fwd_mins = pick.get('fwd_mins', self.fwd_mins)
+        end_dt = start_dt + pd.Timedelta(minutes=fwd_mins)
+        span = self.ax.axvspan(start_dt, end_dt, color=color, alpha=0.1, zorder=1)
+
+        end_pnl = pick.get('end_pnl_ticks', 0.0)
         label = self.ax.text(
-            self.dt_stamps[pick['bar_index']], pick['price'] + (3 if pick['direction'] == 'LONG' else -3),
-            f"P{idx+1} {pick['direction'][0]}\n${pick['mfe_dollars']:.0f}/${pick['mae_dollars']:.0f}",
+            start_dt, pick['price'] + (3 if pick['direction'] == 'LONG' else -3),
+            f"P{idx+1} {pick['direction'][0]}\nMFE:+{pick['mfe_ticks']:.0f} MAE:-{pick['mae_ticks']:.0f} End:{end_pnl:+.0f}",
             fontsize=8, ha='center',
             va='bottom' if pick['direction'] == 'LONG' else 'top',
             fontweight='bold', color=color,
             bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
                           alpha=0.85, edgecolor=color))
-        self._pick_artists.append((sc, label))
+                          
+        self._pick_artists.append((sc, span, label))
 
     def _redraw_all_picks(self):
-        for sc, label in self._pick_artists:
-            sc.remove()
-            label.remove()
+        for artists in self._pick_artists:
+            for art in artists:
+                art.remove()
         self._pick_artists = []
         for i, p in enumerate(self.picks):
             self._draw_pick(p, i)
@@ -537,11 +597,12 @@ class CuspMarker:
         overlays = (f"15s={'On' if self.show_15s else 'Off'} "
                          f"1m={'On' if self.show_1m else 'Off'} "
                          f"15m={'On' if self.show_15m else 'Off'} "
-                         f"1hHL={'On' if self.show_1h_hl else 'Off'}{loaded_str}")
+                         f"1hHL={'On' if self.show_1h_hl else 'Off'} "
+                         f"Cubic={'On' if self.show_cubic else 'Off'}{loaded_str}")
         self.ax.set_title(
             f"{self.date_str} | {self.tf} | {len(self.df)} bars   ({overlays})\n"
             f"Picks: {n} (L:{n_long} S:{n_short}) | Forward MFE: ${total_mfe:.0f} | MAE: ${total_mae:.0f}\n"
-            f"Click=mark+snap, click-on-pick=remove, L/S=flip last, D=del last, 1/2/3=toggle, Q=save+quit, fwd={self.fwd_mins}m",
+            f"Click=mark+snap, drag=range, click-on-pick=rm, L/S=flip, D=del, 1/2/3/C=toggle, Q=save+quit, fwd={self.fwd_mins}m",
             fontsize=10, fontweight='bold'
         )
         self.fig.canvas.draw_idle()
@@ -561,20 +622,48 @@ class CuspMarker:
         bar_nums = mdates.date2num(self.dt_stamps)
         idx = int(np.argmin(np.abs(bar_nums - event.xdata)))
 
-        # Click on existing pick → remove (toggle delete)
-        for pi, existing in enumerate(self.picks):
-            if existing['bar_index'] == idx:
-                self.picks.pop(pi)
-                sc, lbl = self._pick_artists.pop(pi)
-                sc.remove()
-                lbl.remove()
-                print(f"  Removed P{pi+1} @ {existing['time_utc']}")
-                self._redraw_all_picks()
-                self._update_title()
-                return
+        # State 0: No pending entry
+        if self._pending_entry_x is None:
+            # Click on existing pick → remove
+            for pi, existing in enumerate(self.picks):
+                if existing['bar_index'] == idx:
+                    self.picks.pop(pi)
+                    artists = self._pick_artists.pop(pi)
+                    for art in artists:
+                        art.remove()
+                    print(f"  Removed P{pi+1} @ {existing['time_utc']}")
+                    self._redraw_all_picks()
+                    self._update_title()
+                    return
+            
+            # Start new pick
+            self._pending_entry_x = event.xdata
+            self._pending_entry_y = event.ydata
+            self._pending_vline = self.ax.axvline(self.dt_stamps[idx], color='gray', linestyle='--', zorder=5)
+            self.fig.canvas.draw_idle()
+            return
 
-        # Snap to nearest extreme (H or L)
-        click_y = event.ydata if event.ydata is not None else self.close[idx]
+        # State 1: We have a pending entry, so this click is the exit!
+        idx_start = int(np.argmin(np.abs(bar_nums - self._pending_entry_x)))
+        idx_end = idx
+        
+        # clear pending state
+        if self._pending_vline:
+            self._pending_vline.remove()
+            self._pending_vline = None
+            
+        if idx_start > idx_end:
+            idx_start, idx_end = idx_end, idx_start
+            
+        ts_start = float(self.timestamps[idx_start])
+        ts_end = float(self.timestamps[idx_end])
+        fwd_mins = (ts_end - ts_start) / 60.0
+
+        idx = idx_start
+        click_y = self._pending_entry_y if self._pending_entry_y is not None else self.close[idx]
+        self._pending_entry_x = None
+        self._pending_entry_y = None
+        
         if abs(click_y - self.high[idx]) < abs(click_y - self.low[idx]):
             snap_price = float(self.high[idx])
             snap_label = 'H'
@@ -588,7 +677,23 @@ class CuspMarker:
             direction = 'SHORT' if snap_label == 'H' else 'LONG'
 
         ts_pick = float(self.timestamps[idx])
-        mfe, mae, ttm = self._measure_forward(ts_pick, direction)
+        old_fwd = self.fwd_mins
+        self.fwd_mins = fwd_mins
+        mfe, mae, ttm, end_pnl = self._measure_forward(ts_pick, direction)
+        self.fwd_mins = old_fwd
+
+        # Provenance tracking against cubic candidates
+        provenance = 'human_fresh'
+        if self.cubic_turns:
+            for cand in self.cubic_turns:
+                c_idx = cand['index']
+                if abs(c_idx - idx) <= 3:
+                    cand_dir = 'SHORT' if cand['type'] == 'top' else 'LONG'
+                    if cand_dir == direction:
+                        provenance = 'auto_accepted'
+                    else:
+                        provenance = 'auto_corrected'
+                    break
 
         pick = {
             'pick_id': len(self.picks),
@@ -602,12 +707,14 @@ class CuspMarker:
             'close': round(float(self.close[idx]), 2),
             'high': round(float(self.high[idx]), 2),
             'low': round(float(self.low[idx]), 2),
-            'fwd_mins': self.fwd_mins,
+            'fwd_mins': fwd_mins,
             'mfe_ticks': round(mfe, 1),
             'mae_ticks': round(mae, 1),
+            'end_pnl_ticks': round(end_pnl, 1),
             'mfe_dollars': round(mfe * TICK_VALUE, 2),
             'mae_dollars': round(mae * TICK_VALUE, 2),
             'time_to_mfe_mins': round(ttm, 1),
+            'provenance': provenance,
             'anchors': self._snapshot_anchors(idx),
         }
         self.picks.append(pick)
@@ -638,6 +745,10 @@ class CuspMarker:
             self.show_1h_hl = not self.show_1h_hl
             for art in self._overlay_artists['1h_hl']:
                 art.set_visible(self.show_1h_hl)
+        elif layer == 'cubic':
+            self.show_cubic = not self.show_cubic
+            for art in self._overlay_artists['cubic']:
+                art.set_visible(self.show_cubic)
         self._update_title()
 
     def _flip_last(self):
@@ -645,9 +756,15 @@ class CuspMarker:
             return
         p = self.picks[-1]
         p['direction'] = 'SHORT' if p['direction'] == 'LONG' else 'LONG'
-        mfe, mae, ttm = self._measure_forward(p['timestamp'], p['direction'])
+        
+        old_fwd = self.fwd_mins
+        self.fwd_mins = p.get('fwd_mins', self.fwd_mins)
+        mfe, mae, ttm, end_pnl = self._measure_forward(p['timestamp'], p['direction'])
+        self.fwd_mins = old_fwd
+        
         p['mfe_ticks'] = round(mfe, 1)
         p['mae_ticks'] = round(mae, 1)
+        p['end_pnl_ticks'] = round(end_pnl, 1)
         p['mfe_dollars'] = round(mfe * TICK_VALUE, 2)
         p['mae_dollars'] = round(mae * TICK_VALUE, 2)
         p['time_to_mfe_mins'] = round(ttm, 1)
@@ -659,9 +776,9 @@ class CuspMarker:
         if not self.picks:
             return
         p = self.picks.pop()
-        sc, lbl = self._pick_artists.pop()
-        sc.remove()
-        lbl.remove()
+        artists = self._pick_artists.pop()
+        for art in artists:
+            art.remove()
         self._redraw_all_picks()
         self._update_title()
         print(f"  Deleted P{p['pick_id']+1}")
@@ -677,6 +794,8 @@ class CuspMarker:
             self._toggle('1h_hl')
         elif event.key == '5':
             self._toggle_loaded()
+        elif event.key in ('c', 'C'):
+            self._toggle('cubic')
         elif event.key in ('l', 'L', 's', 'S'):
             self._flip_last()
         elif event.key in ('d', 'D'):
@@ -705,18 +824,26 @@ class CuspMarker:
                 '15s': self.show_15s, '1m': self.show_1m,
                 '15m': self.show_15m, '1h_hl': self.show_1h_hl,
                 'loaded': self.show_loaded,
+                'cubic': self.show_cubic,
             },
             'fwd_mins': self.fwd_mins,
             'tf': self.tf,
         }
         # Window geometry (TkAgg-specific; safe-fallback on other backends)
         try:
+            backend = plt.get_backend().lower()
             mgr = self.fig.canvas.manager
-            if hasattr(mgr, 'window') and hasattr(mgr.window, 'geometry'):
-                geom = mgr.window.geometry()    # "WxH+X+Y"
-                out['window_geometry'] = str(geom)
+            geom = None
+            if 'tk' in backend:
+                geom = mgr.window.geometry()
+            elif 'qt' in backend:
+                geom = mgr.window.geometry().getRect()
+            if geom:
+                out['window_geometry'] = geom
+                self._last_geometry = geom
         except Exception:
-            pass
+            if self._last_geometry:
+                out['window_geometry'] = self._last_geometry
         return out
 
     def _persist_settings(self):
@@ -725,14 +852,17 @@ class CuspMarker:
     def _apply_window_geometry(self):
         """Restore window position+size from last session if persisted."""
         geom = self._settings.get('window_geometry')
-        if not geom:
+        if not geom or geom == '?':
             return
         try:
+            backend = plt.get_backend().lower()
             mgr = self.fig.canvas.manager
-            if hasattr(mgr, 'window') and hasattr(mgr.window, 'geometry'):
+            if 'tk' in backend and isinstance(geom, str):
                 mgr.window.geometry(geom)
-        except Exception:
-            pass
+            elif 'qt' in backend and isinstance(geom, (list, tuple)) and len(geom) == 4:
+                mgr.window.setGeometry(*geom)
+        except Exception as e:
+            print(f"  [warn] failed to restore window geometry: {e}")
 
     def _apply_overlay_visibility(self):
         """After overlays are drawn, hide any whose persisted flag is off."""
@@ -744,13 +874,47 @@ class CuspMarker:
             art.set_visible(self.show_15m)
         for art in self._overlay_artists['1h_hl']:
             art.set_visible(self.show_1h_hl)
+        for art in self._overlay_artists['cubic']:
+            art.set_visible(self.show_cubic)
 
     # ── Save ───────────────────────────────────────────────────────────────
+
+    def _auto_correct_orientations(self):
+        """Automatically correct orientation of losing picks before saving."""
+        if not self.picks:
+            return 0
+        flipped_count = 0
+        for p in self.picks:
+            if p.get('end_pnl_ticks', 0) < 0:
+                p['direction'] = 'SHORT' if p['direction'] == 'LONG' else 'LONG'
+                
+                old_fwd = self.fwd_mins
+                self.fwd_mins = p.get('fwd_mins', self.fwd_mins)
+                mfe, mae, ttm, end_pnl = self._measure_forward(p['timestamp'], p['direction'])
+                self.fwd_mins = old_fwd
+                
+                p['mfe_ticks'] = round(mfe, 1)
+                p['mae_ticks'] = round(mae, 1)
+                p['end_pnl_ticks'] = round(end_pnl, 1)
+                p['mfe_dollars'] = round(mfe * TICK_VALUE, 2)
+                p['mae_dollars'] = round(mae * TICK_VALUE, 2)
+                p['time_to_mfe_mins'] = round(ttm, 1)
+                flipped_count += 1
+                
+        if flipped_count > 0:
+            print(f"\n  [auto-correct] Flipped {flipped_count} incorrect orientations to positive PnL.")
+            self._redraw_all_picks()
+            self._update_title()
+            
+        return flipped_count
 
     def _save(self):
         if not self.picks:
             print("\n  No picks marked. Nothing saved.")
             return
+            
+        self._auto_correct_orientations()
+
         os.makedirs(PICKS_DIR, exist_ok=True)
         date_key = self.date_str.split()[0].replace(':', '_to_')
         canonical_path = os.path.join(PICKS_DIR, f'picks_{date_key}_multi.json')
@@ -774,6 +938,7 @@ class CuspMarker:
                           'marked_timeframes': sorted(all_tfs),
                           'created': ts_tag, 'n_picks': len(all_picks),
                           'fwd_mins': self.fwd_mins,
+                          'cubic_n': self.cubic_n,
                           'picks': all_picks}, f, indent=2)
         snap_path = os.path.join(PICKS_DIR, f'picks_{date_key}_{self.tf}_{ts_tag}.json')
         with open(snap_path, 'w') as f:
@@ -814,6 +979,7 @@ class CuspMarker:
             new_left = max(x_min, x_max - window)
         self.ax.set_xlim(new_left, new_right)
         self._autofit_y()
+        self._train_and_update_classifier()
         self.fig.canvas.draw_idle()
 
     def _zoom(self, factor):
@@ -946,6 +1112,110 @@ class CuspMarker:
                                   lw=0.7, ls='--', alpha=0.6)[0],
             ]:
                 self._overlay_artists['1h_hl'].append(art)
+                
+        self._draw_cubic_overlay()
+
+    def _redraw_cubic_overlay(self):
+        for art in self._overlay_artists.get('cubic', []):
+            art.remove()
+        self._overlay_artists['cubic'] = []
+        self._draw_cubic_overlay()
+        for art in self._overlay_artists['cubic']:
+            art.set_visible(self.show_cubic)
+        
+    def _train_and_update_classifier(self):
+        if not self.picks or self.cubic_features is None or not self.cubic_turns:
+            return
+            
+        import numpy as np
+        labels = np.zeros(len(self.cubic_turns))
+        pick_indices = [p['bar_index'] for p in self.picks]
+        pick_dirs = [p['direction'] for p in self.picks]
+        
+        for i, cand in enumerate(self.cubic_turns):
+            cand_idx = cand['index']
+            cand_type = cand['type']
+            
+            best_dist = 9999
+            for p_idx, p_dir in zip(pick_indices, pick_dirs):
+                # match type: top matches SHORT, bottom matches LONG
+                if cand_type == 'top' and p_dir != 'SHORT': continue
+                if cand_type == 'bottom' and p_dir != 'LONG': continue
+                
+                dist = abs(cand_idx - p_idx)
+                if dist < best_dist:
+                    best_dist = dist
+                    
+            # A candidate is considered a "positive" class if it's within 3 bars of a human pick
+            if best_dist <= 3:
+                labels[i] = 1
+                
+        feature_names = list(self.cubic_features.keys())
+        X = []
+        for cand in self.cubic_turns:
+            idx = cand['index']
+            row = [self.cubic_features[f][idx] for f in feature_names]
+            X.append(row)
+            
+        X = np.array(X)
+        y = np.array(labels)
+        
+        if len(np.unique(y)) < 2:
+            return
+            
+        from sklearn.ensemble import RandomForestClassifier
+        self._classifier_model = RandomForestClassifier(n_estimators=30, max_depth=3, class_weight='balanced', random_state=42)
+        np.nan_to_num(X, copy=False)
+        self._classifier_model.fit(X, y)
+        self._classifier_features = feature_names
+        self._classifier_scaler = None
+        
+        self._redraw_cubic_overlay()
+
+    def _draw_cubic_overlay(self):
+        """Render the centered cubic regression overlay and candidate markers."""
+        if self.cubic_curve is None:
+            return
+
+        # The orange smoothed price line
+        ln, = self.ax.plot(self.dt_stamps, self.cubic_curve, color='#FF9800',
+                              lw=1.5, ls='-', alpha=0.9, label=f'Cubic N={self.cubic_n}')
+        self._overlay_artists['cubic'].append(ln)
+
+        # Draw candidate markers
+        for cand in self.cubic_turns:
+            idx = cand['index']
+            cand_type = cand['type']
+            price = self.cubic_curve[idx]
+            
+            color = '#D32F2F' if cand_type == 'top' else '#2E7D32'
+            marker = 'v' if cand_type == 'top' else '^'
+            prob = 1.0 # default to fully visible if no model
+            
+            if self._classifier_model and self.cubic_features is not None:
+                try:
+                    feat_array = [self.cubic_features.get(f, np.zeros_like(self.close))[idx] for f in self._classifier_features]
+                    if np.any(np.isnan(feat_array)):
+                        prob = 0.0
+                    else:
+                        X = np.array(feat_array).reshape(1, -1)
+                        if self._classifier_scaler:
+                            X = self._classifier_scaler.transform(X)
+                        prob = self._classifier_model.predict_proba(X)[0, 1]
+                except Exception as e:
+                    prob = 0.0
+
+            if prob > 0.5:
+                size = 180
+                alpha = 1.0
+                zorder = 7
+            else:
+                continue
+
+            sc = self.ax.scatter([self.dt_stamps[idx]], [price],
+                                     color=color, marker=marker, s=size, 
+                                     alpha=alpha, zorder=zorder, edgecolors='black', linewidth=0.8)
+            self._overlay_artists['cubic'].append(sc)
 
     def run(self):
         import matplotlib.dates as mdates
@@ -1072,8 +1342,8 @@ class CuspMarker:
 
         self.fig.canvas.mpl_connect('button_press_event', self._on_click)
         self.fig.canvas.mpl_connect('key_press_event', self._on_key)
-        # Persist settings on any close path (X button, Q, Save & Quit)
-        self.fig.canvas.mpl_connect('close_event', lambda e: self._persist_settings())
+        # Persist settings AND save picks on any close path (X button, Q, Save & Quit)
+        self.fig.canvas.mpl_connect('close_event', lambda e: (self._save(), self._persist_settings()))
 
         print(f"\n  Cusp Marker ready -- {len(self.df)} bars loaded, fwd window {self.fwd_mins}m")
         print(f"  Click = mark + snap to H/L; auto-direction from local trend")
@@ -1083,14 +1353,37 @@ class CuspMarker:
             saved_geom = self._settings.get('window_geometry', '?')
             saved_ov = self._settings.get('overlays', {})
             print(f"  [settings restored] geom={saved_geom}  overlays={saved_ov}\n")
-        plt.tight_layout(rect=[0, 0.16, 1, 1])
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            plt.tight_layout(rect=[0, 0.16, 1, 1])
 
         # Apply restored geometry AFTER show() has created the window
-        def _on_first_draw(event):
-            self._apply_window_geometry()
-            # detach after first call
-            self.fig.canvas.mpl_disconnect(cid)
-        cid = self.fig.canvas.mpl_connect('draw_event', _on_first_draw)
+        # We use a short timer so that matplotlib's default sizing doesn't override it.
+        backend = plt.get_backend().lower()
+        if 'tk' in backend:
+            self.fig.canvas.manager.window.after(100, self._apply_window_geometry)
+        else:
+            geom_timer = self.fig.canvas.new_timer(interval=100)
+            geom_timer.single_shot = True
+            geom_timer.add_callback(self._apply_window_geometry)
+            geom_timer.start()
+
+        # Continuously poll geometry so it's captured before the window is destroyed
+        # by an OS 'X' close event.
+        def _poll_geometry():
+            try:
+                mgr = self.fig.canvas.manager
+                if 'tk' in backend:
+                    self._last_geometry = mgr.window.geometry()
+                elif 'qt' in backend:
+                    self._last_geometry = mgr.window.geometry().getRect()
+            except Exception:
+                pass
+                
+        self._poll_timer = self.fig.canvas.new_timer(interval=1000)
+        self._poll_timer.add_callback(_poll_geometry)
+        self._poll_timer.start()
 
         plt.show(block=True)
 
@@ -1121,19 +1414,33 @@ def main():
     parser.add_argument('--load-trades', type=str, default=None,
                                 help='Load trades from CSV / JSON / pickle and overlay '
                                           'on chart (read-only). e.g. v6 sim output, iso pickle.')
+    parser.add_argument('--cubic-n', type=int, default=20,
+                                help='Cubic regression window size for candidate overlay')
     args = parser.parse_args()
 
-    start_str, end_str = _parse_date_range(args.date)
-    if start_str == end_str and args.days > 1:
-        # single date + --days N
-        start_dt = datetime.strptime(start_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-        end_dt = start_dt + pd.Timedelta(days=args.days - 1).to_pytimedelta()
-    else:
-        start_dt = datetime.strptime(start_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
-        end_dt = datetime.strptime(end_str, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+    import pytz
+    est = pytz.timezone('US/Eastern')
 
-    t_start = start_dt.timestamp()
-    t_end = end_dt.timestamp() + 86400  # include end day
+    start_str, end_str = _parse_date_range(args.date)
+    
+    start_dt_cal = datetime.strptime(start_str, '%Y-%m-%d')
+    end_dt_cal = datetime.strptime(end_str, '%Y-%m-%d')
+    
+    if start_str == end_str and args.days > 1:
+        end_dt_cal = start_dt_cal + pd.Timedelta(days=args.days - 1).to_pytimedelta()
+
+    # The trading session for a given trade date starts at 18:00 EST on the PREVIOUS day,
+    # and ends at 17:00 EST on the CURRENT day. This captures the Globex open exactly after the maintenance window.
+    session_start = est.localize(datetime(
+        start_dt_cal.year, start_dt_cal.month, start_dt_cal.day, 18, 0, 0
+    )) - pd.Timedelta(days=1)
+    
+    session_end = est.localize(datetime(
+        end_dt_cal.year, end_dt_cal.month, end_dt_cal.day, 17, 0, 0
+    ))
+
+    t_start = session_start.timestamp()
+    t_end = session_end.timestamp()
 
     date_label = (f"{start_str}" if start_str == end_str
                        else f"{start_str}:{end_str}")
@@ -1207,7 +1514,8 @@ def main():
             loaded_trades = in_window
 
     marker = CuspMarker(df_day, date_label, tf=args.tf, anchors=anchors,
-                              fwd_mins=args.fwd_mins, loaded_trades=loaded_trades)
+                              fwd_mins=args.fwd_mins, loaded_trades=loaded_trades,
+                              cubic_n=args.cubic_n)
     marker.run()
 
 
