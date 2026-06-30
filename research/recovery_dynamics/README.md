@@ -125,6 +125,19 @@ anchors — no detrending needed. Verified by conditioning the every-bar return 
 - **Period is invariant to drift** — a deeper constant than cross-year stability: the clock doesn't notice
   the trend. (The `oscillation_detrended.py` MA version gave a consistent answer but was an unneeded param.)
 
+## Cubic / inflection hypothesis — NOT supported as tested (`cubic_inflection.md`)
+Hypothesis (Moises): the 7% no-return anchors = trend-start convex/concave inflections; a cubic
+regression lights up there, strongest in large-period zones. Test (31k sampled anchors, centered
+±20m cubic): **no-return |d3| 0.61 vs return 0.69 (0.88×, WEAKER)**; cubic strength PEAKS at 15-30m
+(window-resonant) then falls toward trends. Inflections ubiquitous (82-85%). Hypothesis not supported
+by this instrument. Two reasons (one is a premise fix):
+- a clean trend is LOCALLY LINEAR (a line, not an S) in a 40m window → small cubic term; |d3| actually
+  detects a SWING that fits the window (peak at ~15-30m), not a launch.
+- **the 7% no-return is ALL abandoned levels, not "trend starts"** — a 100→110 run abandons 101..109
+  too; the launch is a small SUBSET, so testing all no-return washes the launch signal out (mostly the
+  linear middle). Right refinement: isolate the FIRST abandoned level of each run (the launch) and test
+  curvature THERE. (Data pushed back on the intuition — reported straight, not spun.)
+
 ## Caveats
 - "Foregone" = swings that *existed*, not guaranteed wins (capturing them needs correct direction).
 - One day, one threshold set (`MIN_ADVERSE_PTS`, `SWING_PTS`). Sensitivity + multi-day = TODO.
