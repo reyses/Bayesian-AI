@@ -360,6 +360,11 @@ artifacts/
 # Archive folder (obsolete files, not tracked)
 archive/
 research/nmp_strategies/reports/nmp_true_1s_mnq.csv
-* . p t h 
- 
- 
+# PyTorch checkpoints (RL engine artifacts)
+*.pth
+
+# Generated pick/data artifacts (not source; were masked by the corrupt catch-all)
+DATA/ai_cusp_picks/
+DATA/cusp_picks/
+DATA/pipeline/
+DATA/optimal_trades.json
