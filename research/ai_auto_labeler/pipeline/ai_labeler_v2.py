@@ -109,16 +109,16 @@ def process_day(date_key, cache):
         return [], []
     df1s = pd.concat(dfs).drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
-    trades, flags, consumed_until = [], [], -1
-    for tn in turns:
+    trades, flags, consumed_ts = [], [], -1.0   # de-dup by EXIT TIME (no temporal overlap)
+    for tn in turns:                             # turns are in index (time) order
         i = tn["index"]
-        if i <= consumed_until or i < CUBIC_N or i >= n - CUBIC_N:
+        if i < CUBIC_N or i >= n - CUBIC_N or ts1m[i] < consumed_ts:
             continue
         direction = "SHORT" if tn["type"] == "top" else "LONG"
         # ENTRY: flat-zone best bar (1s)
         a, b = flat_span(smooth, i, n)
         entry_price, entry_ts = best_bar_1s(df1s, ts1m[a], ts1m[b] + 60, direction)
-        if entry_price is None:
+        if entry_price is None or entry_ts < consumed_ts:   # snapped-back entry would overlap prior trade
             continue
         # CONFIRM + EXIT region (1m structural walk)
         status, exit_i, mfe, mae = walk_trend(hi1m, lo1m, entry_price, i, direction, n)
@@ -134,13 +134,15 @@ def process_day(date_key, cache):
         exit_price, exit_ts = best_bar_1s(df1s, ts1m[ea], ts1m[eb] + 60, "SHORT" if direction == "LONG" else "LONG")
         if exit_price is None:
             continue
+        if exit_ts <= entry_ts:                  # safety: exit must be after entry
+            continue
         pnl = (exit_price - entry_price) if direction == "LONG" else (entry_price - exit_price)
         trades.append({"entry_ts": entry_ts, "exit_ts": exit_ts, "direction": direction,
                        "side": "Buy" if direction == "LONG" else "Sell",
                        "entry_price": entry_price, "exit_price": exit_price,
                        "pnl_dollars": round(pnl / TICK * 0.50, 2), "mae_dollars": round(mae / TICK * 0.50, 2),
                        "original_timestamp": float(ts1m[i])})
-        consumed_until = exit_i
+        consumed_ts = exit_ts                    # next trade cannot start before this exit
     return trades, flags
 
 
