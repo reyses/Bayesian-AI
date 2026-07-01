@@ -1,17 +1,16 @@
 """AI Auto-Labeler v2 — structural launch labeling (Moises spec).
 
-Fixes v1's fixed-60-bar prominence. Logic:
+Fixes v1's fixed-60-bar prominence AND the retrace-exit. Logic (Moises spec):
   1. cubic (N=20, centered) on 1m -> turns (tops/bottoms) + slope + curvature.
-  2. ENTRY: flat-zone best bar. The flat zone = the contiguous span where the smoothed price stays
-     within FLAT_BAND of the turn (curvature-defined broad hump). Snap the entry to the real 1s
-     extreme in that span (lowest low for LONG / highest high for SHORT) = 0-MAE entry.
-  3. CONFIRM: walk forward from the entry, NO 60-bar cap; skip sub-TREND_PTS wiggles; continue until a
-     >= TREND_PTS favorable move confirms the trend. If price breaks back past the entry (adverse >
-     REVERSAL_TOL) before +TREND_PTS -> FLAG the region for inspection (should not happen if the entry
-     is the true extreme). If the session ends first -> no trade.
-  4. EXIT: mirror of entry. The trend ends when it retraces >= TREND_PTS from its running peak (a real
-     opposing move) or the session ends. Snap the exit to the 1s best bar in that peak's flat zone =
-     best exit (max MFE). Bounded by the trend's real extent, not a fixed window.
+  2. SEGMENT: zigzag_turns() collapses the cubic turns into SIGNIFICANT alternating pivots — a swing
+     < TREND_PTS on the smoothed cubic is a WIGGLE (absorbed); a run continues until the cubic actually
+     reverses >= TREND_PTS. Each leg (pivot -> next opposite pivot) = ONE trade. TREND_PTS only filters
+     wiggles; the CUBIC decides where a run ends, NOT a price retrace.
+  3. ENTRY: flat-zone best bar at the leg's START turn. Flat zone = the contiguous span where the
+     smoothed price stays within FLAT_BAND of the turn (broad hump). Snap to the real 1s extreme in that
+     span (lowest low for LONG / highest high for SHORT) = 0-MAE entry.
+  4. EXIT: flat-zone best bar at the leg's END turn = the cubic's ACTUAL direction change (held through
+     intra-leg wiggles). If price broke past the entry inside the leg -> FLAG for inspection (kept anyway).
 
 Outputs: DATA/ai_cusp_picks/ai_picks_<date>_multi.json  (trades)
          DATA/ai_cusp_picks/flagged/<date>_flagged.json  (reversal regions for human inspection)
