@@ -4433,3 +4433,33 @@ Investigated Order Flow Absorption. Conducted full EDA (Quadrant Analysis, Minit
 2026-06-27: Stage 1 Exhaustion Ablation completed. Layer 3 (True Delta) passed the Fourier Null for the Exhaustion target (0.6326 vs 0.6273). Free wicks (Layer 2) degraded the model. Databento tick data purchase authorized. Reward thesis created in research/reward_design/THESIS_reward_design.md to penalize exhaustion-holding.
 2026-06-27 (UPDATE): The +0.0079 AUC lift produced by Layer 3 was an order of magnitude smaller than the +0.05 conditional approval threshold. The entire order flow hypothesis is declared DEAD. Tick data purchase is rejected. 416D macro baseline is sufficient.
 2026-06-28 (Final Gauntlet): Stage 1 Exhaustion Ablation re-run with 5-Fold Temporal Walk-Forward Split and corrected path tracking. True Delta (L3) failed the Fourier Phase-Randomized Null test. Verdict is BREAK. Tick data purchase is REJECTED. Reward thesis updated to use 416D baseline.
+--- 2026-06-30: Oscillation framework + LLM probe + cusp detector + auto-labeler v2 ---
+recovery_dynamics (research/recovery_dynamics/): pure MEASUREMENT of MNQ oscillation structure.
+Decomposition = FIXED period clock + breathing amplitude regime + stable trend rate.
+- anchor_period (first-return time to every-bar anchor): mode 2-3m, 71% revert <15m, ~7.2% trend
+  (no-return). STABLE 2024=2025 to <0.3%. This CORRECTED an earlier bogus "non-stationary clock
+  (27 vs 15m)" -- that was an artifact of conditioning on a fixed 5pt drawdown (regime-sensitive).
+- period x amplitude: coupled + SUPER-DIFFUSIVE (amp/sqrt(period) rises = momentum in long cycles).
+  Period = timing CONSTANT; amplitude = the REGIME (2025 30-50% wider). "Fixed clock + volume knob."
+- amplitude breathes ~4x (5.5->20pt) 2024->2025, slow/persistent (causally estimable).
+- anchor_drift_conditional: price returns to anchor EVEN WHILE TRENDING (93.7% calm -> 91.1% max drift,
+  period 5m at every drift). 7% no-return = trend's abandoned trailing levels (footprint), not "trend time."
+- oscillator_vs_trend/kicker: 91% oscillation / 9% SYMMETRIC trend tail (49/51); after wrong trade
+  returns to zero, 52% make favorable 2nd leg (median 18pt, A2/A1=1.13). Edge = asymmetric tail handling.
+- cubic_inflection: Moises' hypothesis (7% no-return = trend-start inflection, strong cubic) NOT
+  supported as tested (trends locally LINEAR = small cubic; 7% = ALL abandoned levels not just launches).
+cusp_launch_detector (Direction 1): shipped cubic+classifier AUC 0.63 = same-day LEAKAGE; day-disjoint
+  (leave-one-day-out) pooled OOS 0.453 = NOISE. Only 4 labeled days = underpowered (unproven, not
+  disproven). Built scale-ready eval_oos.py (day CV + day-block bootstrap CI + dual target human-match /
+  objective forward-MFE). Bottleneck = more labeled days.
+ai_auto_labeler v2 (research/ai_auto_labeler/pipeline/ai_labeler_v2.py): rebuilt v1's fixed-60-bar
+  prominence. Flat-zone best-bar entry (0-MAE) -> UNCAPPED forward walk (skip <7pt wiggles until >=7pt
+  trend) -> mirror best-bar exit at opposing turn. Reversals -> flagged/ (QC). De-dup by EXIT TIME =
+  zero temporal overlap. Full regen: 30,173 trades / 576 days, 914 flagged. Next: regime-adaptive
+  TREND_PTS/FLAT_BAND via recovery_dynamics amplitude envelope.
+LLM ladder (research/llm_capability/): gemma4 via Ollama = code-boilerplate only; regime labeling weak;
+  vision weak; CAUSAL DECIDER HOLDs 100% of bars (graveyard confirmed). Pass-1 format collapse was
+  gemma4 being a reasoning model (thinking ate budget) -> fix = think:false + constrained-JSON decoding.
+INFRA: fixed UTF-16-corrupted .gitignore (line 363 *.pth -> bare * catch-all) that had silently dropped
+  ALL untracked files (83 research files across 6 projects never committed). Root cause = PowerShell
+  Out-File/Set-Content default UTF-16.
