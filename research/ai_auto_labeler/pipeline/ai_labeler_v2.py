@@ -62,26 +62,28 @@ def best_bar_1s(df1s, ts0, ts1, direction):
     k = sub["high"].idxmax(); return float(sub.loc[k, "high"]), float(sub.loc[k, "timestamp"])
 
 
-def walk_trend(hi, lo, entry_price, i, direction, end):
-    """Forward walk. Returns (status, exit_i, mfe_pts, mae_pts). status: confirmed|reversal|no_trend."""
-    confirmed = False
-    run_max, run_i, max_adv = 0.0, i, 0.0
-    for j in range(i + 1, end):
-        if direction == "LONG":
-            fav = hi[j] - entry_price; adv = entry_price - lo[j]
-        else:
-            fav = entry_price - lo[j]; adv = hi[j] - entry_price
-        max_adv = max(max_adv, adv)
-        if not confirmed:
-            if adv > REVERSAL_TOL_PTS:
-                return "reversal", j, 0.0, adv
-            if fav >= TREND_PTS:
-                confirmed = True
-        if fav > run_max:
-            run_max, run_i = fav, j
-        if confirmed and run_max - fav >= TREND_PTS:      # retraced >= TREND_PTS from peak -> trend ended
-            return "confirmed", run_i, run_max, max_adv
-    return ("confirmed", run_i, run_max, max_adv) if confirmed else ("no_trend", i, 0.0, max_adv)
+def zigzag_turns(smooth, turns, thr):
+    """Segment the cubic into SIGNIFICANT alternating pivots. A swing < thr on the smoothed cubic is a
+    WIGGLE and is absorbed (does NOT end a run). The run continues until the cubic actually turns by
+    >= thr in the opposite direction. Returns [[index, type, value], ...] alternating top/bottom.
+    (Moises: the cubic decides continuation; 7pt only filters wiggles, it is NOT a retrace-exit.)"""
+    if not turns:
+        return []
+    piv = []
+    hi_i = lo_i = turns[0]["index"]
+    hi_v = lo_v = float(smooth[turns[0]["index"]])
+    direction = 0                                          # 0 unknown, +1 up-leg, -1 down-leg
+    for tn in turns[1:]:
+        i = tn["index"]; v = float(smooth[i])
+        if v > hi_v:
+            hi_i, hi_v = i, v
+        if v < lo_v:
+            lo_i, lo_v = i, v
+        if direction >= 0 and hi_v - v >= thr:             # reversed DOWN >= thr from the high -> a top
+            piv.append([hi_i, "top", hi_v]); direction = -1; lo_i, lo_v = i, v
+        elif direction <= 0 and v - lo_v >= thr:           # reversed UP >= thr from the low -> a bottom
+            piv.append([lo_i, "bottom", lo_v]); direction = 1; hi_i, hi_v = i, v
+    return piv
 
 
 def process_day(date_key, cache):
@@ -109,40 +111,43 @@ def process_day(date_key, cache):
         return [], []
     df1s = pd.concat(dfs).drop_duplicates(subset=["timestamp"]).sort_values("timestamp").reset_index(drop=True)
 
-    trades, flags, consumed_ts = [], [], -1.0   # de-dup by EXIT TIME (no temporal overlap)
-    for tn in turns:                             # turns are in index (time) order
-        i = tn["index"]
-        if i < CUBIC_N or i >= n - CUBIC_N or ts1m[i] < consumed_ts:
+    # Segment the cubic into SIGNIFICANT legs; each leg (turn -> next opposite turn) = ONE trade.
+    piv = zigzag_turns(smooth, turns, TREND_PTS)
+    trades, flags, consumed_ts = [], [], -1.0    # de-dup by EXIT TIME (no temporal overlap)
+    for k in range(len(piv) - 1):
+        i0, ty0, _ = piv[k]
+        i1, ty1, _ = piv[k + 1]
+        if i0 < CUBIC_N // 2 or i1 >= n - CUBIC_N // 2 or ts1m[i0] < consumed_ts:
             continue
-        direction = "SHORT" if tn["type"] == "top" else "LONG"
-        # ENTRY: flat-zone best bar (1s)
-        a, b = flat_span(smooth, i, n)
+        direction = "LONG" if ty0 == "bottom" else "SHORT"
+        # ENTRY: flat-zone best bar at the leg's START turn (0-MAE)
+        a, b = flat_span(smooth, i0, n)
         entry_price, entry_ts = best_bar_1s(df1s, ts1m[a], ts1m[b] + 60, direction)
-        if entry_price is None or entry_ts < consumed_ts:   # snapped-back entry would overlap prior trade
+        if entry_price is None or entry_ts < consumed_ts:
             continue
-        # CONFIRM + EXIT region (1m structural walk)
-        status, exit_i, mfe, mae = walk_trend(hi1m, lo1m, entry_price, i, direction, n)
-        if status == "reversal":
-            flags.append({"date": date_key, "turn_ts": float(ts1m[i]), "direction": direction,
-                          "entry_price": entry_price, "adverse_pts": round(mae, 2),
-                          "reason": "broke past entry before +TREND_PTS"})
+        # EXIT: flat-zone best bar at the leg's END turn = the cubic's ACTUAL direction change
+        ea, eb = flat_span(smooth, i1, n)
+        exit_price, exit_ts = best_bar_1s(df1s, ts1m[ea], ts1m[eb] + 60,
+                                          "SHORT" if direction == "LONG" else "LONG")
+        if exit_price is None or exit_ts <= entry_ts:
             continue
-        if status == "no_trend" or mfe < TREND_PTS:
-            continue
-        # EXIT: flat-zone best bar around the peak (1s)
-        ea, eb = flat_span(smooth, exit_i, n)
-        exit_price, exit_ts = best_bar_1s(df1s, ts1m[ea], ts1m[eb] + 60, "SHORT" if direction == "LONG" else "LONG")
-        if exit_price is None:
-            continue
-        if exit_ts <= entry_ts:                  # safety: exit must be after entry
-            continue
+        # held through wiggles: MAE = worst adverse inside the leg; flag if price broke past the entry
+        seg_hi = hi1m[i0:i1 + 1]; seg_lo = lo1m[i0:i1 + 1]
+        mae = float(entry_price - seg_lo.min()) if direction == "LONG" else float(seg_hi.max() - entry_price)
         pnl = (exit_price - entry_price) if direction == "LONG" else (entry_price - exit_price)
+        if pnl < TREND_PTS:
+            continue
+        if mae > REVERSAL_TOL_PTS:               # broke past entry inside the leg -> inspect (kept anyway)
+            flags.append({"date": date_key, "turn_ts": float(ts1m[i0]), "direction": direction,
+                          "entry_price": entry_price, "adverse_pts": round(mae, 2),
+                          "reason": "price broke past entry within the cubic leg"})
         trades.append({"entry_ts": entry_ts, "exit_ts": exit_ts, "direction": direction,
                        "side": "Buy" if direction == "LONG" else "Sell",
                        "entry_price": entry_price, "exit_price": exit_price,
-                       "pnl_dollars": round(pnl / TICK * 0.50, 2), "mae_dollars": round(mae / TICK * 0.50, 2),
-                       "original_timestamp": float(ts1m[i])})
-        consumed_ts = exit_ts                    # next trade cannot start before this exit
+                       "pnl_dollars": round(pnl / TICK * 0.50, 2),
+                       "mae_dollars": round(max(mae, 0.0) / TICK * 0.50, 2),
+                       "original_timestamp": float(ts1m[i0])})
+        consumed_ts = exit_ts
     return trades, flags
 
 
@@ -169,7 +174,7 @@ def main():
         print(f"{dk}: {len(trades)} trades, {len(flags)} flagged")
     print(f"\nTOTAL: {tot_t} trades, {tot_f} flagged for inspection")
     if tot_t:
-        print("(v2: flat-zone entry/exit, uncapped forward walk, reversals -> flagged/)")
+        print("(v2: cubic-leg segmentation, flat-zone best-bar entry/exit, exit at the cubic turn, reversals -> flagged/)")
 
 
 if __name__ == "__main__":
