@@ -285,6 +285,17 @@ import pickle
 from tools.viz.core.feature_utils import compute_primitive_arrays
 from tools.viz.core.cubic_utils import find_raw_turns
 
+
+def _session_day(ts):
+    """Session-day key 'YYYY-MM-DD' for a UTC timestamp, matching the loader's CME session
+    (prev-day 18:00 EST -> day 17:00 EST). A ts at/after 18:00 EST belongs to the NEXT day's session.
+    Used so picks are saved to the day they actually belong to, not the chart's loaded date."""
+    import pytz
+    from datetime import timedelta
+    dt = datetime.fromtimestamp(float(ts), tz=timezone.utc).astimezone(pytz.timezone('US/Eastern'))
+    d = dt.date() + (timedelta(days=1) if dt.hour >= 18 else timedelta(0))
+    return d.strftime('%Y-%m-%d')
+
 class CuspMarker:
     """Peak-style single-click marker. Snaps to bar H or L, auto-detects
     direction from local trend, captures anchor snapshot, measures forward
@@ -372,43 +383,45 @@ class CuspMarker:
     # ── Auto-load existing picks for this date ─────────────────────────────
 
     def _autoload_existing_picks(self):
-        """Load previously-saved picks for this date_str + TF so the user's
-        marks persist across re-launches. Remaps bar_index by timestamp
-        (current chart may have different range than save-time)."""
-        date_key = self.date_str.split()[0].replace(':', '_to_')
-        path = os.path.join(PICKS_DIR, f'picks_{date_key}_multi.json')
-        if not os.path.exists(path):
-            return
-        try:
-            with open(path) as f:
-                data = json.load(f)
-        except Exception as e:
-            print(f'  [autoload] failed to read {path}: {e}')
-            return
-        prior = [p for p in data.get('picks', [])
-                     if p.get('timeframe', '1m') == self.tf]
+        """Load previously-saved picks (this TF) from the per-session-day files spanning the loaded
+        chart, so marks persist across re-launches and across day-ranges. Remaps bar_index by
+        timestamp and filters to the visible range (matches the per-day save in _save)."""
+        ts_array = self.timestamps.astype(np.int64)
+        ts_lo, ts_hi = int(ts_array[0]), int(ts_array[-1])
+        # session-days actually covered by the loaded chart (sample the axis to catch every day)
+        step = max(1, len(ts_array) // 200)
+        days = sorted({_session_day(int(t)) for t in ts_array[::step]} |
+                      {_session_day(ts_lo), _session_day(ts_hi)})
+        prior = []
+        for day in days:
+            path = os.path.join(PICKS_DIR, f'picks_{day}_multi.json')
+            if not os.path.exists(path):
+                continue
+            try:
+                with open(path) as f:
+                    data = json.load(f)
+            except Exception as e:
+                print(f'  [autoload] failed to read {path}: {e}')
+                continue
+            prior += [p for p in data.get('picks', []) if p.get('timeframe', '1m') == self.tf]
         if not prior:
             return
 
-        # Map each prior pick's timestamp to current chart's bar_index
-        ts_array = self.timestamps.astype(np.int64)
-        ts_lo, ts_hi = int(ts_array[0]), int(ts_array[-1])
-        loaded = []
+        loaded, seen = [], set()
         for p in prior:
             pts = int(p.get('timestamp', 0))
-            if pts < ts_lo or pts > ts_hi:
+            if pts < ts_lo or pts > ts_hi or pts in seen:
                 continue
+            seen.add(pts)
             new_idx = int(np.searchsorted(ts_array, pts))
             new_idx = max(0, min(new_idx, len(ts_array) - 1))
-            # If exact match not found, snap to nearest
-            if ts_array[new_idx] != pts:
-                # Try nearest neighbor
-                if new_idx > 0 and abs(ts_array[new_idx - 1] - pts) < abs(ts_array[new_idx] - pts):
-                    new_idx = new_idx - 1
+            if ts_array[new_idx] != pts and new_idx > 0 and \
+                    abs(ts_array[new_idx - 1] - pts) < abs(ts_array[new_idx] - pts):
+                new_idx = new_idx - 1
             p['bar_index'] = new_idx
             loaded.append(p)
         self.picks = loaded
-        print(f'  [autoload] restored {len(loaded)} prior picks from {path}')
+        print(f'  [autoload] restored {len(loaded)} prior picks from {len(days)} day-file(s)')
 
     # ── Forward MFE/MAE at 1s resolution ───────────────────────────────────
 
@@ -916,38 +929,44 @@ class CuspMarker:
         self._auto_correct_orientations()
 
         os.makedirs(PICKS_DIR, exist_ok=True)
-        date_key = self.date_str.split()[0].replace(':', '_to_')
-        canonical_path = os.path.join(PICKS_DIR, f'picks_{date_key}_multi.json')
-        existing = []
-        existing_tfs = set()
-        if os.path.exists(canonical_path):
-            with open(canonical_path) as f:
-                data = json.load(f)
-            existing = data.get('picks', [])
-            existing_tfs = set(data.get('marked_timeframes', []))
-            existing = [s for s in existing if s.get('timeframe', '1m') != self.tf]
-            print(f"  Merging: {len(existing)} prior picks from {existing_tfs}")
-        all_picks = existing + self.picks
-        all_tfs = existing_tfs | {self.tf}
-        for i, p in enumerate(all_picks):
-            p['pick_id'] = i
-
         ts_tag = datetime.now().strftime('%Y%m%d_%H%M%S')
-        with open(canonical_path, 'w') as f:
-            json.dump({'date_range': date_key,
-                          'marked_timeframes': sorted(all_tfs),
-                          'created': ts_tag, 'n_picks': len(all_picks),
-                          'fwd_mins': self.fwd_mins,
-                          'cubic_n': self.cubic_n,
-                          'picks': all_picks}, f, indent=2)
+        # Group picks by their OWN session-day (from each pick's timestamp) so picks made after
+        # panning into the next day are saved to THAT day's file, not the chart's loaded date. (bugfix)
+        from collections import defaultdict
+        by_day = defaultdict(list)
+        for p in self.picks:
+            by_day[_session_day(p['timestamp'])].append(p)
+
+        total = 0
+        for day_key, day_picks in sorted(by_day.items()):
+            canonical_path = os.path.join(PICKS_DIR, f'picks_{day_key}_multi.json')
+            existing, existing_tfs = [], set()
+            if os.path.exists(canonical_path):
+                with open(canonical_path) as f:
+                    data = json.load(f)
+                existing = data.get('picks', [])
+                existing_tfs = set(data.get('marked_timeframes', []))
+                existing = [s for s in existing if s.get('timeframe', '1m') != self.tf]
+            all_picks = existing + day_picks
+            all_tfs = existing_tfs | {self.tf}
+            for i, p in enumerate(all_picks):
+                p['pick_id'] = i
+            with open(canonical_path, 'w') as f:
+                json.dump({'date_range': day_key, 'marked_timeframes': sorted(all_tfs),
+                              'created': ts_tag, 'n_picks': len(all_picks),
+                              'fwd_mins': self.fwd_mins, 'cubic_n': self.cubic_n,
+                              'picks': all_picks}, f, indent=2)
+            print(f"  Saved {len(day_picks)} picks @ {self.tf} -> {canonical_path}")
+            total += len(day_picks)
+
+        # snapshot of THIS session's picks (all days together), keyed by the loaded label
+        date_key = self.date_str.split()[0].replace(':', '_to_')
         snap_path = os.path.join(PICKS_DIR, f'picks_{date_key}_{self.tf}_{ts_tag}.json')
         with open(snap_path, 'w') as f:
-            json.dump({'date_range': date_key, 'timeframe': self.tf,
-                          'created': ts_tag, 'fwd_mins': self.fwd_mins,
-                          'n_picks': len(self.picks),
+            json.dump({'date_range': date_key, 'timeframe': self.tf, 'created': ts_tag,
+                          'fwd_mins': self.fwd_mins, 'n_picks': len(self.picks),
                           'picks': self.picks}, f, indent=2)
-        print(f"\n  Saved {len(self.picks)} picks @ {self.tf} → {canonical_path}")
-        print(f"  Snapshot:                                 {snap_path}")
+        print(f"\n  Saved {total} picks across {len(by_day)} day(s) by session-day; snapshot -> {snap_path}")
 
     # ── Screenshot (auto-direct to examples/) ─────────────────────────────
 
