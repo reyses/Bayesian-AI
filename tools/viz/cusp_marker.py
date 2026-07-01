@@ -1048,6 +1048,13 @@ class CuspMarker:
                 ln = self.ax.plot([ets, xts], [t['entry_price'], t['exit_price']],
                                             color=color, lw=1.0, ls=':', alpha=0.55, zorder=7)[0]
                 self._loaded_artists.append(ln)
+                # Highlight the region exactly from entry to exit using the side's color.
+                # NOTE: trade 'side' is 'Buy'/'Sell' (not 'LONG'/'SHORT') and 'direction' is 'LONG'/'SHORT';
+                # the old check `side=='LONG'` was ALWAYS false -> every span rendered red. Key off both.
+                _is_long = (t.get('direction') == 'LONG') or (str(t.get('side', '')).upper() in ('BUY', 'LONG'))
+                side_color = '#00C853' if _is_long else '#FF1744'
+                span = self.ax.axvspan(ets, xts, color=side_color, alpha=0.1, zorder=1)
+                self._loaded_artists.append(span)
             # Small label
             side_char = t['side'][0] if t['side'] else '?'
             label = self.ax.text(ets, t['entry_price'],
@@ -1190,7 +1197,7 @@ class CuspMarker:
             
             color = '#D32F2F' if cand_type == 'top' else '#2E7D32'
             marker = 'v' if cand_type == 'top' else '^'
-            prob = 1.0 # default to fully visible if no model
+            prob = 0.0 # default to hidden if no model is trained
             
             if self._classifier_model and self.cubic_features is not None:
                 try:
@@ -1414,6 +1421,7 @@ def main():
     parser.add_argument('--load-trades', type=str, default=None,
                                 help='Load trades from CSV / JSON / pickle and overlay '
                                           'on chart (read-only). e.g. v6 sim output, iso pickle.')
+    parser.add_argument('--load-ai', action='store_true', help='Automatically load AI-generated picks for the loaded date')
     parser.add_argument('--cubic-n', type=int, default=20,
                                 help='Cubic regression window size for candidate overlay')
     args = parser.parse_args()
@@ -1501,11 +1509,18 @@ def main():
 
     # Load trades to overlay (optional)
     loaded_trades = []
-    if args.load_trades:
+    if args.load_ai:
+        ai_path = f"DATA/ai_cusp_picks/ai_picks_{start_str}_multi.json"
+        if os.path.exists(ai_path):
+            import json
+            print(f'Loading AI picks: {ai_path}')
+            with open(ai_path, 'r') as f:
+                loaded_trades = json.load(f).get('trades', [])
+    elif args.load_trades:
         print(f'Loading trades: {args.load_trades}')
         loaded_trades = load_trades(args.load_trades)
-        # Filter to current chart's time window
-        if loaded_trades:
+        
+    if loaded_trades:
             ts0 = float(df_day['timestamp'].iloc[0])
             ts1 = float(df_day['timestamp'].iloc[-1])
             in_window = [t for t in loaded_trades
