@@ -132,14 +132,26 @@ MIN_DAY_SAMPLES     = 50    # amplitude_evolution's day-skip criterion, reused a
 GLOBAL_FALLBACK_PT  = 8.0   # last-resort scale: pooled 2024-25 8-15min median amp ~8-12pt (anchor_period.md)
 
 def anchor_samples(close):        # -> idx:int[], ratio:float[]  (ratio = amp/sqrt(per), returned anchors only)
-def scale_series(close, window_min):  # centered ±window_min two-pointer/searchsorted median -> float[n]
-def scale_scalar(close):          # whole-day median(ratio) * sqrt(REF_PERIOD_MIN)
+def scale_series(close, window_min):  # centered ±window_min median(ratio) * sqrt(REF_PERIOD_MIN) -> float[n]
+    # applies the SAME sqrt(REF_PERIOD_MIN) rescale as scale_scalar — every mode must return
+    # 'typical ~10-min swing' units, or w-modes and day-modes would sit ~sqrt(10)≈3.16x apart
+    # and K_TREND would not be comparable across MODE_GRID.
+    # single-day only, no filesystem access. Window widening is its ONLY fallback; if even the
+    # whole day is unusable it returns all-NaN and the CALLER resolves (see scale_for_day).
+def scale_scalar(close):          # whole-day median(ratio) * sqrt(REF_PERIOD_MIN); np.nan if
+    # fewer than MIN_DAY_SAMPLES returned anchors (caller resolves — no fallback logic here).
 def scale_for_day(date_key, close, mode, one_m_dir, cache):  # -> float[n]
     # mode ∈ {"w30","w60","w120"}  -> scale_series on this day's close
     # mode ∈ {"day","day_c5","day_c21"} -> per-day scalars; multi-day = CENTERED nanmedian of the
     #   ±(w//2) NEIGHBOR SESSION-DAY scalars taken BY POSITION in the sorted 1m file list
     #   (glob once, sort, index — calendar arithmetic would miss weekends). Shrink at edges.
     #   np.full(n, value) so every mode returns a per-bar array.
+    # OWNS all cross-day context and ALL day-level fallbacks: a NaN day (from scale_scalar /
+    #   scale_series) resolves to the nearest available neighbor-day scalar by position, else
+    #   GLOBAL_FALLBACK_PT. cache is a shared dict holding the glob-sorted 1m file list
+    #   (key ("files",)), loaded closes (("close", date_key)) and computed per-day scalars
+    #   (("scalar", date_key)), so overlapping neighbor windows across the 9 tuner days never
+    #   re-glob, re-read a parquet, or recompute anchor_samples.
 ```
 
 Implementation notes:
@@ -147,8 +159,10 @@ Implementation notes:
   for RETURNED anchors; skip flat-next-bar anchors exactly as the original.
 - `scale_series`: ratios sorted by anchor idx; for each bar i, `np.searchsorted` the idx array
   for [i−W, i+W] bounds, `np.median` the slice; if slice < MIN_WINDOW_SAMPLES, double W (up to
-  whole day); whole day < MIN_DAY_SAMPLES → nearest available neighbor-day scalar, else
-  GLOBAL_FALLBACK_PT. n≈1380 bars/day → trivial runtime.
+  whole day); if the whole day still has < MIN_DAY_SAMPLES returned anchors, return all-NaN.
+  Neighbor-day / GLOBAL_FALLBACK_PT resolution belongs EXCLUSIVELY to `scale_for_day` (it owns
+  `date_key`/`one_m_dir`/`cache`; `scale_series` has no filesystem context by design).
+  n≈1380 bars/day → trivial runtime.
 - Known small bias: anchors near EOD are censoring-truncated (only short periods return) →
   end-of-day scale biased slightly LOW; centered windows mostly absorb it. Note in docstring;
   acceptable for labels.
@@ -166,6 +180,10 @@ TREND_MIN_PTS = 2.0          # guardrail floor (8 ticks): smaller smoothed-cubic
 TREND_MAX_PTS = 15.0         # guardrail cap ≈ human median raw swing (15.8pt): keep real legs in wild regimes
 FLAT_BAND_RATIO = FLAT_BAND_PTS / TREND_PTS       # 0.75 — preserve the tuned flat-band:trend coupling
 REVERSAL_TOL_RATIO = REVERSAL_TOL_PTS / TREND_PTS # 0.25 — preserve the QC-flag:trend coupling
+# The two ratios are derived AT IMPORT from the tuned fixed pair on purpose — one source of
+# truth in this constants block. Corollary rule: nothing mutates these module constants at
+# runtime. The tuner passes thresholds as EXPLICIT ARGUMENTS to zigzag_turns (it never calls
+# process_day), and any future sweep over FLAT_BAND/TREND must parameterize, not monkey-patch.
 ```
 
 Exact change sites (every current use of the three constants):
@@ -176,8 +194,9 @@ Exact change sites (every current use of the three constants):
    the moment the reversal is judged; the scale is slow, so the anchoring choice is second-order —
    say so in a comment). Scalar path keeps the existing tuner calls working unchanged.
 2. `flat_span(smooth, i, n, band)` — band becomes a parameter (module FLAT_BAND_PTS stays as the
-   fixed-path value). Call sites pass `FLAT_BAND_RATIO * thr_arr[i0]` (entry) / `thr_arr[i1]`
-   (exit) when ADAPTIVE, else FLAT_BAND_PTS.
+   fixed-path value). Call sites when ADAPTIVE: entry passes `FLAT_BAND_RATIO * thr_arr[i0]`,
+   exit passes `FLAT_BAND_RATIO * thr_arr[i1]` — the ratio applies to BOTH (an unscaled
+   `thr_arr[i1]` would make the exit zone 1.33× wider than the tuned coupling). Else FLAT_BAND_PTS.
 3. `process_day`: after `find_raw_turns`, build
    `thr_arr = np.clip(K_TREND * scale_for_day(...), TREND_MIN_PTS, TREND_MAX_PTS)` when ADAPTIVE
    else `np.full(n, TREND_PTS)`; pass to `zigzag_turns`.
