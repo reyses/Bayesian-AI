@@ -34,7 +34,7 @@ OUT = os.path.join(ROOT, "DATA", "ai_cusp_picks")
 FLAG = os.path.join(OUT, "flagged")
 
 CUBIC_N = 20            # centered cubic window (matches the marker / Figure_4)
-TREND_PTS = 7.0         # a launch must follow through >= this (structural; regime-adaptive later)
+TREND_PTS = 4.0         # cubic-swing wiggle filter; tuned to 398 human picks (was 7.0 -> recall 54%->66%)
 FLAT_BAND_PTS = 3.0     # flat zone = smoothed price stays within this of the turn extreme
 REVERSAL_TOL_PTS = 1.0  # adverse past entry beyond this before +TREND_PTS -> flag for inspection
 TICK = 0.25
