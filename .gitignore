@@ -368,3 +368,10 @@ DATA/ai_cusp_picks/
 DATA/cusp_picks/
 DATA/pipeline/
 DATA/optimal_trades.json
+ 
+# Junk files from automated commit
+get-pip.py
+temp_index.txt
+scratch_check.py
+journal_payload.json
+epoch_*_summary.png
