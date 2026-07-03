@@ -6,18 +6,19 @@ months = ['2024_01', '2024_02', '2024_03', '2024_04', '2024_05', '2024_06', '202
           '2025_05', '2025_06', '2025_07', '2025_08', '2025_09', '2025_10', '2025_11', '2025_12', 
           '2026_01', '2026_02', '2026_03']
 
-script_path = r"C:\Users\reyse\.gemini\antigravity\brain\0b405af3-d525-4c87-b71d-cb77ea225a55\scratch\ai_labeler.py"
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+script_path = os.path.join(ROOT, "research", "ai_auto_labeler", "pipeline", "ai_labeler_v2.py")
 
 total_trades = 0
 for m in months:
     print(f"\nProcessing {m}...")
-    result = subprocess.run(['python', script_path, '--month', m, '--prominence', '7.0'], capture_output=True, text=True)
+    result = subprocess.run(['python', script_path, '--month', m], capture_output=True, text=True)
     out = result.stdout
     print(out.strip())
     
-    # parse "Generated X trades"
+    # parse TOTAL: X trades
     for line in out.split('\n'):
-        if "Generated" in line and "trades" in line:
+        if "TOTAL:" in line and "trades" in line:
             parts = line.split()
             if len(parts) >= 2 and parts[1].isdigit():
                 total_trades += int(parts[1])

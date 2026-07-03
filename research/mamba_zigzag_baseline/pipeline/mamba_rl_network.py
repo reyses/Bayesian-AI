@@ -111,8 +111,11 @@ class MambaRLTradingNetwork(nn.Module):
         self.norm = nn.LayerNorm(mamba_d_model)
         
         # 5. PPO Heads (Actor & Critic)
-        # Actor: 0=HOLD, 1=LONG, 2=SHORT, 3=SCRATCH
-        self.actor_head = nn.Linear(mamba_d_model, 4)
+        # Entry Actor: 0=HOLD, 1=LONG, 2=SHORT (active when flat)
+        self.entry_head = nn.Linear(mamba_d_model, 3)
+        
+        # Exit Hazard Actor: 1-way logit (probability of exit vs hold, active when in position)
+        self.exit_head = nn.Linear(mamba_d_model, 1)
         
         # Critic: State Value Estimate
         self.critic_head = nn.Linear(mamba_d_model, 1)
@@ -165,7 +168,8 @@ class MambaRLTradingNetwork(nn.Module):
         latest_step = x[:, -1, :] 
         
         # --- Output Heads (PPO) ---
-        policy_logits = self.actor_head(latest_step)
+        entry_logits = self.entry_head(latest_step)
+        exit_logits = self.exit_head(latest_step)
         value_estimate = self.critic_head(latest_step)
         
-        return policy_logits, value_estimate, next_hidden_states
+        return entry_logits, exit_logits, value_estimate, next_hidden_states

@@ -32,21 +32,24 @@ A diagnostic tool used to audit the output of the auto-labeler.
 Rewrite of the labeling logic per the manual workflow. Fixes v1's **fixed 60-bar prominence** (which
 truncated slow-forming trends and mismatched the 7pt-filter / 10pt-win criteria).
 - **Cubic**: centered cubic (`cubic_utils.find_raw_turns`, N=20 — same as `cusp_marker`) → turns + curvature.
+- **Regime-Adaptive Scale**: Switched from fixed 7pt/3pt thresholds to a dynamically scaled threshold driven by `amplitude_scale.py`. The threshold adapts to local market volatility (using median of `amp/sqrt(per)` anchors).
 - **Entry (flat-zone best bar)**: the flat zone = the contiguous span where the smoothed price stays
-  within `FLAT_BAND_PTS` of the turn (a broad rounded hump). Snap the entry to the real **1s** extreme in
+  within `FLAT_BAND` of the turn (a broad rounded hump). Snap the entry to the real **1s** extreme in
   that span (low=LONG / high=SHORT) → 0-MAE entry. (Sharp turns already sit on their extreme.)
 - **Confirm (uncapped forward walk)**: walk forward from the entry, **no 60-bar cap**; skip sub-`TREND_PTS`
-  wiggles; continue until a ≥`TREND_PTS` favorable move confirms the trend. Session ends first → no trade.
-- **Reversal → flagged**: if price breaks back past the entry (adverse > `REVERSAL_TOL_PTS`) before
-  +`TREND_PTS`, the region is written to `DATA/ai_cusp_picks/flagged/` for human inspection (should not
-  happen if the entry is the true extreme — so it's a QC signal, not a silent drop).
-- **Exit (mirror)**: the trend ends when it retraces ≥`TREND_PTS` from its running peak (a real opposing
+  wiggles; continue until a favorable move confirms the trend. Session ends first → no trade.
+- **Reversal → flagged**: if price breaks back past the entry (adverse > `REVERSAL_TOL_RATIO * scale`) before
+  confirming, the region is written to `DATA/ai_cusp_picks/flagged/` for human inspection.
+- **Exit (mirror)**: the trend ends when it retraces ≥ local scale from its running peak (a real opposing
   move) or the session ends; snap the exit to the 1s best bar in that peak's flat zone → best exit.
-- **Constants** (named): `CUBIC_N=20`, `TREND_PTS=7.0`, `FLAT_BAND_PTS=3.0`, `REVERSAL_TOL_PTS=1.0`.
-  `TREND_PTS`/`FLAT_BAND_PTS` are the next candidates to make **regime-adaptive** (via the
-  `research/recovery_dynamics` amplitude envelope — the "normal swing" breathes 30-50% by regime).
+- **Constants** (named): `CUBIC_N=20`, `K_TREND=0.60`, `AMP_MODE="w60"`, `FLAT_BAND_RATIO=0.75`, `REVERSAL_TOL_RATIO=0.25`.
 - Run: `python research/ai_auto_labeler/pipeline/ai_labeler_v2.py --day 2024_03_04` (or `--month 2024_03`).
-- First test (2024-03-04): 56 trades, all ≥7pt positive (median 19pt, max 64), MAE~0, 1 reversal flagged.
+- To force non-adaptive fallback: `--fixed`.
+
+### 5. `tools/tune_to_human.py` & `tools/diagnose_regime_spread.py`
+Tools for empirical validation of the labeler:
+- **Tuner**: Sweeps over fixed constraints and K_TREND / AMP_MODE grids, performing Leave-One-Day-Out (LODO) cross-validation and bootstrap CI testing against 398 human picks.
+- **Diagnostics**: Ensures mathematical tightening of swing dispersion and identifies the presence of true scale spread (e.g., RTH vs ON periods).
 
 ## Interaction with Other Scripts
 

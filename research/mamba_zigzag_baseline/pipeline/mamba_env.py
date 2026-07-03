@@ -13,6 +13,8 @@ from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
 from core_v2.ledger import Ledger
 from core_v2.features import assemble_v2_grid
 from core_v2.exits import default_exit_suite
+from reward_env import RewardConfig, BetaRewardPolicy
+import json
 import pandas_market_calendars as mcal
 
 logger = logging.getLogger(__name__)
@@ -56,6 +58,30 @@ class MambaRLTradingEnv:
         self.last_hour_equity = 0.0
         
         self.exit_suite = default_exit_suite()
+        
+        # V2 Reward Policy
+        self.reward_config = RewardConfig()
+        self.reward_policy = BetaRewardPolicy(self.reward_config)
+        
+        # Load AI Picks for Oracle
+        self.ai_picks = self._load_ai_picks(atlas_root, days)
+        self.h_bars_tolerance = 30  # Derived ~10% of median turn spacing (299.20 bars)
+
+    def _load_ai_picks(self, atlas_root, days):
+        queue = []
+        for day in days:
+            day_hyphen = day.replace('_', '-')
+            picks_path = os.path.join(atlas_root, '..', 'ai_cusp_picks', f'ai_picks_{day_hyphen}_multi.json')
+            if os.path.exists(picks_path):
+                with open(picks_path, 'r') as f:
+                    data = json.load(f)
+                    if 'trades' in data:
+                        for t in data['trades']:
+                            t['day'] = day
+                            t['swing_id'] = f"{day}_{t['entry_ts']}_{t['direction']}"
+                        queue.extend(data['trades'])
+        queue.sort(key=lambda x: x['entry_ts'])
+        return queue
 
     def update_curriculum_state(self, epoch, total_epochs):
         self.current_epoch = epoch
@@ -165,6 +191,7 @@ class MambaRLTradingEnv:
         
         pos_code = 0.0
         if not self.ledger.is_flat:
+            action_type = 'IN_POSITION_STEP' 
             pos_code = 1.0 if self.ledger.primary.direction == 'long' else -1.0
             
         current_pnl = self.ledger.primary.peak_pnl if not self.ledger.is_flat else 0.0
@@ -183,9 +210,35 @@ class MambaRLTradingEnv:
         reward = 0.0
         done = False
         info = {}
+        ts = self.current_bar.timestamp
+        
+        # 1. Oracle calculations
+        is_label_covered = True # The AI Cusp Picks dataset actively labels the entire 22h session (gaps = explicitly FLAT)
+        turn_imminent = 0.0
+        c_t = 0.0 # Mocked per instructions
+        
+        # Prune old trades (older than 1 hour)
+        while self.ai_picks and self.ai_picks[0]['exit_ts'] < ts - 3600:
+            self.ai_picks.pop(0)
+            
+        active_oracle = None
+        for t in self.ai_picks:
+            if t['entry_ts'] <= ts <= t['exit_ts']:
+                active_oracle = t
+            
+            # Turn imminent (within h_bars_tolerance * 5 seconds)
+            if 0 <= (t['exit_ts'] - ts) <= (self.h_bars_tolerance * 5):
+                turn_imminent = 1.0
+
+        info['is_label_covered'] = is_label_covered
+        info['turn_imminent'] = turn_imminent
+        info['c_t'] = c_t
+        
+        action_type = 'FLAT_STEP' 
         
         # 1. Update ledger state for the current bar (monitors peak PnL, draws, etc)
         if not self.ledger.is_flat:
+            action_type = 'IN_POSITION_STEP' 
             self.ledger.update_bar(self.current_bar.v2_vector, self.current_bar.price, self.current_bar.timestamp)
             
             exit_reason = None
@@ -206,6 +259,7 @@ class MambaRLTradingEnv:
 
             # Execute Exit
             if exit_reason:
+                action_type = 'EXIT' 
                 pos = self.ledger.primary
                 record = self.ledger.remove_position(pos.contract_id, self.current_bar.price, self.current_bar.timestamp, exit_reason)
                 trade_pnl = record['pnl']
@@ -227,6 +281,7 @@ class MambaRLTradingEnv:
         
         # 3. Process Entries
         if self.ledger.is_flat and action in [1, 2]:
+            action_type = 'ENTRY' 
             # Block new entries if we are within the maintenance guard rail
             dt = datetime.datetime.fromtimestamp(self.current_bar.timestamp, tz=datetime.timezone.utc)
             ct = dt.astimezone(self.central_tz)
@@ -238,13 +293,14 @@ class MambaRLTradingEnv:
                     entry_ts=self.current_bar.timestamp,
                     entry_tier="RL_MAMBA",
                     entry_features=self.current_bar.v2_vector,
-                    restore_extras={'expected_outcome': expected_outcome}
+                    restore_extras={'expected_outcome': expected_outcome, 'oracle_trade': active_oracle}
                 )
                 # No $5 penalty anymore! We want the agent to trade freely.
         
         # 4. Compute Equity and check for hourly stagnation
         unrealized_pnl = 0.0
         if not self.ledger.is_flat:
+            action_type = 'IN_POSITION_STEP' 
             pos = self.ledger.primary
             if pos.direction == 'long':
                 unrealized_pnl = ((self.current_bar.price - pos.entry_price) / self.ledger.tick_size * self.ledger.tick_value) - self.ledger.round_trip_fee

@@ -56,20 +56,16 @@ def e_exit_vram_check(pct_limit=0.15, absolute_floor_mb=4000):
         return True
     return False
 
-def per_step_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, device):
-    """
-    PLUGGABLE REWARD SEAM.
-    The real policy logic and reward shaping will slot in here later.
-    Do NOT entangle this with the TBPTT control flow loop.
-    """
+def a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, w_aux, device):
     reward_tensor = torch.tensor([[reward]], device=device, dtype=torch.float32)
     td_target = reward_tensor + (gamma * next_value)
     advantage = td_target - value.detach()
-    
-    critic_loss = F.smooth_l1_loss(value, td_target)
+    critic_loss = 0.5 * F.mse_loss(value, td_target)
     actor_loss = -(log_prob * advantage).mean() - (current_entropy_coef * entropy)
-    return actor_loss + critic_loss
-
+    total_loss = actor_loss + critic_loss
+    if bce_loss is not None:
+        total_loss += w_aux * bce_loss
+    return total_loss
 def train_mamba_rl():
     import argparse
     parser = argparse.ArgumentParser()
@@ -78,7 +74,7 @@ def train_mamba_rl():
     parser.add_argument('--tbptt_window', type=int, default=500, help="N parameter for Fixed-Window TBPTT")
     args = parser.parse_args()
 
-    e_exit_preflight_ram(required_gb=8) # Pre-flight before allocating PyTorch/Env
+    e_exit_preflight_ram(required_gb=1) # Pre-flight before allocating PyTorch/Env
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Training on device: {device} | TBPTT Window: {args.tbptt_window}")
@@ -105,19 +101,29 @@ def train_mamba_rl():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     if os.path.exists("mamba_rl_checkpoint.pth"):
-        checkpoint = torch.load("mamba_rl_checkpoint.pth")
+        checkpoint = torch.load("mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
         if 'model' in checkpoint and 'optimizer' in checkpoint:
-            model.load_state_dict(checkpoint['model'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            try:
+                missing, unexpected = model.load_state_dict(checkpoint['model'], strict=False)
+                if missing or unexpected:
+                    logger.info(f"Checkpoint loaded with strict=False. Missing: {missing}, Unexpected: {unexpected}")
+                optimizer.load_state_dict(checkpoint['optimizer'])
+            except Exception as e:
+                logger.warning(f"Failed to load checkpoint due to size mismatch: {e}")
         else:
             # Fallback for old state_dict-only checkpoints
             new_state_dict = {k.replace("_orig_mod.", ""): v for k, v in checkpoint.items()}
-            model.load_state_dict(new_state_dict)
+            try:
+                missing, unexpected = model.load_state_dict(new_state_dict, strict=False)
+                if missing or unexpected:
+                    logger.info(f"Old checkpoint loaded with strict=False. Missing: {missing}, Unexpected: {unexpected}")
+            except Exception as e:
+                logger.warning(f"Failed to load old checkpoint due to size mismatch: {e}")
     reporter = TelemetryReporter("Mamba_RL_PPO")
     from epoch_summary import plot_epoch_summary, plot_learning_curve
 
     total_epochs = args.num_episodes
-    base_entropy = 0.05
+    base_entropy = 0.01
     gamma = 0.99
     global_step = 0
     history_rewards, history_mean_pnls, history_mean_entropies = [], [], []
@@ -133,12 +139,11 @@ def train_mamba_rl():
         state = env.reset()
         
         progress = epoch / total_epochs
-        if progress < 0.25:
-            current_entropy_coef = base_entropy
+        if progress < 0.50:
+            decay_factor = 1.0 - (progress / 0.50)
+            current_entropy_coef = 0.001 + (base_entropy - 0.001) * decay_factor
         else:
-            decay_factor = 1.0 - ((progress - 0.25) / 0.75)
-            current_entropy_coef = base_entropy * max(0.001, decay_factor)
-
+            current_entropy_coef = 0.001
         done = False
         episode_reward = 0.0
         step_count = 0
@@ -167,11 +172,17 @@ def train_mamba_rl():
             time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), 0)
 
             # Forward pass explicitly tracks hidden_states
-            policy_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
+            entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             
-            probs = torch.softmax(policy_logits, dim=-1)
-            dist = torch.distributions.Categorical(probs)
-            action = dist.sample()
+            is_flat = ledger_state[0, -1, 0] == 0.0
+            if is_flat:
+                probs = torch.softmax(entry_logits, dim=-1)
+                dist = torch.distributions.Categorical(probs)
+                action = dist.sample()
+            else:
+                exit_prob = torch.sigmoid(exit_logits.squeeze(-1))
+                dist = torch.distributions.Bernoulli(probs=exit_prob)
+                action = dist.sample()
             
             next_state, reward, done, info = env.step(action.item(), 0.0)
             
@@ -203,7 +214,14 @@ def train_mamba_rl():
             epoch_step_entropies.append(entropy.item())
             
             # Use pluggable seam for loss
-            step_loss = per_step_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, device)
+            bce_loss = None
+            if not is_flat:
+                turn_target = info.get('turn_imminent', 0.0)
+                target_t = torch.tensor([1.0 if turn_target else 0.0], device=device, dtype=torch.float32)
+                pos_weight = torch.tensor([10.40], device=device, dtype=torch.float32) # Derived from turn bar vs non-turn bar ratio
+                bce_loss = F.binary_cross_entropy_with_logits(exit_logits.squeeze(-1), target_t, pos_weight=pos_weight)
+
+            step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
             window_loss += step_loss
             window_steps += 1
             
@@ -233,7 +251,7 @@ def train_mamba_rl():
 
             # Memory cleanup
             del v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t
-            del policy_logits, value, probs, dist, action
+            del entry_logits, exit_logits, value, dist, action
             del log_prob, entropy, step_loss
             if not done and next_state is not None:
                 del n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, next_value

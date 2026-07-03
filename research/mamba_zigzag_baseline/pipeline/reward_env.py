@@ -1,138 +1,207 @@
 import numpy as np
+import math
 from dataclasses import dataclass
 from typing import Dict, Any, Optional
 
 @dataclass
 class RewardConfig:
-    # Swappable Knobs (Beta Status)
-    density: str = "terminal"  # "terminal" or "dense"
-    architecture: str = "multi_head"  # "multi_head" (3 heads) or "single_head"
-    weight_selectivity: float = 1.0
-    weight_direction: float = 1.0
-    weight_exit: float = 2.0  # Asymmetric edge is here
-    entropy_decay: float = 0.99
-    regret_source: str = "oracle"  # "cubic" or "oracle"
+    # V2 Config weights
+    w_c: float = 1.00     # Capture
+    w_x: float = 0.35     # Cut bonus
+    w_r: float = 0.25     # Regret
+    w_d: float = 0.20     # Direction
+    w_w: float = 0.15     # Wiggle penalty
+    w_aux: float = 0.20   # Aux hazard loss (used in training loop)
+    w_cost: float = 1.00  # Cost weight (real)
     
-    # Locked Invariants (Configured here for visibility, but theoretically locked)
+    # Thresholds and parameters
+    theta_rem: float = 1.5      # Denominator floor for remaining extent (vol-normalized)
+    theta_Q_mfe: float = 2.0    # Quality gate MFE
+    theta_Q_mae: float = 1.0    # Quality gate MAE limit
+    theta_c: float = 0.5        # Classifier confidence threshold for regret
+    tau: float = 5.0            # Time decay constant for fast cut (bars)
+    cost_ticks: float = 3.0     # Spread + commission + slippage in ticks
+    
     vol_normalization_window: int = 120  # Bars for ATR/StdDev
 
 class BetaRewardPolicy:
     """
-    Beta scaffold for the Direction-Exhaustion Reward & Exit Policy.
-    Provisional until Stage 1 (Inflection Ablation) yields a MAKE verdict.
+    Direction-Exhaustion Reward & Exit Policy (v2)
+    Implements path-independence, leak wall, additive components, and causal observation boundaries.
     """
     def __init__(self, config: RewardConfig):
         self.config = config
-        
-    def _compute_selectivity_reward(self, 
-                                    took_trade: bool, 
-                                    setup_quality_mfe: float, 
-                                    setup_quality_mae: float, 
-                                    volatility: float) -> float:
-        """
-        Component 1: Selectivity (Trade / No-Trade)
-        Did you take the high-quality move and skip the wiggle?
-        - Regret lives ONLY on entry.
-        """
-        # Objective quality gate: MFE/MAE (vol-normalized)
-        norm_mfe = setup_quality_mfe / (volatility + 1e-8)
-        norm_mae = setup_quality_mae / (volatility + 1e-8)
-        
-        # High quality = high MFE, low MAE
-        is_high_quality = (norm_mfe > 2.0) and (norm_mae < 1.0)
-        
-        if took_trade:
-            # Reward taking a good setup, mildly penalize taking a wiggle
-            return 1.0 if is_high_quality else -0.2
-        else:
-            # Regret only fires if you missed a causally-readable, high-quality setup
-            # Zero regret for sitting out a wiggle
-            return -1.0 if is_high_quality else 0.1
+        self._regret_capped_swings = set() # Track swung IDs to cap regret once per swing
 
-    def _compute_direction_reward(self, 
-                                  took_trade: bool, 
-                                  predicted_dir: int, 
-                                  actual_dir: int) -> float:
+    def compute_reward(self, 
+                       state: Dict[str, Any], 
+                       action_type: str, 
+                       hindsight_oracle: Dict[str, Any]) -> Dict[str, float]:
         """
-        Component 2: Direction
-        Of entries, were you on the correct side?
+        Calculates the V2 scorecard.
+        action_type: 'FLAT_STEP', 'ENTRY', 'EXIT', 'IN_POSITION_STEP'
         """
-        if not took_trade:
-            return 0.0
-            
-        return 1.0 if (predicted_dir == actual_dir) else -1.0
-        
-    def _compute_exit_reward(self, 
-                             took_trade: bool, 
-                             is_right_direction: bool, 
-                             holding_time: int, 
-                             capture_rate: float,
-                             accumulated_mae: float) -> float:
-        """
-        Component 3: Exit/Capture (The Edge)
-        Asymmetric PnL: cut fast on wrong, ride to inflection on right.
-        - Path independent (no memory of deficit).
-        - Oracle-anchored capture.
-        """
-        if not took_trade:
-            return 0.0
-            
-        if not is_right_direction:
-            # WRONG trade: reward fast cutting.
-            # Speed/adversity tension: cut-reward decays with holding time and MAE.
-            speed_penalty = (holding_time / 10.0) 
-            mae_penalty = accumulated_mae
-            cut_score = 1.0 - (speed_penalty + mae_penalty)
-            # Ensure it is a small positive if cut fast, but goes negative if bagged
-            return max(cut_score * 0.5, -2.0)
-        else:
-            # RIGHT trade: reward capture rate vs the oracle half-cycle.
-            # 100% capture = 1.0. 
-            return capture_rate
-
-    def compute_reward(self, state: Dict[str, Any], action: Dict[str, Any], hindsight_oracle: Dict[str, Any]) -> Dict[str, float]:
-        """
-        The leak wall: state (observation) is causal, hindsight_oracle is used ONLY here in the reward.
-        Returns independent additive components (scorecard).
-        """
-        took_trade = action.get('take_trade', False)
-        predicted_dir = action.get('direction', 0)
-        holding_time = action.get('holding_time', 0)
-        
         volatility = hindsight_oracle.get('volatility', 1.0)
+        sigma_ticks = hindsight_oracle.get('sigma_ticks', volatility)
         
-        # 1. Selectivity
-        sel_reward = self._compute_selectivity_reward(
-            took_trade,
-            hindsight_oracle.get('mfe', 0.0),
-            hindsight_oracle.get('mae', 0.0),
-            volatility
-        )
-        
-        # 2. Direction
-        actual_dir = hindsight_oracle.get('direction', 0)
-        dir_reward = self._compute_direction_reward(took_trade, predicted_dir, actual_dir)
-        
-        # 3. Exit
-        is_right = (predicted_dir == actual_dir) and (actual_dir != 0)
-        exit_reward = self._compute_exit_reward(
-            took_trade,
-            is_right,
-            holding_time,
-            hindsight_oracle.get('capture_rate', 0.0),
-            hindsight_oracle.get('accumulated_mae', 0.0) / (volatility + 1e-8)
-        )
-        
-        # Additive components - never multiply the scorecard into a funnel!
-        total_reward = (
-            self.config.weight_selectivity * sel_reward +
-            self.config.weight_direction * dir_reward +
-            self.config.weight_exit * exit_reward
-        )
-        
-        return {
-            'selectivity': sel_reward,
-            'direction': dir_reward,
-            'exit': exit_reward,
-            'total': total_reward
+        scorecard = {
+            'cost': 0.0,
+            'capture': 0.0,
+            'direction': 0.0,
+            'cut_bonus': 0.0,
+            'wiggle': 0.0,
+            'regret': 0.0,
+            'total': 0.0
         }
+
+        # Handle flat actions (Regret and Wiggle)
+        if action_type == 'FLAT_STEP':
+            c_t = hindsight_oracle.get('c_t', 0.0)
+            is_label_covered = hindsight_oracle.get('is_label_covered', True)
+
+            # Regret, windowed (P2 fix)
+            # Credited only to the flat-action bars where c_t >= theta_c during the readable entry window.
+            # Capped once per swing.
+            if is_label_covered and c_t >= self.config.theta_c:
+                swing_id = hindsight_oracle.get('swing_id', None)
+                qualifying = hindsight_oracle.get('is_qualifying', False)
+                if qualifying and swing_id and swing_id not in self._regret_capped_swings:
+                    scorecard['regret'] = -self.config.w_r * c_t
+                    self._regret_capped_swings.add(swing_id)
+
+            scorecard['total'] = scorecard['regret']
+            return scorecard
+
+        # Handle Trade Terminal Actions (Entry -> Exit)
+        if action_type == 'EXIT':
+            is_label_covered = hindsight_oracle.get('is_label_covered', True)
+            
+            # Cost
+            if sigma_ticks > 0:
+                scorecard['cost'] = -self.config.w_cost * (self.config.cost_ticks / sigma_ticks)
+                
+            # Entry metrics
+            predicted_dir = hindsight_oracle.get('predicted_dir', 0)
+            actual_dir = hindsight_oracle.get('actual_dir', 0)
+            is_right = (predicted_dir == actual_dir) and (actual_dir != 0)
+            
+            # Direction
+            if actual_dir != 0:
+                scorecard['direction'] = self.config.w_d if is_right else -self.config.w_d
+                
+            # Wiggle penalty (taken trade that doesn't qualify)
+            qualifying = hindsight_oracle.get('is_qualifying', False)
+            if not qualifying and is_label_covered:
+                scorecard['wiggle'] = -self.config.w_w
+                
+            # Capture and Cut Bonus
+            if is_right:
+                # Right trade: Calculate capture rate
+                captured = hindsight_oracle.get('captured_vol_norm', 0.0)
+                remaining_extent = hindsight_oracle.get('remaining_extent_vol_norm', 0.0)
+                
+                # Denominator floor (θ_rem)
+                denom = max(remaining_extent, self.config.theta_rem)
+                capture_rate = captured / denom
+                
+                # If entry was so late that remaining_extent < θ_rem, it scores zero capture.
+                if remaining_extent < self.config.theta_rem:
+                    scorecard['capture'] = 0.0
+                else:
+                    scorecard['capture'] = self.config.w_c * capture_rate
+            else:
+                # Wrong trade: Cut bonus
+                t_hold = hindsight_oracle.get('t_hold', 0.0)
+                mae_norm = hindsight_oracle.get('mae_vol_norm', 0.0)
+                
+                cut_score = self.config.w_x * math.exp(-t_hold / self.config.tau) * math.exp(-mae_norm)
+                scorecard['cut_bonus'] = cut_score
+
+            scorecard['total'] = sum(scorecard.values())
+            return scorecard
+
+        return scorecard
+
+def run_synthetic_tests():
+    config = RewardConfig()
+    policy = BetaRewardPolicy(config)
+    
+    print("Running Synthetic Tests for BetaRewardPolicy (V2 Patches)...")
+    
+    # Test 1: Fast cut on wrong trade nets positive (~+0.15)
+    hindsight_1 = {
+        'sigma_ticks': 10.0,
+        'predicted_dir': 1,
+        'actual_dir': -1,
+        't_hold': 0.0, # instant cut
+        'mae_vol_norm': 0.0,
+        'is_label_covered': True,
+        'is_qualifying': True
+    }
+    score_1 = policy.compute_reward({}, 'EXIT', hindsight_1)
+    net_cut_dir = score_1['cut_bonus'] + score_1['direction']
+    assert abs(net_cut_dir - 0.15) < 1e-5, f"Test 1 Failed: {net_cut_dir}"
+    print(f"[PASS] (1) fast-cut-on-wrong nets positive: {net_cut_dir:.2f}")
+    
+    # Test 2: Entry at 90% of swing (below theta_rem) scores zero capture
+    hindsight_2 = {
+        'sigma_ticks': 10.0,
+        'predicted_dir': 1,
+        'actual_dir': 1,
+        'is_label_covered': True,
+        'is_qualifying': True,
+        'captured_vol_norm': 0.5,
+        'remaining_extent_vol_norm': 1.0 # Less than theta_rem (1.5)
+    }
+    score_2 = policy.compute_reward({}, 'EXIT', hindsight_2)
+    assert score_2['capture'] == 0.0, "Test 2 Failed"
+    print(f"[PASS] (2) late entry below theta_rem -> zero capture: {score_2['capture']:.2f}")
+    
+    # Test 3: Entry in label-gap region -> no wiggle penalty
+    hindsight_3 = {
+        'sigma_ticks': 10.0,
+        'predicted_dir': 1,
+        'actual_dir': 1,
+        'is_label_covered': False, # GAP
+        'is_qualifying': False # Wiggle
+    }
+    score_3 = policy.compute_reward({}, 'EXIT', hindsight_3)
+    assert score_3['wiggle'] == 0.0, "Test 3 Failed"
+    print(f"[PASS] (3) label-gap entry -> no wiggle penalty: {score_3['wiggle']:.2f}")
+    
+    # Test 4: Capture is net of cost -> tiny swing nets negative.
+    hindsight_4 = {
+        'sigma_ticks': 10.0,
+        'predicted_dir': 1,
+        'actual_dir': 1,
+        'is_label_covered': True,
+        'is_qualifying': True,
+        'captured_vol_norm': 0.05, # Tiny capture
+        'remaining_extent_vol_norm': 2.0
+    }
+    score_4 = policy.compute_reward({}, 'EXIT', hindsight_4)
+    assert score_4['total'] < 0.0, f"Test 4 Failed"
+    print(f"[PASS] (4) tiny swing nets negative after cost: {score_4['total']:.3f} (Cost={score_4['cost']}, Cap={score_4['capture']})")
+    
+    # Test 5: Two missed swings -> regret twice, capped, only on c_t>=theta_c
+    policy2 = BetaRewardPolicy(config)
+    hindsight_5a = {'c_t': 0.8, 'is_label_covered': True, 'swing_id': 's1', 'is_qualifying': True}
+    hindsight_5b = {'c_t': 0.9, 'is_label_covered': True, 'swing_id': 's1', 'is_qualifying': True}
+    hindsight_5c = {'c_t': 0.6, 'is_label_covered': True, 'swing_id': 's2', 'is_qualifying': True}
+    hindsight_5d = {'c_t': 0.2, 'is_label_covered': True, 'swing_id': 's3', 'is_qualifying': True}
+    
+    r_a = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5a)['regret']
+    r_b = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5b)['regret']
+    r_c = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5c)['regret']
+    r_d = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5d)['regret']
+    
+    assert r_a == -0.25 * 0.8
+    assert r_b == 0.0
+    assert r_c == -0.25 * 0.6
+    assert r_d == 0.0
+    print(f"[PASS] (5) regret 2x capped, c_t-window-credited only: Capped: {r_b==0.0}, Windowed: {r_d==0.0}")
+    
+    print("All 5 Mandated Synthetic Tests Passed explicitly!")
+
+if __name__ == '__main__':
+    run_synthetic_tests()

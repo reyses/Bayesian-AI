@@ -3,7 +3,7 @@
 ## Human swing size (|Δprice| between consecutive picks): median 15.8pt, 25th 7.8, 75th 32.2
 - share of human swings < 7pt (below current TREND_PTS): 22% -> this is what the 7pt threshold misses.
 
-## Parameter sweep — recall (human found) / precision (pivots real) / F1
+## Fixed Threshold Sweep (Baseline)
 ```
   N    T |  #piv | recall | prec | F1
  10    3 |   744 |   86% |  43% | 0.573 *
@@ -32,7 +32,72 @@
  30    8 |   191 |   39% |  74% | 0.514
 ```
 
-## Best match: CUBIC_N=20, TREND_PTS=3  (F1=0.664)
-- current default is N=20, TREND_PTS=7. Recommend moving toward the best-F1 cell.
-- recall<100% is expected: the human marks some sub-cubic turns no pivot scale will catch;
-  raising recall trades precision (more spurious pivots). Pick the knee, not max recall.
+Best fixed match: CUBIC_N=20, TREND_PTS=3  (F1=0.664)
+
+## Adaptive Threshold Sweep (N=20)
+```
+   K     MODE |  #piv | recall | prec | F1    | % clamp
+0.15      w30 |   481 |   75% |  58% | 0.653 |  96.7% *
+0.15      w60 |   481 |   75% |  58% | 0.653 |  99.0%
+0.15     w120 |   481 |   75% |  58% | 0.653 | 100.0%
+0.15      day |   481 |   75% |  58% | 0.653 | 100.0%
+0.15   day_c5 |   481 |   75% |  58% | 0.653 | 100.0%
+0.15  day_c21 |   481 |   75% |  58% | 0.653 | 100.0%
+0.21      w30 |   473 |   74% |  58% | 0.650 |  87.9%
+0.21      w60 |   479 |   75% |  58% | 0.655 |  88.6% *
+0.21     w120 |   481 |   75% |  58% | 0.653 |  92.2%
+0.21      day |   481 |   75% |  58% | 0.653 | 100.0%
+0.21   day_c5 |   481 |   75% |  58% | 0.653 | 100.0%
+0.21  day_c21 |   481 |   75% |  58% | 0.653 | 100.0%
+0.30      w30 |   457 |   74% |  60% | 0.658 |  70.4% *
+0.30      w60 |   451 |   74% |  61% | 0.665 |  70.9% *
+0.30     w120 |   457 |   74% |  60% | 0.661 |  71.8%
+0.30      day |   481 |   75% |  58% | 0.653 | 100.0%
+0.30   day_c5 |   481 |   75% |  58% | 0.653 | 100.0%
+0.30  day_c21 |   481 |   75% |  58% | 0.653 | 100.0%
+0.42      w30 |   437 |   73% |  62% | 0.670 |  53.7% *
+0.42      w60 |   437 |   73% |  62% | 0.672 |  54.0% *
+0.42     w120 |   441 |   74% |  62% | 0.674 |  55.1% *
+0.42      day |   477 |   75% |  58% | 0.652 |  77.8%
+0.42   day_c5 |   470 |   74% |  59% | 0.655 |  88.9%
+0.42  day_c21 |   470 |   74% |  59% | 0.655 |  88.9%
+0.60      w30 |   395 |   71% |  66% | 0.686 |  37.1% *
+0.60      w60 |   398 |   72% |  67% | 0.691 |  35.3% *
+0.60     w120 |   412 |   73% |  66% | 0.691 |  33.5%
+0.60      day |   442 |   72% |  60% | 0.654 |  11.1%
+0.60   day_c5 |   423 |   71% |  62% | 0.665 |   0.0%
+0.60  day_c21 |   419 |   71% |  62% | 0.661 |   0.0%
+0.85      w30 |   342 |   66% |  70% | 0.679 |  27.1%
+0.85      w60 |   335 |   65% |  71% | 0.678 |  25.3%
+0.85     w120 |   338 |   65% |  71% | 0.680 |  19.9%
+0.85      day |   357 |   64% |  66% | 0.647 |   0.0%
+0.85   day_c5 |   356 |   64% |  66% | 0.650 |   0.0%
+0.85  day_c21 |   363 |   65% |  66% | 0.652 |   0.0%
+1.20      w30 |   275 |   57% |  75% | 0.649 |  25.3%
+1.20      w60 |   275 |   57% |  75% | 0.643 |  24.4%
+1.20     w120 |   286 |   59% |  74% | 0.656 |  20.5%
+1.20      day |   314 |   59% |  69% | 0.637 |   0.0%
+1.20   day_c5 |   300 |   58% |  71% | 0.636 |   0.0%
+1.20  day_c21 |   297 |   57% |  70% | 0.630 |   0.0%
+1.70      w30 |   243 |   52% |  77% | 0.618 |  37.9%
+1.70      w60 |   245 |   52% |  77% | 0.622 |  36.1%
+1.70     w120 |   243 |   52% |  76% | 0.614 |  35.3%
+1.70      day |   241 |   50% |  76% | 0.600 |   0.0%
+1.70   day_c5 |   234 |   48% |  76% | 0.591 |  11.1%
+1.70  day_c21 |   238 |   48% |  74% | 0.587 |  11.1%
+```
+
+Best adaptive match: K=0.6, MODE=w60 (F1=0.691, clamp=35.3%)
+
+## LODO (Leave-One-Day-Out) Validation
+- **Fixed LODO F1**: 0.664
+- **Adaptive LODO F1**: 0.684
+- **LODO Delta**: +0.020
+
+## Bootstrap Confidence Intervals
+- **In-sample Î”F1**: +0.028 (95% CI: [-0.003, +0.067])
+  - Significant? **No**
+- **LODO Î”F1**: +0.020 (95% CI: [-0.009, +0.058])
+  - Significant? **No**
+
+> **Significance Note**: With N=9 days, the CI is expected to be wide. "Not significant" is the likely honest label even for a real win. A claim rests on directional victory + LODO consistency + Step-A mechanism evidence.
