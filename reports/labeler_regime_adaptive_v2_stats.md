@@ -45,4 +45,6 @@ We define the BCE loss positive class weight dynamically based on the ratio of b
 1. `mamba_env.py` has been updated to use `self.h_bars_tolerance = 25`.
 2. `train_mamba_rl.py` has been updated to use `pos_weight = torch.tensor([13.33])`.
 
-The spacing histogram `spacing_histogram.png` has been attached to the workspace for visual verification.
+The spacing histogram below visually verifies the distribution over the 604 days.
+
+![Spacing Distribution Histogram](file:///C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/spacing_histogram.png)
