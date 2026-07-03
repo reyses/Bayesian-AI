@@ -65,14 +65,16 @@ class MambaRLTradingEnv:
         
         # Load AI Picks for Oracle
         self.ai_picks = self._load_ai_picks(atlas_root, days)
-        self.h_bars_tolerance = 30  # Derived ~10% of median turn spacing (299.20 bars)
+        self.h_bars_tolerance = 25  # Derived ~10% of median turn spacing (299.20 bars)
 
     def _load_ai_picks(self, atlas_root, days):
         queue = []
+        self.covered_days_set = set()
         for day in days:
             day_hyphen = day.replace('_', '-')
             picks_path = os.path.join(atlas_root, '..', 'ai_cusp_picks', f'ai_picks_{day_hyphen}_multi.json')
             if os.path.exists(picks_path):
+                self.covered_days_set.add(day)
                 with open(picks_path, 'r') as f:
                     data = json.load(f)
                     if 'trades' in data:
@@ -107,12 +109,12 @@ class MambaRLTradingEnv:
             while len(self.state_queue) < self.seq_len:
                 bar_state = next(self.iterator)
                 if bar_state.v2_vector is not None:
-                    if not np.isnan(bar_state.v2_vector).any():
-                        self.current_bar = bar_state
-                        self._enqueue_bar_state(bar_state)
-                        self.warmup_cleared = True
-                    elif self.warmup_cleared:
-                        raise RuntimeError(f"Mid-session NaN detected at {bar_state.timestamp} after warm-up cleared.")
+                    # L5 1D features will naturally be NaN for intraday sessions.
+                    # We fill NaNs with 0 to prevent the entire session from being dropped.
+                    bar_state.v2_vector = np.nan_to_num(bar_state.v2_vector, nan=0.0)
+                    self.current_bar = bar_state
+                    self._enqueue_bar_state(bar_state)
+                    self.warmup_cleared = True
         except StopIteration:
             raise ValueError(f"Dataset exhausted. No valid non-NaN bars found to satisfy seq_len={self.seq_len}.")
             
@@ -213,7 +215,8 @@ class MambaRLTradingEnv:
         ts = self.current_bar.timestamp
         
         # 1. Oracle calculations
-        is_label_covered = True # The AI Cusp Picks dataset actively labels the entire 22h session (gaps = explicitly FLAT)
+        day_str_underscores = self.current_day_str.replace('-', '_') if self.current_day_str else ""
+        is_label_covered = day_str_underscores in getattr(self, 'covered_days_set', set())
         turn_imminent = 0.0
         c_t = 0.0 # Mocked per instructions
         
@@ -326,11 +329,8 @@ class MambaRLTradingEnv:
                 bar_state = next(self.iterator)
                 if bar_state.v2_vector is None:
                     continue
-                if not np.isnan(bar_state.v2_vector).any():
-                    break
-                # If we get here, it's a NaN
-                if self.warmup_cleared:
-                    raise RuntimeError(f"Mid-session NaN detected at {bar_state.timestamp} after warm-up cleared.")
+                bar_state.v2_vector = np.nan_to_num(bar_state.v2_vector, nan=0.0)
+                break
         except StopIteration:
             done = True
             info['exhausted'] = True
@@ -339,16 +339,13 @@ class MambaRLTradingEnv:
         self.current_bar = bar_state
         self._enqueue_bar_state(bar_state)
             
-            # Check 22:00 Session Boundary Reset (Decoupled from 'done')
-            ts = pd.to_datetime(bar_state.timestamp, unit='s', utc=True)
-            ct = ts.tz_convert('US/Central')
-            session_day = ct.date() if ct.hour >= 17 else (ct - pd.Timedelta(days=1)).date()
-            if self.last_session_day is not None and self.last_session_day != session_day:
-                info['session_reset'] = True
-            self.last_session_day = session_day
-
-        except StopIteration:
-            done = True
+        # Check 22:00 Session Boundary Reset (Decoupled from 'done')
+        ts = pd.to_datetime(bar_state.timestamp, unit='s', utc=True)
+        ct = ts.tz_convert('US/Central')
+        session_day = ct.date() if ct.hour >= 17 else (ct - pd.Timedelta(days=1)).date()
+        if self.last_session_day is not None and self.last_session_day != session_day:
+            info['session_reset'] = True
+        self.last_session_day = session_day
             
         next_state = self._get_observation() if not done else None
         
