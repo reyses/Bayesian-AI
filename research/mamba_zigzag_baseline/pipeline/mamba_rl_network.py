@@ -85,10 +85,10 @@ class MambaRLTradingNetwork(nn.Module):
         # V2 Grid provides 416 features per timeframe sequence.
         self.grid_flat_dim = 8 * 52  # 416
         
-        # 2. Macro Sub-Encoder (5 TFs * 52 features)
-        # Tensor is 260 dim
+        # 2. Macro Sub-Encoder (5 TFs * 52 features + 1 validity mask)
+        # Tensor is 261 dim
         self.macro_encoder = nn.Sequential(
-            nn.Linear(260, 64),
+            nn.Linear(261, 64),
             nn.SiLU(),
             nn.Linear(64, 32)
         )

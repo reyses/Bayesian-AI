@@ -98,11 +98,16 @@ class ForwardPassSystem:
 
         # Pre-extract V2 vector matrix (n × 185) in canonical FEATURE_NAMES order
         # Missing cols → 0 (warmup). Defends against schema drift.
-        v2_matrix = np.zeros((self._n, N_FEATURES), dtype=np.float32)
+        v2_matrix = np.zeros((self._n, N_FEATURES + 1), dtype=np.float32)
         feat_cols = set(feats.columns)
         for j, name in enumerate(FEATURE_NAMES):
             if name in feat_cols:
                 v2_matrix[:, j] = feats[name].values.astype(np.float32)
+        
+        # Add validity mask for macro layers (1 if valid, 0 if NaN)
+        is_nan = np.isnan(v2_matrix[:, :N_FEATURES]).any(axis=1)
+        v2_matrix[:, N_FEATURES] = (~is_nan).astype(np.float32)
+        np.nan_to_num(v2_matrix, nan=0.0, posinf=0.0, neginf=0.0, copy=False)
         self._v2_matrix = v2_matrix
         # Segment labels are non-causal (see research/Regression segments/project.md).
         # Never load stage*_segments_* into the forward pass.

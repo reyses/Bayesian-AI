@@ -135,9 +135,9 @@ def _ldist_group_stats(bar_ts: int, c: np.ndarray, x: np.ndarray, tf: str) -> di
             out[p + 'kurtosis'] = m4 / (m2 * m2) - 3.0
             out[p + 'outlier_pct'] = float(np.mean(np.abs(dev) > L5_OUTLIER_K * np.sqrt(m2)) * 100.0)
         else:
-            out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = np.nan
+            out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = 0.0
     else:
-        out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = np.nan
+        out[p + 'skew'] = out[p + 'kurtosis'] = out[p + 'outlier_pct'] = 0.0
 
     # level = OLS fitted value at bar end (x=0) over (x, close); intercept a = ȳ - slope·x̄.
     if n >= 2:

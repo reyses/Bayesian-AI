@@ -165,16 +165,28 @@ def train_mamba_rl():
 
             v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day = state
             
-            v2_grid_t = torch.nan_to_num(torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            l0_feature_t = torch.nan_to_num(torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            ledger_state_t = torch.nan_to_num(torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            macro_tensor_t = torch.nan_to_num(torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), 0)
+            v2_grid_t = torch.nan_to_num(torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+            l0_feature_t = torch.nan_to_num(torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+            ledger_state_t = torch.nan_to_num(torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+            macro_tensor_t = torch.nan_to_num(torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+            time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
 
+            if torch.isnan(v2_grid_t).any() or torch.isinf(v2_grid_t).any() or v2_grid_t.abs().max() > 1e10:
+                print("v2_grid_t contains invalid values:", v2_grid_t.abs().max())
+            if torch.isnan(macro_tensor_t).any() or torch.isinf(macro_tensor_t).any() or macro_tensor_t.abs().max() > 1e10:
+                print("macro_tensor_t contains invalid values:", macro_tensor_t.abs().max())
+                
             # Forward pass explicitly tracks hidden_states
             entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             
-            is_flat = ledger_state[0, -1, 0] == 0.0
+            if torch.isnan(entry_logits).any():
+                print("entry_logits NaN detected! Inputs:")
+                print("v2_grid_t max:", v2_grid_t.abs().max().item())
+                print("macro_tensor_t max:", macro_tensor_t.abs().max().item())
+                sys.exit(1)
+            
+            # ledger_state is [seq_len, 4]
+            is_flat = ledger_state[-1, 0] == 0.0
             if is_flat:
                 probs = torch.softmax(entry_logits, dim=-1)
                 dist = torch.distributions.Categorical(probs)
@@ -200,12 +212,12 @@ def train_mamba_rl():
             
             if not done and next_state is not None:
                 with torch.no_grad():
-                    n_v2_t = torch.nan_to_num(torch.tensor(next_state[0], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    n_l0_t = torch.nan_to_num(torch.tensor(next_state[1], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    n_ledg_t = torch.nan_to_num(torch.tensor(next_state[2], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    n_macro_t = torch.nan_to_num(torch.tensor(next_state[3], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    n_tod_t = torch.nan_to_num(torch.tensor(next_state[4], dtype=torch.float32).unsqueeze(0).to(device), 0)
-                    _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
+                    n_v2_t = torch.nan_to_num(torch.tensor(next_state[0], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+                    n_l0_t = torch.nan_to_num(torch.tensor(next_state[1], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+                    n_ledg_t = torch.nan_to_num(torch.tensor(next_state[2], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+                    n_macro_t = torch.nan_to_num(torch.tensor(next_state[3], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+                    n_tod_t = torch.nan_to_num(torch.tensor(next_state[4], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
+                    _, _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
             else:
                 next_value = torch.tensor([[0.0]], device=device)
 
@@ -278,4 +290,17 @@ def train_mamba_rl():
     print(f"Training fully complete! Total Duration: {time.time() - training_start_time:.2f}s")
 
 if __name__ == "__main__":
+    import os
+    if os.name == 'nt':
+        print("Detected Windows! Auto-respawning in WSL GPU environment...")
+        import subprocess
+        import sys
+        try:
+            # Use wsl to run the .venv_wsl python environment
+            subprocess.run(["wsl", ".venv_wsl/bin/python", sys.argv[0]] + sys.argv[1:], check=True)
+            sys.exit(0)
+        except Exception as e:
+            print("Failed to auto-respawn in WSL:", e)
+            print("Falling back to Windows CPU training...")
+    
     train_mamba_rl()

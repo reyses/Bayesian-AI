@@ -85,11 +85,11 @@ def evaluate_mamba_rl(num_null_seeds=20):
         while not done:
             v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day = state
             
-            v2_grid_t = torch.nan_to_num(torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            l0_feature_t = torch.nan_to_num(torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            ledger_state_t = torch.nan_to_num(torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            macro_tensor_t = torch.nan_to_num(torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device), 0)
-            time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), 0)
+            v2_grid_t = torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device)
+            l0_feature_t = torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device)
+            ledger_state_t = torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device)
+            macro_tensor_t = torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device)
+            time_of_day_t = torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device)
 
             entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             

@@ -109,12 +109,9 @@ class MambaRLTradingEnv:
             while len(self.state_queue) < self.seq_len:
                 bar_state = next(self.iterator)
                 if bar_state.v2_vector is not None:
-                    # L5 1D features will naturally be NaN for intraday sessions.
-                    # We fill NaNs with 0 to prevent the entire session from being dropped.
-                    bar_state.v2_vector = np.nan_to_num(bar_state.v2_vector, nan=0.0)
                     self.current_bar = bar_state
                     self._enqueue_bar_state(bar_state)
-                    self.warmup_cleared = True
+            self.warmup_cleared = True
         except StopIteration:
             raise ValueError(f"Dataset exhausted. No valid non-NaN bars found to satisfy seq_len={self.seq_len}.")
             
@@ -137,6 +134,9 @@ class MambaRLTradingEnv:
         assert macro_labels == macro_tfs, f"Macro labels mismatch! Expected {macro_tfs}, got {macro_labels}"
         
         macro = grid[0, macro_indices, :].flatten()
+        # Append the validity mask (the last element of v2_vector)
+        validity_mask = bar_state.v2_vector[-1]
+        macro = np.append(macro, validity_mask)
         self.macro_queue.append(macro)
         
         # Compute Time of Day (Exchange Local Time)
@@ -329,7 +329,6 @@ class MambaRLTradingEnv:
                 bar_state = next(self.iterator)
                 if bar_state.v2_vector is None:
                     continue
-                bar_state.v2_vector = np.nan_to_num(bar_state.v2_vector, nan=0.0)
                 break
         except StopIteration:
             done = True
