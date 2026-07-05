@@ -12,6 +12,11 @@ import sys
 import time
 import datetime
 import psutil
+try:
+    import torch._inductor.config
+    torch._inductor.config.layout_optimization = False
+except ImportError:
+    pass
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
@@ -119,6 +124,14 @@ def train_mamba_rl():
                     logger.info(f"Old checkpoint loaded with strict=False. Missing: {missing}, Unexpected: {unexpected}")
             except Exception as e:
                 logger.warning(f"Failed to load old checkpoint due to size mismatch: {e}")
+                
+    if sys.platform != "win32" and device.type == 'cuda':
+        try:
+            model = torch.compile(model)
+            logger.info("torch.compile applied successfully.")
+        except Exception as e:
+            logger.warning(f"torch.compile failed: {e}")
+            
     reporter = TelemetryReporter("Mamba_RL_PPO")
     from epoch_summary import plot_epoch_summary, plot_learning_curve
 
@@ -127,6 +140,13 @@ def train_mamba_rl():
     gamma = 0.99
     global_step = 0
     history_rewards, history_mean_pnls, history_mean_entropies = [], [], []
+    
+    # Preallocate pinned memory buffers (O(1) H2D transfer per step)
+    pinned_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device='cpu').pin_memory()
+    gpu_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device=device)
+    
+    next_pinned_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device='cpu').pin_memory()
+    next_gpu_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device=device)
     
     training_start_time = time.time()
 
@@ -165,25 +185,28 @@ def train_mamba_rl():
 
             v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day = state
             
-            v2_grid_t = torch.nan_to_num(torch.tensor(v2_grid, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-            l0_feature_t = torch.nan_to_num(torch.tensor(l0_feature, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-            ledger_state_t = torch.nan_to_num(torch.tensor(ledger_state, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-            macro_tensor_t = torch.nan_to_num(torch.tensor(macro_tensor, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-            time_of_day_t = torch.nan_to_num(torch.tensor(time_of_day, dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-
-            if torch.isnan(v2_grid_t).any() or torch.isinf(v2_grid_t).any() or v2_grid_t.abs().max() > 1e10:
-                print("v2_grid_t contains invalid values:", v2_grid_t.abs().max())
-            if torch.isnan(macro_tensor_t).any() or torch.isinf(macro_tensor_t).any() or macro_tensor_t.abs().max() > 1e10:
-                print("macro_tensor_t contains invalid values:", macro_tensor_t.abs().max())
-                
-            # Forward pass explicitly tracks hidden_states
-            entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
+            # 1. Extract only the last timestep (L=1)
+            v2_last = v2_grid[:, -1, :].reshape(-1) # 416
+            l0_last = l0_feature[-1, :] # 1
+            ledger_last = ledger_state[-1, :] # 4
+            macro_last = macro_tensor[-1, :] # 260
+            tod_last = time_of_day[-1, :] # 4
             
-            if torch.isnan(entry_logits).any():
-                print("entry_logits NaN detected! Inputs:")
-                print("v2_grid_t max:", v2_grid_t.abs().max().item())
-                print("macro_tensor_t max:", macro_tensor_t.abs().max().item())
-                sys.exit(1)
+            # 2. Pack and transfer O(1)
+            packed_np = np.concatenate([v2_last, l0_last, ledger_last, macro_last, tod_last])
+            pinned_buffer[0, 0].copy_(torch.from_numpy(packed_np))
+            gpu_buffer.copy_(pinned_buffer, non_blocking=True)
+            
+            # 3. Unpack on GPU
+            v2_grid_t = gpu_buffer[:, :, :416].view(1, 1, 8, 52).permute(0, 2, 1, 3) # [1, 8, 1, 52]
+            l0_feature_t = gpu_buffer[:, :, 416:417]
+            ledger_state_t = gpu_buffer[:, :, 417:421]
+            macro_tensor_t = gpu_buffer[:, :, 421:682]
+            time_of_day_t = gpu_buffer[:, :, 682:686]
+            
+            # Forward pass explicitly tracks hidden_states with autocast
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             
             # ledger_state is [seq_len, 4]
             is_flat = ledger_state[-1, 0] == 0.0
@@ -212,12 +235,24 @@ def train_mamba_rl():
             
             if not done and next_state is not None:
                 with torch.no_grad():
-                    n_v2_t = torch.nan_to_num(torch.tensor(next_state[0], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-                    n_l0_t = torch.nan_to_num(torch.tensor(next_state[1], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-                    n_ledg_t = torch.nan_to_num(torch.tensor(next_state[2], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-                    n_macro_t = torch.nan_to_num(torch.tensor(next_state[3], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-                    n_tod_t = torch.nan_to_num(torch.tensor(next_state[4], dtype=torch.float32).unsqueeze(0).to(device), nan=0.0, posinf=0.0, neginf=0.0)
-                    _, _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
+                    n_v2_last = next_state[0][:, -1, :].reshape(-1)
+                    n_l0_last = next_state[1][-1, :]
+                    n_ledger_last = next_state[2][-1, :]
+                    n_macro_last = next_state[3][-1, :]
+                    n_tod_last = next_state[4][-1, :]
+                    
+                    n_packed = np.concatenate([n_v2_last, n_l0_last, n_ledger_last, n_macro_last, n_tod_last])
+                    next_pinned_buffer[0, 0].copy_(torch.from_numpy(n_packed))
+                    next_gpu_buffer.copy_(next_pinned_buffer, non_blocking=True)
+                    
+                    n_v2_t = next_gpu_buffer[:, :, :416].view(1, 1, 8, 52).permute(0, 2, 1, 3)
+                    n_l0_t = next_gpu_buffer[:, :, 416:417]
+                    n_ledg_t = next_gpu_buffer[:, :, 417:421]
+                    n_macro_t = next_gpu_buffer[:, :, 421:682]
+                    n_tod_t = next_gpu_buffer[:, :, 682:686]
+                    
+                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                        _, _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
             else:
                 next_value = torch.tensor([[0.0]], device=device)
 
@@ -233,7 +268,8 @@ def train_mamba_rl():
                 pos_weight = torch.tensor([10.40], device=device, dtype=torch.float32) # Derived from turn bar vs non-turn bar ratio
                 bce_loss = F.binary_cross_entropy_with_logits(exit_logits.squeeze(-1), target_t, pos_weight=pos_weight)
 
-            step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
+            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
             window_loss += step_loss
             window_steps += 1
             
@@ -247,8 +283,16 @@ def train_mamba_rl():
                 optimizer.zero_grad()
                 
                 # Detach hidden states strictly at window boundaries!
-                if hidden_states is not None:
-                    hidden_states = [h.detach() if h is not None else None for h in hidden_states]
+                # Detach hidden states for next TBPTT window
+                detached_states = []
+                for h in hidden_states:
+                    if h is None:
+                        detached_states.append(None)
+                    elif isinstance(h, tuple):
+                        detached_states.append((h[0].detach(), h[1].detach()))
+                    else:
+                        detached_states.append(h.detach())
+                hidden_states = detached_states
                     
                 window_loss = 0.0
                 window_steps = 0

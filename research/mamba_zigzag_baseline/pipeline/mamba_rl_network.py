@@ -5,8 +5,17 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Hardcoding to Pure-PyTorch Mamba block since Triton is unavailable on Windows
-MAMBA_AVAILABLE = False
+# Try to import official mamba-ssm
+try:
+    from mamba_ssm import Mamba
+    try:
+        from mamba_ssm.utils.generation import InferenceParams
+    except ImportError:
+        # Fallback if InferenceParams moved
+        pass
+    MAMBA_AVAILABLE = False # FORCED for torch.compile compatibility
+except ImportError:
+    MAMBA_AVAILABLE = False
 
 class PureMambaBlock(nn.Module):
     """A minimal pure-PyTorch implementation of the Mamba block."""
@@ -34,20 +43,27 @@ class PureMambaBlock(nn.Module):
         self.D = nn.Parameter(torch.ones(self.d_inner))
         self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
         
+    @torch.compiler.disable
+    def _run_conv1d(self, x_m, L):
+        x_m = x_m.transpose(1, 2).contiguous()
+        x_m = self.conv1d(x_m)[:, :, :L]
+        x_m = x_m.transpose(1, 2).contiguous()
+        return x_m
+
     def forward(self, x, h=None):
         B, L, D = x.shape
         x_and_res = self.in_proj(x)
         x_m, res = x_and_res.split(self.d_inner, dim=-1)
         
-        x_m = x_m.transpose(1, 2)
-        x_m = self.conv1d(x_m)[:, :, :L]
-        x_m = x_m.transpose(1, 2)
+        x_m = self._run_conv1d(x_m, L)
         x_m = F.silu(x_m)
         
         x_proj_out = self.x_proj(x_m)
         dt, B_param, C_param = torch.split(x_proj_out, [self.dt_proj.in_features, self.d_state, self.d_state], dim=-1)
         
-        dt = F.softplus(self.dt_proj(dt))
+        dt = F.softplus(self.dt_proj(dt)).contiguous()
+        B_param = B_param.contiguous()
+        C_param = C_param.contiguous()
         A = -torch.exp(self.A_log)
         
         if h is None:
@@ -104,7 +120,7 @@ class MambaRLTradingNetwork(nn.Module):
         self.layers = nn.ModuleList()
         for _ in range(2):
             if MAMBA_AVAILABLE:
-                pass
+                self.layers.append(Mamba(d_model=mamba_d_model, d_state=16, d_conv=4, expand=2))
             else:
                 self.layers.append(PureMambaBlock(d_model=mamba_d_model, d_state=16, d_conv=4, expand=2))
                 
@@ -157,8 +173,30 @@ class MambaRLTradingNetwork(nn.Module):
             hidden_states = [None] * len(self.layers)
             
         for i, layer in enumerate(self.layers):
-            x, h = layer(x, hidden_states[i])
-            next_hidden_states.append(h)
+            if MAMBA_AVAILABLE and isinstance(layer, Mamba):
+                if hidden_states[i] is None:
+                    # Initialize states for Mamba step: conv_state and ssm_state
+                    conv_state = torch.zeros(batch_size, getattr(layer, 'd_inner', layer.config.d_inner if hasattr(layer, 'config') else 0), getattr(layer, 'd_conv', layer.config.d_conv if hasattr(layer, 'config') else 0), device=x.device, dtype=x.dtype)
+                    ssm_state = torch.zeros(batch_size, getattr(layer, 'd_state', layer.config.d_state if hasattr(layer, 'config') else 16), getattr(layer, 'd_inner', layer.config.d_inner if hasattr(layer, 'config') else 0), device=x.device, dtype=x.dtype)
+                    # Note: ssm_state shape is (B, d_state, d_inner) in mamba_ssm step? Wait, no, it's (B, d_inner, d_state) usually, let's just let mamba_ssm handle it if we use InferenceParams.
+                    # Wait, InferenceParams API is cleaner. 
+                    # Actually, we can just use layer.step directly if we match shapes.
+                    # From mamba_ssm code: ssm_state is (B, d_inner, d_state)
+                    ssm_state = torch.zeros(batch_size, getattr(layer, 'd_inner', layer.config.d_inner if hasattr(layer, 'config') else 0), getattr(layer, 'd_state', layer.config.d_state if hasattr(layer, 'config') else 16), device=x.device, dtype=x.dtype)
+                    h = (conv_state, ssm_state)
+                else:
+                    h = hidden_states[i]
+                
+                if seq_len == 1:
+                    x, conv_state, ssm_state = layer.step(x, h[0], h[1])
+                    h = (conv_state, ssm_state)
+                else:
+                    x = layer(x)
+                    h = None
+                next_hidden_states.append(h)
+            else:
+                x, h = layer(x, hidden_states[i])
+                next_hidden_states.append(h)
                 
         x = self.norm(x)
         
