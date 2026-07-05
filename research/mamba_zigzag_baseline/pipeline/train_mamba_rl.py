@@ -15,6 +15,8 @@ import psutil
 try:
     import torch._inductor.config
     torch._inductor.config.layout_optimization = False
+    torch._inductor.config.compile_threads = 1
+    torch._inductor.config.fx_graph_cache = True
 except ImportError:
     pass
 
@@ -104,10 +106,13 @@ def train_mamba_rl():
 
     model = MambaRLTradingNetwork().to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    start_epoch = 0
 
     if os.path.exists("mamba_rl_checkpoint.pth"):
         checkpoint = torch.load("mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
         if 'model' in checkpoint and 'optimizer' in checkpoint:
+            if 'epoch' in checkpoint:
+                start_epoch = checkpoint['epoch'] + 1
             try:
                 missing, unexpected = model.load_state_dict(checkpoint['model'], strict=False)
                 if missing or unexpected:
@@ -127,8 +132,8 @@ def train_mamba_rl():
                 
     if sys.platform != "win32" and device.type == 'cuda':
         try:
-            model = torch.compile(model)
-            logger.info("torch.compile applied successfully.")
+            model = torch.compile(model, mode="reduce-overhead")
+            logger.info("torch.compile applied successfully with reduce-overhead.")
         except Exception as e:
             logger.warning(f"torch.compile failed: {e}")
             
@@ -150,7 +155,7 @@ def train_mamba_rl():
     
     training_start_time = time.time()
 
-    for epoch in range(total_epochs):
+    for epoch in range(start_epoch, total_epochs):
         epoch_start_time = time.time()
         
         if hasattr(env, 'update_curriculum_state'):
@@ -206,6 +211,8 @@ def train_mamba_rl():
             
             # Forward pass explicitly tracks hidden_states with autocast
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                if hasattr(torch.compiler, 'cudagraph_mark_step_begin'):
+                    torch.compiler.cudagraph_mark_step_begin()
                 entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
             
             # ledger_state is [seq_len, 4]
@@ -322,7 +329,7 @@ def train_mamba_rl():
         plot_epoch_summary(epoch, epoch_trades)
         plot_learning_curve(history_rewards, history_mean_pnls, history_mean_entropies)
         
-        checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
+        checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
         torch.save(checkpoint_data, "mamba_rl_checkpoint.pth")
         torch.save(checkpoint_data, f"mamba_rl_checkpoint_ep{epoch}.pth")
         

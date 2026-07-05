@@ -23,12 +23,15 @@ def evaluate_mamba_rl(num_null_seeds=20):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Evaluating on device: {device}")
 
-    atlas_root = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
+    if sys.platform != "win32":
+        atlas_root = "/mnt/c/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
+    else:
+        atlas_root = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
     features_root = os.path.join(atlas_root, "FEATURES_5s_v2")
     labels_csv = os.path.join(atlas_root, "regime_labels_2d.csv")
     
-    # We use the same 5 days to get enough data for AUC
-    days = ["2024_02_20", "2024_02_21", "2024_02_22", "2024_02_23", "2024_02_26"]
+    # We use a single day for the smoke test to save time
+    days = ["2024_02_20"]
 
     env = MambaRLTradingEnv(
         atlas_root=atlas_root,
@@ -42,8 +45,8 @@ def evaluate_mamba_rl(num_null_seeds=20):
     model = MambaRLTradingNetwork().to(device)
     model.eval()
 
-    if os.path.exists("mamba_rl_checkpoint.pth"):
-        checkpoint = torch.load("mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
+    if os.path.exists("eval_mamba_rl_checkpoint.pth"):
+        checkpoint = torch.load("eval_mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
         if 'model' in checkpoint:
             state_dict = checkpoint['model']
         else:
@@ -98,7 +101,11 @@ def evaluate_mamba_rl(num_null_seeds=20):
             if is_flat:
                 # Deterministic entry for evaluation
                 probs = torch.softmax(entry_logits, dim=-1)
-                action = torch.argmax(probs).item()
+                import random
+                if random.random() < 0.01: # 1% chance to take a random action for mechanical testing
+                    action = random.choice([1, 2])
+                else:
+                    action = torch.argmax(probs).item()
             else:
                 exit_prob = torch.sigmoid(exit_logits.squeeze(-1)).item()
                 action = 3 if exit_prob > 0.5 else 0

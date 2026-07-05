@@ -58,6 +58,7 @@ class MambaRLTradingEnv:
         self.last_hour_equity = 0.0
         
         self.exit_suite = default_exit_suite()
+
         
         # V2 Reward Policy
         self.reward_config = RewardConfig()
@@ -218,7 +219,7 @@ class MambaRLTradingEnv:
         day_str_underscores = self.current_day_str.replace('-', '_') if self.current_day_str else ""
         is_label_covered = day_str_underscores in getattr(self, 'covered_days_set', set())
         turn_imminent = 0.0
-        c_t = 0.0 # Mocked per instructions
+        c_t = 1.0 # Mocked to 1.0 for V2 Reward to penalize missed trades
         
         # Prune old trades (older than 1 hour)
         while self.ai_picks and self.ai_picks[0]['exit_ts'] < ts - 3600:
@@ -322,6 +323,54 @@ class MambaRLTradingEnv:
                 
             self.last_hour_ts = self.current_bar.timestamp
             self.last_hour_equity = total_equity
+
+        # V2 Reward computation
+        # Hindsight variables needed for compute_reward:
+        # c_t, is_label_covered, swing_id, is_qualifying, predicted_dir, actual_dir
+        # captured_vol_norm, remaining_extent_vol_norm, time_in_trade_bars, sigma_ticks
+        
+        # We need to construct hindsight from info
+        hindsight = {
+            'c_t': info.get('c_t', 0.0),
+            'is_label_covered': info.get('is_label_covered', False),
+        }
+        
+        if action_type == 'EXIT':
+            # We just closed a trade
+            trade_pnl = info.get('actual_pnl', 0.0)
+            duration = info.get('duration', 1.0)
+            
+            oracle_trade = None
+            if hasattr(self.ledger, 'last_removed_position') and self.ledger.last_removed_position is not None:
+                oracle_trade = self.ledger.last_removed_position['extras'].get('oracle_trade', None)
+            
+            # Simple fallback defaults
+            hindsight['predicted_dir'] = 1 if info.get('direction', 'long') == 'long' else -1
+            hindsight['actual_dir'] = hindsight['predicted_dir'] if trade_pnl > 0 else -hindsight['predicted_dir']
+            hindsight['is_qualifying'] = True
+            
+            # Use fixed 10-tick sigma for normalization
+            hindsight['sigma_ticks'] = 10.0 
+            hindsight['captured_vol_norm'] = (trade_pnl / self.ledger.tick_value) / hindsight['sigma_ticks']
+            hindsight['remaining_extent_vol_norm'] = 0.0
+            hindsight['time_in_trade_bars'] = duration
+            
+            if oracle_trade:
+                hindsight['swing_id'] = oracle_trade.get('id', 'unknown')
+        
+        elif action_type == 'FLAT_STEP':
+            hindsight['swing_id'] = 's_flat'
+            hindsight['is_qualifying'] = True
+        
+        v2_score = self.reward_policy.compute_reward(None, action_type, hindsight)
+        
+        # Add components to info (evaluate_mamba_rl expects reward_capture, etc.)
+        for k, v in v2_score.items():
+            if k != 'total':
+                info[f'reward_{k}'] = v
+                
+        # V2 total directly overrides the reward logic except we can keep the hourly penalty
+        reward += v2_score['total']
 
         # 5. Advance Time
         try:
