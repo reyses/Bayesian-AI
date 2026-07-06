@@ -152,8 +152,13 @@ def train_mamba_rl():
                 
     if not args.no_compile and sys.platform != "win32" and device.type == 'cuda':
         try:
-            model = torch.compile(model, mode="reduce-overhead")
-            logger.info("torch.compile applied successfully with reduce-overhead.")
+            # Default mode (inductor fusion, NO CUDA graphs). reduce-overhead crashes
+            # here: cudagraph output tensors (hidden_states, value) are carried across
+            # steps and get overwritten when the same graph re-runs for the no_grad
+            # next_value forward ("accessing tensor output of CUDAGraphs that has been
+            # overwritten by a subsequent run").
+            model = torch.compile(model)
+            logger.info("torch.compile applied (default mode; cudagraphs unsafe with carried hidden state).")
         except Exception as e:
             logger.warning(f"torch.compile failed: {e}")
             
