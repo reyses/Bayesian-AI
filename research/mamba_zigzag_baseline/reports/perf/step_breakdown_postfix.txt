@@ -1,0 +1,15 @@
+Per-step wall-time breakdown (600 steps measured, warmup 50, compile=False, sync-bracketed)
+TOTAL: 10.46s wall -> 57.34 bars/sec (17.4 ms/bar)
+
+component            total_s    ms/bar   share   calls
+backward_opt            3.92      6.53   37.5%     600
+forward_action          2.36      3.93   22.6%     600
+forward_value           2.22      3.70   21.2%     600
+loss_entropy            1.25      2.09   12.0%     600
+sample_sync             0.38      0.64    3.7%     600
+env_step_total          0.20      0.34    1.9%     600
+  env_getobs            0.11      0.18    1.0%     600
+pack_h2d                0.09      0.15    0.9%     600
+  env_enqueue           0.04      0.07    0.4%     600
+  env_rest              0.03      0.06    0.3%     600
+  env_iter              0.02      0.03    0.2%     600

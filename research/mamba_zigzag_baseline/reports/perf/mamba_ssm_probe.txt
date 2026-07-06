@@ -1,0 +1,14 @@
+[1] NOTE: stubbed transformers.generation.GreedySearchDecoderOnlyOutput (removed in transformers 5.x; unused by the kernels)
+[1] NOTE: stubbed transformers.generation.SampleDecoderOnlyOutput (removed in transformers 5.x; unused by the kernels)
+[1] mamba_ssm import: OK
+[1] causal_conv1d import: OK
+[2] Mamba.step() output requires_grad = True (input requires_grad = True)
+[2] step() backward ran; input grad norm = None
+[3] Mamba parallel forward (L=500) output requires_grad = True
+[3] parallel backward OK; input grad norm = 14.4011
+
+[3] Speed (no_grad, ms per call, one block):
+    PureMambaBlock L=1 python scan :    0.850 ms
+    Mamba.step() fused L=1        :    0.613 ms
+    PureMambaBlock L=500 scan     :  113.826 ms
+    Mamba parallel L=500 fused    :    0.454 ms
