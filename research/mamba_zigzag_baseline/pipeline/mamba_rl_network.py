@@ -13,7 +13,12 @@ try:
     except ImportError:
         # Fallback if InferenceParams moved
         pass
-    MAMBA_AVAILABLE = False # FORCED for torch.compile compatibility
+    # FORCED off for the TRAINING path: Mamba.step() uses inference-only fused
+    # kernels (causal_conv1d_update / selective_state_update) with NO autograd
+    # backward, so the per-bar L=1 recurrence would sever the TBPTT gradient
+    # through the carried hidden state. Evidence: tools/perf_mamba_ssm_probe.py.
+    # PureMambaBlock's explicit scan is differentiable; keep it for training.
+    MAMBA_AVAILABLE = False
 except ImportError:
     MAMBA_AVAILABLE = False
 
