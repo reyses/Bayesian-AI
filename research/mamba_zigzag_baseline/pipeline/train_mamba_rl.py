@@ -90,7 +90,10 @@ def train_mamba_rl():
     parser.add_argument('--seed', type=int, default=None, help='Fix torch/numpy RNG (reproducible parity runs)')
     parser.add_argument('--max-steps', type=int, default=0, help='Stop after N env steps (0 = full run); skips plots/saves')
     parser.add_argument('--no-checkpoint', action='store_true', help='Skip checkpoint load/save (fresh deterministic init)')
-    parser.add_argument('--no-compile', action='store_true', help='Disable torch.compile (op-level profiling)')
+    parser.add_argument('--compile', action='store_true',
+                        help='Opt-in torch.compile (default mode). OFF by default: measured '
+                             'loss drift vs eager is ~1.5e-3 (bf16 refusion), over the 1e-4 '
+                             'parity gate; speed win ~+20%% (49-53 -> 63 bars/s same-sweep).')
     parser.add_argument('--profile-dir', type=str, default='', help='Write torch.profiler op tables to this dir')
     parser.add_argument('--profile-steps', type=int, default=500, help='Steps inside the profiler window')
     parser.add_argument('--loss-dump', type=str, default='', help='Write per-step loss/action/reward .npz for parity checks')
@@ -150,7 +153,7 @@ def train_mamba_rl():
             except Exception as e:
                 logger.warning(f"Failed to load old checkpoint due to size mismatch: {e}")
                 
-    if not args.no_compile and sys.platform != "win32" and device.type == 'cuda':
+    if args.compile and sys.platform != "win32" and device.type == 'cuda':
         try:
             # Default mode (inductor fusion, NO CUDA graphs). reduce-overhead crashes
             # here: cudagraph output tensors (hidden_states, value) are carried across
