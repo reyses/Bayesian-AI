@@ -178,12 +178,19 @@ An epoch = 5 days × ~16.5k bars ≈ 83k bars → 200 epochs ≈ 16.6M bars.
 | config | bars/s (clean box, n=4) | 200-epoch × 5-day estimate |
 |---|---|---|
 | two-forward eager | 50.9 | ~90 h |
-| **deferred bootstrap (current HEAD)** | **65.8** | **~70 h** |
+| deferred bootstrap (default HEAD) | 62.9–65.8 | ~70 h |
+| **deferred + `--compile` (warm cache)** | **90.5** | **~51 h** |
 | needed for target | ~380 | <12 h |
+
+`--compile` stacking measured 2026-07-06 (`ab_compile_deferred.txt`): eager
+62.94 vs compile 90.49 warm-cache mean, **+44%**, non-overlapping. First
+run after a cache invalidation reads low (~55) because the backward graph
+compiles at the first TBPTT boundary inside the timed window — one-time
+cost. Compile stays opt-in: ~1.5e-3 bf16 loss drift vs eager (fails the
+1e-4 gate; actions were identical over the 1300-step check on the
+two-forward build — drift not yet re-characterized on the deferred build).
 
 Remaining wall time is structural: backward through the 500-step unrolled
 python-scan graph + one batch-1 forward per bar. The sequence-window
-restructure (>10×, training-math change, needs approval) is the only
-identified path across the remaining ~6×. Un-measured smaller levers:
-`--compile` stacked on the deferral (was +20% pre-deferral, costs 1.5e-3
-loss drift), and re-running the profiler now that the loop shape changed.
+restructure (>10×, training-math change, needs approval) remains the only
+identified path across the remaining ~4×.
