@@ -79,7 +79,20 @@ def train_mamba_rl():
     parser.add_argument('--num_episodes', type=int, default=10)
     parser.add_argument('--days', type=str, default="2024_02_20,2024_02_21,2024_02_22,2024_02_23,2024_02_26")
     parser.add_argument('--tbptt_window', type=int, default=500, help="N parameter for Fixed-Window TBPTT")
+    # --- Perf instrumentation (runtime-only; all inert unless explicitly passed) ---
+    parser.add_argument('--seed', type=int, default=None, help='Fix torch/numpy RNG (reproducible parity runs)')
+    parser.add_argument('--max-steps', type=int, default=0, help='Stop after N env steps (0 = full run); skips plots/saves')
+    parser.add_argument('--no-checkpoint', action='store_true', help='Skip checkpoint load/save (fresh deterministic init)')
+    parser.add_argument('--no-compile', action='store_true', help='Disable torch.compile (op-level profiling)')
+    parser.add_argument('--profile-dir', type=str, default='', help='Write torch.profiler op tables to this dir')
+    parser.add_argument('--profile-steps', type=int, default=500, help='Steps inside the profiler window')
+    parser.add_argument('--loss-dump', type=str, default='', help='Write per-step loss/action/reward .npz for parity checks')
+    parser.add_argument('--perf-warmup', type=int, default=300, help='Steps excluded from bars/sec timing (compile warmup)')
     args = parser.parse_args()
+
+    if args.seed is not None:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
 
     e_exit_preflight_ram(required_gb=1) # Pre-flight before allocating PyTorch/Env
 
@@ -108,7 +121,7 @@ def train_mamba_rl():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     start_epoch = 0
 
-    if os.path.exists("mamba_rl_checkpoint.pth"):
+    if not args.no_checkpoint and os.path.exists("mamba_rl_checkpoint.pth"):
         checkpoint = torch.load("mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
         if 'model' in checkpoint and 'optimizer' in checkpoint:
             if 'epoch' in checkpoint:
@@ -130,7 +143,7 @@ def train_mamba_rl():
             except Exception as e:
                 logger.warning(f"Failed to load old checkpoint due to size mismatch: {e}")
                 
-    if sys.platform != "win32" and device.type == 'cuda':
+    if not args.no_compile and sys.platform != "win32" and device.type == 'cuda':
         try:
             model = torch.compile(model, mode="reduce-overhead")
             logger.info("torch.compile applied successfully with reduce-overhead.")
@@ -152,8 +165,16 @@ def train_mamba_rl():
     
     next_pinned_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device='cpu').pin_memory()
     next_gpu_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device=device)
-    
+
     training_start_time = time.time()
+
+    # --- Perf instrumentation state (inert without flags) ---
+    perf_t0 = None
+    perf_step0 = 0
+    prof = None
+    prof_start_step = None
+    parity_losses, parity_actions, parity_rewards = [], [], []
+    stop_training = False
 
     for epoch in range(start_epoch, total_epochs):
         epoch_start_time = time.time()
@@ -266,7 +287,7 @@ def train_mamba_rl():
             log_prob = dist.log_prob(action)
             entropy = dist.entropy().mean()
             epoch_step_entropies.append(entropy.item())
-            
+
             # Use pluggable seam for loss
             bce_loss = None
             if not is_flat:
@@ -304,10 +325,43 @@ def train_mamba_rl():
                 window_loss = 0.0
                 window_steps = 0
             
+            if args.loss_dump:
+                parity_losses.append(float(step_loss.detach()))
+                parity_actions.append(int(action))
+                parity_rewards.append(float(reward))
+
             state = next_state
             step_count += 1
             global_step += 1
-            
+
+            # bars/sec timer starts after warmup (excludes compile/caching)
+            if perf_t0 is None and global_step >= args.perf_warmup:
+                perf_t0 = time.time()
+                perf_step0 = global_step
+
+            # torch.profiler window: [perf_warmup, perf_warmup + profile_steps)
+            if args.profile_dir:
+                if prof is None and prof_start_step is None and global_step >= args.perf_warmup:
+                    prof = torch.profiler.profile(
+                        activities=[torch.profiler.ProfilerActivity.CPU,
+                                    torch.profiler.ProfilerActivity.CUDA])
+                    prof.__enter__()
+                    prof_start_step = global_step
+                elif prof is not None and (global_step - prof_start_step) >= args.profile_steps:
+                    prof.__exit__(None, None, None)
+                    os.makedirs(args.profile_dir, exist_ok=True)
+                    ka = prof.key_averages()
+                    with open(os.path.join(args.profile_dir, 'top_ops_cuda.txt'), 'w') as f:
+                        f.write(ka.table(sort_by='cuda_time_total', row_limit=15))
+                    with open(os.path.join(args.profile_dir, 'top_ops_cpu.txt'), 'w') as f:
+                        f.write(ka.table(sort_by='cpu_time_total', row_limit=15))
+                    print(f"[PERF] Profiler tables written to {args.profile_dir}")
+                    prof = None
+
+            if args.max_steps and global_step >= args.max_steps:
+                stop_training = True
+                done = True
+
             if step_count % 100 == 0:
                 reporter.update(global_step, total_epochs * 80000,
                                 f"Ep {epoch}/{total_epochs} | Rwd: {episode_reward:.2f}")
@@ -321,23 +375,42 @@ def train_mamba_rl():
 
         epoch_end_time = time.time()
         print(f"Epoch {epoch} | Reward: {episode_reward:.2f} | Duration: {epoch_end_time - epoch_start_time:.2f}s")
-        
+
+        if stop_training:
+            break
+
         history_rewards.append(episode_reward)
         history_mean_pnls.append(np.mean([t['pnl'] for t in epoch_trades]) if epoch_trades else 0.0)
         history_mean_entropies.append(np.mean(epoch_step_entropies) if epoch_step_entropies else 0.0)
-        
+
         plot_epoch_summary(epoch, epoch_trades)
         plot_learning_curve(history_rewards, history_mean_pnls, history_mean_entropies)
-        
-        checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-        torch.save(checkpoint_data, "mamba_rl_checkpoint.pth")
-        torch.save(checkpoint_data, f"mamba_rl_checkpoint_ep{epoch}.pth")
-        
+
+        if not args.no_checkpoint:
+            checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
+            torch.save(checkpoint_data, "mamba_rl_checkpoint.pth")
+            torch.save(checkpoint_data, f"mamba_rl_checkpoint_ep{epoch}.pth")
+
         try:
             print(f"TELEGRAM_TRIGGER: epoch_{epoch}_summary.png and mamba_learning_curve.png are ready!")
         except Exception:
             pass
-            
+
+    if perf_t0 is not None:
+        perf_elapsed = time.time() - perf_t0
+        perf_bars = global_step - perf_step0
+        if perf_elapsed > 0 and perf_bars > 0:
+            print(f"[PERF] bars/sec = {perf_bars / perf_elapsed:.2f} "
+                  f"({perf_bars} bars in {perf_elapsed:.1f}s, warmup {args.perf_warmup} excluded)")
+
+    if args.loss_dump:
+        os.makedirs(os.path.dirname(args.loss_dump) or '.', exist_ok=True)
+        np.savez(args.loss_dump,
+                 losses=np.array(parity_losses, dtype=np.float64),
+                 actions=np.array(parity_actions, dtype=np.int64),
+                 rewards=np.array(parity_rewards, dtype=np.float64))
+        print(f"[PERF] Parity dump ({len(parity_losses)} steps) written to {args.loss_dump}")
+
     print(f"Training fully complete! Total Duration: {time.time() - training_start_time:.2f}s")
 
 if __name__ == "__main__":
