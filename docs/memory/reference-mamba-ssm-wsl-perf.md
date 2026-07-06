@@ -31,7 +31,11 @@ Measured 2026-07-05 on RTX 3060 / WSL2 / torch 2.6.0+cu124 (report:
   OneDrive-hosted repo); cost split = TBPTT-500 backward 32%, double forward
   38%, env CPU 16%, syncs 10%. Same-seed reruns are BITWISE deterministic —
   parity gates can demand exact equality.
-- 12h/200-epoch needs ~380 bars/s = only reachable via math changes:
-  reuse fwd(t+1) as next_value(t) (~1.6×) or sequence-window training on the
-  fused parallel scan (>10×). Both need Moises' approval. Related:
-  [[organize-research-folders]]
+- 12h/200-epoch needs ~380 bars/s. **next_value-reuse REJECTED 2026-07-06**:
+  bit-exact deferred-bootstrap variant (parity bitwise) measured NO wall gain
+  (ABAB n=4: 47.2 vs 45.3 bars/s, CI incl. 0) — the no_grad forward overlaps
+  env CPU behind the per-bar action.item() sync, already free. LESSON:
+  sync-bracketed breakdowns attribute WORK, not critical path — never project
+  wall speedups from them; only interleaved A/B counts. Only remaining lever:
+  sequence-window training on the fused parallel scan (>10×, math change,
+  needs Moises' approval). Related: [[organize-research-folders]]

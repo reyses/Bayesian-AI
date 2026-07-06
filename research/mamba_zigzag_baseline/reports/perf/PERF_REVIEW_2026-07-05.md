@@ -98,19 +98,30 @@ env.step CPU **2.66 → 0.34 ms/bar** (enqueue 1.24 → 0.07, getobs 1.12 →
   unrolled python-scan graph and (ii) two full forwards per bar at batch=1
   — both are *structural*, not overhead.
 
-## Two math-boundary options that reach the target (need approval)
+## Paths to the target — UPDATED 2026-07-06 after testing option 1
 
-1. **Reuse forward #1(t+1) as forward #2(t)** — `next_value(s_{t+1})` is
-   recomputed with grad at the next step anyway; values are numerically
-   identical except at the 1-in-500 window-boundary step (post-update
-   weights). Halves model compute → est. ~1.6×. Small, auditable change.
-2. **Sequence-window training via the fused parallel scan** — observations
-   don't depend on actions (only `ledger_state` does); a windowed
-   forward with the differentiable `selective_scan_fn` is **250×** faster on
-   the mamba trunk (0.454 vs 113.8 ms per 500 bars, measured). This is the
-   restructure the whitepaper's GPU-batched direction implies. Est. total
-   >10×; changes gradient/bootstrap semantics (off-policy `ledger_state`
-   within a window) — a real training-math change, not a tweak.
+1. **Reuse forward #1(t+1) as forward #2(t)** — **TESTED AND REJECTED.**
+   Implemented bit-exactly (deferred loss formation; explicit re-forward
+   kept only at window-close/episode-end so no optimizer step ever lands
+   behind a bootstrap): parity gate BITWISE PASS over 1299 steps. But the
+   interleaved ABAB speed test (n=4 each, `ab_deferred_forward.txt`) showed
+   **no gain**: two-forward 47.18 vs deferred 45.33 bars/s, Δ −1.85, CI
+   includes 0. Mechanism: the loop hard-syncs every bar at `action.item()`;
+   the no_grad forward's GPU work executes during the env.step CPU phase,
+   OFF the critical path — it was already free. Lesson recorded: the
+   sync-bracketed breakdown measures WORK per component, not critical-path
+   contribution; the 19% it charged to forward #2 did not translate to wall
+   time. Variant archived (`deferred_bootstrap_variant_py.txt`) — may be
+   worth re-testing on native Linux/non-OneDrive substrate where overlap
+   behavior differs. Reverted per one-change-at-a-time discipline.
+2. **Sequence-window training via the fused parallel scan** — now the ONLY
+   identified lever that reaches <12h. Observations don't depend on actions
+   (only `ledger_state` does); a windowed forward with the differentiable
+   `selective_scan_fn` is **250×** faster on the mamba trunk (0.454 vs
+   113.8 ms per 500 bars, measured), and it also removes the per-bar
+   `action.item()` sync structure that made option 1 moot. Est. total >10×;
+   changes gradient/bootstrap semantics (off-policy `ledger_state` within a
+   window) — a real training-math change requiring explicit approval.
 
 ## WSL install/tooling notes
 
