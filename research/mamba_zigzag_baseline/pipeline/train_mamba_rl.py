@@ -48,12 +48,17 @@ def e_exit_preflight_ram(required_gb=16):
         logger.error(f"[E-EXIT] RAM Pre-flight failed. Required {required_gb}GB, Available {available_gb:.2f}GB")
         sys.exit(88)
 
+_TOTAL_VRAM_BYTES = None
+
 def e_exit_vram_check(pct_limit=0.15, absolute_floor_mb=4000):
     """E-Exit VRAM Per-Step Watchdog"""
+    global _TOTAL_VRAM_BYTES
     if not torch.cuda.is_available():
         return False
     reserved = torch.cuda.memory_reserved(0)
-    total = torch.cuda.get_device_properties(0).total_memory
+    if _TOTAL_VRAM_BYTES is None:
+        _TOTAL_VRAM_BYTES = torch.cuda.get_device_properties(0).total_memory
+    total = _TOTAL_VRAM_BYTES
     headroom = total - reserved
     floor_bytes = absolute_floor_mb * 1024 * 1024
     pct_bytes = total * pct_limit
@@ -64,7 +69,9 @@ def e_exit_vram_check(pct_limit=0.15, absolute_floor_mb=4000):
     return False
 
 def a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, w_aux, device):
-    reward_tensor = torch.tensor([[reward]], device=device, dtype=torch.float32)
+    # torch.full embeds the scalar in the kernel launch (no pageable H2D memcpy).
+    # Must be a FRESH tensor each step: it lives in the TBPTT graph until backward.
+    reward_tensor = torch.full((1, 1), reward, device=device, dtype=torch.float32)
     td_target = reward_tensor + (gamma * next_value)
     advantage = td_target - value.detach()
     critic_loss = 0.5 * F.mse_loss(value, td_target)
@@ -166,6 +173,9 @@ def train_mamba_rl():
     next_pinned_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device='cpu').pin_memory()
     next_gpu_buffer = torch.zeros((1, 1, 686), dtype=torch.float32, device=device)
 
+    # Loop-invariant GPU constant (read-only in the graph, safe to hoist)
+    pos_weight_gpu = torch.tensor([10.40], device=device, dtype=torch.float32)  # Derived from turn bar vs non-turn bar ratio
+
     training_start_time = time.time()
 
     # --- Perf instrumentation state (inert without flags) ---
@@ -194,6 +204,7 @@ def train_mamba_rl():
         episode_reward = 0.0
         step_count = 0
         epoch_trades, epoch_step_entropies = [], []
+        entropy_buf = []  # detached GPU scalars; synced once per TBPTT window, not per step
         
         # TBPTT State Setup
         hidden_states = None
@@ -286,15 +297,16 @@ def train_mamba_rl():
 
             log_prob = dist.log_prob(action)
             entropy = dist.entropy().mean()
-            epoch_step_entropies.append(entropy.item())
+            # Defer the GPU->CPU sync: buffer detached entropies, flush at TBPTT boundary
+            entropy_buf.append(entropy.detach())
 
             # Use pluggable seam for loss
             bce_loss = None
             if not is_flat:
                 turn_target = info.get('turn_imminent', 0.0)
-                target_t = torch.tensor([1.0 if turn_target else 0.0], device=device, dtype=torch.float32)
-                pos_weight = torch.tensor([10.40], device=device, dtype=torch.float32) # Derived from turn bar vs non-turn bar ratio
-                bce_loss = F.binary_cross_entropy_with_logits(exit_logits.squeeze(-1), target_t, pos_weight=pos_weight)
+                # Fresh tensor per step (lives in the TBPTT graph); torch.full avoids the H2D memcpy
+                target_t = torch.full((1,), 1.0 if turn_target else 0.0, device=device, dtype=torch.float32)
+                bce_loss = F.binary_cross_entropy_with_logits(exit_logits.squeeze(-1), target_t, pos_weight=pos_weight_gpu)
 
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
                 step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
@@ -309,6 +321,11 @@ def train_mamba_rl():
                 torch.nn.utils.clip_grad_value_(model.parameters(), 1.0)
                 optimizer.step()
                 optimizer.zero_grad()
+
+                # Flush deferred entropies (one sync per window instead of per step)
+                if entropy_buf:
+                    epoch_step_entropies.extend(torch.stack(entropy_buf).cpu().tolist())
+                    entropy_buf.clear()
                 
                 # Detach hidden states strictly at window boundaries!
                 # Detach hidden states for next TBPTT window
@@ -372,6 +389,10 @@ def train_mamba_rl():
             del log_prob, entropy, step_loss
             if not done and next_state is not None:
                 del n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, next_value
+
+        if entropy_buf:
+            epoch_step_entropies.extend(torch.stack(entropy_buf).cpu().tolist())
+            entropy_buf.clear()
 
         epoch_end_time = time.time()
         print(f"Epoch {epoch} | Reward: {episode_reward:.2f} | Duration: {epoch_end_time - epoch_start_time:.2f}s")
