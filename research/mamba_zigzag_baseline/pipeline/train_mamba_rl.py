@@ -221,6 +221,12 @@ def train_mamba_rl():
         hidden_states = None
         window_loss = 0.0
         window_steps = 0
+        # One-step-deferred loss pieces: bar t's bootstrap V(s_{t+1}) is exactly the
+        # NEXT iteration's critic output (same weights/hidden/observation), so the
+        # dedicated no_grad re-forward is redundant except at window close / episode
+        # end. Bit-exact: no optimizer step or hidden detach ever lands between
+        # stash and consume (deferral is skipped on closing steps).
+        pending_loss = None
         
         optimizer.zero_grad()
 
@@ -257,7 +263,21 @@ def train_mamba_rl():
                 if hasattr(torch.compiler, 'cudagraph_mark_step_begin'):
                     torch.compiler.cudagraph_mark_step_begin()
                 entry_logits, exit_logits, value, hidden_states = model(v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t, hidden_states)
-            
+
+            # Complete the previous bar's deferred loss: this forward's critic output
+            # IS its bootstrap value (detached, as the no_grad re-forward's was).
+            if pending_loss is not None:
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                    step_loss = a2c_loss_seam(pending_loss['reward'], pending_loss['value'],
+                                              value.detach(), pending_loss['log_prob'],
+                                              pending_loss['entropy'], current_entropy_coef,
+                                              gamma, pending_loss['bce_loss'], 0.20, device)
+                window_loss += step_loss
+                window_steps += 1
+                pending_loss = None
+                if args.loss_dump:
+                    parity_losses.append(float(step_loss.detach()))
+
             # ledger_state is [seq_len, 4]
             is_flat = ledger_state[-1, 0] == 0.0
             if is_flat:
@@ -283,29 +303,6 @@ def train_mamba_rl():
                     'entry_ts': info['entry_ts'], 'exit_ts': info['exit_ts'], 'direction': info['direction']
                 })
             
-            if not done and next_state is not None:
-                with torch.no_grad():
-                    n_v2_last = next_state[0][:, -1, :].reshape(-1)
-                    n_l0_last = next_state[1][-1, :]
-                    n_ledger_last = next_state[2][-1, :]
-                    n_macro_last = next_state[3][-1, :]
-                    n_tod_last = next_state[4][-1, :]
-                    
-                    n_packed = np.concatenate([n_v2_last, n_l0_last, n_ledger_last, n_macro_last, n_tod_last])
-                    next_pinned_buffer[0, 0].copy_(torch.from_numpy(n_packed))
-                    next_gpu_buffer.copy_(next_pinned_buffer, non_blocking=True)
-                    
-                    n_v2_t = next_gpu_buffer[:, :, :416].view(1, 1, 8, 52).permute(0, 2, 1, 3)
-                    n_l0_t = next_gpu_buffer[:, :, 416:417]
-                    n_ledg_t = next_gpu_buffer[:, :, 417:421]
-                    n_macro_t = next_gpu_buffer[:, :, 421:682]
-                    n_tod_t = next_gpu_buffer[:, :, 682:686]
-                    
-                    with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
-                        _, _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
-            else:
-                next_value = torch.tensor([[0.0]], device=device)
-
             log_prob = dist.log_prob(action)
             entropy = dist.entropy().mean()
             # Defer the GPU->CPU sync: buffer detached entropies, flush at TBPTT boundary
@@ -319,11 +316,46 @@ def train_mamba_rl():
                 target_t = torch.full((1,), 1.0 if turn_target else 0.0, device=device, dtype=torch.float32)
                 bce_loss = F.binary_cross_entropy_with_logits(exit_logits.squeeze(-1), target_t, pos_weight=pos_weight_gpu)
 
-            with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
-                step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
-            window_loss += step_loss
-            window_steps += 1
-            
+            # This bar's loss needs V(s_{t+1}). Normally that is the NEXT iteration's
+            # forward (deferred path — saves the duplicate no_grad forward). It must be
+            # formed NOW only when (a) the window closes on this loss, because the
+            # optimizer step below would otherwise change the weights behind the
+            # bootstrap, or (b) the episode ends, where the bootstrap is zero.
+            will_close_window = (window_steps == args.tbptt_window - 1)
+            if done or next_state is None or will_close_window:
+                if not done and next_state is not None:
+                    with torch.no_grad():
+                        n_v2_last = next_state[0][:, -1, :].reshape(-1)
+                        n_l0_last = next_state[1][-1, :]
+                        n_ledger_last = next_state[2][-1, :]
+                        n_macro_last = next_state[3][-1, :]
+                        n_tod_last = next_state[4][-1, :]
+
+                        n_packed = np.concatenate([n_v2_last, n_l0_last, n_ledger_last, n_macro_last, n_tod_last])
+                        next_pinned_buffer[0, 0].copy_(torch.from_numpy(n_packed))
+                        next_gpu_buffer.copy_(next_pinned_buffer, non_blocking=True)
+
+                        n_v2_t = next_gpu_buffer[:, :, :416].view(1, 1, 8, 52).permute(0, 2, 1, 3)
+                        n_l0_t = next_gpu_buffer[:, :, 416:417]
+                        n_ledg_t = next_gpu_buffer[:, :, 417:421]
+                        n_macro_t = next_gpu_buffer[:, :, 421:682]
+                        n_tod_t = next_gpu_buffer[:, :, 682:686]
+
+                        with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                            _, _, next_value, _ = model(n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, hidden_states)
+                else:
+                    next_value = torch.tensor([[0.0]], device=device)
+
+                with torch.autocast(device_type=device.type, dtype=torch.bfloat16, enabled=(device.type == 'cuda')):
+                    step_loss = a2c_loss_seam(reward, value, next_value, log_prob, entropy, current_entropy_coef, gamma, bce_loss, 0.20, device)
+                window_loss += step_loss
+                window_steps += 1
+                if args.loss_dump:
+                    parity_losses.append(float(step_loss.detach()))
+            else:
+                pending_loss = {'reward': reward, 'value': value, 'log_prob': log_prob,
+                                'entropy': entropy, 'bce_loss': bce_loss}
+
             # --- FIXED-WINDOW TBPTT LOGIC ---
             # Also detaching at 22:00 UTC cross-day logic if env signals 'end_of_day' (mocked via done for now)
             if window_steps >= args.tbptt_window or done:
@@ -354,7 +386,8 @@ def train_mamba_rl():
                 window_steps = 0
             
             if args.loss_dump:
-                parity_losses.append(float(step_loss.detach()))
+                # losses are appended at their two formation sites (deferred-consume
+                # and eager); actions/rewards stay per-iteration and index-aligned
                 parity_actions.append(int(action))
                 parity_rewards.append(float(reward))
 
@@ -394,12 +427,12 @@ def train_mamba_rl():
                 reporter.update(global_step, total_epochs * 80000,
                                 f"Ep {epoch}/{total_epochs} | Rwd: {episode_reward:.2f}")
 
-            # Memory cleanup
+            # Memory cleanup (step_loss / n_* / next_value exist only on the eager
+            # loss path now; python rebinding handles them, pending_loss holds the
+            # deferred refs deliberately)
             del v2_grid_t, l0_feature_t, ledger_state_t, macro_tensor_t, time_of_day_t
             del entry_logits, exit_logits, value, dist, action
-            del log_prob, entropy, step_loss
-            if not done and next_state is not None:
-                del n_v2_t, n_l0_t, n_ledg_t, n_macro_t, n_tod_t, next_value
+            del log_prob, entropy
 
         if entropy_buf:
             epoch_step_entropies.extend(torch.stack(entropy_buf).cpu().tolist())
