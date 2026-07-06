@@ -71,8 +71,12 @@ class ForwardPassSystem:
                  features_root: str,
                  labels_csv: str,
                  tfs: Optional[list[str]] = None,
-                 layers: Optional[list[str]] = None):
+                 layers: Optional[list[str]] = None,
+                 build_v2_dict: bool = True):
         self.day = day
+        # When False, BarState.v2 is an empty dict (consumers that only read
+        # v2_vector, e.g. the Mamba RL env, skip 201 float()+dict inserts/bar)
+        self._build_v2_dict = build_v2_dict
         # Load V2 features (185 cols + timestamp). Anchor cadence = 5s.
         feats = load_features(days=[day], root=features_root, tfs=tfs, layers=layers, require_all=False)
         if feats.empty:
@@ -153,10 +157,11 @@ class ForwardPassSystem:
         is_5s_start = (self._ts5s[0] % 5 == 0) if len(self._ts5s) > 0 else False
         is_1m_start = (self._ts1m[0] % 60 == 0) if len(self._ts1m) > 0 else False
 
+        build_v2_dict = self._build_v2_dict
         for i in range(self._n):
             ts = int(ts_arr[i])
             v2_vec = self._v2_matrix[i]
-            v2_dict = {name: float(v2_vec[j]) for j, name in enumerate(FEATURE_NAMES)}
+            v2_dict = {name: float(v2_vec[j]) for j, name in enumerate(FEATURE_NAMES)} if build_v2_dict else {}
 
             # 5s OHLCV — searchsorted nearest <= search_ts
             search_ts_5s = ts - 5 if is_5s_start else ts
@@ -221,7 +226,8 @@ class MultiDayForwardPassSystem:
                  days: Optional[List[str]] = None,
                  start_date: Optional[str] = None,
                  end_date: Optional[str] = None,
-                 layers: Optional[List[str]] = None):
+                 layers: Optional[List[str]] = None,
+                 build_v2_dict: bool = True):
         if days is None:
             l0_dir = os.path.join(features_root, 'L0')
             files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
@@ -238,6 +244,7 @@ class MultiDayForwardPassSystem:
         self._atlas_root = atlas_root
         self._features_root = features_root
         self._labels_csv = labels_csv
+        self._build_v2_dict = build_v2_dict
         self._current_day: Optional[str] = None
 
     @property
@@ -254,7 +261,8 @@ class MultiDayForwardPassSystem:
                 ticker = ForwardPassSystem(day=day, atlas_root=self._atlas_root,
                                        features_root=self._features_root,
                                        labels_csv=self._labels_csv,
-                                       layers=self._layers)
+                                       layers=self._layers,
+                                       build_v2_dict=self._build_v2_dict)
             except FileNotFoundError as e:
                 import logging
                 logging.warning(f"Skipping {day}: {e}")

@@ -11,7 +11,7 @@ import pytz
 
 from core_v2.FPS.forward_pass_system import MultiDayForwardPassSystem
 from core_v2.ledger import Ledger
-from core_v2.features import assemble_v2_grid
+from core_v2.features import assemble_v2_grid, TF_HIERARCHY_V2
 from core_v2.exits import default_exit_suite
 from reward_env import RewardConfig, BetaRewardPolicy
 import json
@@ -29,7 +29,8 @@ class MambaRLTradingEnv:
             atlas_root=atlas_root,
             features_root=features_root,
             labels_csv=labels_csv,
-            days=days
+            days=days,
+            build_v2_dict=False  # RL path reads v2_vector only; skips 201 dict inserts/bar
         )
         self.target_pnl_per_trade = target_pnl_per_trade
         self.ledger = Ledger()
@@ -39,17 +40,35 @@ class MambaRLTradingEnv:
         
         # We need a small queue to build the sequence window
         self.state_queue = deque(maxlen=self.seq_len)
+        self.grid_queue = deque(maxlen=self.seq_len) # Assembled (8, 52) rows, one per bar
         self.l0_queue = deque(maxlen=self.seq_len)
         self.time_of_day_queue = deque(maxlen=self.seq_len) # Queue for the 4 Time-of-Day features
         self.macro_queue = deque(maxlen=self.seq_len) # Queue for the 200-dim macro tensors
+
+        # Macro slow-TF channel indices (hoisted out of the per-bar path).
+        # assemble_v2_grid puts channels in TF_HIERARCHY_V2 order.
+        self._macro_tfs = ['1D', '4h', '1h', '15m', '5m']
+        self._macro_indices = [TF_HIERARCHY_V2.index(tf) for tf in self._macro_tfs]
+        # Guard: prove these indices correspond to the exact labels requested
+        macro_labels = [TF_HIERARCHY_V2[i] for i in self._macro_indices]
+        assert macro_labels == self._macro_tfs, f"Macro labels mismatch! Expected {self._macro_tfs}, got {macro_labels}"
 
         # Calendar for Time-of-Day calculation
         self.cal = mcal.get_calendar('CME_Equity')
         self.current_schedule = None
         self.current_day_str = None
-        
+        # Per-ET-day cache: (expiry_epoch, open_epoch, close_epoch, total_duration)
+        # so the per-bar path is pure float math (pandas tz work happens once/day)
+        self._tod_cache_expiry = None
+        self._tod_open_epoch = None
+        self._tod_close_epoch = None
+        self._tod_total_duration = None
+
         # Session state for 22:00 reset
         self.last_session_day = None
+        # Cached session day + the epoch of the next 17:00 CT boundary
+        self._session_day_cached = None
+        self._session_boundary_epoch = None
         self.iterator = None
         self.current_bar = None
         
@@ -95,6 +114,7 @@ class MambaRLTradingEnv:
         self.iterator = iter(self.fps)
         self.ledger.clear()
         self.state_queue.clear()
+        self.grid_queue.clear()
         self.l0_queue.clear()
         self.time_of_day_queue.clear()
         self.macro_queue.clear()
@@ -102,7 +122,12 @@ class MambaRLTradingEnv:
         self.realized_pnl = 0.0
         self.last_hour_ts = None
         self.last_hour_equity = 0.0
-        
+
+        # Invalidate epoch-scoped caches: the iterator restarts at day 1, so
+        # timestamps jump backward and cached boundaries would go stale.
+        self._tod_cache_expiry = None
+        self._session_boundary_epoch = None
+
         self.warmup_cleared = False
         
         # Warmup: we need `seq_len` bars of valid features
@@ -121,71 +146,77 @@ class MambaRLTradingEnv:
     def _enqueue_bar_state(self, bar_state):
         self.state_queue.append(bar_state.v2_vector)
         self.l0_queue.append(bar_state.v2_vector[0:1])
-        
+
         # Extract Macro Tensor dynamically using explicitly requested slow TFs
         # assemble_v2_grid puts channels in TF_HIERARCHY_V2 order
         grid = assemble_v2_grid(np.array([bar_state.v2_vector], dtype=np.float32))
-        
-        macro_tfs = ['1D', '4h', '1h', '15m', '5m']
-        from core_v2.features import TF_HIERARCHY_V2
-        macro_indices = [TF_HIERARCHY_V2.index(tf) for tf in macro_tfs]
-        
-        # Guard: prove to the user that these indices correspond to the exact labels they requested
-        macro_labels = [TF_HIERARCHY_V2[i] for i in macro_indices]
-        assert macro_labels == macro_tfs, f"Macro labels mismatch! Expected {macro_tfs}, got {macro_labels}"
-        
-        macro = grid[0, macro_indices, :].flatten()
+        # Cache the assembled (8, 52) row so _get_observation doesn't re-assemble the window
+        self.grid_queue.append(grid[0])
+
+        macro = grid[0, self._macro_indices, :].flatten()
         # Append the validity mask (the last element of v2_vector)
         validity_mask = bar_state.v2_vector[-1]
         macro = np.append(macro, validity_mask)
         self.macro_queue.append(macro)
         
-        # Compute Time of Day (Exchange Local Time)
-        ts = pd.to_datetime(bar_state.timestamp, unit='s', utc=True)
-        ts_et = ts.tz_convert('US/Eastern')
-        day_str = ts_et.strftime('%Y-%m-%d')
-        
-        if self.current_day_str != day_str:
-            self.current_day_str = day_str
-            schedule = self.cal.schedule(start_date=day_str, end_date=day_str)
-            if not schedule.empty:
-                self.current_schedule = {
-                    'open': schedule.iloc[0]['market_open'].tz_convert('US/Eastern'),
-                    'close': schedule.iloc[0]['market_close'].tz_convert('US/Eastern')
-                }
+        # Compute Time of Day (Exchange Local Time).
+        # Pandas tz work runs once per ET day; the per-bar path is pure float math
+        # on epoch seconds. Bit-identical: all operands are whole seconds, so
+        # float subtraction equals Timedelta.total_seconds() exactly.
+        ts_epoch = bar_state.timestamp
+        if self._tod_cache_expiry is None or ts_epoch >= self._tod_cache_expiry:
+            ts = pd.to_datetime(ts_epoch, unit='s', utc=True)
+            ts_et = ts.tz_convert('US/Eastern')
+            day_str = ts_et.strftime('%Y-%m-%d')
+
+            if self.current_day_str != day_str:
+                self.current_day_str = day_str
+                schedule = self.cal.schedule(start_date=day_str, end_date=day_str)
+                if not schedule.empty:
+                    self.current_schedule = {
+                        'open': schedule.iloc[0]['market_open'].tz_convert('US/Eastern'),
+                        'close': schedule.iloc[0]['market_close'].tz_convert('US/Eastern')
+                    }
+                else:
+                    self.current_schedule = None
+
+            # Next ET wall-clock midnight (DST-safe: midnight always exists in ET)
+            next_midnight = pd.Timestamp(ts_et.date() + datetime.timedelta(days=1)).tz_localize('US/Eastern')
+            self._tod_cache_expiry = next_midnight.timestamp()
+            if self.current_schedule:
+                self._tod_open_epoch = self.current_schedule['open'].timestamp()
+                self._tod_close_epoch = self.current_schedule['close'].timestamp()
+                self._tod_total_duration = self._tod_close_epoch - self._tod_open_epoch
             else:
-                self.current_schedule = None
-                
-        if self.current_schedule:
-            open_ts = self.current_schedule['open']
-            close_ts = self.current_schedule['close']
-            
+                self._tod_open_epoch = None
+
+        if self._tod_open_epoch is not None:
             # Bound the current time to the session (pre-market/after-hours handling)
-            curr = ts_et
-            if curr < open_ts: curr = open_ts
-            if curr > close_ts: curr = close_ts
-            
-            total_duration = (close_ts - open_ts).total_seconds()
+            curr = ts_epoch
+            if curr < self._tod_open_epoch: curr = self._tod_open_epoch
+            if curr > self._tod_close_epoch: curr = self._tod_close_epoch
+
+            total_duration = self._tod_total_duration
             if total_duration > 0:
-                sec_since_open = (curr - open_ts).total_seconds()
-                sec_until_close = (close_ts - curr).total_seconds()
-                
+                sec_since_open = curr - self._tod_open_epoch
+                sec_until_close = self._tod_close_epoch - curr
+
                 f = sec_since_open / total_duration
                 tso = sec_since_open / 86400.0 # Normalized (approximate scale)
                 tuc = sec_until_close / 86400.0
-                
+
                 tod_vec = [tso, tuc, np.sin(2 * np.pi * f), np.cos(2 * np.pi * f)]
             else:
                 tod_vec = [0.0, 0.0, 0.0, 1.0]
         else:
             # Fallback for weekend/holiday trading
             tod_vec = [0.0, 0.0, 0.0, 1.0]
-            
+
         self.time_of_day_queue.append(np.array(tod_vec, dtype=np.float32))
 
     def _get_observation(self):
-        raw_matrix = np.array(self.state_queue, dtype=np.float32)
-        grid = assemble_v2_grid(raw_matrix)
+        # Stack per-bar cached rows (bit-identical to re-assembling the window)
+        grid = np.stack(self.grid_queue, axis=0)
         grid = grid.transpose((1, 0, 2))
         
         l0_feature = np.array(self.l0_queue, dtype=np.float32)
@@ -388,9 +419,17 @@ class MambaRLTradingEnv:
         self._enqueue_bar_state(bar_state)
             
         # Check 22:00 Session Boundary Reset (Decoupled from 'done')
-        ts = pd.to_datetime(bar_state.timestamp, unit='s', utc=True)
-        ct = ts.tz_convert('US/Central')
-        session_day = ct.date() if ct.hour >= 17 else (ct - pd.Timedelta(days=1)).date()
+        # Pandas tz math runs once per session; between boundaries the cached
+        # session_day is exact (ts is monotonic within an epoch; reset() invalidates).
+        ts_epoch = bar_state.timestamp
+        if self._session_boundary_epoch is None or ts_epoch >= self._session_boundary_epoch:
+            ts = pd.to_datetime(ts_epoch, unit='s', utc=True)
+            ct = ts.tz_convert('US/Central')
+            self._session_day_cached = ct.date() if ct.hour >= 17 else (ct - pd.Timedelta(days=1)).date()
+            # Next boundary: 17:00 CT wall clock of the following day (DST-safe)
+            next_b = pd.Timestamp(self._session_day_cached + datetime.timedelta(days=1)).replace(hour=17).tz_localize('US/Central')
+            self._session_boundary_epoch = next_b.timestamp()
+        session_day = self._session_day_cached
         if self.last_session_day is not None and self.last_session_day != session_day:
             info['session_reset'] = True
         self.last_session_day = session_day
