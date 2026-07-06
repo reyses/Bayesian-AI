@@ -92,34 +92,50 @@ env.step CPU **2.66 → 0.34 ms/bar** (enqueue 1.24 → 0.07, getobs 1.12 →
 
 ## Acceptance vs target
 
-- 200-epoch, 5-day run at the final eager rate: **~29–34 h** — target <12h
-  **NOT met** within "runtime only".
-- The remaining 70% of wall time is (i) backward through the 500-step
-  unrolled python-scan graph and (ii) two full forwards per bar at batch=1
-  — both are *structural*, not overhead.
+- Target <12h **NOT met** within "runtime only": clean-box HEAD (with
+  deferred bootstrap) is 65.8 bars/s vs ~380 needed → ~70 h for
+  200 epochs × 5 days (see corrected Bottom line; the original "~29–34 h"
+  figure here was an arithmetic error).
+- The remaining wall time is backward through the 500-step unrolled
+  python-scan graph + one batch-1 forward per bar — *structural*, not
+  overhead.
 
-## Paths to the target — UPDATED 2026-07-06 after testing option 1
+## ⚠ Measurement contamination notice (added 2026-07-06)
 
-1. **Reuse forward #1(t+1) as forward #2(t)** — **TESTED AND REJECTED.**
+The user confirmed ANOTHER training run (with checkpoint saving) shared the
+GPU during the 2026-07-05 measurements. Consequences:
+
+- **All parity/bitwise gates stand** — contention changes timing, never
+  computed values. The crash diagnosis, autograd verdicts, and ABI findings
+  also stand.
+- **All 07-05 bars/s figures are contaminated** (explains the 49–63 spread
+  on identical code). Clean-box (verified idle via nvidia-smi) re-measurement
+  below supersedes them.
+- The first deferred-bootstrap rejection was a **contamination
+  false-negative** (see next section).
+- The user's concurrent run was NOT corrupted by this session: every
+  measurement run used `--no-checkpoint` (no checkpoint read/write) and
+  broke before the plot/save block; all transient file states carried
+  bitwise-identical training math.
+
+## Paths to the target — UPDATED 2026-07-06 (clean box)
+
+1. **Reuse forward #1(t+1) as forward #2(t) — WORKS. REINSTATED (7e8c4620).**
    Implemented bit-exactly (deferred loss formation; explicit re-forward
    kept only at window-close/episode-end so no optimizer step ever lands
-   behind a bootstrap): parity gate BITWISE PASS over 1299 steps. But the
-   interleaved ABAB speed test (n=4 each, `ab_deferred_forward.txt`) showed
-   **no gain**: two-forward 47.18 vs deferred 45.33 bars/s, Δ −1.85, CI
-   includes 0. Mechanism: the loop hard-syncs every bar at `action.item()`;
-   the no_grad forward's GPU work executes during the env.step CPU phase,
-   OFF the critical path — it was already free. Lesson recorded: the
-   sync-bracketed breakdown measures WORK per component, not critical-path
-   contribution; the 19% it charged to forward #2 did not translate to wall
-   time. Variant archived (`deferred_bootstrap_variant_py.txt`) — may be
-   worth re-testing on native Linux/non-OneDrive substrate where overlap
-   behavior differs. Reverted per one-change-at-a-time discipline.
-2. **Sequence-window training via the fused parallel scan** — now the ONLY
-   identified lever that reaches <12h. Observations don't depend on actions
-   (only `ledger_state` does); a windowed forward with the differentiable
-   `selective_scan_fn` is **250×** faster on the mamba trunk (0.454 vs
-   113.8 ms per 500 bars, measured), and it also removes the per-bar
-   `action.item()` sync structure that made option 1 moot. Est. total >10×;
+   behind a bootstrap): parity gate BITWISE PASS over 1299 steps, re-verified
+   on the reinstated file. Clean-box interleaved ABAB (n=4 each,
+   `ab_deferred_quiet.txt`): two-forward 50.90 vs deferred **65.81 bars/s —
+   +29%**, non-overlapping distributions (min B 57.5 > max A 54.0, rank-sum
+   p≈0.014). The earlier same-day rejection (Δ −1.85 in
+   `ab_deferred_forward.txt`) was measured against a concurrent GPU tenant —
+   false negative — and its "the no_grad forward was free behind the
+   action.item() sync" mechanism story is **retracted**.
+2. **Sequence-window training via the fused parallel scan** — still the only
+   lever that reaches <12h (deferral gets ~70h, see below). Observations
+   don't depend on actions (only `ledger_state` does); a windowed forward
+   with the differentiable `selective_scan_fn` is **250×** faster on the
+   mamba trunk (0.454 vs 113.8 ms per 500 bars, measured). Est. total >10×;
    changes gradient/bootstrap semantics (off-policy `ledger_state` within a
    window) — a real training-math change requiring explicit approval.
 
@@ -135,11 +151,10 @@ env.step CPU **2.66 → 0.34 ms/bar** (enqueue 1.24 → 0.07, getobs 1.12 →
 - CUPTI dead under this WSL driver → no CUDA-time profiler tables, no
   nsight; host-side + cuda-event timing only.
 - `torch._inductor.config.compile_threads = 1` in train_mamba_rl.py header
-  serializes inductor compilation (minutes of warmup); Windows-compat
-  leftover, safe to lift under WSL (not changed this session — header
-  config, one line, flag for next touch).
+  serialized inductor compilation (minutes of warmup); Windows-compat
+  leftover — now gated to `os.name == 'nt'` (commit d5c671ec).
 
-## Controlled final speed sweep (serial, back-to-back, same day, seed 42, 2000 bars)
+## Controlled final speed sweep (2026-07-05 — CONTAMINATED, superseded)
 
 | state | bars/s |
 |---|---|
@@ -147,22 +162,28 @@ env.step CPU **2.66 → 0.34 ms/bar** (enqueue 1.24 → 0.07, getobs 1.12 →
 | all fixes, eager (sweep run 1 / run 2) | 49.38 / 52.88 |
 | all fixes + compile default (`--compile`) | 63.37 |
 
-**Honest read on totals** (per the repo's own CI discipline): single-run
-bars/s swings ±10% on this box (eager measurements across the session:
-49.4, 53.2, 57.5, 60.85). The env-fix and sync-fix gains are proven at the
-COMPONENT level (env 2.66→0.34 ms/bar; per-step syncs/memcpys removed per
-profiler counts) but the end-to-end delta is within single-run noise — do
-not quote "X% faster overall" from these runs without an N≥10 A/B. The
-compile win (+~20% same-sweep) is the one lever with a visible total effect,
-and it costs a 1.5e-3 loss drift.
+All 07-05 totals above were measured while a concurrent training run shared
+the GPU (user-confirmed) — treat them as unreliable. The env-fix and
+sync-fix gains remain proven at the COMPONENT level (env 2.66→0.34 ms/bar;
+per-step syncs/memcpys removed per profiler counts). The compile figure
+(+~20%, at a 1.5e-3 loss-drift cost) predates the deferred-bootstrap
+reinstatement and hasn't been re-measured on a quiet box or on top of the
+deferral.
 
-## Bottom line
+## Bottom line (corrected 2026-07-06 — clean box, concurrent run absent)
 
-Eager end-to-end: **~50–61 bars/s** → a 200-epoch × 5-day run is **~29–34 h**,
-not <12 h. The remaining wall time is structural: TBPTT-500 backward
-(~37%), two full batch-1 forwards per bar (~44%). No runtime-only change
-moves those; the two math-boundary options above (next_value reuse ~1.6×,
-sequence-window training on the fused parallel scan >10×) are the paths to
-the target and both need explicit approval since they alter training
-semantics (boundary-step bootstrap freshness / within-window ledger_state
-off-policy drift respectively).
+An epoch = 5 days × ~16.5k bars ≈ 83k bars → 200 epochs ≈ 16.6M bars.
+(The original "~29–34 h" line was an arithmetic error; retracted.)
+
+| config | bars/s (clean box, n=4) | 200-epoch × 5-day estimate |
+|---|---|---|
+| two-forward eager | 50.9 | ~90 h |
+| **deferred bootstrap (current HEAD)** | **65.8** | **~70 h** |
+| needed for target | ~380 | <12 h |
+
+Remaining wall time is structural: backward through the 500-step unrolled
+python-scan graph + one batch-1 forward per bar. The sequence-window
+restructure (>10×, training-math change, needs approval) is the only
+identified path across the remaining ~6×. Un-measured smaller levers:
+`--compile` stacked on the deferral (was +20% pre-deferral, costs 1.5e-3
+loss drift), and re-running the profiler now that the loop shape changed.

@@ -31,11 +31,16 @@ Measured 2026-07-05 on RTX 3060 / WSL2 / torch 2.6.0+cu124 (report:
   OneDrive-hosted repo); cost split = TBPTT-500 backward 32%, double forward
   38%, env CPU 16%, syncs 10%. Same-seed reruns are BITWISE deterministic —
   parity gates can demand exact equality.
-- 12h/200-epoch needs ~380 bars/s. **next_value-reuse REJECTED 2026-07-06**:
-  bit-exact deferred-bootstrap variant (parity bitwise) measured NO wall gain
-  (ABAB n=4: 47.2 vs 45.3 bars/s, CI incl. 0) — the no_grad forward overlaps
-  env CPU behind the per-bar action.item() sync, already free. LESSON:
-  sync-bracketed breakdowns attribute WORK, not critical path — never project
-  wall speedups from them; only interleaved A/B counts. Only remaining lever:
-  sequence-window training on the fused parallel scan (>10×, math change,
-  needs Moises' approval). Related: [[organize-research-folders]]
+- 12h/200-epoch needs ~380 bars/s (200 epochs × 5 days ≈ 16.6M bars).
+  **next_value-reuse (deferred bootstrap) REINSTATED 2026-07-06, +29%**:
+  clean-box ABAB n=4 = two-forward 50.9 vs deferred 65.8 bars/s
+  (non-overlapping, p≈0.014); parity BITWISE. It was first rejected on an
+  A/B that ran against a CONCURRENT user training run — contamination
+  false-negative. **LESSONS (hard-won)**: (1) check `nvidia-smi` for GPU
+  co-tenants BEFORE any benchmark — a negative A/B under contention is a
+  false-negative machine; (2) sync-bracketed breakdowns attribute WORK, not
+  critical path; only interleaved A/B on a quiet box counts; (3) contention
+  skews timing only — bitwise/parity results survive it. Deferred HEAD ≈
+  70h per 200-epoch run; only remaining <12h lever = sequence-window
+  training on the fused parallel scan (>10×, math change, needs Moises'
+  approval). Related: [[organize-research-folders]]
