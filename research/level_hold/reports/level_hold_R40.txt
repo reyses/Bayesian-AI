@@ -1,0 +1,27 @@
+2024_02_20: 5909 resolved touches
+2024_02_21: 5359 resolved touches
+2024_02_22: 5891 resolved touches
+2024_02_23: 4769 resolved touches
+2024_02_26: 5138 resolved touches
+2024_02_27: 4590 resolved touches
+
+barriers R=C=40.0 ticks (RW null = 0.500), tol=4.0 ticks; dropped: {'unresolved': 4623, 'ambiguous': 57}
+family        kind          N  P(hold)            95% CI
+fast_band     real       8172    0.552   [0.541, 0.563]
+fast_band     phantom    6561    0.553   [0.541, 0.565]
+slow_band     real       4897    0.543   [0.529, 0.556]
+slow_band     phantom    4534    0.543   [0.529, 0.558]
+fast_extreme  real       1115    0.550   [0.520, 0.579]
+fast_extreme  phantom    2559    0.574   [0.554, 0.593]
+slow_extreme  real       1678    0.591   [0.567, 0.614]
+slow_extreme  phantom    2140    0.555   [0.534, 0.576]
+
+per-day (all families pooled):
+  2024_02_20: real 0.537 (n=2884) | phantom 0.554 (n=3025)
+  2024_02_21: real 0.606 (n=2668) | phantom 0.591 (n=2691)
+  2024_02_22: real 0.507 (n=2928) | phantom 0.499 (n=2963)
+  2024_02_23: real 0.591 (n=2389) | phantom 0.599 (n=2380)
+  2024_02_26: real 0.532 (n=2601) | phantom 0.556 (n=2537)
+  2024_02_27: real 0.555 (n=2392) | phantom 0.532 (n=2198)
+time-to-resolution (real): median 5.2 min, 75% within 11.9 min (n=15862)
+time-to-resolution (phantom): median 5.0 min, 75% within 11.2 min (n=15794)
