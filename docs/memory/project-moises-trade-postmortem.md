@@ -23,13 +23,27 @@ not a new signal.
 **Four failures → four system functions** (curriculum north star):
 1. micro-entry w/o macro context → multi-scale state rep (stage-0 scope)
 2. panic exit on noise → conviction must be state-based, not P&L-based (reward design)
-3. late breakdown recognition → structure-break detector (fresh-zone stat is the seed)
+3. late breakdown recognition → structure-break detector (needs a real feature — see below)
 4. forgot the exit → mechanical execution = free alpha, machine gets it by existing
 
 **Measured context** (research/level_hold/, 63 days): micro-reversion strong but
 unconditional (any line "bounces" 60%); level long-memory REAL but weak (+1-2pp on
-pivot location, p=.007); touch history whisper (fresh zones break +2-4pp more); ai-picks
-125s turn label UNLEARNABLE (model AUC 0.500, supervised null-anchored +0.036). →
+pivot location, p=.007); ai-picks 125s turn label UNLEARNABLE (model AUC 0.500,
+supervised null-anchored +0.036).
+
+**Methodology lesson (2026-07-07, mid-session correction from Moises)**: touch-history
+"prior visit count" was first measured with a FIXED-TICK zone (8 ticks) → showed fresh
+zones break +2-4pp more. Moises corrected: his NT8 bands are 2-SIGMA, i.e. the zone must
+scale with the band's OWN current sigma, not a constant ("it's not a set amount").
+Redone sigma-relative (zone = k*sigma(t)): the +2-4pp claim did NOT survive — flat at
+0.5σ/1σ (buckets ~31-35% / ~20-22%, no dose-response); a reversed, opposite-sign,
+small-N (217) effect appeared at 2σ but is exploratory only (found on the 3rd width
+tried — multiple-comparisons risk — not trusted without a dedicated pre-committed
+test). **RETRACTED the +2-4pp finding.** Net: prior-visit count as a scalar heuristic
+shows no reliable trend once the zone is properly volatility-relative. General
+lesson: any future probe using a "how near" tolerance must scale it by the local band
+sigma, never a fixed tick/point constant — Moises will catch it if it doesn't.
+
 Stage-0 detector = calibrated COMBINER of weak signals (macro position, level memory,
-touch history, curvature phase), judged by confidence-tier separation, not single AUC.
-Related: [[reference-mamba-ssm-wsl-perf]]
+curvature phase — NOT touch-count, that one didn't hold up), judged by confidence-tier
+separation, not single AUC. Related: [[reference-mamba-ssm-wsl-perf]]
