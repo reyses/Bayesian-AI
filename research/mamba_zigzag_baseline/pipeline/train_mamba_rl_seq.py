@@ -240,7 +240,7 @@ def train():
                     t = obs_idx
                     # Anti-scramble guard: prefetched stream must track the env
                     assert ts_day[t] == env.current_bar.timestamp, \
-                        f"prefetch misalignment at idx {t}"
+                        f"prefetch misalignment at idx {t}: ts_day={float(ts_day[t])} env={env.current_bar.timestamp}"
                     # The 4 action-dependent floats are the only per-bar write
                     ledger_pin.copy_(torch.from_numpy(env.ledger_state_vec()))
                     ledger_day[t].copy_(ledger_pin, non_blocking=True)
@@ -256,12 +256,21 @@ def train():
                     if is_flat:
                         dist = torch.distributions.Categorical(
                             probs=torch.softmax(e_l, dim=-1))
+                        action = int(dist.sample().item())
+                        env_action = action  # 0=HOLD,1=LONG,2=SHORT map directly
                     else:
                         dist = torch.distributions.Bernoulli(
                             probs=torch.sigmoid(x_l.squeeze(-1)))
-                    action = int(dist.sample().item())
+                        action = int(dist.sample().item())  # 0=hold,1=exit (recorded for learning)
+                        # BUGFIX: the env exits a LONG only on action 2/3 and a
+                        # SHORT only on action 1/3; the raw Bernoulli 1 no-ops a
+                        # long, leaving it open until the 15:55 guard rail (the
+                        # "1 trade, 16459-bar hold" pathology). SCRATCH (3) exits
+                        # any direction. Record the policy action {0,1} for the
+                        # learning pass; send the env its exit code.
+                        env_action = 3 if action == 1 else 0
 
-                    next_state, reward, done, info = env.step(action, 0.0)
+                    next_state, reward, done, info = env.step(env_action, 0.0)
 
                     acts.append(action)
                     rews.append(reward)
@@ -370,7 +379,8 @@ if __name__ == "__main__":
         print("Detected Windows! Auto-respawning in WSL GPU environment...")
         import subprocess
         try:
-            subprocess.run(["wsl", ".venv_wsl/bin/python", sys.argv[0]] + sys.argv[1:],
+            script_path = sys.argv[0].replace('\\', '/')
+            subprocess.run(["wsl", ".venv_wsl/bin/python", script_path] + sys.argv[1:],
                            check=True)
             sys.exit(0)
         except Exception as e:
