@@ -47,3 +47,16 @@ sigma, never a fixed tick/point constant — Moises will catch it if it doesn't.
 Stage-0 detector = calibrated COMBINER of weak signals (macro position, level memory,
 curvature phase — NOT touch-count, that one didn't hold up), judged by confidence-tier
 separation, not single AUC. Related: [[reference-mamba-ssm-wsl-perf]]
+
+**Actionable-item pivot (same day)**: rather than wait on the full RL stage-0, Moises
+asked to try indicators for manual trading FIRST. Built `6-StructureContext_v1.0-RC.cs`
+(NT8 indicator, `docs/nt8/` + live Custom/Indicators, commit fa09c6de) — a state
+DASHBOARD (not a signal) showing MacroPosPct (session-anchored position in the tracked
+band cluster — fixes Figure_3's macro blindness), NearestLevelSigmaDist (volatility-
+relative, per the correction above), and CurvaturePhaseCode (cross-referenced from his
+own tested 2-CubicRegressionEndpoint indicator, not recomputed). Deliberately omits
+touch-count. NOT YET compiled/tested in NT8 — that's the next step, on him.
+Also learned: `3-BayesianBridge` (live TCP bridge to the Python engine) and
+`4-BayesianHistoryDumper` (feeds ATLAS_NT8) already exist in his NT8 setup — more
+NT8<->Python plumbing than assumed; check `Documents/NinjaTrader 8/bin/Custom/
+Indicators/` before assuming something needs building from scratch.
