@@ -1,0 +1,11 @@
+2024_02_20: 8 frozen levels, 37 afternoon pivots (zigzag 40 ticks)
+2024_02_21: 7 frozen levels, 27 afternoon pivots (zigzag 40 ticks)
+2024_02_22: 7 frozen levels, 17 afternoon pivots (zigzag 40 ticks)
+2024_02_23: 7 frozen levels, 25 afternoon pivots (zigzag 40 ticks)
+2024_02_26: 7 frozen levels, 21 afternoon pivots (zigzag 40 ticks)
+2024_02_27: 8 frozen levels, 17 afternoon pivots (zigzag 40 ticks)
+
+tol  4 ticks: real 0.042 of 144 pivots near a level | null 0.064 [0.028, 0.104] | p_emp = 0.910
+tol  8 ticks: real 0.132 of 144 pivots near a level | null 0.129 [0.083, 0.181] | p_emp = 0.505
+tol 12 ticks: real 0.215 of 144 pivots near a level | null 0.184 [0.139, 0.236] | p_emp = 0.130
+median pivot->nearest-level distance per day (ticks): ['73', '50', '163', '66', '28', '20']
