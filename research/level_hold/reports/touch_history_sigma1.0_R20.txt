@@ -1,0 +1,7 @@
+days=63, barriers R=C=20.0t, zone=1.0*sigma(t) [adaptive, not fixed], debounce=60 bars
+prior visits        N  P(break)            95% CI
+0                 574     0.209   [0.178, 0.244]
+1                3106     0.202   [0.188, 0.217]
+2                2968     0.216   [0.201, 0.231]
+3+              18312     0.213   [0.207, 0.219]
+all             24960     0.212   [0.207, 0.217]

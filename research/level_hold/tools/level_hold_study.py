@@ -32,9 +32,13 @@ def atlas(day, tf):
     return df.sort_values('timestamp').reset_index(drop=True)
 
 
-def rolling_ols_bands(close, W, k=2.0):
+def rolling_ols_bands(close, W, k=2.0, return_sigma=False):
     """Causal OLS endpoint +- k*sigma over trailing W bars. Returns
-    (upper, lower, mid) arrays aligned to the input (nan for first W-1)."""
+    (upper, lower, mid[, sigma]) arrays aligned to the input (nan for first
+    W-1). sigma is the raw fit residual scale — the SAME breathing-with-
+    volatility quantity the NT8 indicator's own band width is built from;
+    pass return_sigma=True to get it for defining a volatility-relative zone
+    instead of a fixed tick radius."""
     n = len(close)
     x = np.linspace(-1.0, 1.0, W)
     X = np.stack([np.ones(W), x], axis=1)
@@ -45,8 +49,10 @@ def rolling_ols_bands(close, W, k=2.0):
     sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
     end = C[:, 0] + C[:, 1]                      # endpoint (x=1)
     pad = np.full(W - 1, np.nan)
-    return (np.r_[pad, end + k * sig], np.r_[pad, end - k * sig],
-            np.r_[pad, end])
+    up, lo, mid = np.r_[pad, end + k * sig], np.r_[pad, end - k * sig], np.r_[pad, end]
+    if return_sigma:
+        return up, lo, mid, np.r_[pad, sig]
+    return up, lo, mid
 
 
 def rolling_extreme(a, W, mode):
