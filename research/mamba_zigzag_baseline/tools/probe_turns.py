@@ -82,7 +82,7 @@ def build_env(days):
         build_observation=False)
 
 
-def turn_labels_for_ts(ts_arr, days):
+def turn_labels_for_ts(ts_arr, days, window_s=TURN_WINDOW_S):
     """turn_imminent per bar straight from the picks JSONs (no env stepping)."""
     exits = []
     root = atlas_root()
@@ -99,8 +99,131 @@ def turn_labels_for_ts(ts_arr, days):
         # bar is a turn-lead-in iff some exit in [ts, ts+125]
         idx = np.searchsorted(exits, ts_arr)  # first exit >= ts
         valid = idx < len(exits)
-        labels[valid] = (exits[idx[valid]] - ts_arr[valid] <= TURN_WINDOW_S).astype(np.int64)
+        labels[valid] = (exits[idx[valid]] - ts_arr[valid] <= window_s).astype(np.int64)
     return labels
+
+
+def collect_prices(env):
+    """Close price + ts per valid bar, same filtering as prefetch_day_tensors."""
+    prices, tss = [], []
+    for bar in iter(env.fps):
+        if bar.v2_vector is None:
+            continue
+        prices.append(bar.price)
+        tss.append(bar.timestamp)
+    return np.array(prices, dtype=np.float64), np.array(tss)
+
+
+def cubic_features(prices, windows=(60, 180, 300)):
+    """The user's manual method, mechanized: per bar, fit a cubic to the
+    trailing W closes (x in [-1,1], t at x=1) on standardized y, and emit
+    turn-geometry features: coefficients c0..c3, end slope (c1+2c2+3c3),
+    end curvature (2c2+6c3), fit residual RMS, and bars since the curvature
+    last flipped sign (inflection recency, log1p-compressed).
+    Vectorized via sliding windows + precomputed pseudo-inverse."""
+    n = len(prices)
+    feats = []
+    for W in windows:
+        x = np.linspace(-1.0, 1.0, W)
+        X = np.stack([np.ones(W), x, x ** 2, x ** 3], axis=1)   # [W, 4]
+        P = np.linalg.pinv(X)                                    # [4, W]
+        sw = np.lib.stride_tricks.sliding_window_view(prices, W)  # [n-W+1, W]
+        mu = sw.mean(axis=1, keepdims=True)
+        sd = sw.std(axis=1, keepdims=True) + 1e-9
+        yn = (sw - mu) / sd
+        C = yn @ P.T                                             # [n-W+1, 4]
+        fit = C @ X.T                                            # reconstruction
+        resid = np.sqrt(((yn - fit) ** 2).mean(axis=1))
+        d1 = C[:, 1] + 2 * C[:, 2] + 3 * C[:, 3]
+        d2 = 2 * C[:, 2] + 6 * C[:, 3]
+        # inflection recency: bars since sign(d2) changed
+        flip = np.r_[True, np.sign(d2[1:]) != np.sign(d2[:-1])]
+        idx = np.arange(len(d2))
+        last_flip = np.maximum.accumulate(np.where(flip, idx, 0))
+        recency = np.log1p(idx - last_flip)
+        block = np.column_stack([C, d1, d2, resid, recency])     # [n-W+1, 8]
+        pad = np.zeros((W - 1, block.shape[1]))
+        feats.append(np.vstack([pad, block]))
+    return np.hstack(feats).astype(np.float32)                   # [n, 8*len(windows)]
+
+
+def probe_cubic(args, device):
+    """User proposal: detect-first with cubic-regression geometry features.
+    Grid: features {cubic-only, v2-only, v2+cubic} x label window {125s, 300s,
+    900s}, LODO across days, logistic head, shuffled null per label window."""
+    days = [d.strip() for d in args.days.split(',')]
+    Xv2, Xcu, day_of, ts_all = [], [], [], []
+    for di, day in enumerate(days):
+        env = build_env([day])
+        v2d, l0d, macd, todd, tsd = prefetch_day_tensors(env, device)
+        env2 = build_env([day])
+        prices, ts_p = collect_prices(env2)
+        assert len(ts_p) == len(tsd) and ts_p[0] == tsd[0], "price/feature misalignment"
+        Xv2.append(torch.cat([v2d.reshape(v2d.shape[0], -1), l0d, macd, todd], dim=1))
+        Xcu.append(torch.from_numpy(cubic_features(prices)).to(device))
+        day_of.append(torch.full((len(ts_p),), di, device=device))
+        ts_all.append(tsd)
+        log(f"[C] {day}: {len(ts_p)} bars prepared")
+    Xv2 = torch.cat(Xv2)
+    Xcu = torch.cat(Xcu)
+    D = torch.cat(day_of)
+
+    def lodo(X, Y, tag):
+        aucs = []
+        for di, day in enumerate(days):
+            tr, te = D != di, D == di
+            mu = X[tr].mean(0, keepdim=True)
+            sd = X[tr].std(0, keepdim=True).clamp_min(1e-6)
+            torch.manual_seed(0)
+            net = torch.nn.Linear(X.shape[1], 1).to(device)
+            opt = torch.optim.Adam(net.parameters(), lr=1e-3, weight_decay=1e-4)
+            ytr = Y[tr]
+            pw = ((ytr == 0).sum() / ytr.sum().clamp_min(1)).reshape(1)
+            Xtr = (X[tr] - mu) / sd
+            for _ in range(300):
+                opt.zero_grad()
+                loss = torch.nn.functional.binary_cross_entropy_with_logits(
+                    net(Xtr).squeeze(-1), ytr, pos_weight=pw)
+                loss.backward()
+                opt.step()
+            with torch.no_grad():
+                s = net((X[te] - mu) / sd).squeeze(-1).cpu().numpy()
+            a, n1, _ = auc_score(s, Y[te].cpu().numpy())
+            aucs.append(a)
+        m = float(np.mean(aucs))
+        log(f"[C:{tag}] LODO AUC mean {m:.4f} (min {np.min(aucs):.4f}, "
+            f"max {np.max(aucs):.4f})")
+        return m
+
+    for window_s, wtag in [(125, '125s'), (300, '5min'), (900, '15min')]:
+        Y = torch.cat([
+            torch.from_numpy(turn_labels_for_ts(ts_all[di], [days[di]], window_s)).to(device)
+            for di in range(len(days))]).float()
+        log(f"[C] --- label: turn within {wtag} (pos rate {100*float(Y.mean()):.1f}%) ---")
+        m_cu = lodo(Xcu, Y, f'{wtag}:cubic-only')
+        m_v2 = lodo(Xv2, Y, f'{wtag}:v2-only')
+        m_bo = lodo(torch.cat([Xv2, Xcu], dim=1), Y, f'{wtag}:v2+cubic')
+        # shuffled null on the combined set (worst-case leak check)
+        rng = np.random.default_rng(0)
+        Yn = Y.clone()
+        tr = D != 0
+        perm = torch.from_numpy(rng.permutation(int(tr.sum()))).to(device)
+        Yn[tr] = Y[tr][perm]
+        mu = Xcu[tr].mean(0, keepdim=True); sd = Xcu[tr].std(0, keepdim=True).clamp_min(1e-6)
+        torch.manual_seed(0)
+        net = torch.nn.Linear(Xcu.shape[1], 1).to(device)
+        opt = torch.optim.Adam(net.parameters(), lr=1e-3, weight_decay=1e-4)
+        ytr = Yn[tr]; pw = ((ytr == 0).sum() / ytr.sum().clamp_min(1)).reshape(1)
+        Xtr = (Xcu[tr] - mu) / sd
+        for _ in range(300):
+            opt.zero_grad()
+            torch.nn.functional.binary_cross_entropy_with_logits(
+                net(Xtr).squeeze(-1), ytr, pos_weight=pw).backward()
+            opt.step()
+        with torch.no_grad():
+            s = net((Xcu[D == 0] - mu) / sd).squeeze(-1).cpu().numpy()
+        a, _, _ = auc_score(s, Y[D == 0].cpu().numpy())
+        log(f"[C:{wtag}:null] shuffled-label cubic AUC = {a:.4f}")
 
 
 def probe_model(args, device):
@@ -232,7 +355,7 @@ def probe_signal(args, device):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--probe', choices=['model', 'signal'], required=True)
+    ap.add_argument('--probe', choices=['model', 'signal', 'cubic'], required=True)
     ap.add_argument('--days', type=str,
                     default="2024_02_20,2024_02_21,2024_02_22,2024_02_23,2024_02_26,2024_02_27")
     ap.add_argument('--ckpt', type=str, default='mamba_rl_seq_checkpoint_ep25.pth')
@@ -243,6 +366,8 @@ def main():
 
     if args.probe == 'model':
         probe_model(args, device)
+    elif args.probe == 'cubic':
+        probe_cubic(args, device)
     else:
         probe_signal(args, device)
 

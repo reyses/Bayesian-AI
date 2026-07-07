@@ -1,0 +1,21 @@
+[C] 2024_02_20: 16211 bars prepared
+[C] 2024_02_21: 15988 bars prepared
+[C] 2024_02_22: 16297 bars prepared
+[C] 2024_02_23: 15790 bars prepared
+[C] 2024_02_26: 15989 bars prepared
+[C] 2024_02_27: 15820 bars prepared
+[C] --- label: turn within 125s (pos rate 6.8%) ---
+[C:125s:cubic-only] LODO AUC mean 0.5101 (min 0.4710, max 0.5387)
+[C:125s:v2-only] LODO AUC mean 0.5585 (min 0.5110, max 0.6031)
+[C:125s:v2+cubic] LODO AUC mean 0.5535 (min 0.5108, max 0.5966)
+[C:125s:null] shuffled-label cubic AUC = 0.5844
+[C] --- label: turn within 5min (pos rate 15.9%) ---
+[C:5min:cubic-only] LODO AUC mean 0.5254 (min 0.4768, max 0.5724)
+[C:5min:v2-only] LODO AUC mean 0.5319 (min 0.4932, max 0.5864)
+[C:5min:v2+cubic] LODO AUC mean 0.5285 (min 0.4920, max 0.5802)
+[C:5min:null] shuffled-label cubic AUC = 0.5800
+[C] --- label: turn within 15min (pos rate 42.8%) ---
+[C:15min:cubic-only] LODO AUC mean 0.5413 (min 0.4661, max 0.6012)
+[C:15min:v2-only] LODO AUC mean 0.5043 (min 0.4474, max 0.5512)
+[C:15min:v2+cubic] LODO AUC mean 0.5036 (min 0.4478, max 0.5502)
+[C:15min:null] shuffled-label cubic AUC = 0.4865
