@@ -36,26 +36,35 @@ from train_mamba_rl import e_exit_preflight_ram, e_exit_vram_check  # noqa: E402
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-OBS_DIM = 686  # 416 v2 + 1 l0 + 4 ledger + 261 macro + 4 tod
 GAMMA = 0.99
 W_AUX = 0.20
 POS_WEIGHT = 10.40  # turn-bar vs non-turn-bar ratio (matches per-bar trainer)
 CHECKPOINT = "mamba_rl_seq_checkpoint.pth"
 
 
-def pack_state(state):
-    v2_grid, l0, ledger, macro, tod = state
-    return np.concatenate([v2_grid[:, -1, :].reshape(-1), l0[-1, :],
-                           ledger[-1, :], macro[-1, :], tod[-1, :]])
-
-
-def unpack_window(obs, device):
-    """obs: [W, 686] gpu tensor -> the 5 model inputs with batch dim 1."""
-    W = obs.shape[0]
-    o = obs.unsqueeze(0)  # [1, W, 686]
-    v2 = o[:, :, :416].reshape(1, W, 8, 52).permute(0, 2, 1, 3)
-    return (v2, o[:, :, 416:417], o[:, :, 417:421],
-            o[:, :, 421:682], o[:, :, 682:686])
+def prefetch_day_tensors(env, device):
+    """Materialize the action-independent observation columns for the whole
+    multi-day stream as per-type GPU tensors, sliced by bar index thereafter.
+    Uses env.compute_bar_obs — the same code path the legacy observation
+    builder uses, so values are bit-identical. Only the 4-float ledger vector
+    (action-dependent) is written per bar during the acting pass."""
+    v2_rows, l0s, macros, tods, tss = [], [], [], [], []
+    for bar in iter(env.fps):
+        if bar.v2_vector is None:
+            continue
+        grid_row, l0, macro, tod = env.compute_bar_obs(bar)
+        v2_rows.append(grid_row)
+        l0s.append(l0)
+        macros.append(macro.astype(np.float32))
+        tods.append(tod)
+        tss.append(bar.timestamp)
+    n = len(v2_rows)
+    logger.info(f"Prefetched {n} bars into per-type day tensors")
+    return (torch.from_numpy(np.stack(v2_rows)).to(device),          # [N, 8, 52]
+            torch.from_numpy(np.stack(l0s)).to(device),              # [N, 1]
+            torch.from_numpy(np.stack(macros)).to(device),           # [N, 261]
+            torch.from_numpy(np.stack(tods)).to(device),             # [N, 4]
+            np.array(tss))                                           # [N] timestamps
 
 
 def detach_states(states):
@@ -64,12 +73,23 @@ def detach_states(states):
     return [(h.detach(), cs.detach()) for (h, cs) in states]
 
 
-def window_losses(model, obs_win, actions, rewards, is_flat, turn_imm,
+def slice_inputs(day, s, e):
+    """Model inputs for absolute bar range [s, e) from the per-type day
+    tensors. day = (v2 [N,8,52], l0 [N,1], macro [N,261], tod [N,4],
+    ledger [N,4])."""
+    v2_day, l0_day, macro_day, tod_day, ledger_day = day
+    return (v2_day[s:e].unsqueeze(0).permute(0, 2, 1, 3),  # [1, 8, L, 52]
+            l0_day[s:e].unsqueeze(0),
+            ledger_day[s:e].unsqueeze(0),
+            macro_day[s:e].unsqueeze(0),
+            tod_day[s:e].unsqueeze(0))
+
+
+def window_losses(model, day, win_start, W, actions, rewards, is_flat, turn_imm,
                   reset_idx, bootstrap_value, states_in, entropy_coef, device):
     """Learning pass: differentiable forward over the window (chunked at
     session resets) + vectorized per-bar A2C losses. Returns
     (window_loss_mean, final_states, per_bar_losses.detach, entropies.detach)."""
-    W = obs_win.shape[0]
     # Chunk boundaries: session resets zero the hidden state mid-window,
     # mirroring hidden_states=None in the per-bar trainer.
     bounds = [0] + sorted(i for i in reset_idx if 0 < i < W) + [W]
@@ -78,7 +98,7 @@ def window_losses(model, obs_win, actions, rewards, is_flat, turn_imm,
     for a, b in zip(bounds[:-1], bounds[1:]):
         if a > bounds[0]:
             states = None  # reset at chunk start
-        v2, l0, ledg, macro, tod = unpack_window(obs_win[a:b], device)
+        v2, l0, ledg, macro, tod = slice_inputs(day, win_start + a, win_start + b)
         e, x, v, states = model.forward_sequence(v2, l0, ledg, macro, tod, states)
         ent_out.append(e); exi_out.append(x); val_out.append(v)
     entry_logits = torch.cat(ent_out, dim=1)[0]   # [W, 3]
@@ -152,7 +172,8 @@ def train():
         labels_csv=os.path.join(atlas_root, "regime_labels_2d.csv"),
         days=[d.strip() for d in args.days.split(',')],
         target_pnl_per_trade=10.0,
-        seq_len=30)
+        seq_len=30,
+        build_observation=False)  # obs come from the prefetched day tensors
 
     model = MambaRLTradingNetwork().to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
@@ -173,9 +194,10 @@ def train():
     history_rewards, history_mean_pnls, history_mean_entropies = [], [], []
 
     W_max = args.tbptt_window
-    pinned = torch.zeros(OBS_DIM, dtype=torch.float32).pin_memory()
-    obs_win = torch.zeros(W_max, OBS_DIM, dtype=torch.float32, device=device)
-    boot_pinned = torch.zeros(OBS_DIM, dtype=torch.float32).pin_memory()
+    v2_day, l0_day, macro_day, tod_day, ts_day = prefetch_day_tensors(env, device)
+    ledger_day = torch.zeros(v2_day.shape[0], 4, dtype=torch.float32, device=device)
+    day = (v2_day, l0_day, macro_day, tod_day, ledger_day)
+    ledger_pin = torch.zeros(4, dtype=torch.float32).pin_memory()
 
     perf_t0, perf_step0 = None, 0
     parity_losses, parity_actions, parity_rewards = [], [], []
@@ -198,6 +220,9 @@ def train():
         episode_reward = 0.0
         epoch_trades, epoch_entropies = [], []
         states_carry = None  # canonical (h, conv) carry, from the LEARNING pass
+        # env.reset() consumed the first seq_len valid bars as warmup, so the
+        # current bar is prefetch index seq_len-1 (guarded per bar below).
+        obs_idx = env.seq_len - 1
 
         while not done:
             if e_exit_vram_check():
@@ -208,20 +233,26 @@ def train():
             # ── ACTING PASS ──
             acts, rews, flats, turns, resets = [], [], [], [], []
             act_states = states_carry
+            win_start = obs_idx
             w = 0
             with torch.no_grad():
                 while w < W_max and not done:
-                    packed = pack_state(state)
-                    pinned.copy_(torch.from_numpy(packed))
-                    obs_win[w].copy_(pinned, non_blocking=True)
+                    t = obs_idx
+                    # Anti-scramble guard: prefetched stream must track the env
+                    assert ts_day[t] == env.current_bar.timestamp, \
+                        f"prefetch misalignment at idx {t}"
+                    # The 4 action-dependent floats are the only per-bar write
+                    ledger_pin.copy_(torch.from_numpy(env.ledger_state_vec()))
+                    ledger_day[t].copy_(ledger_pin, non_blocking=True)
 
-                    v2, l0, ledg, macro, tod = unpack_window(obs_win[w:w + 1], device)
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
                                         enabled=(device.type == 'cuda')):
                         e_l, x_l, _, act_states = model.forward_step(
-                            v2, l0, ledg, macro, tod, act_states)
+                            v2_day[t].view(1, 8, 1, 52), l0_day[t].view(1, 1, 1),
+                            ledger_day[t].view(1, 1, 4), macro_day[t].view(1, 1, 261),
+                            tod_day[t].view(1, 1, 4), act_states)
 
-                    is_flat = bool(state[2][-1, 0] == 0.0)
+                    is_flat = env.ledger.is_flat
                     if is_flat:
                         dist = torch.distributions.Categorical(
                             probs=torch.softmax(e_l, dim=-1))
@@ -246,7 +277,7 @@ def train():
                         act_states = None
                         resets.append(w + 1)  # state reset applies FROM the next bar
 
-                    state = next_state
+                    obs_idx += 1
                     w += 1
                     global_step += 1
                     if perf_t0 is None and global_step >= args.perf_warmup:
@@ -256,14 +287,20 @@ def train():
                         done = True
 
                 # Boundary bootstrap V(s_W) with pre-update weights
-                if not done and state is not None:
-                    boot_pinned.copy_(torch.from_numpy(pack_state(state)))
-                    boot_obs = boot_pinned.to(device, non_blocking=True).unsqueeze(0)
-                    v2, l0, ledg, macro, tod = unpack_window(boot_obs, device)
+                if not done:
+                    t = obs_idx
+                    assert ts_day[t] == env.current_bar.timestamp, \
+                        f"prefetch misalignment at boundary idx {t}"
+                    # Post-step ledger; the next window's first bar rewrites the
+                    # same value (no env.step in between)
+                    ledger_pin.copy_(torch.from_numpy(env.ledger_state_vec()))
+                    ledger_day[t].copy_(ledger_pin, non_blocking=True)
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
                                         enabled=(device.type == 'cuda')):
                         _, _, boot_v, _ = model.forward_step(
-                            v2, l0, ledg, macro, tod, act_states)
+                            v2_day[t].view(1, 8, 1, 52), l0_day[t].view(1, 1, 1),
+                            ledger_day[t].view(1, 1, 4), macro_day[t].view(1, 1, 261),
+                            tod_day[t].view(1, 1, 4), act_states)
                     bootstrap = boot_v.reshape(()).float()
                 else:
                     bootstrap = torch.zeros((), device=device)
@@ -277,7 +314,7 @@ def train():
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
                                 enabled=(device.type == 'cuda')):
                 loss, states_new, per_bar, ents = window_losses(
-                    model, obs_win[:w], actions_t, rewards_t, flats_t, turns_t,
+                    model, day, win_start, w, actions_t, rewards_t, flats_t, turns_t,
                     resets, bootstrap, states_carry, entropy_coef, device)
             optimizer.zero_grad()
             loss.backward()

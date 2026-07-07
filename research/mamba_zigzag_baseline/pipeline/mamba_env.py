@@ -24,7 +24,12 @@ class MambaRLTradingEnv:
     OpenAI Gym-style wrapper for the V2 Forward Pass System.
     Yields 2D V2 Grids + Ledger State for the MambaRLTradingNetwork.
     """
-    def __init__(self, atlas_root, features_root, labels_csv, days, target_pnl_per_trade=100.0, seq_len=100):
+    def __init__(self, atlas_root, features_root, labels_csv, days, target_pnl_per_trade=100.0, seq_len=100,
+                 build_observation=True):
+        # build_observation=False: step() skips window-queue maintenance and
+        # returns next_state=None. For the seq trainer, which reads prefetched
+        # per-type day tensors instead (compute_bar_obs is the shared source).
+        self.build_observation = build_observation
         self.fps = MultiDayForwardPassSystem(
             atlas_root=atlas_root,
             features_root=features_root,
@@ -143,27 +148,37 @@ class MambaRLTradingEnv:
             
         return self._get_observation()
 
-    def _enqueue_bar_state(self, bar_state):
-        self.state_queue.append(bar_state.v2_vector)
-        self.l0_queue.append(bar_state.v2_vector[0:1])
-
-        # Extract Macro Tensor dynamically using explicitly requested slow TFs
+    def compute_bar_obs(self, bar_state):
+        """Pure per-bar observation pieces (action-independent): assembled
+        (8, 52) grid row, l0 [1], macro [261], tod [4]. Single source of
+        truth shared by _enqueue_bar_state and the seq-trainer day prefetch.
+        Advances the per-day tod/schedule caches as a side effect."""
         # assemble_v2_grid puts channels in TF_HIERARCHY_V2 order
         grid = assemble_v2_grid(np.array([bar_state.v2_vector], dtype=np.float32))
-        # Cache the assembled (8, 52) row so _get_observation doesn't re-assemble the window
-        self.grid_queue.append(grid[0])
+        grid_row = grid[0]
 
-        macro = grid[0, self._macro_indices, :].flatten()
+        macro = grid_row[self._macro_indices, :].flatten()
         # Append the validity mask (the last element of v2_vector)
         validity_mask = bar_state.v2_vector[-1]
         macro = np.append(macro, validity_mask)
+
+        tod = self._compute_tod(bar_state.timestamp)
+        return grid_row, bar_state.v2_vector[0:1], macro, tod
+
+    def _enqueue_bar_state(self, bar_state):
+        grid_row, l0, macro, tod = self.compute_bar_obs(bar_state)
+        self.state_queue.append(bar_state.v2_vector)
+        self.l0_queue.append(l0)
+        # Cache the assembled (8, 52) row so _get_observation doesn't re-assemble the window
+        self.grid_queue.append(grid_row)
         self.macro_queue.append(macro)
-        
+        self.time_of_day_queue.append(tod)
+
+    def _compute_tod(self, ts_epoch):
         # Compute Time of Day (Exchange Local Time).
         # Pandas tz work runs once per ET day; the per-bar path is pure float math
         # on epoch seconds. Bit-identical: all operands are whole seconds, so
         # float subtraction equals Timedelta.total_seconds() exactly.
-        ts_epoch = bar_state.timestamp
         if self._tod_cache_expiry is None or ts_epoch >= self._tod_cache_expiry:
             ts = pd.to_datetime(ts_epoch, unit='s', utc=True)
             ts_et = ts.tz_convert('US/Eastern')
@@ -212,28 +227,31 @@ class MambaRLTradingEnv:
             # Fallback for weekend/holiday trading
             tod_vec = [0.0, 0.0, 0.0, 1.0]
 
-        self.time_of_day_queue.append(np.array(tod_vec, dtype=np.float32))
+        return np.array(tod_vec, dtype=np.float32)
+
+    def ledger_state_vec(self):
+        """The 4 action-dependent observation floats: [pos_code, peak_pnl,
+        target, distance_to_target]. Shared by _get_observation and the
+        seq trainer's per-bar ledger write."""
+        pos_code = 0.0
+        if not self.ledger.is_flat:
+            pos_code = 1.0 if self.ledger.primary.direction == 'long' else -1.0
+        current_pnl = self.ledger.primary.peak_pnl if not self.ledger.is_flat else 0.0
+        distance_to_target = self.target_pnl_per_trade - current_pnl
+        return np.array([pos_code, current_pnl, self.target_pnl_per_trade,
+                         distance_to_target], dtype=np.float32)
 
     def _get_observation(self):
         # Stack per-bar cached rows (bit-identical to re-assembling the window)
         grid = np.stack(self.grid_queue, axis=0)
         grid = grid.transpose((1, 0, 2))
-        
+
         l0_feature = np.array(self.l0_queue, dtype=np.float32)
         macro_tensor = np.array(self.macro_queue, dtype=np.float32)
         time_of_day = np.array(self.time_of_day_queue, dtype=np.float32)
-        
-        pos_code = 0.0
-        if not self.ledger.is_flat:
-            action_type = 'IN_POSITION_STEP' 
-            pos_code = 1.0 if self.ledger.primary.direction == 'long' else -1.0
-            
-        current_pnl = self.ledger.primary.peak_pnl if not self.ledger.is_flat else 0.0
-        distance_to_target = self.target_pnl_per_trade - current_pnl
-        
-        state_vec = np.array([pos_code, current_pnl, self.target_pnl_per_trade, distance_to_target], dtype=np.float32)
-        ledger_state = np.tile(state_vec, (self.seq_len, 1))
-        
+
+        ledger_state = np.tile(self.ledger_state_vec(), (self.seq_len, 1))
+
         return grid, l0_feature, ledger_state, macro_tensor, time_of_day
 
     def step(self, action: int, expected_outcome: float):
@@ -413,10 +431,15 @@ class MambaRLTradingEnv:
         except StopIteration:
             done = True
             info['exhausted'] = True
-            return self._get_observation(), reward, done, info
-            
+            return (self._get_observation() if self.build_observation else None), reward, done, info
+
         self.current_bar = bar_state
-        self._enqueue_bar_state(bar_state)
+        if self.build_observation:
+            self._enqueue_bar_state(bar_state)
+        else:
+            # Keep the per-day caches (current_day_str drives oracle coverage)
+            # fresh without building window queues
+            self._compute_tod(bar_state.timestamp)
             
         # Check 22:00 Session Boundary Reset (Decoupled from 'done')
         # Pandas tz math runs once per session; between boundaries the cached
@@ -434,6 +457,6 @@ class MambaRLTradingEnv:
             info['session_reset'] = True
         self.last_session_day = session_day
             
-        next_state = self._get_observation() if not done else None
+        next_state = self._get_observation() if (not done and self.build_observation) else None
         
         return next_state, reward, done, info
