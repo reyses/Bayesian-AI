@@ -41,6 +41,12 @@ Measured 2026-07-05 on RTX 3060 / WSL2 / torch 2.6.0+cu124 (report:
   false-negative machine; (2) sync-bracketed breakdowns attribute WORK, not
   critical path; only interleaved A/B on a quiet box counts; (3) contention
   skews timing only — bitwise/parity results survive it. Deferred HEAD ≈
-  70h per 200-epoch run; only remaining <12h lever = sequence-window
-  training on the fused parallel scan (>10×, math change, needs Moises'
-  approval). Related: [[organize-research-folders]]
+  70h per 200-epoch run. **Sequence-window trainer LANDED 2026-07-06**
+  (Moises approved): `train_mamba_rl_seq.py`, two-pass on-policy (act
+  no_grad / learn via `mamba_scan.associative_ssm_scan` — custom log-depth
+  scan with initial-state support since mamba-ssm kernels can't train);
+  conv 3-bar receptive field RESTORED (old checkpoints not comparable);
+  gates 1e-7 fp32 equivalence + bitwise self-determinism; **268-280 bars/s
+  → 200-epoch ~17h**. Spec: docs/JULES_SEQUENCE_WINDOW_TRAINING.md.
+  Next lever to <12h: compile forward_step in the acting pass (~1.4×).
+  Related: [[organize-research-folders]]

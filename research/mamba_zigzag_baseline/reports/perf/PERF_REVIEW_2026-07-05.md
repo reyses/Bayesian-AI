@@ -178,9 +178,21 @@ An epoch = 5 days × ~16.5k bars ≈ 83k bars → 200 epochs ≈ 16.6M bars.
 | config | bars/s (clean box, n=4) | 200-epoch × 5-day estimate |
 |---|---|---|
 | two-forward eager | 50.9 | ~90 h |
-| deferred bootstrap (default HEAD) | 62.9–65.8 | ~70 h |
-| **deferred + `--compile` (warm cache)** | **90.5** | **~51 h** |
+| deferred bootstrap (per-bar trainer HEAD) | 62.9–65.8 | ~70 h |
+| deferred + `--compile` (warm cache) | 90.5 | ~51 h |
+| **sequence-window trainer (`train_mamba_rl_seq.py`)** | **268–280** | **~17 h** |
 | needed for target | ~380 | <12 h |
+
+**Sequence-window trainer landed 2026-07-06** (user-approved;
+`docs/JULES_SEQUENCE_WINDOW_TRAINING.md`, commits 22e00238 + d71c70c4):
+two-pass on-policy design — act eager under no_grad, learn via ONE
+differentiable associative-scan forward per 500-bar window. Gates:
+scan/forward equivalence 1e-7 fp32; self-determinism BITWISE over 2300
+bars; 268–280 bars/s sustained. Deliberate semantic change: conv1d 3-bar
+receptive field restored (the "conv-state decision" resolved; old
+checkpoints not comparable). Remaining bottleneck = the acting pass's
+bar-by-bar python loop (~2.7 ms/bar); candidate next lever:
+torch.compile on forward_step (~1.4× would cross the <12h line).
 
 `--compile` stacking measured 2026-07-06 (`ab_compile_deferred.txt`): eager
 62.94 vs compile 90.49 warm-cache mean, **+44%**, non-overlapping. First
