@@ -83,10 +83,12 @@ Old checkpoints trained without conv memory are not comparable.
 2. **Unit — forward equivalence**: `forward_sequence` over W random bars ≡
    W chained `step` calls (same states), fp32: max|Δlogits| < 1e-4;
    bf16 autocast: < 3e-2 (document actual).
-3. **Training-track check**: fixed seed, 1 day, per-bar trainer (conv-state
-   build) vs seq trainer: same actions until first numeric flip; report
-   flip step + loss deltas over the identical-action prefix (compile-gate
-   style; bitwise NOT expected).
+3. **Training-track check** (amended): the conv-state restoration means the
+   seq trainer's policy differs from the per-bar trainer's from bar 1 — a
+   cross-trainer action-match gate is impossible by design. Replaced with:
+   (a) seq-trainer SELF-determinism (same seed twice → identical dump);
+   (b) acting-vs-learning consistency is covered by gate 2 (same functions);
+   (c) smoke run sanity (no NaN, entropy/reward bookkeeping populated).
 4. **Speed**: bars/s on quiet box (nvidia-smi checked), interleaved A/B vs
    current trainer. Target ≥ 300 bars/s eager.
 5. Reward curves over ≥ 3 epochs qualitatively consistent (no divergence /
