@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import logging
 
+from mamba_scan import associative_ssm_scan
+
 logger = logging.getLogger(__name__)
 
 # Try to import official mamba-ssm
@@ -91,6 +93,78 @@ class PureMambaBlock(nn.Module):
         y = y * F.silu(res)
         out = self.out_proj(y)
         return out, h
+
+    # ── Sequence-window training paths (docs/JULES_SEQUENCE_WINDOW_TRAINING.md) ──
+    # NOTE: forward() above is left untouched — the per-bar trainer's bitwise
+    # baseline depends on it (its L=1 path has NO conv memory). The two methods
+    # below restore the causal d_conv-1-bar receptive field and match each
+    # other numerically (verified by tools/test_seq_equivalence.py).
+
+    def step(self, x, h=None, conv_state=None):
+        """L=1 recurrent step WITH carried conv state. Acting-pass twin of
+        forward_sequence. Returns (out [B,1,D], h, conv_state)."""
+        B, L, _ = x.shape
+        x_and_res = self.in_proj(x)
+        x_m, res = x_and_res.split(self.d_inner, dim=-1)  # [B, 1, d_inner]
+
+        if conv_state is None:
+            conv_state = torch.zeros(B, self.d_conv - 1, self.d_inner,
+                                     device=x.device, dtype=x_m.dtype)
+        conv_in = torch.cat([conv_state.to(x_m.dtype), x_m], dim=1)  # [B, d_conv, d_inner]
+        new_conv_state = conv_in[:, 1:]
+        x_c = F.conv1d(conv_in.transpose(1, 2), self.conv1d.weight,
+                       self.conv1d.bias, groups=self.d_inner)  # [B, d_inner, 1]
+        x_c = F.silu(x_c.transpose(1, 2))  # [B, 1, d_inner]
+
+        x_proj_out = self.x_proj(x_c)
+        dt, B_param, C_param = torch.split(
+            x_proj_out, [self.dt_proj.in_features, self.d_state, self.d_state], dim=-1)
+        dt = F.softplus(self.dt_proj(dt))  # [B, 1, d_inner]
+        A = -torch.exp(self.A_log)
+
+        if h is None:
+            h = torch.zeros(B, self.d_inner, self.d_state,
+                            device=x.device, dtype=x_c.dtype)
+        dt_t = dt[:, 0, :].unsqueeze(-1)                     # [B, d_inner, 1]
+        A_t = torch.exp(dt_t * A)                            # [B, d_inner, d_state]
+        h = A_t * h + (dt_t * B_param[:, 0].unsqueeze(1)) * x_c[:, 0].unsqueeze(-1)
+        y = torch.sum(h * C_param[:, 0].unsqueeze(1), dim=-1).unsqueeze(1)  # [B, 1, d_inner]
+
+        y = y + x_c * self.D
+        y = y * F.silu(res)
+        return self.out_proj(y), h, new_conv_state
+
+    def forward_sequence(self, x, h0=None, conv_state0=None):
+        """Differentiable window forward: causal conv over carried context +
+        log-depth associative SSM scan with initial state. Returns
+        (out [B,L,D], h_last, conv_state_last)."""
+        B, L, _ = x.shape
+        x_and_res = self.in_proj(x)
+        x_m, res = x_and_res.split(self.d_inner, dim=-1)  # [B, L, d_inner]
+
+        if conv_state0 is None:
+            conv_state0 = torch.zeros(B, self.d_conv - 1, self.d_inner,
+                                      device=x.device, dtype=x_m.dtype)
+        conv_in = torch.cat([conv_state0.to(x_m.dtype), x_m], dim=1)  # [B, L+3, d_inner]
+        new_conv_state = conv_in[:, -(self.d_conv - 1):]
+        x_c = F.conv1d(conv_in.transpose(1, 2), self.conv1d.weight,
+                       self.conv1d.bias, groups=self.d_inner)  # [B, d_inner, L]
+        x_c = F.silu(x_c.transpose(1, 2))  # [B, L, d_inner]
+
+        x_proj_out = self.x_proj(x_c)
+        dt, B_param, C_param = torch.split(
+            x_proj_out, [self.dt_proj.in_features, self.d_state, self.d_state], dim=-1)
+        dt = F.softplus(self.dt_proj(dt))  # [B, L, d_inner]
+        A = -torch.exp(self.A_log)
+
+        A_t = torch.exp(dt.unsqueeze(-1) * A)                        # [B, L, d_inner, d_state]
+        b_t = (dt * x_c).unsqueeze(-1) * B_param.unsqueeze(2)        # [B, L, d_inner, d_state]
+        h_seq = associative_ssm_scan(A_t, b_t, h0)
+        y = (h_seq * C_param.unsqueeze(2)).sum(-1)                   # [B, L, d_inner]
+
+        y = y + x_c * self.D
+        y = y * F.silu(res)
+        return self.out_proj(y), h_seq[:, -1], new_conv_state
 
 
 class MambaRLTradingNetwork(nn.Module):
@@ -214,5 +288,50 @@ class MambaRLTradingNetwork(nn.Module):
         entry_logits = self.entry_head(latest_step)
         exit_logits = self.exit_head(latest_step)
         value_estimate = self.critic_head(latest_step)
-        
+
         return entry_logits, exit_logits, value_estimate, next_hidden_states
+
+    # ── Sequence-window training paths (docs/JULES_SEQUENCE_WINDOW_TRAINING.md) ──
+
+    def _fuse_inputs(self, v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day):
+        """Shared input fusion → embedded trunk input [B, S, d_model].
+        Same ops as the corresponding lines of forward()."""
+        batch_size = v2_grid.size(0)
+        seq_len = v2_grid.size(2)
+        x = v2_grid.permute(0, 2, 1, 3).contiguous().view(batch_size, seq_len, -1)
+        macro_encoded = self.macro_encoder(macro_tensor)
+        x = torch.cat([x, l0_feature, ledger_state, macro_encoded, time_of_day], dim=-1)
+        return self.embedding(self.input_norm(x))
+
+    def forward_step(self, v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day, states=None):
+        """Acting-pass single-bar forward with carried (h, conv_state) per layer.
+        Unlike forward(), the conv sees its true d_conv-1-bar history.
+        states: list of (h, conv_state) tuples or None."""
+        x = self._fuse_inputs(v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day)
+        if states is None:
+            states = [None] * len(self.layers)
+        next_states = []
+        for i, layer in enumerate(self.layers):
+            h, cs = states[i] if states[i] is not None else (None, None)
+            x, h, cs = layer.step(x, h, cs)
+            next_states.append((h, cs))
+        x = self.norm(x)
+        latest = x[:, -1, :]
+        return (self.entry_head(latest), self.exit_head(latest),
+                self.critic_head(latest), next_states)
+
+    def forward_sequence(self, v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day, states=None):
+        """Learning-pass window forward: outputs for ALL bars.
+        v2_grid [B, 8, W, 52], others [B, W, ·]. Returns
+        (entry_logits [B,W,3], exit_logits [B,W,1], values [B,W,1], states)."""
+        x = self._fuse_inputs(v2_grid, l0_feature, ledger_state, macro_tensor, time_of_day)
+        if states is None:
+            states = [None] * len(self.layers)
+        next_states = []
+        for i, layer in enumerate(self.layers):
+            h, cs = states[i] if states[i] is not None else (None, None)
+            x, h, cs = layer.forward_sequence(x, h, cs)
+            next_states.append((h, cs))
+        x = self.norm(x)
+        return (self.entry_head(x), self.exit_head(x),
+                self.critic_head(x), next_states)

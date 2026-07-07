@@ -1,0 +1,7 @@
+[PASS] scan_no_h0: max|delta| = 9.537e-07 (tol 1e-05)
+[PASS] scan_with_h0: max|delta| = 9.537e-07 (tol 1e-05)
+[PASS] fwd_seq_vs_step_entry_fp32: max|delta| = 1.192e-07 (tol 0.0001)
+[PASS] fwd_seq_vs_step_exit_fp32: max|delta| = 7.637e-08 (tol 0.0001)
+[PASS] fwd_seq_vs_step_value_fp32: max|delta| = 8.941e-08 (tol 0.0001)
+[INFO] bf16 autocast entry-logit drift seq-vs-step: 1.953e-03 (documented, not gated)
+[PASS] grad sanity: all parameters have finite nonzero grads
