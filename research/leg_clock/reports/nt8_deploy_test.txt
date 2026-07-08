@@ -1,0 +1,11 @@
+features (20): ['L1_1m_price_velocity_1b', 'L1_1m_price_accel_1b', 'L2_1m_price_velocity_30', 'L2_1m_price_accel_30', 'L2_1m_vwap_30', 'L3_1m_z_se_30', 'L3_1m_z_high_30', 'L3_1m_z_low_30', 'L3_1m_z_close_vs_high_30', 'L3_1m_z_close_vs_low_30', 'L1_5m_price_velocity_1b', 'L1_5m_price_accel_1b', 'L2_5m_price_velocity_30', 'L2_5m_price_accel_30', 'L2_5m_vwap_30', 'L3_5m_z_se_30', 'L3_5m_z_high_30', 'L3_5m_z_low_30', 'L3_5m_z_close_vs_high_30', 'L3_5m_z_close_vs_low_30']
+train: 258 days, 11511 entries vs 11511 nulls, train AUC 0.552
+thresholds (null-score quantiles): {'tier_99.5': 0.432, 'tier_98': 0.262}
+
+== NT8 deploy (pristine, causal exits) ==
+[REAL:tier_99.5] 0.1 trades/d | $/trade -6.41 | $/day -0.9 [CI -6.5,+5.2] NOT significant | PF 0.86 | tradeWR(PF-1) -0.14 | N=120d/16tr
+[REAL:tier_98] 0.6 trades/d | $/trade -6.57 | $/day -4.2 [CI -15.2,+6.7] NOT significant | PF 0.82 | tradeWR(PF-1) -0.18 | N=120d/76tr
+
+== NULL (within-day shuffled scores) ==
+[NULL:tier_99.5] 0.2 trades/d | $/trade -17.73 | $/day -3.2 [CI -6.0,-1.0] SIGNIFICANT | PF 0.11 | tradeWR(PF-1) -0.89 | N=120d/22tr
+[NULL:tier_98] 0.7 trades/d | $/trade -13.39 | $/day -9.2 [CI -18.2,-2.0] SIGNIFICANT | PF 0.44 | tradeWR(PF-1) -0.56 | N=120d/82tr
