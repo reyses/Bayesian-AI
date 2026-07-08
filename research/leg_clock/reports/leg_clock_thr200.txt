@@ -1,0 +1,26 @@
+zigzag 200 ticks | 2024 legs: 2119 (259 days) | 2025 legs: 3675 (277 days)
+
+-- leg DURATION distribution (minutes) --
+set     mode~  median   mean    p90    p99     max
+2024     10.5    44.0   82.4  209.0  530.6   941.0
+2025      4.5    26.0   54.6  134.0  373.6   671.0
+
+-- leg EXTENT distribution (ticks) --
+set     median   mean    p90    p99     max
+2024     363.0  437.5  762.2 1344.0  2099.0
+2025     378.0  467.3  836.0 1448.0  4851.0
+
+-- MEAN RESIDUAL LIFE: expected MORE minutes given elapsed --
+(memoryless=flat at the mean; clocked=falling; momentum=rising)
+ elapsed t  2024 MRL  2025 MRL  memoryless
+         1      81.7      54.3        82.4
+         8      83.4      59.6        82.4
+        17      90.0      66.4        82.4
+        31      97.3      74.9        82.4
+        51     105.4      84.4        82.4
+        83     119.9      94.8        82.4
+       133     133.8     107.9        82.4
+       209     140.5     101.8        82.4
+
+MRL slope (2024, 0-12min): +0.47 min per min elapsed -> MOMENTUM (rising)
+2024 vs 2025 MRL mean abs diff: 23.89 min (small = the clock transfers out-of-sample)

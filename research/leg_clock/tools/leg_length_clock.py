@@ -103,7 +103,10 @@ def main():
             f"{pct(e,99):>7.1f}{e.max():>8.1f}")
 
     # The load-bearing test: MRL curve, 2024 (train) vs 2025 (OOS).
-    grid = np.array([0, 1, 2, 3, 5, 8, 12, 18, 25], dtype=float)
+    # Adaptive elapsed grid = percentiles of train durations, so it scales
+    # whether legs are 3-min micro-wiggles or hour-long macro drives.
+    grid = np.unique(np.round(np.percentile(
+        dur_tr, [0, 10, 25, 40, 55, 70, 82, 90]), 1))
     mrl_tr = mrl_curve(dur_tr, grid)
     mrl_te = mrl_curve(dur_te, grid)
     # exponential (memoryless) reference: MRL(t) = mean, constant.
@@ -115,7 +118,7 @@ def main():
         log(f"{t:>10.0f}{mrl_tr[i]:>10.1f}{mrl_te[i]:>10.1f}{mem_ref:>12.1f}")
 
     # Verdict helpers: slope of MRL over 0..12 min, and train/test agreement.
-    m = np.isfinite(mrl_tr) & np.isfinite(mrl_te) & (grid <= 12)
+    m = np.isfinite(mrl_tr) & np.isfinite(mrl_te) & (grid <= np.median(dur_tr) * 2)
     if m.sum() >= 3:
         s_tr = np.polyfit(grid[m], mrl_tr[m], 1)[0]
         agree = np.mean(np.abs(mrl_tr[m] - mrl_te[m]))
