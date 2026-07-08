@@ -1,0 +1,11 @@
+2024 | zigzag 20t | 51203 legs with a prior target ahead
+
+Q1 termination near target (within 1 sigma):
+  real   : 0.435
+  phantom: 0.434   (jittered target null)
+  lift   : +0.001
+
+Q2 stretch vs distance-to-target:
+  corr(log dist-to-target, log extent) = 0.041
+  leg stops  SHORT(<0.8x): 0.051  AT(0.8-1.2x): 0.046  BEYOND(>1.2x): 0.903
+  median dist-to-target: 7t | median extent: 51t
