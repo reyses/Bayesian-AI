@@ -1,0 +1,8 @@
+days=63  slope_window=60 bars (5 min)  horizon=120 bars (10 min)  step=12
+base rate P(up over horizon) = 0.511  (N=81967)
+bin               N mean net(ticks)  P(same dir) wiggle/|net|
+down-drive    28417             0.3        0.470          2.2
+weak-down      7338             0.3        0.471          2.2
+FLAT           7900             1.0        0.496          2.2
+weak-up        7589            -0.1        0.507          2.2
+up-drive      30723             0.9        0.506          2.2
