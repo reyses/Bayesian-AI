@@ -95,6 +95,7 @@
 - `docs/Active/NMP_V2_FEATURE_MAP.md` — NMP→V2 term-by-term map + standing traps #1–8.
 - `PROJECT_HISTORY.md` — the long arc (chronological era timeline at top; detailed legacy sources below). `archive/` — all pre-condense originals (`*_pre-condense_2026-06-12.md`).
 - `AGENT_FEEDBACK_RULES.md` / `USER_PERSONA_AND_PROTOCOL.md` — full feedback/persona corpus (referenced, not loaded on start; persona file deduplicated + mojibake-repaired 2026-06-12, one clean copy of each of its 7 topics).
+- `feedback-propose-before-building-tools.md` — when Moises floats an idea ("how about we try X?"), PROPOSE the design + discuss BEFORE building/committing, esp. for chart tools; don't execute in the same turn.
 - `project-moises-trade-postmortem.md` — THE curriculum north star (2026-07-07): 4-figure trade postmortem; 4 failures = 4 system functions; manual method ≡ NMP equation; stage-0 = calibrated combiner of weak signals.
 - `reference-mamba-ssm-wsl-perf.md` — Mamba RL runtime facts (2026-07-05): mamba-ssm step() silent-grad TRAP, WSL wheel matrix, CUPTI dead, cudagraph-vs-carried-state crash, eager ~53-61 bars/s baselines.
 - `reference_fista_gpu_cv_step_bug.md` — the FISTA CV gotcha. `ce_methodology.md` — collaboration-engagement method. `ROADMAP.md` — obsolete pointer (→ active roadmap).
