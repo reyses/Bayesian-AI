@@ -1,0 +1,28 @@
+
+[2024] pre-TREND n=5382 | pre-CHOP n=19595
+feature       preTREND   preCHOP    delta   boot p
+body_frac        0.455     0.456   -0.001    0.182
+wick_frac        0.545     0.544   +0.001    0.167
+vol_rel          1.471     1.380   +0.091    0.000
+absorption       0.107     0.106   +0.001    0.380
+rejection        0.374     0.374   -0.000    0.920
+
+[2024] P(trend | buildup vol_rel quartile)  base rate 0.215
+  Q1 low   vol_rel<0.98  P(trend)=0.226  n=6244
+  Q2       vol_rel<1.15  P(trend)=0.207  n=6244
+  Q3       vol_rel<1.44  P(trend)=0.190  n=6244
+  Q4 high  vol_rel<inf  P(trend)=0.239  n=6245
+
+[2025 OOS] pre-TREND n=8476 | pre-CHOP n=23647
+feature       preTREND   preCHOP    delta   boot p
+body_frac        0.456     0.456   +0.000    0.442
+wick_frac        0.544     0.544   -0.000    0.761
+vol_rel          1.385     1.309   +0.077    0.000
+absorption       0.101     0.100   +0.001    0.452
+rejection        0.374     0.376   -0.002    0.041
+
+[2025 OOS] P(trend | buildup vol_rel quartile)  base rate 0.264
+  Q1 low   vol_rel<0.97  P(trend)=0.265  n=8031
+  Q2       vol_rel<1.12  P(trend)=0.265  n=8030
+  Q3       vol_rel<1.38  P(trend)=0.241  n=8031
+  Q4 high  vol_rel<inf  P(trend)=0.284  n=8031
