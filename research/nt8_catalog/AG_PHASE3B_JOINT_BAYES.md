@@ -86,11 +86,16 @@ stage use (not this phase): read-only overlay of responses onto the labels.
    ARTICLE CLAIMS IT (entry, fakeout-avoidance, regime, exhaustion, ...).
 2. **One signal = one standalone execution** (own script, own run, own
    report). No batching that obscures the per-signal deep dive.
-3. **Per-signal report** (`AG_cat_NN_<name>.md`): article citation +
-   registered response; event definition (causal math); P(response) vs
-   matched+phantom nulls, both years; magnitude distribution WITH FIGURES
-   (histogram PNGs saved to `research/nt8_catalog/reports/assets/`, mode marked); bimodality flag;
-   verdict line.
+3. **Per-signal report** (`DOC_<ID>.md`): article citation + registered
+   response; event definition (causal math); P(the article's claim happened)
+   both years; magnitude distribution WITH FIGURES (mode marked); bimodality
+   flag. **Stage sequencing (user, 2026-07-09): NO nulls and NO verdicts at
+   this stage** — these tables are descriptive likelihoods ("claim happens
+   X%, bulk magnitude Y"), nothing more. Discrimination (matched/phantom
+   nulls, shuffle tests) and verdicts happen at the JOINT-model stage.
+   Exception kept because it is free: where barriers are symmetric ±k·σ,
+   print the 50% random-walk reference as context (arithmetic, not a null
+   run).
 4. **Master summary table** (`AG_cat_00_INDEX.md`), one row per signal:
    | signal | what it measures | registered response type | N events |
    P(resp) vs null | MODE of magnitude (the bulk) | tail | bimodal? |

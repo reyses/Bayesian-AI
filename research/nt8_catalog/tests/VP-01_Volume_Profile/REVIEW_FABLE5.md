@@ -27,12 +27,13 @@ excursion until resolution".
 
 ## Methodology gaps (directive requirements)
 
-### G1 — No null anchor
-First-touch ±kσ symmetric has a clean random-walk base of 50% — state it,
-and add the matched null (same-day/hour non-event bars) plus the
-phantom-level control (jittered POC/VAH/VAL): the "any nearby line bounces"
-trap is measured and real in this repo. 48.8% and 61.1% win rates mean
-nothing without these; 61% on N=18 is ±23pp.
+### G1 — Nulls DEFERRED by user decision (2026-07-09), with a condition
+Moises: this stage only measures whether the article's claim happens —
+nulls would add noise here. ACCEPTED: no matched/phantom nulls at this
+stage. CONDITIONS: (a) print the free 50% random-walk reference (symmetric
+±kσ barriers make it arithmetic), (b) NO verdict lines at this stage — the
+tables are descriptive likelihoods; discrimination + verdicts happen at the
+joint-model stage. (For the record: 61% on N=18 is ±23pp either way.)
 
 ### G2 — 2024 only
 Both-years rule. 2025 must run before any verdict line exists.
