@@ -1,3 +1,4 @@
+# [SUPERSEDED by AG_TASK_catalog_sweep.md — kept for reference]
 # AG TASK — Churn (oscillation) structure study
 
 **For: Antigravity.** Self-contained; you have no conversation context. Read
