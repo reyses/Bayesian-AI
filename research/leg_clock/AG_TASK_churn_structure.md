@@ -57,9 +57,15 @@ anywhere) it pays after costs. Four questions, in order:
    CI includes 0. AUC alone proves nothing here (measured, repeatedly).
 5. **Sigma-relative distances** everywhere (never fixed tick tolerances) —
    user-corrected methodology, 2026-07-07.
-6. Labels in `DATA/ai_cusp_picks/` are HINDSIGHT-optimal (our own
-   auto-labeler, entries snapped to 1s extremes, 0-MAE by construction).
-   Usable as label-side truth only; never as evidence of a live edge.
+6. **This task is LABEL-FREE.** Do NOT use `DATA/ai_cusp_picks/` as targets,
+   training data, or evaluation truth anywhere in Q1–Q4. Reasons: they are
+   hindsight-optimal (entries snapped to 1s extremes, 0-MAE by construction),
+   they encode one particular swing-carving that would bias your oscillator
+   state, and scoring against their timestamps re-imports a known
+   unlearnable-timing trap. Judge everything on FORWARD PRICE OUTCOMES and
+   dollars — those truths are causal and sufficient for churn. (At most: an
+   optional read-only cross-check at the very end — "where do labels sit in
+   my oscillator phase?" — reported as curiosity, never as validation.)
 
 ## Dead list (do NOT retest as-is)
 Volume-rate buildup; candle wick/body shapes; band-level first-touch bounces;
