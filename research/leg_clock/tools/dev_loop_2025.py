@@ -37,7 +37,17 @@ def log(s):
     print(s, flush=True); lines.append(s)
 
 
-def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55)):
+def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
+                prove_min=0.0, prove_mfe=8.0, exit_mode='trail', norm_th=None):
+    """prove_min > 0 enables the FAIL-FAST rule: if the trade hasn't reached
+    +prove_mfe ticks favorable within prove_min minutes -> scratch at market.
+    (Cuts on failure-to-progress, NOT drawdown depth - distinct from the
+    graveyard's failed cut-a-loser overlays.)
+
+    exit_mode='conf': confidence-driven exits, NO stops. Exit at the next 1m
+    close when (a) score < norm_th (stretch normalized - snap-back harvested),
+    or (b) score >= entry tier with the stretch sign FLIPPED (model fires the
+    opposite entry = premise dead), or (c) 15:55 flatten."""
     import pytz, datetime as dtm
     central = pytz.timezone('US/Central')
     results = {k: [] for k in thr}
@@ -57,18 +67,35 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55)):
         for tier, th in thr.items():
             trades = []
             pos, entry, ext = 0, 0.0, 0.0
+            e_ts, mfe = 0.0, 0.0
             k5 = 0
             for i in range(30, len(ts_m)):
                 t = ts_m[i]
                 while k5 < len(ts5) and ts5[k5] <= t:
                     p = px5[k5]
                     if pos != 0:
+                        mfe = max(mfe, (p - entry) * pos / TICK)
                         ext = max(ext, p) if pos > 0 else min(ext, p)
-                        hit = (ext - p >= trail * TICK) if pos > 0 else (p - ext >= trail * TICK)
-                        if hit or ts5[k5] >= cut:
+                        if exit_mode == 'trail':
+                            hit = ((ext - p >= trail * TICK) if pos > 0
+                                   else (p - ext >= trail * TICK))
+                            failed_fast = (prove_min > 0
+                                           and (ts5[k5] - e_ts) >= prove_min * 60
+                                           and mfe < prove_mfe)
+                        else:
+                            hit = failed_fast = False   # conf mode: no stops
+                        if hit or failed_fast or ts5[k5] >= cut:
                             trades.append(((p - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
                             pos = 0
                     k5 += 1
+                # conf-mode exits evaluate on 1m closes (the model's cadence)
+                if pos != 0 and exit_mode == 'conf' and t < cut:
+                    normalized = s[i] < norm_th
+                    opposite = s[i] >= th and (np.sign(zsum[i]) == pos)
+                    # (fade entry: pos = -sign(zsum); opposite stretch = sign(zsum)==pos)
+                    if normalized or opposite:
+                        trades.append(((px_m[i] - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
+                        pos = 0
                 if pos == 0 and t < cut and s[i] >= th:
                     if direction == 'fade':
                         pos = -1 if zsum[i] > 0 else 1
@@ -76,7 +103,7 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55)):
                         pos = 1 if zsum[i] > 0 else -1
                     else:  # vel: fade the recent velocity (pullback-reversion)
                         pos = -1 if vel[i] > 0 else 1
-                    entry = px_m[i]; ext = px_m[i]
+                    entry = px_m[i]; ext = px_m[i]; e_ts = t; mfe = 0.0
             if pos != 0:
                 trades.append(((px5[-1] - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
             results[tier].append(trades)
@@ -108,6 +135,12 @@ def main():
     ap.add_argument('--direction', choices=['fade', 'follow', 'vel'], default='fade')
     ap.add_argument('--trail', type=float, default=20)
     ap.add_argument('--tiers', type=str, default='0.98,0.995')
+    ap.add_argument('--prove-min', type=float, default=0.0,
+                    help='fail-fast: scratch if MFE < prove-mfe after N minutes')
+    ap.add_argument('--prove-mfe', type=float, default=8.0)
+    ap.add_argument('--exit', choices=['trail', 'conf'], default='trail',
+                    help="conf = confidence-driven exits (normalization / "
+                         "opposite-signal / EOD), NO stops of any kind")
     ap.add_argument('--max-days', type=int, default=0, help='cap 2025 days (speed)')
     args = ap.parse_args()
 
@@ -126,14 +159,20 @@ def main():
             pass
     pool = np.concatenate(samp)
     thr = {f"q{q}": float(np.quantile(pool, float(q))) for q in args.tiers.split(',')}
-    log(f"variant: direction={args.direction} trail={args.trail}t tiers={thr}")
+    norm_th = float(np.quantile(pool, 0.5))   # conf-exit: stretch normalized
+    log(f"variant: direction={args.direction} exit={args.exit} trail={args.trail}t "
+        f"prove={args.prove_min}m/{args.prove_mfe}t norm_th={norm_th:.3f} tiers={thr}")
 
     days25 = sorted(os.path.basename(f).replace('.parquet', '')
                     for f in glob.glob(os.path.join(ATLAS, '1m', '2025_*.parquet')))
     if args.max_days:
         days25 = days25[:args.max_days]
-    res = deploy_days(days25, ATLAS, model, thr, args.direction, args.trail)
-    report(f"2025dev:{args.direction}:T{int(args.trail)}", res)
+    res = deploy_days(days25, ATLAS, model, thr, args.direction, args.trail,
+                      prove_min=args.prove_min, prove_mfe=args.prove_mfe,
+                      exit_mode=args.exit, norm_th=norm_th)
+    tag = (f"2025dev:{args.direction}:conf" if args.exit == 'conf'
+           else f"2025dev:{args.direction}:T{int(args.trail)}:P{args.prove_min}m")
+    report(tag, res)
 
     os.makedirs(REPORT_DIR, exist_ok=True)
     out = os.path.join(REPORT_DIR, 'dev_loop_2025.txt')

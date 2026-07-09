@@ -7,3 +7,12 @@ variant: direction=follow trail=20.0t tiers={'q0.995': 0.4100432844621815, 'q0.9
 variant: direction=fade trail=40.0t tiers={'q0.995': 0.4100432844621815, 'q0.998': 0.5601929478028267}
 [2025dev:fade:T40:q0.995] 8.3 tr/d | $/tr -1.16 | $/day -9.6 [-40.8,+21.7] NOT sig | PF 0.95 | 252d/2084tr
 [2025dev:fade:T40:q0.998] 3.3 tr/d | $/tr -1.29 | $/day -4.2 [-28.4,+20.7] NOT sig | PF 0.95 | 252d/823tr
+variant: direction=fade trail=20.0t prove=2.0m/8.0t tiers={'q0.995': 0.4100432844621815, 'q0.998': 0.5601929478028267}
+[2025dev:fade:T20:P2.0m:q0.995] 8.9 tr/d | $/tr -1.46 | $/day -13.1 [-41.8,+14.7] NOT sig | PF 0.93 | 252d/2254tr
+[2025dev:fade:T20:P2.0m:q0.998] 3.5 tr/d | $/tr -2.78 | $/day -9.7 [-31.2,+11.6] NOT sig | PF 0.88 | 252d/881tr
+variant: direction=fade trail=20.0t prove=5.0m/8.0t tiers={'q0.995': 0.4100432844621815, 'q0.998': 0.5601929478028267}
+[2025dev:fade:T20:P5.0m:q0.995] 8.9 tr/d | $/tr -1.27 | $/day -11.3 [-40.2,+16.7] NOT sig | PF 0.94 | 252d/2240tr
+[2025dev:fade:T20:P5.0m:q0.998] 3.5 tr/d | $/tr -2.55 | $/day -8.9 [-30.0,+12.5] NOT sig | PF 0.89 | 252d/874tr
+variant: direction=fade exit=conf trail=20t prove=0.0m/8.0t norm_th=-0.027 tiers={'q0.995': 0.4100432844621815, 'q0.998': 0.5601929478028267}
+[2025dev:fade:conf:q0.995] 5.6 tr/d | $/tr -1.78 | $/day -9.9 [-43.3,+25.2] NOT sig | PF 0.94 | 252d/1405tr
+[2025dev:fade:conf:q0.998] 2.3 tr/d | $/tr -2.90 | $/day -6.8 [-35.4,+21.5] NOT sig | PF 0.93 | 252d/589tr
