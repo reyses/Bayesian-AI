@@ -1,0 +1,36 @@
+autopsy: tier q0.995 trail 20.0t | 2240 closed trades | $/tr -1.30 | win% 36.6
+
+Failure taxonomy:
+  never-worked (<8t MFE):     42.8% of trades, $/tr -38.19
+  gave-back (>=20t MFE, lost): 15.0% of trades, $/tr -23.33, med MFE 39t
+  winners:                     36.6%, $/tr +53.32, med MFE 126t
+
+-- by hour --
+bucket           n    $/tr   win%  medMFE  medMAE
+pre-7          384   -2.75   38.0    23.5   -17.0
+7-9            803   -2.31   34.6    22.0   -26.0
+9-11           266    2.39   39.8    42.0   -23.5
+11-13          213   10.49   41.8    39.0   -25.0
+13-15          279   -4.90   35.5    19.0   -27.0
+15+            295   -5.11   34.6    19.0   -16.0
+
+-- by score --
+bucket           n    $/tr   win%  medMFE  medMAE
+scoreQ1        560   -3.07   33.9    20.0   -21.0
+scoreQ2        560    1.22   36.4    24.0   -23.0
+scoreQ3        560    0.65   40.2    33.0   -21.0
+scoreQ4        560   -4.02   35.9    19.0   -26.0
+
+-- by zsum --
+bucket           n    $/tr   win%  medMFE  medMAE
+deep-low      1484   -0.15   38.1    24.5   -20.0
+low            390   -5.39   32.3    15.5   -27.0
+high           214    0.96   36.9    34.5   -25.5
+deep-high      152   -5.27   32.9    15.5   -25.5
+
+-- by hold --
+bucket           n    $/tr   win%  medMFE  medMAE
+<2m            748  -41.62    0.0     0.0   -56.5
+2-5m           988    1.60   42.3    49.0    -9.5
+5-15m          448   53.88   80.1   123.5     0.0
+15-60m          56   44.54   76.8    81.5    -0.5
