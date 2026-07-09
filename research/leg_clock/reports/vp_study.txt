@@ -1,0 +1,30 @@
+
+== 2025 Test A: labels (10309) vs same-hour nulls (10281) ==
+  dist_poc    label med    122.0 | null med    104.0 | AUC 0.531 (gap +0.031)
+  node_ratio  label med      1.3 | null med      1.5 | AUC 0.427 (gap -0.073)
+  va_width    label med    408.0 | null med    408.0 | AUC 0.503 (gap +0.003)
+  in_va       label 0.678 | null 0.763 | diff -0.085
+  above_va    label 0.182 | null 0.138 | diff +0.044
+== 2025 Test B: niche trades with VP context (n=479, $/tr +5.99) ==
+  inside VA   n= 206 $/tr   +8.05 win% 40.3
+  outside VA  n= 273 $/tr   +4.43 win% 41.0
+  HVN>=1.5    n= 117 $/tr   -0.91 win% 36.8
+  mid         n= 172 $/tr  +12.24 win% 43.6
+  LVN<=0.5    n= 190 $/tr   +4.58 win% 40.5
+  near POC    n= 240 $/tr  +11.10 win% 44.2
+  far POC     n= 239 $/tr   +0.85 win% 37.2
+
+== 2024 Test A: labels (11231) vs same-hour nulls (11231) ==
+  dist_poc    label med     88.0 | null med     74.0 | AUC 0.537 (gap +0.037)
+  node_ratio  label med      1.2 | null med      1.5 | AUC 0.416 (gap -0.084)
+  va_width    label med    268.0 | null med    264.0 | AUC 0.503 (gap +0.003)
+  in_va       label 0.647 | null 0.741 | diff -0.094
+  above_va    label 0.202 | null 0.157 | diff +0.046
+== 2024 Test B: niche trades with VP context (n=282, $/tr +3.76) ==
+  inside VA   n= 151 $/tr   +2.50 win% 42.4
+  outside VA  n= 131 $/tr   +5.21 win% 45.8
+  HVN>=1.5    n=  78 $/tr   +4.97 win% 42.3
+  mid         n=  88 $/tr   +4.95 win% 46.6
+  LVN<=0.5    n= 116 $/tr   +2.05 win% 43.1
+  near POC    n= 141 $/tr   +2.35 win% 45.4
+  far POC     n= 141 $/tr   +5.17 win% 42.6
