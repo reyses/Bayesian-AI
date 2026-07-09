@@ -73,11 +73,30 @@ day-block CI).
 
 **Magnitude is also the taxonomy tool (user, 2026-07-09).** Report each
 signal's magnitude DISTRIBUTION (mode + median + tail), never just the mean,
-and FLAG BIMODALITY: a "60% response" signal may be two mixed populations —
-small fakeout bounces vs real turns — and the histogram exposes it. Intended
-later-stage use (not in this phase): read-only overlay of big-magnitude
-responses onto the labels to classify each signal as "sees the same swings" /
-"sees something else" / "fakeout detector" (the last is useful inverted).
+and FLAG BIMODALITY (mixed populations). NOTE: some concepts are NATIVELY
+fakeout/headfake signals per their own articles — for those, "fakeout" IS the
+pre-registered response type from the start, not a reinterpretation. Later-
+stage use (not this phase): read-only overlay of responses onto the labels.
+
+## Execution requirements (user, 2026-07-09 — AG runs AUTONOMOUS)
+1. **Source re-read first**: before implementing each concept, go back to the
+   ORIGINAL article(s) in `research/nt8_catalog/raw_articles/` and re-read —
+   the 4-pillar synthesis may have dropped nuance. Each per-signal report
+   cites its source article file(s) and states the response definition AS THE
+   ARTICLE CLAIMS IT (entry, fakeout-avoidance, regime, exhaustion, ...).
+2. **One signal = one standalone execution** (own script, own run, own
+   report). No batching that obscures the per-signal deep dive.
+3. **Per-signal report** (`AG_cat_NN_<name>.md`): article citation +
+   registered response; event definition (causal math); P(response) vs
+   matched+phantom nulls, both years; magnitude distribution WITH FIGURES
+   (histogram PNGs saved to `reports/assets/`, mode marked); bimodality flag;
+   verdict line.
+4. **Master summary table** (`AG_cat_00_INDEX.md`), one row per signal:
+   | signal | what it measures | registered response type | N events |
+   P(resp) vs null | MODE of magnitude (the bulk) | tail | bimodal? |
+   verdict |
+5. **Document everything as you go** — the runs are unattended; a report that
+   can't be reconstructed from disk didn't happen.
 
 ## Unchanged hard rules
 Sigma-relative everything; causal/trailing extraction only (FPS discipline);
