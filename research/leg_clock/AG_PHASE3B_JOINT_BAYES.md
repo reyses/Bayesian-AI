@@ -12,28 +12,46 @@ built from all signals jointly — the confluence is the object of study.
    pullback, APZ touch, exhaustion wick, momentum exhaustion, structure
    break, round-number proximity, squeeze state, ADX regime, divergence
    flags, POC/VA position, etc. One row per bar, one column per signal.
-2. **Response (unchanged from the agreed definition)**: first-touch ±k·σ
-   (k ∈ {1,2}), symmetric barriers, direction pre-registered per concept.
-3. **Per-signal likelihood tables** (kept, but demoted to building blocks):
-   P(response | signal) vs matched + phantom nulls — for interpretability
-   and for catching degenerate flags. NOT the verdict layer anymore.
+2. **Response: PER-CONCEPT, not shared (user correction 2026-07-09).**
+   Each signal is measured against ITS OWN claimed response, pre-registered
+   from the article — confounding all signals to one expectation is itself a
+   bias. Examples:
+   - level/VWAP/APZ/pivot touches → directional first-touch ±k·σ (bounce)
+   - squeeze → volatility response (range expansion within H, direction-free)
+   - divergences / exhaustion wicks → turn response (swing reversal within H)
+   - ORB / structure break → continuation response
+   - ADX / regime flags → not an event at all: a CONDITIONING variable
+   Each concept also declares its own natural horizon H. Same measurement
+   hygiene everywhere (σ-scaled magnitudes, matched + phantom nulls,
+   debounce, day-block CIs, both years).
+3. **Per-signal likelihood tables are FIRST-CLASS**: each signal is counted
+   and validated individually, against its own expectation — these tables
+   are findings in their own right, not just building blocks.
 4. **The joint model (the actual deliverable)**:
-   - Fit a calibrated combiner on ALL flags simultaneously — regularized
-     logistic (a discriminative Bayesian update) is the default; report each
-     signal's weight = its evidence contribution GIVEN the others.
-   - **Correlation is the enemy**: signals co-fire (pivot+VWAP+APZ often the
-     same bar). Do NOT multiply marginal likelihood ratios (naive Bayes) —
-     that triple-counts shared evidence and manufactures fake confluence.
-     Report the signal-correlation matrix alongside the weights.
+   - Signals enter the joint model as SEPARATE, individually-calibrated
+     evidence features — each keeps its identity and its own expectation.
+     Do NOT pre-merge, cluster, or discard signals as "redundant" before
+     fitting: apparent co-firing can be two different measurements agreeing,
+     and deduplicating by hand assumes they mean the same thing (the exact
+     bias the user flagged).
+   - Fit a regularized logistic on all features simultaneously; the FIT
+     handles statistical dependence (that is its job) — the one thing that
+     stays banned is naive multiplication of marginal likelihood ratios,
+     which assumes independence that isn't there.
+   - Report each signal's weight (its contribution GIVEN the others) and the
+     correlation matrix, as descriptions — not as grounds for removal.
+   - Regime-type concepts (ADX etc.) enter as conditioning/interaction
+     terms, not as events.
    - Train 2024 → evaluate 2025 untouched.
 5. **Evaluation of the posterior** (in order):
    a. **Calibration**: predicted posterior vs realized frequency, by decile
       (a Bayesian model that says 70% must be right ~70% of the time).
    b. **Tier separation**: response rate in top posterior tiers vs base +
       shuffle-label null. Signal bar: top-tier lift ≥ +10pp REAL.
-   c. **Marginal-contribution ranking**: which signals actually move the
-      posterior (drop-one-out deltas), i.e., which of the 14 concepts carry
-      unique information vs redundant echoes.
+   c. **Marginal-contribution ranking**: drop-one-out deltas, reported as
+      "how much does the posterior lose without this signal" — a
+      contribution measure, NOT a redundancy purge; low-contribution signals
+      stay in the report with their individual tables intact.
    d. **ONE economics test** at the end: trade the top posterior tier only
       (agreed exits, 4t costs, day-block CI, both years). This test — not
       any AUC/calibration number — decides if anything ships.
