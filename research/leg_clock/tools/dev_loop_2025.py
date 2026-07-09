@@ -39,7 +39,7 @@ def log(s):
 
 def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
                 prove_min=0.0, prove_mfe=8.0, exit_mode='trail', norm_th=None,
-                hours=None):
+                hours=None, min_stretch=0.0, entry_mode='immediate'):
     """prove_min > 0 enables the FAIL-FAST rule: if the trade hasn't reached
     +prove_mfe ticks favorable within prove_min minutes -> scratch at market.
     (Cuts on failure-to-progress, NOT drawdown depth - distinct from the
@@ -74,6 +74,7 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
             trades = []
             pos, entry, ext = 0, 0.0, 0.0
             e_ts, mfe = 0.0, 0.0
+            armed_dir, armed_until = 0, -1   # re-entry confirmation state
             k5 = 0
             for i in range(30, len(ts_m)):
                 t = ts_m[i]
@@ -102,14 +103,31 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
                     if normalized or opposite:
                         trades.append(((px_m[i] - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
                         pos = 0
-                if pos == 0 and h_open <= t < min(cut, h_close) and s[i] >= th:
-                    if direction == 'fade':
-                        pos = -1 if zsum[i] > 0 else 1
-                    elif direction == 'follow':
-                        pos = 1 if zsum[i] > 0 else -1
-                    else:  # vel: fade the recent velocity (pullback-reversion)
-                        pos = -1 if vel[i] > 0 else 1
-                    entry = px_m[i]; ext = px_m[i]; e_ts = t; mfe = 0.0
+                in_window = h_open <= t < min(cut, h_close)
+                signal = (s[i] >= th and abs(zsum[i]) >= min_stretch)
+                if pos == 0 and in_window:
+                    enter_dir = 0
+                    if entry_mode == 'immediate':
+                        if signal:
+                            if direction == 'fade':
+                                enter_dir = -1 if zsum[i] > 0 else 1
+                            elif direction == 'follow':
+                                enter_dir = 1 if zsum[i] > 0 else -1
+                            else:
+                                enter_dir = -1 if vel[i] > 0 else 1
+                    else:  # reentry confirmation
+                        if signal and armed_dir == 0:
+                            armed_dir = -1 if zsum[i] > 0 else 1   # fade dir, locked
+                            armed_until = i + 3
+                        elif armed_dir != 0:
+                            if i > armed_until:
+                                armed_dir = 0                       # stand down
+                            elif abs(zsum[i]) <= 2.0:               # closed back inside
+                                enter_dir = armed_dir
+                                armed_dir = 0
+                    if enter_dir != 0:
+                        pos = enter_dir
+                        entry = px_m[i]; ext = px_m[i]; e_ts = t; mfe = 0.0
             if pos != 0:
                 trades.append(((px5[-1] - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
             results[tier].append(trades)
@@ -149,6 +167,12 @@ def main():
                          "opposite-signal / EOD), NO stops of any kind")
     ap.add_argument('--hours', type=str, default='',
                     help='CT entry window, e.g. 9-13 (exits unrestricted)')
+    ap.add_argument('--min-stretch', type=float, default=0.0,
+                    help='require |zsum| >= this at entry (depth gate)')
+    ap.add_argument('--entry', choices=['immediate', 'reentry'], default='immediate',
+                    help="reentry = APZ-style confirmation: arm on signal, enter "
+                         "only when |zsum| closes back inside 2.0 within 3 bars "
+                         "(filters falling-knife entries)")
     ap.add_argument('--max-days', type=int, default=0, help='cap 2025 days (speed)')
     ap.add_argument('--year', type=str, default='2025',
                     help='eval year (2024 = hour-choice cross-validation; '
@@ -181,11 +205,16 @@ def main():
     hrs = tuple(int(x) for x in args.hours.split('-')) if args.hours else None
     res = deploy_days(days25, ATLAS, model, thr, args.direction, args.trail,
                       prove_min=args.prove_min, prove_mfe=args.prove_mfe,
-                      exit_mode=args.exit, norm_th=norm_th, hours=hrs)
+                      exit_mode=args.exit, norm_th=norm_th, hours=hrs,
+                      min_stretch=args.min_stretch, entry_mode=args.entry)
     tag = (f"{args.year}dev:{args.direction}:conf" if args.exit == 'conf'
            else f"{args.year}dev:{args.direction}:T{int(args.trail)}:P{args.prove_min}m")
     if hrs:
         tag += f":H{hrs[0]}-{hrs[1]}"
+    if args.min_stretch:
+        tag += f":Z{args.min_stretch}"
+    if args.entry != 'immediate':
+        tag += ":REENTRY"
     report(tag, res)
 
     os.makedirs(REPORT_DIR, exist_ok=True)
