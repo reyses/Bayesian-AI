@@ -97,6 +97,14 @@ stage use (not this phase): read-only overlay of responses onto the labels.
    verdict |
 5. **Document everything as you go** — the runs are unattended; a report that
    can't be reconstructed from disk didn't happen.
+6. **Folder discipline — EVERYTHING lives in `research/nt8_catalog/`:**
+   - scripts → `research/nt8_catalog/tools/ag_cat_NN_<name>.py`
+   - reports → `research/nt8_catalog/reports/AG_cat_NN_<name>.md`
+   - figures → `research/nt8_catalog/reports/assets/`
+   - master table → `research/nt8_catalog/reports/AG_cat_00_INDEX.md`
+   Do NOT write into `research/leg_clock/` or the top-level `reports/`.
+   Update `README_synthesis_index.md` as artifacts land. One research
+   effort = one folder (house convention).
 
 ## Unchanged hard rules
 Sigma-relative everything; causal/trailing extraction only (FPS discipline);
