@@ -38,7 +38,8 @@ def log(s):
 
 
 def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
-                prove_min=0.0, prove_mfe=8.0, exit_mode='trail', norm_th=None):
+                prove_min=0.0, prove_mfe=8.0, exit_mode='trail', norm_th=None,
+                hours=None):
     """prove_min > 0 enables the FAIL-FAST rule: if the trade hasn't reached
     +prove_mfe ticks favorable within prove_min minutes -> scratch at market.
     (Cuts on failure-to-progress, NOT drawdown depth - distinct from the
@@ -64,6 +65,11 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
         vel = Fn[:, VEL]
         d0 = dtm.datetime.fromtimestamp(ts5[-1], tz=dtm.timezone.utc).astimezone(central)
         cut = central.localize(dtm.datetime(d0.year, d0.month, d0.day, *cut_hhmm)).timestamp()
+        if hours:
+            h_open = central.localize(dtm.datetime(d0.year, d0.month, d0.day, hours[0], 0)).timestamp()
+            h_close = central.localize(dtm.datetime(d0.year, d0.month, d0.day, hours[1], 0)).timestamp()
+        else:
+            h_open, h_close = -np.inf, np.inf
         for tier, th in thr.items():
             trades = []
             pos, entry, ext = 0, 0.0, 0.0
@@ -96,7 +102,7 @@ def deploy_days(days, root, model, thr, direction, trail, cut_hhmm=(15, 55),
                     if normalized or opposite:
                         trades.append(((px_m[i] - entry) / TICK * pos - COST_TICKS) * TICK_VALUE)
                         pos = 0
-                if pos == 0 and t < cut and s[i] >= th:
+                if pos == 0 and h_open <= t < min(cut, h_close) and s[i] >= th:
                     if direction == 'fade':
                         pos = -1 if zsum[i] > 0 else 1
                     elif direction == 'follow':
@@ -141,7 +147,12 @@ def main():
     ap.add_argument('--exit', choices=['trail', 'conf'], default='trail',
                     help="conf = confidence-driven exits (normalization / "
                          "opposite-signal / EOD), NO stops of any kind")
+    ap.add_argument('--hours', type=str, default='',
+                    help='CT entry window, e.g. 9-13 (exits unrestricted)')
     ap.add_argument('--max-days', type=int, default=0, help='cap 2025 days (speed)')
+    ap.add_argument('--year', type=str, default='2025',
+                    help='eval year (2024 = hour-choice cross-validation; '
+                         'note 2024 is also the train year for the MODEL)')
     args = ap.parse_args()
 
     rng = np.random.default_rng(0)
@@ -164,14 +175,17 @@ def main():
         f"prove={args.prove_min}m/{args.prove_mfe}t norm_th={norm_th:.3f} tiers={thr}")
 
     days25 = sorted(os.path.basename(f).replace('.parquet', '')
-                    for f in glob.glob(os.path.join(ATLAS, '1m', '2025_*.parquet')))
+                    for f in glob.glob(os.path.join(ATLAS, '1m', f'{args.year}_*.parquet')))
     if args.max_days:
         days25 = days25[:args.max_days]
+    hrs = tuple(int(x) for x in args.hours.split('-')) if args.hours else None
     res = deploy_days(days25, ATLAS, model, thr, args.direction, args.trail,
                       prove_min=args.prove_min, prove_mfe=args.prove_mfe,
-                      exit_mode=args.exit, norm_th=norm_th)
-    tag = (f"2025dev:{args.direction}:conf" if args.exit == 'conf'
-           else f"2025dev:{args.direction}:T{int(args.trail)}:P{args.prove_min}m")
+                      exit_mode=args.exit, norm_th=norm_th, hours=hrs)
+    tag = (f"{args.year}dev:{args.direction}:conf" if args.exit == 'conf'
+           else f"{args.year}dev:{args.direction}:T{int(args.trail)}:P{args.prove_min}m")
+    if hrs:
+        tag += f":H{hrs[0]}-{hrs[1]}"
     report(tag, res)
 
     os.makedirs(REPORT_DIR, exist_ok=True)
