@@ -56,6 +56,21 @@ built from all signals jointly — the confluence is the object of study.
       (agreed exits, 4t costs, day-block CI, both years). This test — not
       any AUC/calibration number — decides if anything ships.
 
+## Estimation spec (user, 2026-07-09): quasi-binary two-part model
+Rows = EVENT OCCURRENCES (not all bars). For each event row, tag:
+- the response bar (when/whether the concept's pre-registered response
+  happened within its horizon) → binary y
+- the response MAGNITUDE where applicable (σ-normalized move), tagged at the
+  resolution bar
+Model = hurdle / two-part:
+1. **Logistic** on y (response occurred) — per-signal tables and the joint
+   combiner both live here.
+2. **Magnitude regression | y=1** (σ-units) — because economics is
+   EV = P(response) × E[magnitude | response] − costs; a frequent tiny
+   response can lose to a rarer large one, and P alone cannot see that.
+The final economics test consumes BOTH parts (EV per event, then $/day with
+day-block CI).
+
 ## Unchanged hard rules
 Sigma-relative everything; causal/trailing extraction only (FPS discipline);
 label-free; matched + phantom nulls at the per-signal layer; day-block CIs;
