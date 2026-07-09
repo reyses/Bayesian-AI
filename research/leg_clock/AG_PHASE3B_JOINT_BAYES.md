@@ -71,6 +71,14 @@ Model = hurdle / two-part:
 The final economics test consumes BOTH parts (EV per event, then $/day with
 day-block CI).
 
+**Magnitude is also the taxonomy tool (user, 2026-07-09).** Report each
+signal's magnitude DISTRIBUTION (mode + median + tail), never just the mean,
+and FLAG BIMODALITY: a "60% response" signal may be two mixed populations —
+small fakeout bounces vs real turns — and the histogram exposes it. Intended
+later-stage use (not in this phase): read-only overlay of big-magnitude
+responses onto the labels to classify each signal as "sees the same swings" /
+"sees something else" / "fakeout detector" (the last is useful inverted).
+
 ## Unchanged hard rules
 Sigma-relative everything; causal/trailing extraction only (FPS discipline);
 label-free; matched + phantom nulls at the per-signal layer; day-block CIs;
