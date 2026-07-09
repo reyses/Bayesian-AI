@@ -25,8 +25,8 @@ with the user.
    hold on the other.
 4. **Verdict line** — REAL / CONDITIONAL / NOISE / UNTESTABLE, one sentence
    why.
-Report file per concept: `research/leg_clock/reports/AG_cat_NN_<name>.md`.
-Tools: `research/leg_clock/tools/ag_cat_NN_<name>.py`, standalone-runnable.
+Report file per concept: `research/nt8_catalog/reports/AG_cat_NN_<name>.md`.
+Tools: `research/nt8_catalog/tools/ag_cat_NN_<name>.py`, standalone-runnable.
 
 ## Concept queue (priority order)
 01 Prior-day OHLC levels (+ floor pivots R1/S1) — crowd-attention candidate #1

@@ -89,7 +89,7 @@ stage use (not this phase): read-only overlay of responses onto the labels.
 3. **Per-signal report** (`AG_cat_NN_<name>.md`): article citation +
    registered response; event definition (causal math); P(response) vs
    matched+phantom nulls, both years; magnitude distribution WITH FIGURES
-   (histogram PNGs saved to `reports/assets/`, mode marked); bimodality flag;
+   (histogram PNGs saved to `research/nt8_catalog/reports/assets/`, mode marked); bimodality flag;
    verdict line.
 4. **Master summary table** (`AG_cat_00_INDEX.md`), one row per signal:
    | signal | what it measures | registered response type | N events |

@@ -25,3 +25,13 @@ Focuses on the explicit Boolean logic, risk management math, and systemic rulese
 
 ## Guidelines for Implementation
 When resetting context or building a new feature in the `pipeline/`, `builders/`, or `tools/` subdirectories, refer directly to the corresponding thematic pillar to pull the exact mathematical logic and causal reasoning required for the codebase.
+
+---
+
+## Phase 3B — Bayesian response sweep (active)
+- **AG directive**: `AG_PHASE3B_JOINT_BAYES.md` (supersedes `AG_TASK_catalog_sweep.md`
+  per-concept-verdict framing; `AG_PHASE3_REVIEW.md` = the methodology review).
+- Tools → `tools/ag_cat_NN_<name>.py` (one standalone run per signal).
+- Reports → `reports/AG_cat_NN_<name>.md` + figures in `reports/assets/`;
+  master mode-first table → `reports/AG_cat_00_INDEX.md`.
+- Prior evidence map: `TESTED_VS_UNTESTED.md`.
