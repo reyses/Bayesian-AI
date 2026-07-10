@@ -21,77 +21,7 @@ def rolling_ols_bands(close, W):
     pad = np.full(W - 1, np.nan)
     return np.r_[pad, sig]
 
-def compute_daily_profile(parquet_path):
-    try:
-        df = pd.read_parquet(parquet_path, columns=['close', 'volume', 'timestamp'])
-    except Exception:
-        return None
-        
-    if len(df) == 0: return None
-    
-    # We build the profile from the RTH session (08:30 to 15:15 CT)
-    df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
-    df_rth = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())]
-    
-    if len(df_rth) == 0:
-        return None
-        
-    prices = df_rth['close'].values
-    volumes = df_rth['volume'].values
-    
-    high = np.max(prices)
-    low = np.min(prices)
-    total_vol = np.sum(volumes)
-    
-    if total_vol == 0: return None
-        
-    tick_size = 0.25
-    bins = np.arange(low, high + tick_size, tick_size)
-    if len(bins) < 2:
-        return {'high': high, 'low': low, 'poc': low, 'vah': high, 'val': low, 'total_vol': total_vol}
-        
-    digitized = np.digitize(prices, bins)
-    vol_by_bin = np.zeros(len(bins))
-    for i in range(len(prices)):
-        idx = min(digitized[i] - 1, len(vol_by_bin) - 1)
-        vol_by_bin[idx] += volumes[i]
-        
-    poc_idx = np.argmax(vol_by_bin)
-    poc = bins[poc_idx]
-    
-    target_vol = 0.7 * total_vol
-    va_vol = vol_by_bin[poc_idx]
-    
-    up = poc_idx + 1
-    down = poc_idx - 1
-    
-    while va_vol < target_vol:
-        vol_up = vol_by_bin[up] if up < len(bins) else -1
-        vol_down = vol_by_bin[down] if down >= 0 else -1
-        
-        if vol_up == -1 and vol_down == -1: break
-            
-        if vol_up > vol_down:
-            va_vol += vol_up
-            up += 1
-        else:
-            va_vol += vol_down
-            down -= 1
-            
-    vah = bins[min(up, len(bins)-1)]
-    val = bins[max(down, 0)]
-    
-    return {
-        'high': high,
-        'low': low,
-        'poc': poc,
-        'vah': vah,
-        'val': val,
-        'total_vol': total_vol
-    }
-
-def process_day(args):
-    day, yest_profile = args
+def process_day(day):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
     parquet_path = os.path.join(l0_dir, f"{day}.parquet")
@@ -114,8 +44,9 @@ def process_day(args):
     
     if len(df_day) < 100: return None
         
+    df['sma20'] = df['close'].rolling(240).mean().bfill()
     prices = df_day['close'].values
-    sigmas = df_day['sigma'].values
+    sma20 = df_day['sma20'].values
     times = df_day['dt'].values
     open_price = prices[0]
     
@@ -123,109 +54,86 @@ def process_day(args):
     mode = 'none'
     event_idx = -1
     
-    vh = yest_profile['vah']
-    vl = yest_profile['val']
-    ph = yest_profile['high']
-    pl = yest_profile['low']
-    poc = yest_profile['poc']
+    day_high = np.max(prices)
+    day_low = np.min(prices)
     
-    # Setups
-    if vh < open_price < ph:
-        setup = 1
-        for i, p in enumerate(prices):
-            if p <= poc:
-                event_idx = i
+    # Psychological levels: divisible by 50
+    levels = [L for L in range(int(day_low/50)*50 - 50, int(day_high/50)*50 + 100, 50)]
+    
+    primed_bullish = {L: False for L in levels}
+    primed_bearish = {L: False for L in levels}
+    trigger_L = None
+    
+    for i, p in enumerate(prices):
+        triggered = False
+        for L in levels:
+            # Check if touched exactly (or crossed)
+            if p <= L and primed_bullish[L]:
+                setup = 1
                 mode = 'bullish_bounce'
-                break
-    elif pl < open_price < vl:
-        setup = 2
-        for i, p in enumerate(prices):
-            if p >= poc:
                 event_idx = i
-                mode = 'bearish_bounce'
+                trigger_L = L
+                triggered = True
                 break
-    elif open_price > ph:
-        setup = 3
-        event_idx = 0
-        mode = 'bullish_runner'
-    elif open_price < pl:
-        setup = 3
-        event_idx = 0
-        mode = 'bearish_runner'
-        
+                
+            if p >= L and primed_bearish[L]:
+                setup = 2
+                mode = 'bearish_bounce'
+                event_idx = i
+                trigger_L = L
+                triggered = True
+                break
+
+            # Update primes
+            # Setup 1 (Bullish Bounce): Price > 10 points above psych level
+            if p > L + 10:
+                primed_bullish[L] = True
+            elif p <= L:
+                primed_bullish[L] = False
+                
+            # Setup 2 (Bearish Bounce): Price > 10 points below psych level
+            if p < L - 10:
+                primed_bearish[L] = True
+            elif p >= L:
+                primed_bearish[L] = False
+                
+        if triggered:
+            break
+            
     if event_idx == -1: return None
     
-    # Horizon
-    horizon = 12 * 60 # 60 minutes
-    if event_idx + 10 >= len(prices): return None
-        
-    p0 = prices[event_idx]
-    
     path = prices[event_idx+1 :]
+    sma_path = sma20[event_idx+1 :]
     if len(path) == 0: return None
     
     magnitude = 0.0
     hit_target = False
     
-    if mode == 'bullish_bounce':
-        target = vh
-        stop = p0 - 10.0
-        for p in path:
-            if p >= target:
+    if mode in ['bullish_bounce']:
+        stop_level = p0 - 10.0
+        for p, s in zip(path, sma_path):
+            if p >= s: # Reverted to mean
+                magnitude = p - p0
                 hit_target = True
-                magnitude = p - p0
                 break
-            elif p <= stop:
-                hit_target = False
+            elif p <= stop_level: # Hit stop
                 magnitude = p - p0
+                hit_target = False
                 break
         if magnitude == 0.0:
             magnitude = path[-1] - p0
             hit_target = magnitude > 0
             
-    elif mode == 'bearish_bounce':
-        target = vl
-        stop = p0 + 10.0
-        for p in path:
-            if p <= target:
+    elif mode in ['bearish_bounce']:
+        stop_level = p0 + 10.0
+        for p, s in zip(path, sma_path):
+            if p <= s: # Reverted to mean
+                magnitude = p0 - p
                 hit_target = True
-                magnitude = p0 - p
                 break
-            elif p >= stop:
+            elif p >= stop_level: # Hit stop
+                magnitude = p0 - p
                 hit_target = False
-                magnitude = p0 - p
-                break
-        if magnitude == 0.0:
-            magnitude = p0 - path[-1]
-            hit_target = magnitude > 0
-
-    elif mode == 'bullish_runner':
-        target = p0 + 20.0
-        stop = p0 - 10.0
-        for p in path:
-            if p >= target:
-                hit_target = True
-                magnitude = p - p0
-                break
-            elif p <= stop:
-                hit_target = False
-                magnitude = p - p0
-                break
-        if magnitude == 0.0:
-            magnitude = path[-1] - p0
-            hit_target = magnitude > 0
-            
-    elif mode == 'bearish_runner':
-        target = p0 - 20.0
-        stop = p0 + 10.0
-        for p in path:
-            if p <= target:
-                hit_target = True
-                magnitude = p0 - p
-                break
-            elif p >= stop:
-                hit_target = False
-                magnitude = p0 - p
                 break
         if magnitude == 0.0:
             magnitude = p0 - path[-1]
@@ -237,7 +145,7 @@ def process_day(args):
         'setup': setup,
         'mode': mode,
         'open_price': open_price,
-        'yest_poc': poc,
+        'trigger_L': trigger_L,
         'event_idx': event_idx,
         'hit': int(hit_target),
         'magnitude': magnitude
@@ -251,32 +159,16 @@ if __name__ == '__main__':
     days = [os.path.basename(f).replace('.parquet', '') for f in all_files if ('2024' in f or '2025' in f)]
     days = sorted(days)
     
-    print(f"[VP Deep Dive] Computing Daily Profiles for {len(days)} days...")
-    daily_profiles = {}
-    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()-1) as executor:
-        paths = [os.path.join(l0_dir, f"{d}.parquet") for d in days]
-        results = executor.map(compute_daily_profile, paths)
-        for d, res in zip(days, results):
-            if res is not None:
-                daily_profiles[d] = res
-                
-    print("[VP Deep Dive] Evaluating Setups...")
-    tasks = []
-    for i in range(1, len(days)):
-        yest = days[i-1]
-        today = days[i]
-        # Ensure we only compare consecutive days (ignoring weekends)
-        if yest in daily_profiles:
-            tasks.append((today, daily_profiles[yest]))
-            
+    print("[Psych Levels Deep Dive] Evaluating Setups...")
+    
     all_events = []
     with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()-1) as executor:
-        for res in executor.map(process_day, tasks):
+        for res in executor.map(process_day, days):
             if res is not None:
                 all_events.append(res)
                 
     df = pd.DataFrame(all_events)
-    print(f"[VP Deep Dive] Extracted {len(df)} triggered events.")
+    print(f"[Psych Levels Deep Dive] Extracted {len(df)} triggered events.")
     
     def calc_wr(mags_array):
         wins = (mags_array > 0).sum()
@@ -311,10 +203,10 @@ if __name__ == '__main__':
         return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-VP-01 (LOGISTIC REGRESSION VERIFIED)")
-    report_lines.append("**Title:** Deep Dive #1: Volume Profile Trading Strategies")
+    report_lines.append("# Document ID: AG-DOC-ROUND-05 (LOGISTIC REGRESSION VERIFIED)")
+    report_lines.append("**Title:** Deep Dive #5: Psychological Round Numbers (00/50 Levels)")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (Target VAH/VAL or 20pt/10pt Stop). Unclamped Magnitude.")
+    report_lines.append("**Ruleset:** Bespoke Exit (Mean Revert to SMA20 or 10pt Stop). Unclamped Magnitude.")
     report_lines.append("")
     report_lines.append("## LR: Unnormalized Expected Value (EV)")
     report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
@@ -324,27 +216,38 @@ if __name__ == '__main__':
         report_lines.append(f"### Results for {year}")
         report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
-        df_year = df[df['year'] == year]
+        if len(df) > 0:
+            df_year = df[df['year'] == year]
+        else:
+            df_year = pd.DataFrame()
         
-        for setup in [1, 2, 3]:
-            df_sub = df_year[df_year['setup'] == setup]
+        for setup in [1, 2]:
+            if len(df_year) > 0:
+                df_sub = df_year[df_year['setup'] == setup]
+            else:
+                df_sub = []
+                
             if len(df_sub) == 0:
                 report_lines.append(f"| {setup} | No events | 0 | - | - | - | - | - |")
                 continue
             wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(df_sub)
             n = len(df_sub)
-            desc = "Naked POC Test" if setup in [1, 2] else "Trend Runner"
+            desc = "Bullish Bounce" if setup == 1 else "Bearish Bounce"
             sig_str = "Yes" if is_sig else "No"
             report_lines.append(f"| {setup} | {desc} | {n} | {wr:.2f} | {mag_mode:.2f} | **{ev_mean:.2f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
         report_lines.append("")
         
     assets_dir = os.path.dirname(__file__)
-    plot_path = os.path.join(assets_dir, 'DOC-VP-01_distributions.png')
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    fig.suptitle('DOC-VP-01: Realizable Volume Profile Setups (Both Years)', fontsize=16)
-    for i, setup in enumerate([1, 2, 3]):
+    plot_path = os.path.join(assets_dir, 'DOC-ROUND-05_distributions.png')
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig.suptitle('DOC-ROUND-05: Realizable Psych Level Setups (Both Years)', fontsize=16)
+    for i, setup in enumerate([1, 2]):
         ax = axes[i]
-        df_sub = df[df['setup'] == setup]
+        if len(df) > 0:
+            df_sub = df[df['setup'] == setup]
+        else:
+            df_sub = pd.DataFrame()
+            
         if len(df_sub) > 0:
             winners = df_sub[df_sub['hit'] == 1]['magnitude']
             losers = df_sub[df_sub['hit'] == 0]['magnitude']
@@ -366,10 +269,10 @@ if __name__ == '__main__':
     plt.close()
     
     report_lines.append("## Graphical Descriptive Statistics (Aggregate)")
-    report_lines.append(f"![Distribution Plot](./DOC-VP-01_distributions.png)")
+    report_lines.append(f"![Distribution Plot](./DOC-ROUND-05_distributions.png)")
     
-    report_path = os.path.join(os.path.dirname(__file__), 'DOC_VP_01.md')
+    report_path = os.path.join(os.path.dirname(__file__), 'DOC_05_Psych_Numbers.md')
     with open(report_path, 'w') as f:
         f.write("\n".join(report_lines))
         
-    print(f"[VP Deep Dive] Complete. Report written to {report_path}")
+    print(f"[Psych Levels Deep Dive] Complete. Report written to {report_path}")

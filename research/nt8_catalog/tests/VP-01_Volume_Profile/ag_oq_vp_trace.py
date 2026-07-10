@@ -22,6 +22,10 @@ def run_oq_trace(target_day, yesterday):
     print(f"Loading Yesterday ({yesterday})...")
     
     yest_profile = compute_daily_profile(yest_path)
+    if yest_profile is None:
+        print("Yesterday profile could not be computed.")
+        return
+        
     print(f"[IQ/OQ] Yesterday's Computed Profile:")
     print(f"  Total Volume: {yest_profile['total_vol']}")
     print(f"  High:  {yest_profile['high']:.2f}")
@@ -31,15 +35,19 @@ def run_oq_trace(target_day, yesterday):
     print(f"  Low:   {yest_profile['low']:.2f}")
     
     df = pd.read_parquet(today_path, columns=['close', 'timestamp'])
-    prices = df['close'].values
-    times = df['timestamp'].values
+    df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
+    df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
-    if len(prices) == 0:
-        print("No prices found for today.")
+    if len(df_day) == 0:
+        print("No RTH prices found for today.")
         return
         
+    prices = df_day['close'].values
+    times = df_day['dt'].values
+        
     open_price = prices[0]
-    print(f"\n[IQ/OQ] Today's Open Price: {open_price:.2f}")
+    open_time = times[0]
+    print(f"\n[IQ/OQ] Today's Open Price (at {open_time}): {open_price:.2f}")
     
     setup = 0
     vh = yest_profile['vah']
