@@ -6,6 +6,20 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def rolling_ols_bands(close, W):
+    n = len(close)
+    if n < W:
+        return np.full(n, 1.0)
+    x = np.linspace(-1.0, 1.0, W)
+    X = np.stack([np.ones(W), x], axis=1)
+    P = np.linalg.pinv(X)
+    sw = np.lib.stride_tricks.sliding_window_view(close, W)
+    C = sw @ P.T
+    fit = C @ X.T
+    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
+    pad = np.full(W - 1, np.nan)
+    return np.r_[pad, sig]
+
 def process_day(day):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
@@ -17,6 +31,9 @@ def process_day(day):
         return None
         
     if len(df) < 100: return None
+    
+    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
+    df['sigma'] = df['sigma'].bfill().fillna(1.0)
     
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
@@ -73,22 +90,36 @@ def process_day(day):
     if event_idx == -1: return None
     
     p0 = prices[event_idx]
-    path = prices[event_idx+1 : event_idx+61]
+    sigma_0 = df_day['sigma'].iloc[event_idx]
+    path = prices[event_idx+1 :]
     if len(path) == 0: return None
     
     magnitude = 0.0
-    hit_target = False
+    hit_target = 0
     
-    if 'bullish' in mode:
-        mfe = np.max(path) - p0
-        mae = np.min(path) - p0
-        magnitude = mfe
-        hit_target = magnitude > 5.0
-    elif 'bearish' in mode:
-        mfe = p0 - np.min(path)
-        mae = p0 - np.max(path)
-        magnitude = mfe
-        hit_target = magnitude > 5.0
+    for p in path:
+        if 'bullish' in mode:
+            exc = (p - p0) / sigma_0
+        elif 'bearish' in mode:
+            exc = (p0 - p) / sigma_0
+            
+        if exc >= 2.05:
+            hit_target = 1
+            magnitude = 2.05
+            break
+        elif exc <= -2.05:
+            hit_target = 0
+            magnitude = -2.05
+            break
+            
+    if magnitude == 0.0:
+        p_end = path[-1]
+        if 'bullish' in mode:
+            exc = (p_end - p0) / sigma_0
+        else:
+            exc = (p0 - p_end) / sigma_0
+        magnitude = exc
+        hit_target = 1 if magnitude > 0 else 0
             
     return {
         'year': day[:4],
@@ -98,10 +129,11 @@ def process_day(day):
         'open_price': p0,
         'trigger_L': trigger_L,
         'event_idx': event_idx,
-        'hit': int(hit_target),
+        'hit': hit_target,
         'magnitude': magnitude,
-        'mfe': mfe,
-        'mae': mae
+        'depth': 0.0,
+        'mfe': magnitude,
+        'mae': 0.0
     }
 
 if __name__ == '__main__':
@@ -166,15 +198,14 @@ if __name__ == '__main__':
     report_lines.append("# Document ID: DOC-ROUND-05")
     report_lines.append("**Title:** Deep Dive #5: Psychological Round Numbers (00/50 Levels)")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Breach Continuation (MFE tracking over 5m window).")
+    report_lines.append("**Ruleset:** Breach Continuation. Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.")
     report_lines.append("")
-    report_lines.append("## Expected Continuation MFE (Points)")
-    report_lines.append("> *Note: Magnitudes are MFE points within 5m of breach. Hit Rate = MFE > 5pts.*")
+    report_lines.append("## Expected Continuation (σ)")
     report_lines.append("")
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |")
+        report_lines.append("| Setup | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
         if len(df) > 0:
             df_year = df[df['year'] == year]
@@ -218,7 +249,7 @@ if __name__ == '__main__':
                 ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'<5pt MFE (n={len(losers)})')
                 ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
             ax.set_title(f"Setup {setup}")
-            ax.set_xlabel("MFE (Raw Points)")
+            ax.set_xlabel("Excursion (σ)")
             ax.set_ylabel("Frequency")
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -232,7 +263,7 @@ if __name__ == '__main__':
     report_lines.append(f"![Distribution Plot](./DOC-ROUND-05_distributions.png)")
     
     report_path = os.path.join(os.path.dirname(__file__), 'DOC_05_Psych_Numbers.md')
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(report_lines))
         
     print(f"[Psych Levels Deep Dive] Complete. Report written to {report_path}")

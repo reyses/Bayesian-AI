@@ -6,6 +6,20 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def rolling_ols_bands(close, W):
+    n = len(close)
+    if n < W:
+        return np.full(n, 1.0)
+    x = np.linspace(-1.0, 1.0, W)
+    X = np.stack([np.ones(W), x], axis=1)
+    P = np.linalg.pinv(X)
+    sw = np.lib.stride_tricks.sliding_window_view(close, W)
+    C = sw @ P.T
+    fit = C @ X.T
+    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
+    pad = np.full(W - 1, np.nan)
+    return np.r_[pad, sig]
+
 def process_day(day):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
@@ -18,6 +32,9 @@ def process_day(day):
         
     if len(df) < 100: return None
     
+    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
+    df['sigma'] = df['sigma'].bfill().fillna(1.0)
+    
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
@@ -25,6 +42,7 @@ def process_day(day):
         
     prices = df_day['close'].values
     volumes = df_day['volume'].values
+    sigmas = df_day['sigma'].values
     
     cum_vol = volumes.cumsum()
     cum_vol = np.where(cum_vol == 0, 1, cum_vol)
@@ -72,71 +90,37 @@ def process_day(day):
     if event_idx == -1: return None
     
     p0 = prices[event_idx]
+    sigma_0 = sigmas[event_idx]
     path = prices[event_idx+1 :]
-    vwap_path = vwap[event_idx+1 :]
-    std_path = vwap_std[event_idx+1 :]
     if len(path) == 0: return None
     
     magnitude = 0.0
-    hit_target = False
+    hit_target = 0
     
-    if mode == 'bullish_bounce':
-        for p, v, std in zip(path, vwap_path, std_path):
-            if p >= v:
-                magnitude = p - p0
-                hit_target = magnitude > 0
-                break
-            elif p <= v - 3.0 * std:
-                magnitude = p - p0
-                hit_target = magnitude > 0
-                break
-        if magnitude == 0.0:
-            magnitude = path[-1] - p0
-            hit_target = magnitude > 0
-            
-    elif mode == 'bearish_bounce':
-        for p, v, std in zip(path, vwap_path, std_path):
-            if p <= v:
-                magnitude = p0 - p
-                hit_target = magnitude > 0
-                break
-            elif p >= v + 3.0 * std:
-                magnitude = p0 - p
-                hit_target = magnitude > 0
-                break
-        if magnitude == 0.0:
-            magnitude = p0 - path[-1]
-            hit_target = magnitude > 0
-            
-    # --- INJECTED MFE/MAE CALCULATION ---
-    mfe = 0.0
-    mae = 0.0
-    try:
-        if 'bullish' in mode:
-            exit_price_approx = p0 + magnitude
-            if hit_target:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
-            else:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+    for p in path:
+        if mode == 'bullish_bounce':
+            exc = (p - p0) / sigma_0
         else:
-            exit_price_approx = p0 - magnitude
-            if hit_target:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
-            else:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+            exc = (p0 - p) / sigma_0
             
-        exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
-        sub_path = path[:exit_idx+1]
-    
-        if 'bullish' in mode:
-            mfe = np.max(sub_path) - p0
-            mae = np.min(sub_path) - p0
+        if exc >= 2.05:
+            hit_target = 1
+            magnitude = 2.05
+            break
+        elif exc <= -2.05:
+            hit_target = 0
+            magnitude = -2.05
+            break
+            
+    if magnitude == 0.0:
+        p_end = path[-1]
+        if mode == 'bullish_bounce':
+            exc = (p_end - p0) / sigma_0
         else:
-            mfe = p0 - np.min(sub_path)
-            mae = p0 - np.max(sub_path)
-    except Exception:
-        pass
-    # ------------------------------------
+            exc = (p0 - p_end) / sigma_0
+        magnitude = exc
+        hit_target = 1 if magnitude > 0 else 0
+            
     return {
         'year': day[:4],
         'day': day,
@@ -144,10 +128,11 @@ def process_day(day):
         'mode': mode,
         'open_price': prices[0],
         'event_idx': event_idx,
-        'hit': int(hit_target),
+        'hit': hit_target,
         'magnitude': magnitude,
-        'mfe': mfe,
-        'mae': mae
+        'depth': 0.0,
+        'mfe': magnitude,
+        'mae': 0.0
     }
 
 if __name__ == '__main__':
@@ -210,18 +195,17 @@ if __name__ == '__main__':
         return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-VWAP-03 (LOGISTIC REGRESSION VERIFIED)")
+    report_lines.append("# Document ID: AG-DOC-VWAP-03")
     report_lines.append("**Title:** Deep Dive #3: Session VWAP Z-Score Mean Reversion")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (Mean Revert to VWAP or 3.0$\\sigma$ Stop). Z-turn confirmed entry.")
+    report_lines.append("**Ruleset:** Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.")
     report_lines.append("")
-    report_lines.append("## LR: Unnormalized Expected Value (EV)")
-    report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
+    report_lines.append("## Expected Value (EV)")
     report_lines.append("")
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
+        report_lines.append("| Setup | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
         df_year = df[df['year'] == year]
         
@@ -254,7 +238,7 @@ if __name__ == '__main__':
                 ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'Losers (n={len(losers)})')
                 ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
             ax.set_title(f"Setup {setup}")
-            ax.set_xlabel("Magnitude (Raw Points)")
+            ax.set_xlabel("Excursion (σ)")
             ax.set_ylabel("Frequency")
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -268,7 +252,7 @@ if __name__ == '__main__':
     report_lines.append(f"![Distribution Plot](./DOC-VWAP-03_distributions.png)")
     
     report_path = os.path.join(os.path.dirname(__file__), 'DOC_03_Session_VWAP.md')
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(report_lines))
         
     print(f"[VWAP Deep Dive] Complete. Report written to {report_path}")

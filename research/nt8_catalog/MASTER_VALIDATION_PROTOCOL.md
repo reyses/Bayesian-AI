@@ -67,9 +67,8 @@ discrimination (joint-model) stage.
   50% random-walk reference (arithmetic, not a null run).
 
 ---
-## 8. Augmentation (post-PQ exploration)
+## 8. Augmentation (Post-PQ Exploration)
 *Note: This is an exploratory stage and explicitly non-verdict-bearing.*
-- **Inputs:** The `events.parquet` file emitted by PQ.
-- **Process:** True feature extraction and step-wise ML selection is handled solely by the PyTorch CUDA pipeline (e.g. `tools/fspace_ml/ml_extraction_pipeline.py`).
-- **Prohibited:** Simple random-feature logistic regression models (like the legacy `ag_logistic_model.py`) are strictly prohibited to prevent the manufacturing of noise-based tier tables.
-- **Artifacts:** Legitimate PyTorch-generated F-space reports.
+- **Falsification Guardrail:** Once a hypothesis is falsified at the P0 base level (no unconditionally stable positive edge), the agent may only attempt to rescue it using the **standard F-space dimensions** (Hour-of-day, Regime, Volatility state, Event-depth). 
+- **Process:** We utilize `tools/ag_logistic_model.py` wired exclusively to the standard Phase 4 F-space features to prevent the manufacturing of noise-based tier tables. Custom or random feature injection is strictly prohibited.
+- **Inputs:** The `events.parquet` file emitted by PQ, joined with the Phase 4 standard F-space condition metrics.

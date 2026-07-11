@@ -8,6 +8,20 @@ import matplotlib.pyplot as plt
 
 MIN_GAP_THRESHOLD = 5.0 # Minimum gap required to filter out sub-friction/microstructure noise where gap-fill directionality is meaningless.
 
+def rolling_ols_bands(close, W):
+    n = len(close)
+    if n < W:
+        return np.full(n, 1.0)
+    x = np.linspace(-1.0, 1.0, W)
+    X = np.stack([np.ones(W), x], axis=1)
+    P = np.linalg.pinv(X)
+    sw = np.lib.stride_tricks.sliding_window_view(close, W)
+    C = sw @ P.T
+    fit = C @ X.T
+    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
+    pad = np.full(W - 1, np.nan)
+    return np.r_[pad, sig]
+
 def process_day(args):
     day, prior_close = args
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -21,6 +35,9 @@ def process_day(args):
         
     if len(df) < 100: return None
     
+    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
+    df['sigma'] = df['sigma'].bfill().fillna(1.0)
+    
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
@@ -28,6 +45,7 @@ def process_day(args):
     
     df_day = df_day.sort_values('dt').reset_index(drop=True)
     open_price = df_day['close'].iloc[0]
+    sigma_0 = df_day['sigma'].iloc[0]
     
     dt_day = pd.to_datetime(day, format="%Y_%m_%d")
     dow = dt_day.weekday()
@@ -38,27 +56,36 @@ def process_day(args):
         return None
         
     setup = dow + 1 # 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
-    mode = 'gap_down' if gap < 0 else 'gap_up'
+    mode = 'gap_down_long' if gap < 0 else 'gap_up_short'
     
-    filled = False
+    path = df_day['close'].values[1:]
+    hit = 0
     magnitude = 0.0
     
-    highs = df_day['high'].values
-    lows = df_day['low'].values
-    
-    if mode == 'gap_down':
-        if np.any(highs >= prior_close):
-            filled = True
-            magnitude = -gap
+    for p in path:
+        if mode == 'gap_down_long':
+            exc = (p - open_price) / sigma_0
         else:
-            magnitude = np.max(highs) - open_price
+            exc = (open_price - p) / sigma_0
             
-    elif mode == 'gap_up':
-        if np.any(lows <= prior_close):
-            filled = True
-            magnitude = gap
-        else:
-            magnitude = open_price - np.min(lows)
+        if exc >= 2.05:
+            hit = 1
+            magnitude = 2.05
+            break
+        elif exc <= -2.05:
+            hit = 0
+            magnitude = -2.05
+            break
+            
+    if magnitude == 0.0:
+        if len(path) > 0:
+            p_end = path[-1]
+            if mode == 'gap_down_long':
+                exc = (p_end - open_price) / sigma_0
+            else:
+                exc = (open_price - p_end) / sigma_0
+            magnitude = exc
+            hit = 1 if magnitude > 0 else 0
             
     return {
         'year': day[:4],
@@ -67,8 +94,9 @@ def process_day(args):
         'mode': mode,
         'open_price': open_price,
         'event_idx': 0,
-        'hit': int(filled),
+        'hit': hit,
         'magnitude': magnitude,
+        'depth': abs(gap) / sigma_0,
         'mfe': magnitude,
         'mae': 0.0
     }
@@ -163,9 +191,9 @@ if __name__ == '__main__':
     report_lines.append("# Document ID: DOC-SEASON-12")
     report_lines.append("**Title:** Deep Dive #12: Seasonality / Day of Week Effects")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Weekday Gap-Fills (>5pts).")
+    report_lines.append("**Ruleset:** Weekday Gap Fades (>5pts). Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.")
     report_lines.append("")
-    report_lines.append("## Probability of Fill (Hit Rate)")
+    report_lines.append("## Probability of +2.05σ (Hit Rate)")
     report_lines.append("")
     
     dow_names = {1:'Mon', 2:'Tue', 3:'Wed', 4:'Thu', 5:'Fri'}
@@ -220,7 +248,7 @@ if __name__ == '__main__':
                 if len(misses) > 0:
                     ax.hist(misses, bins=10, alpha=0.6, color='red', label=f'Unfilled (n={len(misses)})')
                 ax.set_title(f"{dow_names[setup]}")
-                ax.set_xlabel("Gap Excursion")
+                ax.set_xlabel("Excursion (σ)")
                 ax.set_ylabel("Frequency")
                 ax.legend()
                 ax.grid(True, alpha=0.3)
@@ -237,7 +265,7 @@ if __name__ == '__main__':
     report_lines.append(f"![Distribution Plot](./DOC-SEASON-12_distributions.png)")
     
     report_path = os.path.join(os.path.dirname(__file__), 'DOC_12_Seasonality.md')
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(report_lines))
         
     # Also overwrite the old DOC_12.md to not leave legacy files

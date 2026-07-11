@@ -6,6 +6,20 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+def rolling_ols_bands(close, W):
+    n = len(close)
+    if n < W:
+        return np.full(n, 1.0)
+    x = np.linspace(-1.0, 1.0, W)
+    X = np.stack([np.ones(W), x], axis=1)
+    P = np.linalg.pinv(X)
+    sw = np.lib.stride_tricks.sliding_window_view(close, W)
+    C = sw @ P.T
+    fit = C @ X.T
+    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
+    pad = np.full(W - 1, np.nan)
+    return np.r_[pad, sig]
+
 def process_day(args):
     day, daily_atr = args
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -19,12 +33,16 @@ def process_day(args):
         
     if len(df) < 100: return []
     
+    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
+    df['sigma'] = df['sigma'].bfill().fillna(1.0)
+    
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
     if len(df_day) < 100: return []
         
     prices = df_day['close'].values
+    sigmas = df_day['sigma'].values
     
     running_high = prices[0]
     running_low = prices[0]
@@ -57,39 +75,33 @@ def process_day(args):
                 if len(path) == 0: continue
                 
                 p0 = p
+                sigma_0 = sigmas[i]
                 magnitude = 0.0
-                hit_target = False
+                hit_target = 0
                 
-                if 'bullish' in mode:
-                    target = p0 + (0.5 * daily_atr)
-                    stop = p0 - 10.0
-                    for px in path:
-                        if px >= target:
-                            hit_target = True
-                            magnitude = px - p0
-                            break
-                        elif px <= stop:
-                            hit_target = False
-                            magnitude = px - p0
-                            break
-                    if magnitude == 0.0:
-                        magnitude = path[-1] - p0
-                        hit_target = magnitude > 0
-                else:
-                    target = p0 - (0.5 * daily_atr)
-                    stop = p0 + 10.0
-                    for px in path:
-                        if px <= target:
-                            hit_target = True
-                            magnitude = p0 - px
-                            break
-                        elif px >= stop:
-                            hit_target = False
-                            magnitude = p0 - px
-                            break
-                    if magnitude == 0.0:
-                        magnitude = p0 - path[-1]
-                        hit_target = magnitude > 0
+                for px in path:
+                    if 'bullish' in mode:
+                        exc = (px - p0) / sigma_0
+                    else:
+                        exc = (p0 - px) / sigma_0
+                        
+                    if exc >= 2.05:
+                        hit_target = 1
+                        magnitude = 2.05
+                        break
+                    elif exc <= -2.05:
+                        hit_target = 0
+                        magnitude = -2.05
+                        break
+                        
+                if magnitude == 0.0:
+                    px_end = path[-1]
+                    if 'bullish' in mode:
+                        exc = (px_end - p0) / sigma_0
+                    else:
+                        exc = (p0 - px_end) / sigma_0
+                    magnitude = exc
+                    hit_target = 1 if magnitude > 0 else 0
                         
                 events.append({
                     'year': day[:4],
@@ -100,8 +112,11 @@ def process_day(args):
                     'open_price': prices[0],
                     'daily_atr': daily_atr,
                     'event_idx': i,
-                    'hit': int(hit_target),
-                    'magnitude': magnitude
+                    'hit': hit_target,
+                    'magnitude': magnitude,
+                    'depth': current_range / sigma_0,
+                    'mfe': magnitude,
+                    'mae': 0.0
                 })
                 
     return events
@@ -210,18 +225,17 @@ if __name__ == '__main__':
         return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-ATR-09 (LOGISTIC REGRESSION VERIFIED)")
+    report_lines.append("# Document ID: AG-DOC-ATR-09")
     report_lines.append("**Title:** Deep Dive #9: Statistical ATR fade (True 14-day ATR Sweep)")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (Revert 50% ATR or 10pt Stop). 14-day True ATR calculation.")
+    report_lines.append("**Ruleset:** Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.")
     report_lines.append("")
-    report_lines.append("## LR: Unnormalized Expected Value (EV)")
-    report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
+    report_lines.append("## Expected Value (EV)")
     report_lines.append("")
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup (Threshold) | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
+        report_lines.append("| Setup (Threshold) | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
         df_year = df[df['year'] == year]
         
@@ -257,7 +271,7 @@ if __name__ == '__main__':
                 ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'Losers (n={len(losers)})')
                 ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
             ax.set_title(f"Threshold {thresh*100}% ATR")
-            ax.set_xlabel("Magnitude (Raw Points)")
+            ax.set_xlabel("Excursion (σ)")
             ax.set_ylabel("Frequency")
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -272,7 +286,7 @@ if __name__ == '__main__':
     report_lines.append(f"![Distribution Plot](./DOC-ATR-09_distributions.png)")
     
     report_path = os.path.join(os.path.dirname(__file__), 'DOC_09.md')
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write("\n".join(report_lines))
         
     print(f"[ATR 09 Deep Dive] Complete. Report written to {report_path}")
