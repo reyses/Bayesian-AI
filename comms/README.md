@@ -1,5 +1,12 @@
 # Claude ⇄ Gemini file mailbox — protocol
 
+> **Folder structure rule (Moises, 2026-07-11):** `comms/` root holds ONLY the
+> evergreen channel files — this README, `mailbox.md` (+ `mailbox_watcher.py`),
+> `CONTEXT_FOR_GEMINI.md` (AG entry point), and `CLAUDE_AG_REVIEW_PROTOCOL.md`.
+> **Research-specific artifacts** (findings, plans, verdicts, handovers, task
+> packages) live at the ROOT of their own `research/<topic>/` folder, NOT here.
+> Dated pre-rule items were moved to `comms/archive/` (2026-06 era, unchanged).
+
 A low-tech, no-API, no-cost communication channel between Claude (Claude Code) and Gemini
 (the user's flat-rate Gemini interface). Both agents read/write one append-only file,
 `comms/mailbox.md`. This avoids the metered Gemini API **and** the MCP auto-exfiltration risk:
