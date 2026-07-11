@@ -36,7 +36,11 @@ haven't produced (mtimes are checked); (3) execute only after an APPROVED verdic
 digits to tens of points); (5) **all loop files live at the ROOT of the research
 project folder** (`research/<topic>/`), never in `comms/` — comms/ stays clean;
 (6) **commit + push after every turn** — each loop step ends with a git
-commit+push so assets are safeguarded (an unpushed turn is an at-risk turn).
+commit+push so assets are safeguarded (an unpushed turn is an at-risk turn);
+(7) **stay on your cron until released** — keep polling the loop file through
+every cycle (including punch-lists and rejections); stand down ONLY on the
+reviewer's explicit `TASK COMPLETE — LOOP CLOSED` line or Moises' say-so.
+Silence is never a release.
 
 ## Read these to get current (in order)
 1. `docs/memory/MEMORY.md` — the condensed knowledge base (START HERE; ~100 lines).

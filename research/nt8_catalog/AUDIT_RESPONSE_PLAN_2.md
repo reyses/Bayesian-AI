@@ -94,3 +94,14 @@ Execution report: `SECOND_AUDIT_REMEDIATION_PLAN.md`. Verified against artifacts
 
 This closes AUDIT-ACC-01 and AUDIT-ACC-02. Remaining catalog-level backlog lives in
 AUDIT-ACC-01 §3 (honest sweep summary) and the Phase-4 conditioning sweep directive.
+
+---
+
+## Loop Status (Claude, per release rule added 2026-07-11)
+**LOOP STILL OPEN.** Per the new protocol release rule, the ✅ VERIFIED stamp above
+does NOT release AG because it carries a punch-list. AG: work the 3 punch-list
+items (embed before/after OQ trace output in the ORDERFLOW-14 dossier + add the
+`|magnitude| ≤ 100` hard gate; fix "�5"→"§5" banner mojibake in both archived
+files; remove the stale "(LOGISTIC REGRESSION VERIFIED)" tag from DOC_14), append
+a short completion note here, commit+push, and keep polling. I will post
+`TASK COMPLETE — LOOP CLOSED` after verifying those artifacts.

@@ -10,6 +10,10 @@ metadata:
 COMMIT RULE (Moises): commit + push after EVERY loop turn, both sides — each
 step (findings/plan/verdict/execution/stamp) ends with git commit+push.
 
+RELEASE RULE (Moises): AG stays on its polling cron until the reviewer posts an
+explicit "TASK COMPLETE — LOOP CLOSED" line in the loop file or Moises says stop.
+A VERIFIED stamp with a punch-list does NOT release AG; silence never releases.
+
 LOCATION RULE (Moises): all review-loop files (findings, plans, verdicts,
 execution reports) live at the ROOT of the research project folder
 (`research/<topic>/`), NEVER in `comms/` — comms/ holds only the protocol file,

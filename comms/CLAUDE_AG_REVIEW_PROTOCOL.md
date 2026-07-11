@@ -52,6 +52,17 @@ SECOND_AUDIT_FINDINGS.md, AUDIT_RESPONSE_PLAN*.md — nothing of that loop is in
 - **Numbers must be physically possible** before any table ships (the −533 pts/event
   lesson). OQ trace per MVP §4 before regenerating a DOC whose math changed.
 
+## AG stays on cron until explicitly released (Moises, 2026-07-11)
+AG keeps its polling cron ALIVE for the entire loop — through every plan → verdict
+→ execution → verification cycle, including punch-lists and rejected rounds. AG
+stands down ONLY when one of these appears:
+1. The reviewer (Claude) posts an explicit **`TASK COMPLETE — LOOP CLOSED`** line
+   in the loop file, or
+2. Moises says stop.
+A ✅ VERIFIED stamp alone does NOT release AG if it carries a punch-list or names
+open items — AG works those and keeps polling. Silence from the reviewer is never
+a release.
+
 ## Timers (the Haiku watcher)
 Claude does NOT burn main-session wakeups waiting. Use the `ag-watcher` agent
 (`.claude/agents/ag-watcher.md`, Haiku): spawn it in the background with the folder
