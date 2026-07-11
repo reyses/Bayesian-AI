@@ -29,7 +29,7 @@ def process_dossier(events_path):
     all_mae_sig = []
     
     day_cache = {}
-    has_mfe = 'mfe' in df.columns
+    has_mfe = False
     
     for idx, row in df.iterrows():
         day = row['day']
@@ -37,7 +37,8 @@ def process_dossier(events_path):
             try:
                 day_df = pd.read_parquet(os.path.join(l0_dir, f"{day}.parquet"), columns=['close', 'timestamp'])
                 day_df['dt'] = pd.to_datetime(day_df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
-                rth = day_df[(day_df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (day_df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
+                rth_5s = day_df[(day_df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (day_df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
+                rth = rth_5s.resample('1min', on='dt').agg({'close': 'last'}).reset_index()
                 
                 rth['sigma'] = rolling_ols_bands(rth['close'].values, W=12)
                 rth['sigma'] = rth['sigma'].bfill().fillna(1.0)

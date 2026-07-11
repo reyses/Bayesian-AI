@@ -11,20 +11,31 @@ def calc_wr(mags_array):
     if total == 0: return 0.0
     return wins / total
 
-def bootstrap_ev(mags, n_iter=4000):
-    if len(mags) == 0: return 0, 0, 0, 0, 0, False
+def bootstrap_ev(df_group, n_iter=4000):
+    if len(df_group) == 0: return 0, 0, 0, 0, 0, False
+    
+    day_mags = df_group.groupby('day')['magnitude'].apply(list).values
+    n_days = len(day_mags)
     evs = []
-    n = len(mags)
+    
     for _ in range(n_iter):
-        idx = np.random.choice(n, n, replace=True)
-        m = mags[idx]
-        ev = np.mean(m)
-        evs.append(ev)
-    real_wr = calc_wr(mags)
+        sampled_idx = np.random.choice(n_days, n_days, replace=True)
+        sampled_mags = [m for idx in sampled_idx for m in day_mags[idx]]
+        if len(sampled_mags) > 0:
+            evs.append(np.mean(sampled_mags))
+        else:
+            evs.append(0.0)
+            
+    mags = df_group['magnitude'].dropna().values
+    if len(mags) == 0: return 0, 0, 0, 0, 0, False
+    
+    real_wr = df_group['hit'].mean()
+    
     counts, bin_edges = np.histogram(mags, bins=50)
     mode_idx = np.argmax(counts)
     real_mag_mode = (bin_edges[mode_idx] + bin_edges[mode_idx+1]) / 2.0
-    ev_mean = np.mean(evs)
+    
+    ev_mean = np.mean(mags)
     ev_lb = np.percentile(evs, 2.5)
     ev_ub = np.percentile(evs, 97.5)
     is_significant = (ev_lb > 0) or (ev_ub < 0)
@@ -47,18 +58,25 @@ def run_conditioning():
     print(f"Precomputing features for {len(all_files)} days...")
     for f in all_files:
         day = os.path.basename(f).replace('.parquet', '')
-        df = pd.read_parquet(f, columns=['close', 'timestamp'])
+        try:
+            df = pd.read_parquet(f, columns=['close', 'timestamp'])
+        except Exception as e:
+            continue
         df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
         df_rth = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
         
-        if len(df_rth) < 720:
+        # Resample to 1min so that event_idx aligns with day_features indices
+        df_1m = df_rth.resample('1min', on='dt').agg({'close': 'last'}).reset_index()
+        
+        if len(df_1m) < 60: # 60 minutes
             continue
             
-        s = df_rth['close']
-        net_change = s.diff(720).abs()
-        sum_change = s.diff().abs().rolling(720).sum()
+        s = df_1m['close']
+        # Calculate ER over 60 minutes
+        net_change = s.diff(60).abs()
+        sum_change = s.diff().abs().rolling(60).sum()
         er = net_change / sum_change
-        vol = s.diff().abs().rolling(720).mean()
+        vol = s.diff().abs().rolling(60).mean()
         
         day_features[day] = {
             'er': er.values,
@@ -84,17 +102,18 @@ def run_conditioning():
     events_files = [f for f in events_files if 'archive' not in f.lower()]
     
     master_lines = []
-    master_lines.append("# Document ID: AG-CAT-00-CONDITIONING")
-    master_lines.append("**Title:** Phase 4: Master Multi-Dimensional Conditioning Sweep")
-    master_lines.append("**Status:** Audit Completed")
+    master_lines.append("# Document ID: AG-CAT-00-CONDITIONING-REVISED")
+    master_lines.append("**Title:** [REVISED] Phase 4: Master Multi-Dimensional Conditioning Sweep")
+    master_lines.append("**Status:** Audit Completed (Restandardized to P0)")
     master_lines.append("")
     master_lines.append("## Objective")
-    master_lines.append("Evaluate whether Hour-of-Day, Regime (Efficiency Ratio), Volatility, or Depth conditionally rescues any setups.")
+    master_lines.append("Evaluate whether Hour-of-Day, Regime (Efficiency Ratio), Volatility, or Depth conditionally rescues any setups, evaluated against Raw Points and Day-Block Bootstrapped 95% CI.")
     master_lines.append("")
     
     for ef in events_files:
         dossier_dir = os.path.dirname(ef)
         dossier = os.path.basename(dossier_dir)
+        if dossier == 'tests': continue
         dossier_id = dossier.split('_')[0] if '_' in dossier else dossier
         
         try:
@@ -114,10 +133,9 @@ def run_conditioning():
             h = 8 + (30 + idx) // 60
             hour_list.append(h)
             
-            idx_5s = idx * 12
-            if day in day_features and idx_5s < len(day_features[day]['er']):
-                e = day_features[day]['er'][idx_5s]
-                v = day_features[day]['vol'][idx_5s]
+            if day in day_features and idx < len(day_features[day]['er']):
+                e = day_features[day]['er'][idx]
+                v = day_features[day]['vol'][idx]
             else:
                 e = np.nan
                 v = np.nan
@@ -132,7 +150,7 @@ def run_conditioning():
         ev_df['vol_tercile'] = ev_df['vol'].apply(lambda x: get_tercile(x, vol_bins))
         
         dossier_lines = []
-        dossier_lines.append(f"# Document ID: COND_{dossier_id}")
+        dossier_lines.append(f"# Document ID: COND_{dossier_id}-REVISED")
         dossier_lines.append(f"**Dossier:** {dossier}")
         dossier_lines.append(f"**Total Base Events:** {len(ev_df)}")
         dossier_lines.append("")
@@ -147,18 +165,17 @@ def run_conditioning():
                 df_year = df[df['year'] == year]
                 if len(df_year) == 0: continue
                 lines.append(f"#### Year: {year} | Condition: {groupby_col}")
-                lines.append(f"| {groupby_col} | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
+                lines.append(f"| {groupby_col} | N | Resp Freq (%) | Mag (Mode) | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |")
                 lines.append("|---|---|---|---|---|---|---|")
                 
                 groups = df_year.groupby(groupby_col)
                 for name, group in groups:
-                    mags = group['magnitude'].values
-                    if len(mags) < 30:
-                        lines.append(f"| {name} | {len(mags)} | - | - | - | - | Insufficient N |")
+                    if len(group) < 30:
+                        lines.append(f"| *{name}* | *{len(group)}* | *-* | *-* | *-* | *-* | *Insufficient N* |")
                         continue
-                    wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(mags)
+                    wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(group)
                     sig_str = "Yes" if is_sig else "No"
-                    lines.append(f"| {name} | {len(mags)} | {wr*100:.1f}% | {mag_mode:.2f} | **{ev_mean:.3f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
+                    lines.append(f"| {name} | {len(group)} | {wr*100:.1f}% | {mag_mode:.2f} | **{ev_mean:.3f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
                 lines.append("")
             return lines
             
