@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Rotation (Setup 1) | 53 | 0.11 | -2.78 | **1.66** | [-3.28, 9.01] | No |
-| 2 | Bullish Rotation (Setup 2) | 29 | 0.10 | -3.44 | **-2.88** | [-5.11, -0.24] | Yes |
+| 1 | Bearish Rotation (Setup 1) | 53 | 0.11 | -2.78 | **1.68** | [-3.26, 8.54] | No |
+| 2 | Bullish Rotation (Setup 2) | 29 | 0.10 | -3.44 | **-2.85** | [-5.03, -0.21] | Yes |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Rotation (Setup 1) | 27 | 0.22 | -1.49 | **-5.20** | [-16.69, 3.64] | No |
-| 2 | Bullish Rotation (Setup 2) | 23 | 0.04 | -10.71 | **-7.46** | [-10.24, -4.68] | Yes |
+| 1 | Bearish Rotation (Setup 1) | 27 | 0.22 | -1.49 | **-5.15** | [-16.91, 3.45] | No |
+| 2 | Bullish Rotation (Setup 2) | 23 | 0.04 | -10.71 | **-7.42** | [-10.11, -4.68] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-VA-13_distributions.png)

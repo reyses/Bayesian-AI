@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence | 125 | 0.58 | 2.19 | **-4.22** | [-14.02, 4.62] | No |
-| 2 | Bullish Divergence | 133 | 0.61 | -1.83 | **-10.30** | [-23.83, 2.39] | No |
+| 1 | Bearish Divergence | 125 | 0.58 | 2.19 | **-4.26** | [-13.62, 4.88] | No |
+| 2 | Bullish Divergence | 133 | 0.61 | -1.83 | **-10.28** | [-23.58, 2.08] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence | 104 | 0.54 | -5.14 | **-1.02** | [-10.46, 8.15] | No |
-| 2 | Bullish Divergence | 123 | 0.61 | 4.70 | **-0.59** | [-13.39, 12.00] | No |
+| 1 | Bearish Divergence | 104 | 0.54 | -5.14 | **-1.02** | [-10.28, 7.69] | No |
+| 2 | Bullish Divergence | 123 | 0.61 | 4.70 | **-0.80** | [-14.19, 11.17] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-MACD-07_distributions.png)

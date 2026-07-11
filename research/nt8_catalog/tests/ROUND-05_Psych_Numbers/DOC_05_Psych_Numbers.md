@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Continuation | 141 | 0.72 | 12.11 | **17.11** | [13.96, 20.78] | Yes |
-| 2 | Bearish Continuation | 117 | 0.81 | 9.09 | **22.86** | [19.08, 27.02] | Yes |
+| 1 | Bullish Continuation | 141 | 0.72 | 12.11 | **17.04** | [13.90, 20.56] | Yes |
+| 2 | Bearish Continuation | 117 | 0.81 | 9.09 | **22.79** | [18.88, 27.09] | Yes |
 
 ### Results for 2025
 | Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Continuation | 112 | 0.87 | 14.50 | **32.09** | [26.80, 37.56] | Yes |
-| 2 | Bearish Continuation | 115 | 0.84 | 11.20 | **26.66** | [22.73, 30.64] | Yes |
+| 1 | Bullish Continuation | 112 | 0.87 | 14.50 | **32.18** | [26.85, 37.75] | Yes |
+| 2 | Bearish Continuation | 115 | 0.84 | 11.20 | **26.67** | [22.85, 30.70] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ROUND-05_distributions.png)

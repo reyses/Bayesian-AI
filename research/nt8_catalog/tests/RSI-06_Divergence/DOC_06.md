@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence (Short) | 127 | 0.43 | -67.91 | **-12.41** | [-39.17, 16.32] | No |
-| 2 | Bullish Divergence (Long) | 131 | 0.54 | 31.50 | **-12.42** | [-43.98, 18.50] | No |
+| 1 | Bearish Divergence (Short) | 127 | 0.43 | -67.91 | **-11.84** | [-38.75, 16.73] | No |
+| 2 | Bullish Divergence (Long) | 131 | 0.54 | 31.50 | **-12.60** | [-45.14, 17.16] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence (Short) | 105 | 0.44 | -80.06 | **-8.61** | [-67.25, 42.75] | No |
-| 2 | Bullish Divergence (Long) | 122 | 0.51 | -16.38 | **3.53** | [-39.22, 44.65] | No |
+| 1 | Bearish Divergence (Short) | 105 | 0.44 | -80.06 | **-8.09** | [-66.79, 41.81] | No |
+| 2 | Bullish Divergence (Long) | 122 | 0.51 | -16.38 | **4.08** | [-38.99, 45.77] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-RSI-06_distributions.png)

@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Pullback (UP Trend) | 13 | 0.08 | -19.36 | **-10.97** | [-14.90, -5.21] | Yes |
-| 2 | Bearish Pullback (DOWN Trend) | 19 | 0.00 | -10.06 | **-11.66** | [-12.46, -10.96] | Yes |
+| 1 | Bullish Pullback (UP Trend) | 13 | 0.08 | -19.36 | **-11.11** | [-14.83, -5.42] | Yes |
+| 2 | Bearish Pullback (DOWN Trend) | 19 | 0.00 | -10.06 | **-11.65** | [-12.45, -10.96] | Yes |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Pullback (UP Trend) | 20 | 0.15 | -11.15 | **12.11** | [-12.75, 44.57] | No |
-| 2 | Bearish Pullback (DOWN Trend) | 22 | 0.05 | -11.05 | **-11.06** | [-18.00, -1.58] | Yes |
+| 1 | Bullish Pullback (UP Trend) | 20 | 0.15 | -11.15 | **12.32** | [-12.78, 45.90] | No |
+| 2 | Bearish Pullback (DOWN Trend) | 22 | 0.05 | -11.05 | **-11.08** | [-17.92, -1.94] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-FIB-17_distributions.png)

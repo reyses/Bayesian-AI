@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Demand Zone Bounce | 642 | 0.48 | -4.50 | **-0.32** | [-0.86, 0.23] | No |
-| 2 | Supply Zone Bounce | 762 | 0.45 | -4.16 | **-0.50** | [-1.06, 0.03] | No |
+| 1 | Demand Zone Bounce | 642 | 0.48 | -4.50 | **-0.32** | [-0.87, 0.21] | No |
+| 2 | Supply Zone Bounce | 762 | 0.45 | -4.16 | **-0.51** | [-1.03, 0.02] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Demand Zone Bounce | 789 | 0.50 | 6.56 | **0.06** | [-0.66, 0.83] | No |
-| 2 | Supply Zone Bounce | 919 | 0.48 | -5.68 | **0.08** | [-0.52, 0.69] | No |
+| 1 | Demand Zone Bounce | 789 | 0.50 | 6.56 | **0.05** | [-0.65, 0.82] | No |
+| 2 | Supply Zone Bounce | 919 | 0.48 | -5.68 | **0.07** | [-0.53, 0.67] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ZONE-21_distributions.png)

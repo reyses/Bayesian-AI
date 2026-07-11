@@ -15,8 +15,8 @@
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Trap | 8063 | 0.59 | 2.28 | **0.20** | [0.02, 0.39] | Yes |
-| 2 | Bullish Trap | 7455 | 0.59 | 2.77 | **0.25** | [0.05, 0.46] | Yes |
+| 1 | Bearish Trap | 8063 | 0.59 | 2.28 | **0.20** | [0.02, 0.38] | Yes |
+| 2 | Bullish Trap | 7455 | 0.59 | 2.77 | **0.25** | [0.04, 0.45] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-DOW-19_distributions.png)
