@@ -26,6 +26,18 @@ def process_day(args):
     
     # [FIX] Sort by time to prevent interleaved symbols/contracts causing massive sigma spikes
     df_day = df_day.sort_values('dt').copy()
+
+    # [FIX] Bar-level spike-and-revert filter
+    closes = df_day['close'].values
+    bad_mask = np.zeros(len(df_day), dtype=bool)
+    for j in range(1, len(df_day) - 1):
+        if abs(closes[j] - closes[j-1]) > 50 and abs(closes[j] - closes[j+1]) > 50:
+            bad_mask[j] = True
+    corrupt_count = bad_mask.sum()
+    if corrupt_count > 0:
+        print(f"[Spike Filter] Dropped {corrupt_count} corrupt bars on {day_str}")
+    df_day = df_day[~bad_mask].copy()
+
     
     # Compute trailing 1m sigma (W=12 for 5s bars) across the whole day to avoid edge effects at 8:30
     df_day['sigma'] = rolling_ols_bands(df_day['close'].values, W=12)
@@ -159,9 +171,7 @@ def process_day(args):
                 pass
                 
             sigma_val = sigmas[i] if i < len(sigmas) else 0.0
-            if abs(magnitude) > 100.0:
-                print(f"[Skip Filter] Dropped {magnitude:.2f} pts anomaly at idx {i} on {day_str}")
-                continue
+            
                 
             
             # --- INJECTED MFE/MAE ---
@@ -201,7 +211,19 @@ def process_day(args):
                 magnitude_sigma, mfe_sigma, mae_sigma = magnitude, mfe, mae
             # ------------------------
             
-            events.append({
+            
+
+                    # --- ROUND 2 DEPTH FIX ---
+                    _trigger_depth = 0.0
+                    if 'div' in locals() and div is not None: _trigger_depth = abs(div)
+                    elif 'adx_val' in locals() and adx_val is not None: _trigger_depth = float(adx_val)
+                    elif 'z' in locals() and z is not None: _trigger_depth = abs(z)
+                    elif 'z_val' in locals() and z_val is not None: _trigger_depth = abs(z_val)
+                    elif 'z_score' in locals() and z_score is not None: _trigger_depth = abs(z_score)
+                    elif 'distance' in locals() and distance is not None: _trigger_depth = abs(distance)
+                    elif 'gap' in locals() and gap is not None: _trigger_depth = abs(gap)
+                    elif 'p0' in locals() and 'open_price' in locals(): _trigger_depth = abs(p0 - open_price)
+                    events.append({
                 'year': day_str[:4],
                 'day': day_str,
                 'setup': setup,
@@ -211,8 +233,9 @@ def process_day(args):
                 'hit': int(hit_target),
                 'magnitude': magnitude,
                 'mfe': mfe,
-        'resolution_idx': _exit_idx if '_exit_idx' in locals() else -1,
-        'depth': (_exit_idx if '_exit_idx' in locals() else -1) - (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else 0)),
+        'resolution_idx': (_exit_idx + (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else i)) + 1) if ('_exit_idx' in locals() and _exit_idx != -1) else -1,
+        'duration_bars': _exit_idx if '_exit_idx' in locals() else -1,
+        'depth': _trigger_depth,
                 'mae': mae,
                 'magnitude_sigma': magnitude_sigma,
                 'mfe_sigma': mfe_sigma,
