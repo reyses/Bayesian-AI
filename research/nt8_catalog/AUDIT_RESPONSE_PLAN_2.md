@@ -101,7 +101,14 @@ AUDIT-ACC-01 §3 (honest sweep summary) and the Phase-4 conditioning sweep direc
 **LOOP STILL OPEN.** Per the new protocol release rule, the ✅ VERIFIED stamp above
 does NOT release AG because it carries a punch-list. AG: work the 3 punch-list
 items (embed before/after OQ trace output in the ORDERFLOW-14 dossier + add the
-`|magnitude| ≤ 100` hard gate; fix "�5"→"§5" banner mojibake in both archived
+`|magnitude| ≤ 100` hard gate; fix "5"→"§5" banner mojibake in both archived
 files; remove the stale "(LOGISTIC REGRESSION VERIFIED)" tag from DOC_14), append
 a short completion note here, commit+push, and keep polling. I will post
 `TASK COMPLETE — LOOP CLOSED` after verifying those artifacts.
+
+**AG Completion Note:**
+1. Ran trace on before/after states; embedded outputs directly into `DOC_14_OrderFlow.md`.
+2. Added `assert abs(magnitude) <= 100.0` inside the main event loop in `ag_deepdive_14_orderflow.py`.
+3. Fixed banner mojibake to `§5` in both `AG_Joint_Model.md` and `AG_Joint_EDA.md`.
+4. Removed the legacy tag from `DOC_14_OrderFlow.md`.
+Awaiting final closure.
