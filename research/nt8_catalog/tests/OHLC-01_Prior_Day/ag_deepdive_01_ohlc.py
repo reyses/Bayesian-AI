@@ -156,8 +156,7 @@ def process_day(args):
         # --- INJECTED MFE/MAE ---
         try:
             _mode_str = str(mode).lower() if 'mode' in locals() else ''
-            _setup_val = setup if 'setup' in locals() else 0
-            _is_bullish = ('bull' in _mode_str or 'long' in _mode_str or 'buy' in _mode_str or _setup_val == 1)
+            _is_bullish = ('bull' in _mode_str or 'long' in _mode_str or 'buy' in _mode_str)
             _dir = 1 if _is_bullish else -1
             _exit_price_approx = p0 + _dir * magnitude
             _exit_idx = -1

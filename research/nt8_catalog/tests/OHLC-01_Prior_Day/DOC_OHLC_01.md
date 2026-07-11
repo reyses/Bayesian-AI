@@ -9,16 +9,16 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | PDH Bearish Bounce | 75 | 0.29 | -9.77 | **-2.78** | [-6.07, 0.70] | No |
-| 2 | PDL Bullish Bounce | 64 | 0.30 | -11.29 | **-2.89** | [-10.07, 3.80] | No |
-| 3 | PDC Gap Fill Bounce | 155 | 0.45 | 0.09 | **-1.34** | [-4.27, 0.43] | No |
+| 1 | PDH Bearish Bounce | 75 | 0.29 | -9.77 | **-2.76** | [-6.02, 0.83] | No |
+| 2 | PDL Bullish Bounce | 64 | 0.30 | -11.29 | **-2.84** | [-10.23, 3.94] | No |
+| 3 | PDC Gap Fill Bounce | 155 | 0.45 | 0.09 | **-1.34** | [-4.26, 0.47] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | PDH Bearish Bounce | 64 | 0.41 | -11.68 | **0.63** | [-4.16, 6.01] | No |
-| 2 | PDL Bullish Bounce | 58 | 0.17 | -11.92 | **-5.19** | [-10.50, 0.81] | No |
-| 3 | PDC Gap Fill Bounce | 136 | 0.54 | -0.14 | **-0.13** | [-2.12, 1.83] | No |
+| 1 | PDH Bearish Bounce | 64 | 0.41 | -11.68 | **0.62** | [-4.15, 5.84] | No |
+| 2 | PDL Bullish Bounce | 58 | 0.17 | -11.92 | **-5.08** | [-10.13, 1.00] | No |
+| 3 | PDC Gap Fill Bounce | 136 | 0.54 | -0.14 | **-0.12** | [-2.15, 1.90] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-OHLC-01_distributions.png)
