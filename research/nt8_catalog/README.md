@@ -28,6 +28,19 @@ When resetting context or building a new feature in the `pipeline/`, `builders/`
 
 ---
 
+## Audits
+- `reports/AUDIT_REPORT.md` (2026-07-10) — folder discipline + protocol deviations.
+- `AUDIT_ARTICLE_ACCURACY.md` (root, 2026-07-11, AUDIT-ACC-01) — synthesis + dossiers
+  vs the raw articles. KEY: several synthesis numbers are imported (80% rotation, 3:1
+  imbalance, ATR "90%" → article says 72.44%); SEASON-12/ROUND-05/ADX-08/CROSS-11/
+  VWAP-03/SCALP-18 do not test what their articles claim; the 2026-07-09
+  "2 Survivors + 2 Inversions" is not supported by the dossiers' own CIs; the joint
+  logistic regression's "+26.3pp top-tier lift" is a label-definition artifact
+  (squeeze rows have a ≈always-true volatility label pooled with ~50%-base
+  directional labels; in-sample, 2024-only); the per-dossier augmentation DOE fits
+  logistic regression to RANDOM features (`X = np.random.randn`) and the MVP has no
+  section documenting the augmentation stage. Read §7 for the article-faithful re-runs.
+
 ## Phase 3B — Bayesian response sweep (active)
 - **AG directive**: `AG_PHASE3B_JOINT_BAYES.md` (supersedes `AG_TASK_catalog_sweep.md`
   per-concept-verdict framing; `AG_PHASE3_REVIEW.md` = the methodology review).

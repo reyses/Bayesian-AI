@@ -66,6 +66,9 @@ discrimination (joint-model) stage.
   50% random-walk reference (arithmetic, not a null run).
 
 ---
-## User Review Required
-> [!IMPORTANT]
-> Does this finalized Master Validation Protocol correctly capture your methodology for evaluating the remaining catalog?
+## 8. Augmentation (post-PQ exploration)
+*Note: This is an exploratory stage and explicitly non-verdict-bearing.*
+- **Inputs:** The `events.parquet` file emitted by PQ.
+- **Process:** True feature extraction and step-wise ML selection is handled solely by the PyTorch CUDA pipeline (e.g. `tools/fspace_ml/ml_extraction_pipeline.py`).
+- **Prohibited:** Simple random-feature logistic regression models (like the legacy `ag_logistic_model.py`) are strictly prohibited to prevent the manufacturing of noise-based tier tables.
+- **Artifacts:** Legitimate PyTorch-generated F-space reports.
