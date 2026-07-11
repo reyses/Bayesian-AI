@@ -9,20 +9,20 @@
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Delta Divergence at Peak | 1527 | 0.50 | -2.38 | **-1.61** | [-4.64, 1.42] | No |
-| 2 | Trapped Traders at Peak | 5686 | 0.51 | 5.02 | **-0.93** | [-2.40, 0.51] | No |
+| 1 | Delta Divergence at Peak | 1486 | 0.51 | -4.84 | **-0.04** | [-0.59, 0.51] | No |
+| 2 | Trapped Traders at Peak | 5584 | 0.52 | 3.98 | **0.02** | [-0.21, 0.25] | No |
 
 ### Results for 2026
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Delta Divergence at Peak | 232 | 0.52 | -4.23 | **0.53** | [-0.79, 1.86] | No |
-| 2 | Trapped Traders at Peak | 1078 | 0.52 | 1.73 | **0.44** | [-0.71, 1.58] | No |
+| 1 | Delta Divergence at Peak | 232 | 0.52 | -4.23 | **0.53** | [-0.84, 1.86] | No |
+| 2 | Trapped Traders at Peak | 1075 | 0.52 | 3.92 | **0.46** | [-0.02, 0.96] | No |
 
 ### Results for All Data (6-Month Single Validation Block)
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Delta Divergence at Peak | 1759 | 0.50 | -2.38 | **-1.36** | [-3.90, 1.25] | No |
-| 2 | Trapped Traders at Peak | 6764 | 0.52 | 5.02 | **-0.71** | [-1.91, 0.49] | No |
+| 1 | Delta Divergence at Peak | 1718 | 0.51 | -4.84 | **0.05** | [-0.49, 0.55] | No |
+| 2 | Trapped Traders at Peak | 6659 | 0.52 | 3.98 | **0.09** | [-0.12, 0.29] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-14-OrderFlow_distributions.png)

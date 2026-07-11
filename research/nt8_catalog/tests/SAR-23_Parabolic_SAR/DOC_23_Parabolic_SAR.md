@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Flip | 8838 | 0.50 | 4.34 | **-0.27** | [-0.42, -0.12] | Yes |
+| 1 | Bullish Flip | 8838 | 0.50 | 4.34 | **-0.27** | [-0.41, -0.12] | Yes |
 | 2 | Bearish Flip | 8970 | 0.49 | -4.56 | **-0.03** | [-0.17, 0.12] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Flip | 7657 | 0.50 | -6.38 | **-0.15** | [-0.39, 0.10] | No |
-| 2 | Bearish Flip | 7946 | 0.50 | -4.80 | **-0.03** | [-0.26, 0.19] | No |
+| 1 | Bullish Flip | 7657 | 0.50 | -6.38 | **-0.15** | [-0.40, 0.10] | No |
+| 2 | Bearish Flip | 7946 | 0.50 | -4.80 | **-0.03** | [-0.26, 0.20] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-SAR-23_distributions.png)

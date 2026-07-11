@@ -200,9 +200,17 @@ def run_conditioning():
         master_lines.extend(res_er)
         master_lines.extend(res_vol)
         
-        master_lines.append("#### Condition: Depth")
-        master_lines.append("*Depth: n/a*")
-        master_lines.append("")
+        if 'depth' in ev_df.columns:
+            depth_bins = np.nanquantile(ev_df['depth'], [0.33, 0.66])
+            ev_df['depth_tercile'] = ev_df['depth'].apply(lambda x: get_tercile(x, depth_bins))
+            res_depth = render_agg('depth_tercile', ev_df)
+            dossier_lines.extend(res_depth)
+            master_lines.extend(res_depth)
+        else:
+            master_lines.append("#### Condition: Depth")
+            master_lines.append("*Depth: n/a*")
+            master_lines.append("")
+        
         master_lines.append("---")
         master_lines.append("")
         

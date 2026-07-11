@@ -9,12 +9,12 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | HNS Breakdown | 86 | 0.47 | -2.53 | **-0.25** | [-1.67, 1.21] | No |
+| 1 | HNS Breakdown | 86 | 0.47 | -2.53 | **-0.24** | [-1.67, 1.18] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | HNS Breakdown | 87 | 0.47 | -7.47 | **-0.32** | [-3.22, 3.04] | No |
+| 1 | HNS Breakdown | 87 | 0.47 | -7.47 | **-0.33** | [-3.27, 3.02] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-HNS-22_distributions.png)

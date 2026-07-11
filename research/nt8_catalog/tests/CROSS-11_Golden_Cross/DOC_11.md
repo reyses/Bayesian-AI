@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Golden Cross (Bullish Runner) | 114 | 0.46 | 0.64 | **8.11** | [-8.14, 25.09] | No |
-| 2 | Death Cross (Bearish Runner) | 127 | 0.37 | -7.78 | **8.78** | [-9.95, 28.10] | No |
+| 1 | Golden Cross (Bullish Runner) | 114 | 0.46 | 0.64 | **7.99** | [-7.76, 24.68] | No |
+| 2 | Death Cross (Bearish Runner) | 127 | 0.37 | -7.78 | **8.68** | [-9.57, 28.56] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Golden Cross (Bullish Runner) | 81 | 0.41 | -8.62 | **4.73** | [-21.20, 31.18] | No |
-| 2 | Death Cross (Bearish Runner) | 89 | 0.42 | 0.24 | **35.45** | [0.22, 75.16] | Yes |
+| 1 | Golden Cross (Bullish Runner) | 81 | 0.41 | -8.62 | **3.91** | [-22.29, 30.92] | No |
+| 2 | Death Cross (Bearish Runner) | 89 | 0.42 | 0.24 | **35.94** | [2.06, 75.30] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-CROSS-11_distributions.png)

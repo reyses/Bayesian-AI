@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Squeeze Breakout | 44 | 0.55 | -1.47 | **9.87** | [-12.34, 30.21] | No |
-| 2 | Bearish Squeeze Breakout | 26 | 0.54 | 1.55 | **5.40** | [-19.78, 30.09] | No |
+| 1 | Bullish Squeeze Breakout | 44 | 0.55 | -1.47 | **10.01** | [-12.36, 29.98] | No |
+| 2 | Bearish Squeeze Breakout | 26 | 0.54 | 1.55 | **5.12** | [-20.31, 29.12] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Squeeze Breakout | 30 | 0.63 | 41.24 | **14.14** | [-6.93, 32.33] | No |
-| 2 | Bearish Squeeze Breakout | 30 | 0.57 | -11.70 | **36.21** | [-22.27, 100.53] | No |
+| 1 | Bullish Squeeze Breakout | 30 | 0.63 | 41.24 | **13.81** | [-7.63, 32.27] | No |
+| 2 | Bearish Squeeze Breakout | 30 | 0.57 | -11.70 | **36.51** | [-21.16, 98.80] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-SQZ-04_distributions.png)

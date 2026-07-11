@@ -177,6 +177,8 @@ def process_day(day):
         'hit': int(hit_target),
         'magnitude': magnitude,
         'mfe': mfe,
+        'resolution_idx': _exit_idx if '_exit_idx' in locals() else -1,
+        'depth': (_exit_idx if '_exit_idx' in locals() else -1) - (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else 0)),
         'mae': mae,
         'magnitude_sigma': magnitude_sigma,
         'mfe_sigma': mfe_sigma,

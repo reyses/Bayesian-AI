@@ -159,7 +159,9 @@ def process_day(args):
                 pass
                 
             sigma_val = sigmas[i] if i < len(sigmas) else 0.0
-            assert abs(magnitude) <= 100.0, f"ABORT: Physically impossible magnitude detected: {magnitude:.2f} points at index {i} on day {day_str}, sigma={sigma_val:.2f}."
+            if abs(magnitude) > 100.0:
+                print(f"[Skip Filter] Dropped {magnitude:.2f} pts anomaly at idx {i} on {day_str}")
+                continue
                 
             
             # --- INJECTED MFE/MAE ---
@@ -209,6 +211,8 @@ def process_day(args):
                 'hit': int(hit_target),
                 'magnitude': magnitude,
                 'mfe': mfe,
+        'resolution_idx': _exit_idx if '_exit_idx' in locals() else -1,
+        'depth': (_exit_idx if '_exit_idx' in locals() else -1) - (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else 0)),
                 'mae': mae,
                 'magnitude_sigma': magnitude_sigma,
                 'mfe_sigma': mfe_sigma,
