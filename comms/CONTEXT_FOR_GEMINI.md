@@ -29,18 +29,20 @@ through the mailbox (`comms/mailbox.md`, protocol in `comms/README.md`).
 
 ## Review-loop protocol (MANDATORY for any plan-then-execute work, 2026-07-11)
 Read `comms/CLAUDE_AG_REVIEW_PROTOCOL.md` before writing a response/implementation
-plan. Non-negotiables: (1) plans and verdicts are APPEND-ONLY — never overwrite or
-delete a reviewer section; (2) never claim COMPLETED for work whose artifact you
-haven't produced (mtimes are checked); (3) execute only after an APPROVED verdict;
-(4) sanity-check magnitudes before shipping a table (MNQ per-event EV = single
-digits to tens of points); (5) **all loop files live at the ROOT of the research
-project folder** (`research/<topic>/`), never in `comms/` — comms/ stays clean;
-(6) **commit + push after every turn** — each loop step ends with a git
-commit+push so assets are safeguarded (an unpushed turn is an at-risk turn);
-(7) **stay on your cron until released** — keep polling the loop file through
-every cycle (including punch-lists and rejections); stand down ONLY on the
-reviewer's explicit `TASK COMPLETE — LOOP CLOSED` line or Moises' say-so.
-Silence is never a release.
+plan. Non-negotiables: (1) **one doc per turn, finalized-on-write** — every loop turn
+is a NEW numbered standalone doc in `research/<topic>/comms/`
+(`NNN_YYYY-MM-DD_TYPE.md`); NEVER edit/append an existing loop doc — respond in
+the next-numbered new file (a new file in the folder is the turn signal);
+(2) never claim COMPLETED for work whose artifact you haven't produced (mtimes
+are checked); (3) execute only after an APPROVED verdict doc; (4) sanity-check
+magnitudes before shipping a table (MNQ per-event EV = single digits to tens of
+points); (5) loop docs NEVER go in the shared top-level `comms/` — it holds only
+the evergreen channel files; (6) **commit + push after every turn** — each loop
+step ends with a git commit+push so assets are safeguarded (an unpushed turn is
+an at-risk turn); (7) **stay on your cron until released** — keep polling the
+research comms folder through every cycle (including punch-lists and
+rejections); stand down ONLY on the reviewer's `TASK_COMPLETE_LOOP_CLOSED` doc
+or Moises' say-so. Silence is never a release.
 
 ## Read these to get current (in order)
 1. `docs/memory/MEMORY.md` — the condensed knowledge base (START HERE; ~100 lines).

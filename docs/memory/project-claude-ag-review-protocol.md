@@ -14,10 +14,12 @@ RELEASE RULE (Moises): AG stays on its polling cron until the reviewer posts an
 explicit "TASK COMPLETE — LOOP CLOSED" line in the loop file or Moises says stop.
 A VERIFIED stamp with a punch-list does NOT release AG; silence never releases.
 
-LOCATION RULE (Moises): all review-loop files (findings, plans, verdicts,
-execution reports) live at the ROOT of the research project folder
-(`research/<topic>/`), NEVER in `comms/` — comms/ holds only the protocol file,
-the AG context entry point, and true cross-project handovers.
+LOCATION RULE v2 (Moises, 2026-07-11 evening — supersedes root rule): each
+research project has a `research/<topic>/comms/` subfolder; EVERY loop turn is
+a NEW numbered standalone doc (`NNN_YYYY-MM-DD_TYPE.md`), FINALIZED on write —
+never edit/append an existing loop doc; respond in the next-numbered new file
+(new file = turn signal). Top-level `comms/` holds only evergreen channel files.
+Canonical example: `research/nt8_catalog/comms/001-006_2026-07-11_*.md`.
 
 Since 2026-07-11 there is a formal Claude ⇄ AG review protocol:
 `comms/CLAUDE_AG_REVIEW_PROTOCOL.md`. Claude = reviewer (approve plan BEFORE

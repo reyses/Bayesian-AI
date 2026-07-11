@@ -3,16 +3,18 @@
 Battle-tested on the NT8-catalog audit remediation (AUDIT-ACC-01/02, 2026-07-11).
 Applies to ANY work AG executes that carries statistical or production weight.
 
-## Where files live — self-containment rule (Moises, 2026-07-11)
-**All review-loop artifacts for a research effort live at the ROOT of that
-research project's own folder** (`research/<topic>/`): findings docs, response
-plans, verdicts, execution reports. They are part of the research record and
-must travel with it. **They do NOT go in `comms/`.** The shared `comms/` folder
-holds ONLY: this protocol file, the AG/Gemini context entry point, and true
-cross-project handovers. If a loop file is being written into `comms/`, that's
-a violation — move it to the research folder root.
-Example (canonical): `research/nt8_catalog/` root holds AUDIT_ARTICLE_ACCURACY.md,
-SECOND_AUDIT_FINDINGS.md, AUDIT_RESPONSE_PLAN*.md — nothing of that loop is in comms/.
+## Where files live — one doc per turn (Moises, 2026-07-11, v2 supersedes root rule)
+Each research project carries its own **`research/<topic>/comms/`** subfolder as
+part of the standard structure. **Every turn of the loop is a NEW standalone doc**
+— numbered and dated: `NNN_YYYY-MM-DD_TYPE.md` (e.g., `001_…_INSTRUCTIONS`,
+`002_…_IMPLEMENTATION_PLAN`, `003_…_APPROVAL`, `004_…_EXECUTION_REPORT`,
+`005_…_AUDIT`, `006_…_TASK_COMPLETE_LOOP_CLOSED`).
+- **A doc is FINALIZED the moment it is written.** Nobody edits or appends to an
+  existing doc — a response is always the next-numbered NEW file. A new file
+  appearing in the folder IS the signal that the other side has moved.
+- The shared top-level `comms/` folder holds ONLY the evergreen channel files
+  (this protocol, the AG context entry point, mailbox) — never loop docs.
+- Canonical example: `research/nt8_catalog/comms/001–006_2026-07-11_*.md`.
 
 ## Roles
 - **AG** — executor. Writes plans, runs scripts, regenerates artifacts.
@@ -42,9 +44,11 @@ SECOND_AUDIT_FINDINGS.md, AUDIT_RESPONSE_PLAN*.md — nothing of that loop is in
   step (findings, plan, verdict, execution, verification stamp) ends with
   `git commit` + `git push` so assets are safeguarded and each side's turn is a
   recoverable checkpoint. An unpushed turn is an at-risk turn.
-- **Append-only.** Nobody deletes or rewrites a prior section — especially not the
-  party being reviewed. (Round-1 lesson: AG overwrote the reviewer verification
-  that documented a false completion checkbox.)
+- **Finalized-on-write.** Nobody edits, deletes, or appends to an existing loop
+  doc — every response is the next-numbered NEW doc (see "one doc per turn"
+  above; supersedes the earlier single-file append-only mechanics, same intent).
+  (Round-1 lesson: AG overwrote the reviewer verification that documented a
+  false completion checkbox.)
 - **No self-certification.** "Successfully executed" from the executor is a claim,
   not a verification. Only the reviewer stamps VERIFIED.
 - **mtime is evidence.** A "completed" item whose artifact predates the finding is

@@ -28,9 +28,11 @@ When resetting context or building a new feature in the `pipeline/`, `builders/`
 
 ---
 
-## Audits
+## Audits & review loop (see `comms/` — one numbered doc per turn, finalized on write)
+- Full 2026-07-11 loop history: `comms/001–006_2026-07-11_*.md` (audit → plan →
+  verdicts → execution → second audit → TASK COMPLETE). Loop CLOSED (doc 006).
 - `reports/AUDIT_REPORT.md` (2026-07-10) — folder discipline + protocol deviations.
-- `AUDIT_ARTICLE_ACCURACY.md` (root, 2026-07-11, AUDIT-ACC-01) — synthesis + dossiers
+- `comms/001_2026-07-11_AUDIT_ARTICLE_ACCURACY.md` (AUDIT-ACC-01) — synthesis + dossiers
   vs the raw articles. KEY: several synthesis numbers are imported (80% rotation, 3:1
   imbalance, ATR "90%" → article says 72.44%); SEASON-12/ROUND-05/ADX-08/CROSS-11/
   VWAP-03/SCALP-18 do not test what their articles claim; the 2026-07-09
