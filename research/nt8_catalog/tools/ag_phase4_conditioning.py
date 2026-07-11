@@ -5,19 +5,41 @@ import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
+def calc_wr(mags_array):
+    wins = (mags_array > 0).sum()
+    total = len(mags_array)
+    if total == 0: return 0.0
+    return wins / total
+
+def bootstrap_ev(mags, n_iter=4000):
+    if len(mags) == 0: return 0, 0, 0, 0, 0, False
+    evs = []
+    n = len(mags)
+    for _ in range(n_iter):
+        idx = np.random.choice(n, n, replace=True)
+        m = mags[idx]
+        ev = np.mean(m)
+        evs.append(ev)
+    real_wr = calc_wr(mags)
+    counts, bin_edges = np.histogram(mags, bins=50)
+    mode_idx = np.argmax(counts)
+    real_mag_mode = (bin_edges[mode_idx] + bin_edges[mode_idx+1]) / 2.0
+    ev_mean = np.mean(evs)
+    ev_lb = np.percentile(evs, 2.5)
+    ev_ub = np.percentile(evs, 97.5)
+    is_significant = (ev_lb > 0) or (ev_ub < 0)
+    return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
+
 def compute_features(df):
     s = df['close']
     net_change = s.diff(60).abs()
     sum_change = s.diff().abs().rolling(60).sum()
     er = net_change / sum_change
-    
     vol = s.diff().abs().rolling(60).mean()
-    
     return er, vol
 
 def run_conditioning():
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    
     l0_dir = os.path.join(base_dir, '..', '..', 'DATA', 'ATLAS', '5s')
     all_files = sorted(glob.glob(os.path.join(l0_dir, '*.parquet')))
     
@@ -29,7 +51,6 @@ def run_conditioning():
         df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
         df_rth = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
         
-        # 60m is 720 5s bars
         if len(df_rth) < 720:
             continue
             
@@ -43,6 +64,7 @@ def run_conditioning():
             'er': er.values,
             'vol': vol.values,
         }
+    
     all_er = []
     all_vol = []
     for d in day_features.values():
@@ -61,17 +83,20 @@ def run_conditioning():
     events_files = glob.glob(os.path.join(base_dir, 'tests', '**', 'events.parquet'), recursive=True)
     events_files = [f for f in events_files if 'archive' not in f.lower()]
     
-    report_lines = []
-    report_lines.append("# Document ID: AG-CAT-01-CONDITIONING-SWEEP")
-    report_lines.append("**Title:** Phase 4: Multi-Dimensional Conditioning Sweep")
-    report_lines.append("**Status:** Audit Completed")
-    report_lines.append("")
-    report_lines.append("## Objective")
-    report_lines.append("Evaluate whether Hour-of-Day, Regime (Efficiency Ratio), Volatility, or Depth conditionally rescues any setups.")
-    report_lines.append("")
+    master_lines = []
+    master_lines.append("# Document ID: AG-CAT-00-CONDITIONING")
+    master_lines.append("**Title:** Phase 4: Master Multi-Dimensional Conditioning Sweep")
+    master_lines.append("**Status:** Audit Completed")
+    master_lines.append("")
+    master_lines.append("## Objective")
+    master_lines.append("Evaluate whether Hour-of-Day, Regime (Efficiency Ratio), Volatility, or Depth conditionally rescues any setups.")
+    master_lines.append("")
     
     for ef in events_files:
-        dossier = os.path.basename(os.path.dirname(ef))
+        dossier_dir = os.path.dirname(ef)
+        dossier = os.path.basename(dossier_dir)
+        dossier_id = dossier.split('_')[0] if '_' in dossier else dossier
+        
         try:
             ev_df = pd.read_parquet(ef)
         except:
@@ -86,7 +111,6 @@ def run_conditioning():
         for _, row in ev_df.iterrows():
             day = row['day']
             idx = int(row['event_idx'])
-            
             h = 8 + (30 + idx) // 60
             hour_list.append(h)
             
@@ -107,58 +131,59 @@ def run_conditioning():
         ev_df['er_tercile'] = ev_df['er'].apply(lambda x: get_tercile(x, er_bins))
         ev_df['vol_tercile'] = ev_df['vol'].apply(lambda x: get_tercile(x, vol_bins))
         
-        has_depth = 'depth' in ev_df.columns
-        if has_depth:
-            depth_vals = ev_df['depth'].replace([np.inf, -np.inf], np.nan).dropna()
-            if len(depth_vals) > 10:
-                depth_bins = np.nanquantile(depth_vals, [0.33, 0.66])
-                ev_df['depth_tercile'] = ev_df['depth'].apply(lambda x: get_tercile(x, depth_bins))
-            else:
-                has_depth = False
-                
-        report_lines.append(f"### Dossier: {dossier}")
-        report_lines.append(f"Total Base Events: {len(ev_df)}")
-        report_lines.append("")
+        dossier_lines = []
+        dossier_lines.append(f"# Document ID: COND_{dossier_id}")
+        dossier_lines.append(f"**Dossier:** {dossier}")
+        dossier_lines.append(f"**Total Base Events:** {len(ev_df)}")
+        dossier_lines.append("")
         
-        def render_agg(groupby_col):
-            agg = ev_df.groupby(groupby_col).agg(
-                N=('hit', 'count'),
-                WR=('hit', lambda x: np.mean(x)*100),
-                EV=('magnitude', 'mean')
-            ).reset_index()
-            
-            # Find robust edge
-            robust = agg[(agg['N'] >= 30) & (agg['EV'] > 0.05) & (agg['WR'] > 55.0)]
-            
-            lines = [f"**Condition: {groupby_col}**"]
-            lines.append(f"| {groupby_col} | N | WR% | EV (σ) |")
-            lines.append("|---|---|---|---|")
-            for _, r in agg.iterrows():
-                lines.append(f"| {r[groupby_col]} | {r['N']} | {r['WR']:.1f}% | {r['EV']:.3f} |")
-            lines.append("")
-            
-            if not robust.empty:
-                lines.append("> **POTENTIAL CONDITIONAL EDGE IDENTIFIED:**")
-                for _, r in robust.iterrows():
-                    lines.append(f"> Subset {r[groupby_col]}: N={r['N']}, EV={r['EV']:.3f}")
-                lines.append("")
+        master_lines.append(f"### Dossier: {dossier}")
+        master_lines.append(f"Total Base Events: {len(ev_df)}")
+        master_lines.append("")
+        
+        def render_agg(groupby_col, df):
+            lines = []
+            for year in sorted(df['year'].unique()):
+                df_year = df[df['year'] == year]
+                if len(df_year) == 0: continue
+                lines.append(f"#### Year: {year} | Condition: {groupby_col}")
+                lines.append(f"| {groupby_col} | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
+                lines.append("|---|---|---|---|---|---|---|")
                 
+                groups = df_year.groupby(groupby_col)
+                for name, group in groups:
+                    mags = group['magnitude'].values
+                    if len(mags) < 30:
+                        lines.append(f"| {name} | {len(mags)} | - | - | - | - | Insufficient N |")
+                        continue
+                    wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(mags)
+                    sig_str = "Yes" if is_sig else "No"
+                    lines.append(f"| {name} | {len(mags)} | {wr*100:.1f}% | {mag_mode:.2f} | **{ev_mean:.3f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
+                lines.append("")
             return lines
             
-        report_lines.extend(render_agg('hour'))
-        report_lines.extend(render_agg('er_tercile'))
-        report_lines.extend(render_agg('vol_tercile'))
+        res_hour = render_agg('hour', ev_df)
+        res_er = render_agg('er_tercile', ev_df)
+        res_vol = render_agg('vol_tercile', ev_df)
         
-        if has_depth:
-            report_lines.extend(render_agg('depth_tercile'))
+        dossier_lines.extend(res_hour)
+        dossier_lines.extend(res_er)
+        dossier_lines.extend(res_vol)
+        
+        master_lines.extend(res_hour)
+        master_lines.extend(res_er)
+        master_lines.extend(res_vol)
+        master_lines.append("---")
+        master_lines.append("")
+        
+        dossier_out_path = os.path.join(dossier_dir, f'COND_{dossier_id}.md')
+        with open(dossier_out_path, 'w', encoding='utf-8') as f:
+            f.write("\n".join(dossier_lines))
             
-        report_lines.append("---")
-        report_lines.append("")
-
-    out_path = os.path.join(base_dir, 'reports', 'AG_cat_01_CONDITIONING_SWEEP.md')
-    with open(out_path, 'w', encoding='utf-8') as f:
-        f.write("\n".join(report_lines))
-    print(f"Conditioning sweep written to {out_path}")
+    master_out_path = os.path.join(base_dir, 'reports', 'AG_cat_00_CONDITIONING.md')
+    with open(master_out_path, 'w', encoding='utf-8') as f:
+        f.write("\n".join(master_lines))
+    print(f"Master Conditioning sweep written to {master_out_path}")
 
 if __name__ == '__main__':
     run_conditioning()

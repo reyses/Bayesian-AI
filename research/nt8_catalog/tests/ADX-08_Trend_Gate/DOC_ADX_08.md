@@ -1,21 +1,22 @@
-# Document ID: AG-DOC-ADX-08
+# Document ID: AG-DOC-ADX-08 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #8: ADX>25 Trend Gate
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.
+**Ruleset:** Bespoke Exit (ADX < 25 or EOD). Unclamped Magnitude.
 
-## Expected Value (EV)
+## LR: Unnormalized Expected Value (EV)
+> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
 
 ### Results for 2024
-| Setup | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Trend Gate | 60 | 0.55 | 2.01 | **0.21** | [-0.34, 0.68] | No |
-| 2 | Bearish Trend Gate | 43 | 0.49 | -2.01 | **-0.05** | [-0.62, 0.52] | No |
+| 1 | Bullish Trend Gate | 60 | 0.57 | 2.91 | **1.16** | [-1.48, 3.65] | No |
+| 2 | Bearish Trend Gate | 43 | 0.33 | -7.56 | **-3.80** | [-8.70, 0.05] | No |
 
 ### Results for 2025
-| Setup | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Trend Gate | 39 | 0.56 | 2.01 | **0.27** | [-0.37, 0.89] | No |
-| 2 | Bearish Trend Gate | 39 | 0.54 | 2.01 | **0.15** | [-0.47, 0.79] | No |
+| 1 | Bullish Trend Gate | 39 | 0.56 | 2.95 | **-4.02** | [-17.24, 4.81] | No |
+| 2 | Bearish Trend Gate | 39 | 0.33 | -2.22 | **2.81** | [-4.93, 13.83] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ADX-08_distributions.png)

@@ -23,8 +23,8 @@ def generate_sweep_summary():
     summary_lines.append("")
     summary_lines.append("## Consolidated Unit-Standardized Sweep")
     summary_lines.append("")
-    summary_lines.append("| Dossier | Setup | N | WR% | EV (Mean σ) | EV 95% CI | Sig? |")
-    summary_lines.append("|---|---|---|---|---|---|---|")
+    summary_lines.append("| Year | Dossier | Setup | N | WR% | EV (Mean σ) | EV 95% CI | Sig? |")
+    summary_lines.append("|---|---|---|---|---|---|---|---|")
     
     all_data = []
     
@@ -35,13 +35,12 @@ def generate_sweep_summary():
         with open(md_file, 'r', encoding='utf-8') as f:
             content = f.read()
             
-        # Parse tables
-        # Looking for lines like: | Setup | Description | N | WR% | EV | CI | Sig? |
-        # Wait, not all tables might match exactly this.
-        # We look for lines starting with | and containing |---|---|
         in_table = False
-        headers = []
+        current_year = "All"
         for line in content.split('\n'):
+            if line.startswith('### Results for '):
+                current_year = line.replace('### Results for ', '').strip()
+                
             if line.startswith('|') and '---' in line:
                 in_table = True
                 continue
@@ -49,13 +48,10 @@ def generate_sweep_summary():
             if line.startswith('|') and in_table:
                 cols = [c.strip() for c in line.split('|')[1:-1]]
                 if len(cols) >= 5 and cols[0].isdigit() or (len(cols) > 0 and '%' in cols[0]):
-                    # It's a data row
-                    # Format: Setup | Description | N | WR% | Mag | EV | CI | Sig?
-                    if len(cols) == 8: # The standard we just enforced
+                    if len(cols) == 8: 
                         setup, desc, n, wr, mag, ev, ci, sig = cols
-                        all_data.append(f"| {dossier_id} | {setup} ({desc}) | {n} | {wr} | {ev} | {ci} | {sig} |")
+                        all_data.append(f"| {current_year} | {dossier_id} | {setup} ({desc}) | {n} | {wr} | {ev} | {ci} | {sig} |")
                     elif len(cols) >= 6:
-                        # Fallback for others
                         setup = cols[0]
                         desc = cols[1]
                         n = cols[2]
@@ -63,7 +59,7 @@ def generate_sweep_summary():
                         ev = cols[-3]
                         wr = cols[3]
                         ci = cols[-2]
-                        all_data.append(f"| {dossier_id} | {setup} ({desc}) | {n} | {wr} | {ev} | {ci} | {sig} |")
+                        all_data.append(f"| {current_year} | {dossier_id} | {setup} ({desc}) | {n} | {wr} | {ev} | {ci} | {sig} |")
             elif not line.startswith('|'):
                 in_table = False
                 

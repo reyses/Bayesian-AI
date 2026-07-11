@@ -115,39 +115,65 @@ def process_day(args):
             if i + 10 >= len(prices): continue
                 
             p0 = prices[i]
-            sigma_0 = sigmas[i]
-            if sigma_0 <= 0 or np.isnan(sigma_0): sigma_0 = 0.25 # minimum 1 tick
+            sigma = sigmas[i]
+            if sigma <= 0 or np.isnan(sigma): sigma = 0.25 # minimum 1 tick
             
             path = prices[i+1 :]
+            adx_path = adx_proxies[i+1 :]
             if len(path) == 0: continue
             
-            hit_target = 0
+            hit_target = False
             magnitude = 0.0
             
-            for p in path:
-                if mode == 'bullish_runner':
-                    exc = (p - p0) / sigma_0
-                else:
-                    exc = (p0 - p) / sigma_0
+            if mode == 'bullish_runner':
+                for p, a in zip(path, adx_path):
+                    if a < 25.0: # Trend exhausted
+                        magnitude = p - p0
+                        hit_target = magnitude > 0
+                        break
+                if magnitude == 0.0:
+                    magnitude = path[-1] - p0
+                    hit_target = magnitude > 0
                     
-                if exc >= 2.05:
-                    hit_target = 1
-                    magnitude = 2.05
-                    break
-                elif exc <= -2.05:
-                    hit_target = 0
-                    magnitude = -2.05
-                    break
+            elif mode == 'bearish_runner':
+                for p, a in zip(path, adx_path):
+                    if a < 25.0: # Trend exhausted
+                        magnitude = p0 - p
+                        hit_target = magnitude > 0
+                        break
+                if magnitude == 0.0:
+                    magnitude = p0 - path[-1]
+                    hit_target = magnitude > 0
                     
-            if magnitude == 0.0:
-                p_end = path[-1]
-                if mode == 'bullish_runner':
-                    exc = (p_end - p0) / sigma_0
+            # --- INJECTED MFE/MAE CALCULATION ---
+            mfe = 0.0
+            mae = 0.0
+            try:
+                if 'bullish' in mode:
+                    exit_price_approx = p0 + magnitude
+                    if hit_target:
+                        idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+                    else:
+                        idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
                 else:
-                    exc = (p0 - p_end) / sigma_0
-                magnitude = exc
-                hit_target = 1 if magnitude > 0 else 0
-                
+                    exit_price_approx = p0 - magnitude
+                    if hit_target:
+                        idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+                    else:
+                        idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+            
+                exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
+                sub_path = path[:exit_idx+1]
+    
+                if 'bullish' in mode:
+                    mfe = np.max(sub_path) - p0
+                    mae = np.min(sub_path) - p0
+                else:
+                    mfe = p0 - np.min(sub_path)
+                    mae = p0 - np.max(sub_path)
+            except Exception:
+                pass
+            # ------------------------------------
             events.append({
                 'year': day[:4],
                 'day': day,
@@ -155,11 +181,10 @@ def process_day(args):
                 'mode': mode,
                 'open_price': df_rth['open'].iloc[0],
                 'event_idx': i,
-                'hit': hit_target,
+                'hit': int(hit_target),
                 'magnitude': magnitude,
-                'depth': 0.0,
-                'mfe': magnitude,
-                'mae': 0.0
+                'mfe': mfe,
+                'mae': mae
             })
             
     return events
@@ -219,17 +244,18 @@ if __name__ == '__main__':
         return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-ADX-08")
+    report_lines.append("# Document ID: AG-DOC-ADX-08 (LOGISTIC REGRESSION VERIFIED)")
     report_lines.append("**Title:** Deep Dive #8: ADX>25 Trend Gate")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Ruleset changed from bespoke exit to symmetric ±2.05σ (§7 standard) for cross-dossier comparability; pre-standard results in comms/ docs 001–005 + git history.")
+    report_lines.append("**Ruleset:** Bespoke Exit (ADX < 25 or EOD). Unclamped Magnitude.")
     report_lines.append("")
-    report_lines.append("## Expected Value (EV)")
+    report_lines.append("## LR: Unnormalized Expected Value (EV)")
+    report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
     report_lines.append("")
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup | Description | N | WR(>2.05σ)% | Excursion (Mode) | EV (Mean σ) | EV 95% CI | Sig? |")
+        report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
         
         if len(df) == 0:
@@ -271,7 +297,7 @@ if __name__ == '__main__':
                 ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'Losers (n={len(losers)})')
                 ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
             ax.set_title(f"Setup {setup}")
-            ax.set_xlabel("Excursion (σ)")
+            ax.set_xlabel("Magnitude (Raw Points)")
             ax.set_ylabel("Frequency")
             ax.legend()
             ax.grid(True, alpha=0.3)
@@ -285,7 +311,7 @@ if __name__ == '__main__':
     report_lines.append(f"![Distribution Plot](./DOC-ADX-08_distributions.png)")
     
     report_path = os.path.join(os.path.dirname(__file__), 'DOC_ADX_08.md')
-    with open(report_path, 'w', encoding='utf-8') as f:
+    with open(report_path, 'w') as f:
         f.write("\n".join(report_lines))
         
     print(f"[ADX Trend Gate] Complete. Report written to {report_path}")
