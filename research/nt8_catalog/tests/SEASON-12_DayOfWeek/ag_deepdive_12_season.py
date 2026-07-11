@@ -63,6 +63,11 @@ def process_day(args):
     
     # --- INJECTED MFE/MAE ---
     try:
+        path = df_day['close'].values
+        open_idx = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].index[0]
+        event_idx = open_idx
+        p0 = open_price
+        
         _mode_str = str(mode).lower() if 'mode' in locals() else ''
         _setup_val = setup if 'setup' in locals() else 0
         _is_bullish = ('bull' in _mode_str or 'long' in _mode_str or 'buy' in _mode_str or _setup_val == 1)
@@ -86,9 +91,12 @@ def process_day(args):
             mfe, mae = 0.0, 0.0
     except Exception:
         mfe, mae = 0.0, 0.0
+        open_idx = 0
+        event_idx = 0
+        _exit_idx = 0
         
     try:
-        _idx_var = event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else i)
+        _idx_var = event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else 0)
         _sigma_val = sigmas[_idx_var] if 'sigmas' in locals() else 1.0
         if np.isnan(_sigma_val) or _sigma_val <= 0: _sigma_val = 1.0
         magnitude_sigma = magnitude / _sigma_val
@@ -104,13 +112,13 @@ def process_day(args):
         'setup': setup,
         'mode': mode,
         'open_price': open_price,
-        'event_idx': 0,
+        'event_idx': event_idx,
         'hit': int(filled),
         'magnitude': magnitude,
         'mfe': mfe,
-        'resolution_idx': (_exit_idx + (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else i)) + 1) if ('_exit_idx' in locals() and _exit_idx != -1) else -1,
-        'duration_bars': _exit_idx if '_exit_idx' in locals() else -1,
-                        'depth': (lambda l: next((abs(float(l[k])) for k in ['magnitude', 'div', 'adx_val', 'z', 'z_val', 'z_score', 'distance', 'gap'] if k in l and l[k] is not None), abs(l.get('p0',0) - l.get('open_price',0)) if 'p0' in l and 'open_price' in l else 0.0))(locals()),
+        'resolution_idx': event_idx + _exit_idx,
+        'duration_bars': _exit_idx,
+        'depth': abs(gap),
         'mae': mae,
         'magnitude_sigma': magnitude_sigma,
         'mfe_sigma': mfe_sigma,

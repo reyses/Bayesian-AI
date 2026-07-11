@@ -5,93 +5,68 @@ import numpy as np
 import statsmodels.api as sm
 from sklearn.linear_model import LogisticRegression
 import warnings
-import sys
 
 warnings.filterwarnings("ignore")
 
-base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.abspath(os.path.join(base_dir, '..', '..')))
-from core_v2.features import load_features, FEATURE_NAMES
-
-def run_phase5():
-    features_root = os.path.abspath(os.path.join(base_dir, '..', '..', 'DATA', 'ATLAS', 'FEATURES_5s_v2'))
+def run_phase5_final():
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     reports_dir = os.path.join(base_dir, 'reports')
     os.makedirs(reports_dir, exist_ok=True)
     
-    # Priority dossiers per Doc 027
     target_dossiers = ['ATR-09', 'FIB-17', 'VA-13', 'ORDERFLOW-14']
-    events_files = []
-    for td in target_dossiers:
-        f = glob.glob(os.path.join(base_dir, 'tests', f'*{td}*', 'events.parquet'))
-        if f: events_files.extend(f)
-        else:
-            f2 = glob.glob(os.path.join(base_dir, 'tests', td, 'events.parquet'))
-            if f2: events_files.extend(f2)
-            
-    print(f"Found {len(events_files)} priority dossiers to process.")
-    
     final_results = []
     
-    for ef in events_files:
-        dossier = os.path.basename(os.path.dirname(ef))
-        try:
-            ev_df = pd.read_parquet(ef)
-        except Exception:
-            continue
-            
-        if len(ev_df) == 0: continue
-        
-        print(f"\n========================================")
-        print(f"Processing {dossier}...")
-        
-        days = ev_df['day'].unique()
-        X_list, y_list, mag_list, year_list = [], [], [], []
-        
-        for day in days:
-            day_events = ev_df[ev_df['day'] == day]
-            try:
-                feats = load_features(days=[day], root=features_root, require_all=False)
-            except Exception as e:
+    for td in target_dossiers:
+        dossier_path = os.path.join(base_dir, 'tests', td)
+        if not os.path.exists(dossier_path):
+            matched = glob.glob(os.path.join(base_dir, 'tests', f'*{td}*'))
+            if matched:
+                dossier_path = matched[0]
+            else:
                 continue
                 
-            for _, row in day_events.iterrows():
-                idx = int(row['event_idx'])
-                if idx >= len(feats): continue
-                row_feats = feats.iloc[idx]
-                
-                # Extract V2 features safely
-                vec = []
-                for fn in FEATURE_NAMES:
-                    if fn in row_feats:
-                        val = row_feats[fn]
-                        vec.append(val if pd.notnull(val) else 0.0)
-                    else:
-                        vec.append(0.0)
-                        
-                X_list.append(vec)
-                y_list.append(row['hit'])
-                mag_list.append(row['magnitude'])
-                year_list.append(day[:4])
-                
-        if len(X_list) < 100:
-            print(f"Not enough valid V2 events for {dossier}.")
+        try:
+            X_Phe = np.load(os.path.join(dossier_path, 'X_Phe.npy'))
+            X_PhXit = np.load(os.path.join(dossier_path, 'X_PhXit.npy'))
+            X_PhPost = np.load(os.path.join(dossier_path, 'X_PhPost.npy'))
+            Y = np.load(os.path.join(dossier_path, 'Y.npy'))
+            Mags = np.load(os.path.join(dossier_path, 'Mags.npy'))
+            Years = np.load(os.path.join(dossier_path, 'Years.npy'))
+        except Exception as e:
+            print(f"Skipping {td}: missing numpy files. {e}")
             continue
             
-        X = np.array(X_list)
-        y = np.array(y_list)
-        mag = np.array(mag_list)
-        years = np.array(year_list)
+        print(f"\n========================================")
+        print(f"Processing {td}...")
+        print(f"Lengths: X={len(X_Phe)}, Y={len(Y)}, Years={len(Years)}")
         
-        mask_2024 = (years == '2024')
-        mask_2025 = (years == '2025')
+        X = np.concatenate([X_Phe, X_PhXit, X_PhPost], axis=1).astype(float)
+        y = np.array(Y).astype(int)
+        mag = np.array(Mags).astype(float)
+        years = np.array(Years).astype(str)
         
-        X_train, y_train = X[mask_2024], y[mask_2024]
-        if len(X_train) < 50:
-            print(f"Not enough 2024 training data for {dossier}.")
+        # Dynamic train/test year split
+        unique_years, counts = np.unique(years, return_counts=True)
+        train_year, test_year = None, None
+        
+        for i, yr in enumerate(unique_years):
+            if counts[i] >= 30:
+                train_year = yr
+                if i + 1 < len(unique_years):
+                    test_year = unique_years[i + 1]
+                break
+                
+        if train_year is None or test_year is None:
+            print(f"Not enough sequential years with data for {td}.")
             continue
+            
+        print(f"Training on {train_year}, Testing on {test_year}")
+        mask_train = (years == train_year)
+        mask_test = (years == test_year)
+        
+        X_train, y_train = X[mask_train], y[mask_train]
             
         # Step 1: L1 Feature Selection on 2024
-        # Standardize
         X_mean = np.mean(X_train, axis=0)
         X_std = np.std(X_train, axis=0) + 1e-9
         X_train_s = (X_train - X_mean) / X_std
@@ -108,11 +83,9 @@ def run_phase5():
             corrs = np.nan_to_num(corrs)
             selected_idx = np.argsort(corrs)[-5:]
             
-        print(f"Selected {len(selected_idx)} features:")
-        for idx in selected_idx:
-            print(f" - {FEATURE_NAMES[idx]}")
-            
-        # Step 2: Fit Statsmodels Logit on selected features
+        print(f"Selected {len(selected_idx)} features out of {X.shape[1]}")
+        
+        # Step 2: Fit Statsmodels Logit
         X_train_sel = X_train_s[:, selected_idx]
         X_train_sm = np.column_stack((np.ones(len(X_train_sel)), X_train_sel))
         
@@ -121,23 +94,21 @@ def run_phase5():
             model = sm.Logit(y_train, X_train_sm).fit(disp=0)
         except Exception as e:
             print(f"Logit failed: {e}. Falling back to SKLearn.")
-            model = LogisticRegression(penalty='none').fit(X_train_sel, y_train)
+            model = LogisticRegression(penalty=None).fit(X_train_sel, y_train)
             used_sm = False
             
-        # Predict 2024
         if used_sm:
             p_2024 = model.predict(X_train_sm)
         else:
             p_2024 = model.predict_proba(X_train_sel)[:, 1]
             
-        # Choose thresholds: top 15% and bottom 15% on 2024
         p_hi = np.percentile(p_2024, 85)
         p_lo = np.percentile(p_2024, 15)
         
-        # Step 3: Evaluate on 2025
-        X_test, y_test, mag_test = X[mask_2025], y[mask_2025], mag[mask_2025]
+        # Step 3: Evaluate on test_year
+        X_test, y_test, mag_test = X[mask_test], y[mask_test], mag[mask_test]
         if len(X_test) < 10:
-            print(f"Not enough 2025 test data for {dossier}.")
+            print(f"Not enough {test_year} test data for {td}.")
             continue
             
         X_test_s = (X_test - X_mean) / X_std
@@ -149,7 +120,7 @@ def run_phase5():
         else:
             p_2025 = model.predict_proba(X_test_sel)[:, 1]
             
-        # Calculate EV and bootstrap CI for 2025
+        # calc_metrics
         def calc_metrics(y_prob, y_true, mags, p_hi, p_lo):
             act_mask = y_prob >= p_hi
             inv_mask = y_prob <= p_lo
@@ -166,10 +137,8 @@ def run_phase5():
 
         act_n, act_ev, act_wr, inv_n, inv_ev, inv_wr, act_mags, inv_mags = calc_metrics(p_2025, y_test, mag_test, p_hi, p_lo)
         
-        # Bootstrap EV CI
         B = 1000
-        act_ev_boot = []
-        inv_ev_boot = []
+        act_ev_boot, inv_ev_boot = [], []
         for _ in range(B):
             if act_n > 0:
                 boot_idx = np.random.choice(len(act_mags), size=act_n, replace=True)
@@ -192,7 +161,7 @@ def run_phase5():
         print(f"INV Branch  (P <= {p_lo:.3f}): N={inv_n}, WR={inv_wr:.2f}, EV={inv_ev:.2f} pts (CI_lo: {inv_ci_lo:.2f}), Mode={inv_mode} pts | Valid={inv_valid}")
         
         final_results.append({
-            'dossier': dossier,
+            'dossier': td,
             'features': len(selected_idx),
             'act_n': act_n,
             'act_ev': act_ev,
@@ -202,7 +171,6 @@ def run_phase5():
             'inv_valid': inv_valid
         })
 
-    # Write Markdown summary
     md = "# Phase-5 F-Space Logistic Evaluation\n\n"
     md += "Three-way policy evaluation (ACT / SKIP / INVERT) using V2 Features (Doc 027).\n\n"
     md += "| Dossier | N_Feats | ACT N | ACT EV (pts) | ACT Valid? | INV N | INV EV (pts) | INV Valid? |\n"
@@ -210,10 +178,10 @@ def run_phase5():
     for r in final_results:
         md += f"| {r['dossier']} | {r['features']} | {r['act_n']} | {r['act_ev']:.2f} | {'✅' if r['act_valid'] else '❌'} | {r['inv_n']} | {r['inv_ev']:.2f} | {'✅' if r['inv_valid'] else '❌'} |\n"
         
-    with open(os.path.join(reports_dir, 'AG_cat_00_PHASE5.md'), 'w') as f:
+    with open(os.path.join(reports_dir, 'AG_cat_00_PHASE5.md'), 'w', encoding='utf-8') as f:
         f.write(md)
         
     print("\nPhase 5 Evaluation Complete. Report saved to reports/AG_cat_00_PHASE5.md")
 
 if __name__ == '__main__':
-    run_phase5()
+    run_phase5_final()

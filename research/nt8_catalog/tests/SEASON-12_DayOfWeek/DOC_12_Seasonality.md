@@ -17,10 +17,10 @@
 #### Contrast vs Monday (2024)
 | Day | Contrast (Day - Mon) | 95% CI | Significant? |
 |---|---|---|---|
-| Tue | +0.142 | [-0.041, +0.327] | No |
-| Wed | -0.049 | [-0.252, +0.149] | No |
-| Thu | +0.094 | [-0.087, +0.278] | No |
-| Fri | +0.022 | [-0.163, +0.224] | No |
+| Tue | +0.144 | [-0.041, +0.347] | No |
+| Wed | -0.051 | [-0.252, +0.151] | No |
+| Thu | +0.097 | [-0.087, +0.277] | No |
+| Fri | +0.020 | [-0.184, +0.204] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | Fill Prob | 95% CI |
@@ -34,10 +34,10 @@
 #### Contrast vs Monday (2025)
 | Day | Contrast (Day - Mon) | 95% CI | Significant? |
 |---|---|---|---|
-| Tue | +0.175 | [-0.035, +0.387] | No |
-| Wed | +0.347 | [+0.160, +0.535] | Yes |
-| Thu | +0.273 | [+0.069, +0.475] | Yes |
-| Fri | +0.121 | [-0.095, +0.333] | No |
+| Tue | +0.178 | [-0.034, +0.387] | No |
+| Wed | +0.350 | [+0.160, +0.537] | Yes |
+| Thu | +0.272 | [+0.069, +0.478] | Yes |
+| Fri | +0.120 | [-0.095, +0.333] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-SEASON-12_distributions.png)
