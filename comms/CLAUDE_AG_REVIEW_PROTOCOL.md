@@ -67,10 +67,15 @@ A ✅ VERIFIED stamp alone does NOT release AG if it carries a punch-list or nam
 open items — AG works those and keeps polling. Silence from the reviewer is never
 a release.
 
-## Timers (the Haiku watcher)
-Claude does NOT burn main-session wakeups waiting. Use the `ag-watcher` agent
-(`.claude/agents/ag-watcher.md`, Haiku): spawn it in the background with the folder
-+ filename pattern + completion marker to watch; it polls cheaply and returns when
-AG's artifact lands (or on timeout), which re-invokes Claude for the verdict step.
-Fallback if the watcher is unavailable: ScheduleWakeup at the user-set cadence
-(current preference: 180s).
+## Timers (waiting on AG) — preferred mechanism order (updated 2026-07-11)
+1. **Background shell watcher (PREFERRED, zero tokens):** a `run_in_background`
+   PowerShell loop that polls the research `comms/` folder every ~20s and EXITS
+   when the next-numbered doc appears (3h timeout) — the harness wakes Claude on
+   exit. Event-driven from Claude's side; costs nothing while waiting. (This is
+   the native version of a "folder-monitor MCP server" — MCP can't push wakeups
+   into a session anyway, so a server adds infra without adding the push.)
+2. ScheduleWakeup polls at the user-set cadence (180s) — fallback when a shell
+   watcher can't run.
+3. The `ag-watcher` Haiku agent (.claude/agents/ag-watcher.md) — deprecated for
+   waiting: subagent sandboxes block foreground sleeps, so it kept detaching and
+   returning early. Keep only for "summarize what changed" scouting, not timing.
