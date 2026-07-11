@@ -59,7 +59,7 @@ def generate_sweep_summary():
     summary_lines.append("")
     summary_lines.append("## Consolidated Unit-Standardized Sweep")
     summary_lines.append("")
-    summary_lines.append("| Year | Dossier | Setup | N | Resp Freq (%) | EV (Raw Pts) | EV 95% CI | Sig? | EV (Mean σ) |")
+    summary_lines.append("| Year | Dossier | Setup | N | PF-WR | EV (Raw Pts) | EV 95% CI | Sig? | EV (Mean σ) |")
     summary_lines.append("|---|---|---|---|---|---|---|---|---|")
     
     all_data = []
@@ -92,8 +92,12 @@ def generate_sweep_summary():
                 n = len(df_sub)
                 if n == 0: continue
                 
-                wr = df_sub['hit'].mean()
                 mags = df_sub['magnitude'].dropna().values
+                wr = np.mean(mags > 0) if len(mags) > 0 else 0.0
+                gross_profit = np.sum(mags[mags > 0])
+                gross_loss = np.abs(np.sum(mags[mags < 0]))
+                pf = gross_profit / gross_loss if gross_loss > 0 else np.inf
+                
                 ev_raw = np.mean(mags) if len(mags) > 0 else 0.0
                 ci_low, ci_high = bootstrap_ci(mags)
                 sig = "Yes" if ci_low > 0 or ci_high < 0 else "No"
@@ -106,11 +110,11 @@ def generate_sweep_summary():
                 desc = desc_map.get(str(setup), "Unknown")
                 setup_desc = f"{setup} ({desc})"
                 
-                wr_str = f"{wr:.2f}"
+                pf_wr_str = f"{pf:.2f} | {wr:.2f}"
                 if 'SQZ-04' in dossier_id:
-                    wr_str = "1.00*"
+                    pf_wr_str = f"{pf:.2f} | 1.00*"
                     
-                all_data.append(f"| {year} | {dossier_id} | {setup_desc} | {n} | {wr_str} | {ev_raw:.2f} | [{ci_low:.2f}, {ci_high:.2f}] | {sig} | {ev_sigma:.2f}σ |")
+                all_data.append(f"| {year} | {dossier_id} | {setup_desc} | {n} | {pf_wr_str} | {ev_raw:.2f} | [{ci_low:.2f}, {ci_high:.2f}] | {sig} | {ev_sigma:.2f}σ |")
 
     all_data.sort()
     summary_lines.extend(all_data)

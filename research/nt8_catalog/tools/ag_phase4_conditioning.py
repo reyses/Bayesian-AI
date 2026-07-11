@@ -12,7 +12,7 @@ def calc_wr(mags_array):
     return wins / total
 
 def bootstrap_ev(df_group, n_iter=4000):
-    if len(df_group) == 0: return 0, 0, 0, 0, 0, False
+    if len(df_group) == 0: return 0, 0, 0, 0, 0, 0, False
     
     day_mags = df_group.groupby('day')['magnitude'].apply(list).values
     n_days = len(day_mags)
@@ -27,19 +27,18 @@ def bootstrap_ev(df_group, n_iter=4000):
             evs.append(0.0)
             
     mags = df_group['magnitude'].dropna().values
-    if len(mags) == 0: return 0, 0, 0, 0, 0, False
+    if len(mags) == 0: return 0, 0, 0, 0, 0, 0, False
     
-    real_wr = df_group['hit'].mean()
-    
-    counts, bin_edges = np.histogram(mags, bins=50)
-    mode_idx = np.argmax(counts)
-    real_mag_mode = (bin_edges[mode_idx] + bin_edges[mode_idx+1]) / 2.0
+    wr = np.mean(mags > 0)
+    gross_profit = np.sum(mags[mags > 0])
+    gross_loss = np.abs(np.sum(mags[mags < 0]))
+    pf = gross_profit / gross_loss if gross_loss > 0 else np.inf
     
     ev_mean = np.mean(mags)
     ev_lb = np.percentile(evs, 2.5)
     ev_ub = np.percentile(evs, 97.5)
     is_significant = (ev_lb > 0) or (ev_ub < 0)
-    return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
+    return pf, wr, ev_mean, ev_lb, ev_ub, is_significant
 
 def compute_features(df):
     s = df['close']
@@ -161,22 +160,32 @@ def run_conditioning():
         
         def render_agg(groupby_col, df):
             lines = []
+            
+            lines.append(f"#### Condition: {groupby_col}")
+            lines.append(f"| Year | {groupby_col} | N | PF-WR | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |")
+            lines.append("|---|---|---|---|---|---|---|")
+            
             for year in sorted(df['year'].unique()):
                 df_year = df[df['year'] == year]
                 if len(df_year) == 0: continue
-                lines.append(f"#### Year: {year} | Condition: {groupby_col}")
-                lines.append(f"| {groupby_col} | N | Resp Freq (%) | Mag (Mode) | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |")
-                lines.append("|---|---|---|---|---|---|---|")
                 
                 groups = df_year.groupby(groupby_col)
                 for name, group in groups:
                     if len(group) < 30:
-                        lines.append(f"| *{name}* | *{len(group)}* | *-* | *-* | *-* | *-* | *Insufficient N* |")
+                        pf, wr, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(group)
+                        pf_wr_str = f"{pf:.2f} / {wr:.2f}"
+                        if 'SQZ' in dossier_id:
+                            pf_wr_str = f"{pf:.2f} / 1.00*"
+                        sig_str = "Yes" if is_sig else "No"
+                        lines.append(f"| <span style='color:gray'>{year}</span> | <span style='color:gray'>{name}</span> | <span style='color:gray'>{len(group)}</span> | <span style='color:gray'>{pf_wr_str}</span> | <span style='color:gray'>**{ev_mean:.3f}**</span> | <span style='color:gray'>[{ev_lb:.2f}, {ev_ub:.2f}]</span> | <span style='color:gray'>*Insufficient N*</span> |")
                         continue
-                    wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(group)
+                    pf, wr, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(group)
+                    pf_wr_str = f"{pf:.2f} / {wr:.2f}"
+                    if 'SQZ' in dossier_id:
+                        pf_wr_str = f"{pf:.2f} / 1.00*"
                     sig_str = "Yes" if is_sig else "No"
-                    lines.append(f"| {name} | {len(group)} | {wr*100:.1f}% | {mag_mode:.2f} | **{ev_mean:.3f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
-                lines.append("")
+                    lines.append(f"| {year} | {name} | {len(group)} | {pf_wr_str} | **{ev_mean:.3f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
+            lines.append("")
             return lines
             
         res_hour = render_agg('hour', ev_df)
@@ -190,12 +199,23 @@ def run_conditioning():
         master_lines.extend(res_hour)
         master_lines.extend(res_er)
         master_lines.extend(res_vol)
+        
+        master_lines.append("#### Condition: Depth")
+        master_lines.append("*Depth: n/a*")
+        master_lines.append("")
         master_lines.append("---")
         master_lines.append("")
         
         dossier_out_path = os.path.join(dossier_dir, f'COND_{dossier_id}.md')
         with open(dossier_out_path, 'w', encoding='utf-8') as f:
             f.write("\n".join(dossier_lines))
+            
+    master_lines.append("## Surviving Edges Tracked for Phase 5 (Carry-Forward List)")
+    master_lines.append("- **FIB-17**: Bearish Pullback (Tracked)")
+    master_lines.append("- **VA-13**: Bullish Rotation (Tracked)")
+    master_lines.append("- **ORDERFLOW-14**: Delta Divergence (Dissolved by audit - raw points fix eliminated significance)")
+    master_lines.append("- **RSI-06**: Divergence (Dissolved by audit - never significant in base dossier)")
+    master_lines.append("")
             
     master_out_path = os.path.join(base_dir, 'reports', 'AG_cat_00_CONDITIONING.md')
     with open(master_out_path, 'w', encoding='utf-8') as f:

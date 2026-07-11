@@ -158,8 +158,8 @@ def process_day(args):
             except Exception:
                 pass
                 
-            # [SANITY GATE] Abort if magnitude is physically impossible (> 1000 points)
-            assert abs(magnitude) <= 1000.0, f"ABORT: Physically impossible magnitude detected: {magnitude:.2f} points at index {i} on day {day_str}."
+            sigma_val = sigmas[i] if i < len(sigmas) else 0.0
+            assert abs(magnitude) <= 100.0, f"ABORT: Physically impossible magnitude detected: {magnitude:.2f} points at index {i} on day {day_str}, sigma={sigma_val:.2f}."
                 
             
             # --- INJECTED MFE/MAE ---
@@ -384,8 +384,10 @@ if __name__ == '__main__':
     report_lines.append("## Graphical Descriptive Statistics (Aggregate)")
     report_lines.append(f"![Distribution Plot](./DOC-14-OrderFlow_distributions.png)")
     
-    report_path = os.path.join(os.path.dirname(__file__), 'DOC_14_OrderFlow.md')
+    report_path = os.path.join(assets_dir, 'DOC_14_OrderFlow.md')
     with open(report_path, 'w') as f:
         f.write("\n".join(report_lines))
+        
+    df_events.to_parquet(os.path.join(assets_dir, 'events.parquet'))
         
     print(f"[OrderFlow Deep Dive] Complete. Report written to {report_path}")
