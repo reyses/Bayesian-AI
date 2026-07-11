@@ -6,21 +6,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def rolling_ols_bands(close, W):
-    """Trailing W-bar OLS residual sigma"""
-    n = len(close)
-    if n < W:
-        return np.full(n, 1.0)
-    x = np.linspace(-1.0, 1.0, W)
-    X = np.stack([np.ones(W), x], axis=1)
-    P = np.linalg.pinv(X)
-    sw = np.lib.stride_tricks.sliding_window_view(close, W)
-    C = sw @ P.T
-    fit = C @ X.T
-    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
-    pad = np.full(W - 1, np.nan)
-    return np.r_[pad, sig]
-
 def process_day(day):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
@@ -33,12 +18,6 @@ def process_day(day):
         
     if len(df) < 100: return None
     
-    # Compute trailing 1m sigma (W=12 for 5s bars) across the whole day to avoid edge effects at 8:30
-    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
-    # Forward fill sigma for the first W-1 bars
-    df['sigma'] = df['sigma'].bfill().fillna(1.0) 
-    
-    # Filter for RTH
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
@@ -46,39 +25,49 @@ def process_day(day):
         
     prices = df_day['close'].values
     volumes = df_day['volume'].values
-    sigmas = df_day['sigma'].values
     
-    # Compute VWAP and bands starting exactly at 08:30
     cum_vol = volumes.cumsum()
-    # Avoid division by zero
     cum_vol = np.where(cum_vol == 0, 1, cum_vol)
     
     cum_pv = (prices * volumes).cumsum()
     vwap = cum_pv / cum_vol
     
-    vwap_variance = (volumes * (prices - vwap)**2).cumsum() / cum_vol
-    vwap_std = np.sqrt(vwap_variance)
+    df_day['vwap_std'] = df_day['close'].rolling(20).std().bfill()
+    df_day['vwap_std'] = df_day['vwap_std'].replace(0, 0.25)
+    vwap_std = df_day['vwap_std'].values
     
-    upper_band = vwap + 2.0 * vwap_std
-    lower_band = vwap - 2.0 * vwap_std
+    z_scores = (prices - vwap) / vwap_std
     
     setup = 0
     mode = 'none'
     event_idx = -1
     
-    for i in range(len(prices)):
-        if vwap_std[i] == 0:
-            continue # Skip until variance is > 0
-        if prices[i] > upper_band[i]:
+    primed_bear = False
+    primed_bull = False
+    
+    for i in range(1, len(prices)):
+        z_curr = z_scores[i]
+        z_prev = z_scores[i-1]
+        
+        if z_curr > 2.0:
+            primed_bear = True
+        elif primed_bear and z_curr < z_prev and z_curr > 0:
             setup = 1
             event_idx = i
             mode = 'bearish_bounce'
             break
-        elif prices[i] < lower_band[i]:
+        elif z_curr <= 0:
+            primed_bear = False
+            
+        if z_curr < -2.0:
+            primed_bull = True
+        elif primed_bull and z_curr > z_prev and z_curr < 0:
             setup = 2
             event_idx = i
             mode = 'bullish_bounce'
             break
+        elif z_curr >= 0:
+            primed_bull = False
             
     if event_idx == -1: return None
     
@@ -91,13 +80,13 @@ def process_day(day):
     magnitude = 0.0
     hit_target = False
     
-    if mode in ['bullish_bounce']:
+    if mode == 'bullish_bounce':
         for p, v, std in zip(path, vwap_path, std_path):
-            if p >= v: # Target hit
+            if p >= v:
                 magnitude = p - p0
                 hit_target = magnitude > 0
                 break
-            elif p <= v - 3.0 * std: # Stop hit
+            elif p <= v - 3.0 * std:
                 magnitude = p - p0
                 hit_target = magnitude > 0
                 break
@@ -105,13 +94,13 @@ def process_day(day):
             magnitude = path[-1] - p0
             hit_target = magnitude > 0
             
-    elif mode in ['bearish_bounce']:
+    elif mode == 'bearish_bounce':
         for p, v, std in zip(path, vwap_path, std_path):
-            if p <= v: # Target hit
+            if p <= v:
                 magnitude = p0 - p
                 hit_target = magnitude > 0
                 break
-            elif p >= v + 3.0 * std: # Stop hit
+            elif p >= v + 3.0 * std:
                 magnitude = p0 - p
                 hit_target = magnitude > 0
                 break
@@ -179,6 +168,10 @@ if __name__ == '__main__':
                 all_events.append(res)
                 
     df = pd.DataFrame(all_events)
+    if len(df) == 0:
+        print("No events found")
+        import sys; sys.exit(0)
+        
     parquet_out = os.path.join(os.path.dirname(__file__), 'events.parquet')
     df.to_parquet(parquet_out)
 
@@ -220,7 +213,7 @@ if __name__ == '__main__':
     report_lines.append("# Document ID: AG-DOC-VWAP-03 (LOGISTIC REGRESSION VERIFIED)")
     report_lines.append("**Title:** Deep Dive #3: Session VWAP Z-Score Mean Reversion")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (Mean Revert to VWAP or 3.0$\\sigma$ Stop). Unclamped Magnitude.")
+    report_lines.append("**Ruleset:** Bespoke Exit (Mean Revert to VWAP or 3.0$\\sigma$ Stop). Z-turn confirmed entry.")
     report_lines.append("")
     report_lines.append("## LR: Unnormalized Expected Value (EV)")
     report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
@@ -239,7 +232,7 @@ if __name__ == '__main__':
                 continue
             wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(df_sub)
             n = len(df_sub)
-            desc = "Bullish Pullback" if setup == 1 else "Bearish Pullback"
+            desc = "Bearish Bounce (Short from +2z)" if setup == 1 else "Bullish Bounce (Long from -2z)"
             sig_str = "Yes" if is_sig else "No"
             report_lines.append(f"| {setup} | {desc} | {n} | {wr:.2f} | {mag_mode:.2f} | **{ev_mean:.2f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
         report_lines.append("")

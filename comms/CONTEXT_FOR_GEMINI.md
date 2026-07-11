@@ -27,6 +27,17 @@ through the mailbox (`comms/mailbox.md`, protocol in `comms/README.md`).
   report, script, or sub-codebase produced or touched (`research/<topic>/reports/…`, `research/…`,
   `artifacts/…`, a module path). A result with no location pointer is a lost result.
 
+## Review-loop protocol (MANDATORY for any plan-then-execute work, 2026-07-11)
+Read `comms/CLAUDE_AG_REVIEW_PROTOCOL.md` before writing a response/implementation
+plan. Non-negotiables: (1) plans and verdicts are APPEND-ONLY — never overwrite or
+delete a reviewer section; (2) never claim COMPLETED for work whose artifact you
+haven't produced (mtimes are checked); (3) execute only after an APPROVED verdict;
+(4) sanity-check magnitudes before shipping a table (MNQ per-event EV = single
+digits to tens of points); (5) **all loop files live at the ROOT of the research
+project folder** (`research/<topic>/`), never in `comms/` — comms/ stays clean;
+(6) **commit + push after every turn** — each loop step ends with a git
+commit+push so assets are safeguarded (an unpushed turn is an at-risk turn).
+
 ## Read these to get current (in order)
 1. `docs/memory/MEMORY.md` — the condensed knowledge base (START HERE; ~100 lines).
 2. `ROADMAP_LAMBDA_COMPLETION.md` (repo root) — the ACTIVE program (stages/gates/graveyard).

@@ -39,21 +39,25 @@ def process_day(args):
     # Forward fill sigma for the first W-1 bars
     df['sigma'] = df['sigma'].bfill().fillna(1.0)
     
-    # 1. 14-period ADX proxy
+    # 1. 14-period True ADX (Wilder's DMI)
     # 1m equivalent (14*12 = 168 bars on 5s data)
     period_14 = 168
-    df['rolling_max'] = df['high'].rolling(window=period_14).max()
-    df['rolling_min'] = df['low'].rolling(window=period_14).min()
+    df['upMove'] = df['high'] - df['high'].shift(1)
+    df['downMove'] = df['low'].shift(1) - df['low']
     
-    prev_close = df['close'].shift(1)
-    df['tr'] = np.maximum(df['high'] - df['low'], 
-               np.maximum(abs(df['high'] - prev_close), abs(df['low'] - prev_close)))
+    df['+DM'] = np.where((df['upMove'] > df['downMove']) & (df['upMove'] > 0), df['upMove'], 0.0)
+    df['-DM'] = np.where((df['downMove'] > df['upMove']) & (df['downMove'] > 0), df['downMove'], 0.0)
     
-    df['atr'] = df['tr'].rolling(window=period_14).mean()
-    # Avoid div by zero
-    df['atr'] = df['atr'].replace(0, np.nan)
-    df['adx_proxy'] = abs(df['rolling_max'] - df['rolling_min']) / df['atr'] * 100
-    df['adx_proxy'] = df['adx_proxy'].fillna(0)
+    df['tr1'] = df['high'] - df['low']
+    df['tr2'] = abs(df['high'] - df['close'].shift(1))
+    df['tr3'] = abs(df['low'] - df['close'].shift(1))
+    df['TR'] = df[['tr1', 'tr2', 'tr3']].max(axis=1)
+    
+    # Use SMA approximation for speed
+    df['+DI'] = 100 * (df['+DM'].rolling(period_14).mean() / df['TR'].rolling(period_14).mean())
+    df['-DI'] = 100 * (df['-DM'].rolling(period_14).mean() / df['TR'].rolling(period_14).mean())
+    df['DX'] = 100 * (abs(df['+DI'] - df['-DI']) / (df['+DI'] + df['-DI'] + 1e-10))
+    df['adx_proxy'] = df['DX'].rolling(period_14).mean().fillna(0)
     
     # 2. 20-period SMA (240 bars on 5s)
     period_20 = 240

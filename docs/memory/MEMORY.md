@@ -91,6 +91,7 @@
 - Detail: `USER_PERSONA_AND_PROTOCOL.md` (cognitive style, collaboration protocol, headroom/nesting framework, VP zone-map trading manual, schedule, specs). Full feedback corpus: `AGENT_FEEDBACK_RULES.md`.
 
 ## 8. POINTERS
+- [Claude⇄AG review protocol](project-claude-ag-review-protocol.md) — reviewer/executor loop, append-only verdicts, artifact-level verification, ag-watcher Haiku agent for timers (2026-07-11).
 - `ROADMAP_LAMBDA_COMPLETION.md` (repo root) — ACTIVE master roadmap (stages/gates/graveyard/append-only log).
 - `docs/Active/NMP_V2_FEATURE_MAP.md` — NMP→V2 term-by-term map + standing traps #1–8.
 - `PROJECT_HISTORY.md` — the long arc (chronological era timeline at top; detailed legacy sources below). `archive/` — all pre-condense originals (`*_pre-condense_2026-06-12.md`).

@@ -6,21 +6,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def rolling_ols_bands(close, W):
-    """Trailing W-bar OLS residual sigma"""
-    n = len(close)
-    if n < W:
-        return np.full(n, 1.0)
-    x = np.linspace(-1.0, 1.0, W)
-    X = np.stack([np.ones(W), x], axis=1)
-    P = np.linalg.pinv(X)
-    sw = np.lib.stride_tricks.sliding_window_view(close, W)
-    C = sw @ P.T
-    fit = C @ X.T
-    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
-    pad = np.full(W - 1, np.nan)
-    return np.r_[pad, sig]
-
 def process_day(day):
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
@@ -33,23 +18,12 @@ def process_day(day):
         
     if len(df) < 100: return None
     
-    # Compute trailing 1m sigma (W=12 for 5s bars) across the whole day to avoid edge effects at 8:30
-    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
-    # Forward fill sigma for the first W-1 bars
-    df['sigma'] = df['sigma'].bfill().fillna(1.0) 
-    
-    df['sma20'] = df['close'].rolling(240).mean().bfill()
-    
-    # Filter for RTH
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
     if len(df_day) < 100: return None
         
     prices = df_day['close'].values
-    sma20 = df_day['sma20'].values
-    times = df_day['dt'].values
-    open_price = prices[0]
     
     setup = 0
     mode = 'none'
@@ -58,7 +32,6 @@ def process_day(day):
     day_high = np.max(prices)
     day_low = np.min(prices)
     
-    # Psychological levels: divisible by 50
     levels = [L for L in range(int(day_low/50)*50 - 50, int(day_high/50)*50 + 100, 50)]
     
     primed_bullish = {L: False for L in levels}
@@ -68,34 +41,30 @@ def process_day(day):
     for i, p in enumerate(prices):
         triggered = False
         for L in levels:
-            # Check if touched exactly (or crossed)
-            if p <= L and primed_bullish[L]:
+            if p >= L and primed_bullish[L]:
                 setup = 1
-                mode = 'bullish_bounce'
+                mode = 'bullish_continuation'
                 event_idx = i
                 trigger_L = L
                 triggered = True
                 break
                 
-            if p >= L and primed_bearish[L]:
+            if p <= L and primed_bearish[L]:
                 setup = 2
-                mode = 'bearish_bounce'
+                mode = 'bearish_continuation'
                 event_idx = i
                 trigger_L = L
                 triggered = True
                 break
 
-            # Update primes
-            # Setup 1 (Bullish Bounce): Price > 10 points above psych level
-            if p > L + 10:
+            if p < L - 5:
                 primed_bullish[L] = True
-            elif p <= L:
+            elif p >= L:
                 primed_bullish[L] = False
                 
-            # Setup 2 (Bearish Bounce): Price > 10 points below psych level
-            if p < L - 10:
+            if p > L + 5:
                 primed_bearish[L] = True
-            elif p >= L:
+            elif p <= L:
                 primed_bearish[L] = False
                 
         if triggered:
@@ -104,78 +73,29 @@ def process_day(day):
     if event_idx == -1: return None
     
     p0 = prices[event_idx]
-    path = prices[event_idx+1 :]
-    sma_path = sma20[event_idx+1 :]
+    path = prices[event_idx+1 : event_idx+61]
     if len(path) == 0: return None
     
     magnitude = 0.0
     hit_target = False
     
-    if mode in ['bullish_bounce']:
-        stop_level = p0 - 10.0
-        for p, s in zip(path, sma_path):
-            if p >= s: # Reverted to mean
-                magnitude = p - p0
-                hit_target = True
-                break
-            elif p <= stop_level: # Hit stop
-                magnitude = p - p0
-                hit_target = False
-                break
-        if magnitude == 0.0:
-            magnitude = path[-1] - p0
-            hit_target = magnitude > 0
+    if 'bullish' in mode:
+        mfe = np.max(path) - p0
+        mae = np.min(path) - p0
+        magnitude = mfe
+        hit_target = magnitude > 5.0
+    elif 'bearish' in mode:
+        mfe = p0 - np.min(path)
+        mae = p0 - np.max(path)
+        magnitude = mfe
+        hit_target = magnitude > 5.0
             
-    elif mode in ['bearish_bounce']:
-        stop_level = p0 + 10.0
-        for p, s in zip(path, sma_path):
-            if p <= s: # Reverted to mean
-                magnitude = p0 - p
-                hit_target = True
-                break
-            elif p >= stop_level: # Hit stop
-                magnitude = p0 - p
-                hit_target = False
-                break
-        if magnitude == 0.0:
-            magnitude = p0 - path[-1]
-            hit_target = magnitude > 0
-            
-    # --- INJECTED MFE/MAE CALCULATION ---
-    mfe = 0.0
-    mae = 0.0
-    try:
-        if 'bullish' in mode:
-            exit_price_approx = p0 + magnitude
-            if hit_target:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
-            else:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
-        else:
-            exit_price_approx = p0 - magnitude
-            if hit_target:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
-            else:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
-            
-        exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
-        sub_path = path[:exit_idx+1]
-    
-        if 'bullish' in mode:
-            mfe = np.max(sub_path) - p0
-            mae = np.min(sub_path) - p0
-        else:
-            mfe = p0 - np.min(sub_path)
-            mae = p0 - np.max(sub_path)
-    except Exception:
-        pass
-    # ------------------------------------
     return {
         'year': day[:4],
         'day': day,
         'setup': setup,
         'mode': mode,
-        'open_price': open_price,
+        'open_price': p0,
         'trigger_L': trigger_L,
         'event_idx': event_idx,
         'hit': int(hit_target),
@@ -195,19 +115,23 @@ if __name__ == '__main__':
     print("[Psych Levels Deep Dive] Evaluating Setups...")
     
     all_events = []
-    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()-1) as executor:
+    with ProcessPoolExecutor(max_workers=max(1, multiprocessing.cpu_count()-1)) as executor:
         for res in executor.map(process_day, days):
             if res is not None:
                 all_events.append(res)
                 
     df = pd.DataFrame(all_events)
+    if len(df) == 0:
+        print("No events found.")
+        import sys; sys.exit(0)
+        
     parquet_out = os.path.join(os.path.dirname(__file__), 'events.parquet')
     df.to_parquet(parquet_out)
 
     print(f"[Psych Levels Deep Dive] Extracted {len(df)} triggered events.")
     
     def calc_wr(mags_array):
-        wins = (mags_array > 0).sum()
+        wins = (mags_array > 5.0).sum()
         total = len(mags_array)
         if total == 0: return 0.0
         return wins / total
@@ -234,23 +158,23 @@ if __name__ == '__main__':
         ev_lb = np.percentile(evs, 2.5)
         ev_ub = np.percentile(evs, 97.5)
         
-        is_significant = (ev_lb > 0) or (ev_ub < 0)
+        is_significant = (ev_lb > 3.0)
         
         return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-ROUND-05 (LOGISTIC REGRESSION VERIFIED)")
+    report_lines.append("# Document ID: DOC-ROUND-05")
     report_lines.append("**Title:** Deep Dive #5: Psychological Round Numbers (00/50 Levels)")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (Mean Revert to SMA20 or 10pt Stop). Unclamped Magnitude.")
+    report_lines.append("**Ruleset:** Breach Continuation (MFE tracking over 5m window).")
     report_lines.append("")
-    report_lines.append("## LR: Unnormalized Expected Value (EV)")
-    report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
+    report_lines.append("## Expected Continuation MFE (Points)")
+    report_lines.append("> *Note: Magnitudes are MFE points within 5m of breach. Hit Rate = MFE > 5pts.*")
     report_lines.append("")
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
+        report_lines.append("| Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |")
         report_lines.append("|---|---|---|---|---|---|---|---|")
         if len(df) > 0:
             df_year = df[df['year'] == year]
@@ -268,7 +192,7 @@ if __name__ == '__main__':
                 continue
             wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(df_sub)
             n = len(df_sub)
-            desc = "Bullish Bounce" if setup == 1 else "Bearish Bounce"
+            desc = "Bullish Continuation" if setup == 1 else "Bearish Continuation"
             sig_str = "Yes" if is_sig else "No"
             report_lines.append(f"| {setup} | {desc} | {n} | {wr:.2f} | {mag_mode:.2f} | **{ev_mean:.2f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
         report_lines.append("")
@@ -288,13 +212,13 @@ if __name__ == '__main__':
             winners = df_sub[df_sub['hit'] == 1]['magnitude']
             losers = df_sub[df_sub['hit'] == 0]['magnitude']
             if len(winners) > 0:
-                ax.hist(winners, bins=10, alpha=0.6, color='green', label=f'Winners (n={len(winners)})')
+                ax.hist(winners, bins=10, alpha=0.6, color='green', label=f'>5pt MFE (n={len(winners)})')
                 ax.axvline(np.median(winners), color='darkgreen', linestyle='dashed', linewidth=2, label='Median')
             if len(losers) > 0:
-                ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'Losers (n={len(losers)})')
+                ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'<5pt MFE (n={len(losers)})')
                 ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
             ax.set_title(f"Setup {setup}")
-            ax.set_xlabel("Magnitude (Raw Points)")
+            ax.set_xlabel("MFE (Raw Points)")
             ax.set_ylabel("Frequency")
             ax.legend()
             ax.grid(True, alpha=0.3)

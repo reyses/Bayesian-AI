@@ -24,7 +24,8 @@ def process_day(args):
     
     if len(df_day) < 100: return []
     
-    df_day = df_day.copy()
+    # [FIX] Sort by time to prevent interleaved symbols/contracts causing massive sigma spikes
+    df_day = df_day.sort_values('dt').copy()
     
     # Compute trailing 1m sigma (W=12 for 5s bars) across the whole day to avoid edge effects at 8:30
     df_day['sigma'] = rolling_ols_bands(df_day['close'].values, W=12)
@@ -42,6 +43,10 @@ def process_day(args):
     sigmas = df_rth['sigma'].values
     divergences = df_rth['divergence'].values
     deltas = df_rth['delta'].values
+    
+    # [FIX] Read the trailing p10/p90 precomputed globally
+    p10_arr = df_rth['p10'].values
+    p90_arr = df_rth['p90'].values
     
     events = []
     
@@ -67,22 +72,24 @@ def process_day(args):
         if is_peak[check_idx]:
             d = deltas[check_idx]
             div = divergences[check_idx]
+            curr_p10 = p10_arr[check_idx]
             
             if d > 0: # Positive delta at the peak -> Buyers bought the top (Trapped Buyers)
                 setup = 2
                 mode = 'bearish_runner'
-            elif div < p10: # Extreme negative divergence at peak
+            elif pd.notna(curr_p10) and div < curr_p10: # Extreme negative divergence at peak
                 setup = 1
                 mode = 'bearish_bounce'
                 
         elif is_trough[check_idx]:
             d = deltas[check_idx]
             div = divergences[check_idx]
+            curr_p90 = p90_arr[check_idx]
             
             if d < 0: # Negative delta at the trough -> Sellers sold the bottom (Trapped Sellers)
                 setup = 2
                 mode = 'bullish_runner'
-            elif div > p90: # Extreme positive divergence at trough
+            elif pd.notna(curr_p90) and div > curr_p90: # Extreme positive divergence at trough
                 setup = 1
                 mode = 'bullish_bounce'
                 
@@ -151,6 +158,9 @@ def process_day(args):
             except Exception:
                 pass
                 
+            # [SANITY GATE] Abort if magnitude is physically impossible (> 100 points)
+            assert abs(magnitude) <= 100.0, f"ABORT: Physically impossible magnitude detected: {magnitude:.2f} points at index {i} on day {day_str}."
+                
             events.append({
                 'year': day_str[:4],
                 'day': day_str,
@@ -178,6 +188,9 @@ if __name__ == '__main__':
     for col in df.columns:
         df[col] = pd.to_numeric(df[col], errors='coerce')
         
+    # [FIX] Data cleaning: Drop corrupted ticks where 'close' lost its trailing digits (e.g. 23000 -> 230)
+    df = df[df['close'] > 10000].copy()
+    
     if isinstance(df.index, pd.DatetimeIndex):
         df['dt'] = df.index.tz_convert('America/Chicago')
     else:
@@ -185,17 +198,21 @@ if __name__ == '__main__':
         
     df['day_str'] = df['dt'].dt.strftime('%Y-%m-%d')
     
-    divergence_non_null = df['divergence'].dropna()
-    p10 = divergence_non_null.quantile(0.10)
-    p90 = divergence_non_null.quantile(0.90)
+    # Sort globally by time before calculating expanding quantiles
+    df = df.sort_values('dt').reset_index(drop=True)
     
-    print(f"[OrderFlow Deep Dive] Divergence 10th: {p10:.2f}, 90th: {p90:.2f}")
+    # [FIX] Use expanding window for p10/p90 to avoid lookahead bias. Warmup = 4050 bars (~0.5 days)
+    df['p10'] = df['divergence'].expanding(min_periods=4050).quantile(0.10)
+    df['p90'] = df['divergence'].expanding(min_periods=4050).quantile(0.90)
+    
+    dropped_events = df['p10'].isna().sum()
+    print(f"[OrderFlow Deep Dive] Dropped {dropped_events} rows during p10/p90 expanding threshold warm-up.")
     
     days = sorted(df['day_str'].unique())
     
     tasks = []
     for d in days:
-        tasks.append((d, df[df['day_str'] == d], p10, p90))
+        tasks.append((d, df[df['day_str'] == d], None, None))
         
     all_events = []
     print(f"[OrderFlow Deep Dive] Evaluating Setups over {len(tasks)} days...")
@@ -247,7 +264,7 @@ if __name__ == '__main__':
     report_lines.append("# Document ID: DOC-14-OrderFlow (LOGISTIC REGRESSION VERIFIED)")
     report_lines.append("**Title:** Deep Dive #14: Order Flow & Cumulative Delta")
     report_lines.append("**Status:** Completed (Single Block Validated)")
-    report_lines.append("**Ruleset:** Trapped Delta / Divergence at Swings. 3.0$\\sigma$ Target / 3.0$\\sigma$ Stop.")
+    report_lines.append(f"**Ruleset:** Trapped Delta / Divergence at Swings. 3.0$\\sigma$ Target / 3.0$\\sigma$ Stop. (Expanding min_periods=4050 for p10/p90 thresholds; {dropped_events} initial rows dropped for warm-up).")
     report_lines.append("")
     report_lines.append("## LR: Unnormalized Expected Value (EV)")
     report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")

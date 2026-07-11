@@ -1,7 +1,8 @@
 # Document ID: AG-DOC-TUNNEL-20
 **Title:** Deep Dive #20: Elliott Wave Wavy Tunnels
-**Status:** Completed (Dual-Year Validated)
+**Status:** ADAPTATION
 **Ruleset:** Breakout Impulse 3.0$\sigma$ Target / 3.0$\sigma$ Stop.
+*Note: Parameters used in this test (e.g., specific EMA lengths and timescales) are an adaptation and deviate from the article's unparameterized/specific claims.*
 
 ## LR: Unnormalized Expected Value (EV)
 > *Note: Magnitudes are in raw points. Win Rate is binary (%).*

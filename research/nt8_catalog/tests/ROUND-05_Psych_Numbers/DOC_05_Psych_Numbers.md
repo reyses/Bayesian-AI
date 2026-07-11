@@ -1,22 +1,22 @@
-# Document ID: AG-DOC-ROUND-05 (LOGISTIC REGRESSION VERIFIED)
+# Document ID: DOC-ROUND-05
 **Title:** Deep Dive #5: Psychological Round Numbers (00/50 Levels)
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Bespoke Exit (Mean Revert to SMA20 or 10pt Stop). Unclamped Magnitude.
+**Ruleset:** Breach Continuation (MFE tracking over 5m window).
 
-## LR: Unnormalized Expected Value (EV)
-> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
+## Expected Continuation MFE (Points)
+> *Note: Magnitudes are MFE points within 5m of breach. Hit Rate = MFE > 5pts.*
 
 ### Results for 2024
-| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
+| Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Bounce | 127 | 0.31 | -12.55 | **-3.19** | [-8.08, 1.96] | No |
-| 2 | Bearish Bounce | 129 | 0.40 | -13.91 | **2.20** | [-2.12, 7.98] | No |
+| 1 | Bullish Continuation | 141 | 0.72 | 12.11 | **17.11** | [13.96, 20.78] | Yes |
+| 2 | Bearish Continuation | 117 | 0.81 | 9.09 | **22.86** | [19.08, 27.02] | Yes |
 
 ### Results for 2025
-| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
+| Setup | Description | N | WR(>5pt)% | MFE (Mode) | MFE (Mean Points) | MFE 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Bounce | 115 | 0.34 | -12.59 | **-2.51** | [-5.33, 0.34] | No |
-| 2 | Bearish Bounce | 112 | 0.29 | -10.83 | **-3.77** | [-6.41, -1.00] | Yes |
+| 1 | Bullish Continuation | 112 | 0.87 | 14.50 | **32.09** | [26.80, 37.56] | Yes |
+| 2 | Bearish Continuation | 115 | 0.84 | 11.20 | **26.66** | [22.73, 30.64] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ROUND-05_distributions.png)

@@ -38,6 +38,7 @@ The full statistical sweep over the dataset.
 Do not dismiss setups purely because the raw EV is negative or zero — but PQ
 outputs FLAGS, never recommendations or approvals. Verdicts belong to the
 discrimination (joint-model) stage.
+- **SURVIVOR-CANDIDATE flag:** a stable positive core (EV 95% CI > 0 across both years) registers a survivor HYPOTHESIS. It is NOT an absolute conclusion or "Survivor" title at PQ.
 - **INVERSION-CANDIDATE flag:** a deeply negative EV or strong opposite skew
   registers an inversion HYPOTHESIS for the discrimination stage. It is NOT a
   conclusion at PQ: across ~14 concepts x multiple setups, sign-flip picking

@@ -1,7 +1,8 @@
 # Document ID: AG-DOC-SCALP-18 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #18: 1-Min Momentum Scalping (VWAP+EMA+RSI)
-**Status:** Completed (Dual-Year Validated)
+**Status:** ADAPTATION
 **Ruleset:** Bespoke Exit (Target VWAP or 10pt Stop). Unclamped Magnitude.
+*Note: Parameters used in this test (e.g., specific EMA lengths and timescales) are an adaptation and deviate from the article's unparameterized/specific claims.*
 
 ## LR: Unnormalized Expected Value (EV)
 > *Note: Magnitudes are in raw points. Win Rate is binary (%).*

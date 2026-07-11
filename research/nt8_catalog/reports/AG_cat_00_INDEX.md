@@ -4,17 +4,16 @@ This index tracks the per-signal evaluations of the NinjaTrader concept catalog 
 
 ## Per-Signal Evaluation Summary
 
-| signal | what it measures | registered response type | N events | P(resp) vs null | MODE of magnitude | tail | bimodal? | verdict |
-|--------|------------------|--------------------------|----------|-----------------|-------------------|------|----------|---------|
-|        |                  |                          |          |                 |                   |      |          |         |
+| signal | what it measures | registered response type | N events | P(resp) vs ref | MODE of magnitude | tail | bimodal? | verdict |
+|--------|------------------|--------------------------|----------|----------------|-------------------|------|----------|---------|
+| VWAP_Pullbacks | Session VWAP Z-Score Reversion | Directional bounce from extremes | 11983 | 0.51 (vs 0.50) | 2.2 | 11.62 | False | **NOISE** |
+| APZ_Touches | Adaptive Price Zones | Directional first-touch bounce (Mean Reversion) | 19052 | 0.51 (vs 0.50) | 3.0 | 12.17 | False | **NOISE** |
+| Squeeze_State | Volatility Squeeze | Volatility Expansion (Direction-Free Breakout) | 15304 | 1.00 (vs 1.00) | 6.6 | 18.68 | True | **NOISE** |
+| Candle_Shapes | Engulfing/Pinbar Patterns | Directional Continuation | 24999 | 0.50 (vs 0.50) | -3.0 | 12.34 | True | **NOISE** |
+| MA_Crossover | MA Crossover | Trend Continuation | 6410 | 0.50 (vs 0.50) | 3.0 | 12.60 | True | **NOISE** |
 
 ## Execution Rules
-- **One signal = one script** in `tools/ag_cat_NN_<name>.py`.
+- **One signal = one script** in `tests/<ID>/ag_deepdive_*.py` (Dossier layout).
 - **Sigma-relative**: All magnitude measurements are normalized by standard deviation ($\sigma$).
-- **Null controls**: Matched + phantom nulls at the per-signal layer.
-- **Reporting**: Full markdown report in `reports/` with magnitude histogram figures in `reports/assets/`.
-| VWAP_Pullbacks | VWAP Touch | Directional first-touch bounce (+2 sigma) | 11983 | 0.51 (vs 0.50) | 2.2 | 11.62 | False | **NOISE** |
-| APZ_Touches | Auto Pitchfork | Directional first-touch bounce (Mean Reversion) | 19052 | 0.51 (vs 0.50) | 3.0 | 12.17 | False | **NOISE** |
-| Squeeze_State | Volatility Squeeze | Volatility Expansion (Direction-Free Breakout) | 15304 | 1.00 (vs 1.00) | 6.6 | 18.68 | True | **NOISE** |
-| Candle_Shapes | Candle Shape | Directional Continuation (+2 sigma) | 24999 | 0.50 (vs 0.50) | -3.0 | 12.34 | True | **NOISE** |
-| MA_Crossover | MA Crossover | Trend Continuation (+2 sigma) | 6410 | 0.50 (vs 0.50) | 3.0 | 12.60 | True | **NOISE** |
+- **Reporting**: Full markdown report in `tests/<ID>/` with magnitude histogram figures.
+- **Reference Baselines**: Frequency + magnitude empirical counting, using arithmetic reference (50%) for symmetric barriers in the exploration stage.

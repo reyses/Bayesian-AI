@@ -6,123 +6,71 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def rolling_ols_bands(close, W):
-    """Trailing W-bar OLS residual sigma"""
-    n = len(close)
-    if n < W:
-        return np.full(n, 1.0)
-    x = np.linspace(-1.0, 1.0, W)
-    X = np.stack([np.ones(W), x], axis=1)
-    P = np.linalg.pinv(X)
-    sw = np.lib.stride_tricks.sliding_window_view(close, W)
-    C = sw @ P.T
-    fit = C @ X.T
-    sig = np.sqrt(((sw - fit) ** 2).mean(axis=1))
-    pad = np.full(W - 1, np.nan)
-    return np.r_[pad, sig]
+MIN_GAP_THRESHOLD = 5.0 # Minimum gap required to filter out sub-friction/microstructure noise where gap-fill directionality is meaningless.
 
-def process_day(day):
+def process_day(args):
+    day, prior_close = args
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../..'))
     l0_dir = os.path.join(base_dir, 'DATA/ATLAS/5s')
     parquet_path = os.path.join(l0_dir, f"{day}.parquet")
     
     try:
-        df = pd.read_parquet(parquet_path, columns=['close', 'timestamp'])
+        df = pd.read_parquet(parquet_path, columns=['close', 'high', 'low', 'timestamp'])
     except Exception:
         return None
         
     if len(df) < 100: return None
     
-    # Compute trailing 1m sigma (W=12 for 5s bars) across the whole day to avoid edge effects at 8:30
-    df['sigma'] = rolling_ols_bands(df['close'].values, W=12)
-    # Forward fill sigma for the first W-1 bars
-    df['sigma'] = df['sigma'].bfill().fillna(1.0) 
-    
-    # Filter for RTH
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
     if len(df_day) < 100: return None
-        
-    prices = df_day['close'].values
-    sigmas = df_day['sigma'].values
     
-    setup = 0
-    mode = 'none'
-    event_idx = -1
+    df_day = df_day.sort_values('dt').reset_index(drop=True)
+    open_price = df_day['close'].iloc[0]
     
     dt_day = pd.to_datetime(day, format="%Y_%m_%d")
     dow = dt_day.weekday()
     
-    if dow in [0, 1]:  # Monday, Tuesday
-        setup = 1
-        mode = 'bullish_runner'
-        event_idx = 0
-    elif dow in [3, 4]:  # Thursday, Friday
-        setup = 2
-        mode = 'bearish_runner'
-        event_idx = 0
-    else:
-        return None  # Wednesday or weekends
+    gap = open_price - prior_close
+    
+    if abs(gap) < MIN_GAP_THRESHOLD:
+        return None
         
-    if event_idx == -1: return None
+    setup = dow + 1 # 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri
+    mode = 'gap_down' if gap < 0 else 'gap_up'
     
-    p0 = prices[event_idx]
-    
-    path = prices[event_idx+1 :]
-    if len(path) == 0: return None
-    
+    filled = False
     magnitude = 0.0
-    hit_target = False
     
-    if mode in ['bullish_bounce', 'bullish_runner']:
-        magnitude = path[-1] - p0
-        hit_target = magnitude > 0
-            
-    elif mode in ['bearish_bounce', 'bearish_runner']:
-        magnitude = p0 - path[-1]
-        hit_target = magnitude > 0
-            
-    # --- INJECTED MFE/MAE CALCULATION ---
-    mfe = 0.0
-    mae = 0.0
-    try:
-        if 'bullish' in mode:
-            exit_price_approx = p0 + magnitude
-            if hit_target:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
-            else:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
-        else:
-            exit_price_approx = p0 - magnitude
-            if hit_target:
-                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
-            else:
-                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
-            
-        exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
-        sub_path = path[:exit_idx+1]
+    highs = df_day['high'].values
+    lows = df_day['low'].values
     
-        if 'bullish' in mode:
-            mfe = np.max(sub_path) - p0
-            mae = np.min(sub_path) - p0
+    if mode == 'gap_down':
+        if np.any(highs >= prior_close):
+            filled = True
+            magnitude = -gap
         else:
-            mfe = p0 - np.min(sub_path)
-            mae = p0 - np.max(sub_path)
-    except Exception:
-        pass
-    # ------------------------------------
+            magnitude = np.max(highs) - open_price
+            
+    elif mode == 'gap_up':
+        if np.any(lows <= prior_close):
+            filled = True
+            magnitude = gap
+        else:
+            magnitude = open_price - np.min(lows)
+            
     return {
         'year': day[:4],
         'day': day,
         'setup': setup,
         'mode': mode,
-        'open_price': p0,
-        'event_idx': event_idx,
-        'hit': int(hit_target),
+        'open_price': open_price,
+        'event_idx': 0,
+        'hit': int(filled),
         'magnitude': magnitude,
-        'mfe': mfe,
-        'mae': mae
+        'mfe': magnitude,
+        'mae': 0.0
     }
 
 if __name__ == '__main__':
@@ -133,38 +81,54 @@ if __name__ == '__main__':
     days = [os.path.basename(f).replace('.parquet', '') for f in all_files if ('2024' in f or '2025' in f)]
     days = sorted(days)
     
-    print("[Seasonality Deep Dive] Evaluating Setups...")
+    eod_closes = {}
+    print("[Seasonality Deep Dive] Extracting EOD closes...")
+    for day in days:
+        try:
+            df = pd.read_parquet(os.path.join(l0_dir, f"{day}.parquet"), columns=['close', 'timestamp'])
+            df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
+            df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())]
+            if len(df_day) > 0:
+                eod_closes[day] = df_day.iloc[-1]['close']
+        except Exception:
+            pass
+            
+    valid_days = sorted(list(eod_closes.keys()))
+    tasks = []
+    for i in range(1, len(valid_days)):
+        prev_day = valid_days[i-1]
+        curr_day = valid_days[i]
+        tasks.append((curr_day, eod_closes[prev_day]))
+            
+    print("[Seasonality Deep Dive] Evaluating Gap Fills...")
     all_events = []
-    with ProcessPoolExecutor(max_workers=multiprocessing.cpu_count()-1) as executor:
-        for res in executor.map(process_day, days):
+    with ProcessPoolExecutor(max_workers=max(1, multiprocessing.cpu_count()-1)) as executor:
+        for res in executor.map(process_day, tasks):
             if res is not None:
                 all_events.append(res)
                 
     df = pd.DataFrame(all_events)
+    if len(df) == 0:
+        print("No events found.")
+        import sys; sys.exit(0)
+        
     parquet_out = os.path.join(os.path.dirname(__file__), 'events.parquet')
     df.to_parquet(parquet_out)
-
     print(f"[Seasonality Deep Dive] Extracted {len(df)} triggered events.")
     
-    def calc_wr(mags_array):
-        wins = (mags_array > 0).sum()
-        total = len(mags_array)
-        if total == 0: return 0.0
-        return wins / total
-
     def bootstrap_ev(df_sub, n_iter=4000):
-        if len(df_sub) == 0: return 0, 0, 0, 0, 0, False
+        if len(df_sub) == 0: return 0, 0, 0, 0, 0
         evs = []
+        hits = df_sub['hit'].values
         mags = df_sub['magnitude'].values
         n = len(df_sub)
         
         for _ in range(n_iter):
             idx = np.random.choice(n, n, replace=True)
-            m = mags[idx]
-            ev = np.mean(m)
-            evs.append(ev)
+            h = hits[idx]
+            evs.append(np.mean(h))
             
-        real_wr = calc_wr(mags)
+        real_wr = np.mean(hits)
         
         counts, bin_edges = np.histogram(mags, bins=50)
         mode_idx = np.argmax(counts)
@@ -174,65 +138,96 @@ if __name__ == '__main__':
         ev_lb = np.percentile(evs, 2.5)
         ev_ub = np.percentile(evs, 97.5)
         
-        is_significant = (ev_lb > 0) or (ev_ub < 0)
+        return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub
+
+    def bootstrap_contrast(df_sub, df_base, n_iter=4000):
+        if len(df_sub) == 0 or len(df_base) == 0: return 0.0, 0.0, 0.0, False
+        diffs = []
+        hits_sub = df_sub['hit'].values
+        hits_base = df_base['hit'].values
+        n_sub = len(df_sub)
+        n_base = len(df_base)
+        for _ in range(n_iter):
+            idx_sub = np.random.choice(n_sub, n_sub, replace=True)
+            idx_base = np.random.choice(n_base, n_base, replace=True)
+            diffs.append(np.mean(hits_sub[idx_sub]) - np.mean(hits_base[idx_base]))
         
-        return real_wr, real_mag_mode, ev_mean, ev_lb, ev_ub, is_significant
+        diff_mean = np.mean(diffs)
+        diff_lb = np.percentile(diffs, 2.5)
+        diff_ub = np.percentile(diffs, 97.5)
+        
+        is_sig = (diff_lb > 0) or (diff_ub < 0)
+        return diff_mean, diff_lb, diff_ub, is_sig
     
     report_lines = []
-    report_lines.append("# Document ID: AG-DOC-SEASON-12 (LOGISTIC REGRESSION VERIFIED)")
+    report_lines.append("# Document ID: DOC-SEASON-12")
     report_lines.append("**Title:** Deep Dive #12: Seasonality / Day of Week Effects")
     report_lines.append("**Status:** Completed (Dual-Year Validated)")
-    report_lines.append("**Ruleset:** Bespoke Exit (End of Day). Unclamped Magnitude.")
+    report_lines.append("**Ruleset:** Weekday Gap-Fills (>5pts).")
     report_lines.append("")
-    report_lines.append("## LR: Unnormalized Expected Value (EV)")
-    report_lines.append("> *Note: Magnitudes are in raw points. Win Rate is binary (%).*")
+    report_lines.append("## Probability of Fill (Hit Rate)")
     report_lines.append("")
+    
+    dow_names = {1:'Mon', 2:'Tue', 3:'Wed', 4:'Thu', 5:'Fri'}
     
     for year in ['2024', '2025']:
         report_lines.append(f"### Results for {year}")
-        report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |")
-        report_lines.append("|---|---|---|---|---|---|---|---|")
+        report_lines.append("| Setup | Description | N | WR% | Mag (Mode) | Fill Prob | 95% CI |")
+        report_lines.append("|---|---|---|---|---|---|---|")
         
         if len(df) > 0:
             df_year = df[df['year'] == year]
-            for setup in [1, 2]:
+            df_monday = df_year[df_year['setup'] == 1]
+            for setup in [1, 2, 3, 4, 5]:
                 df_sub = df_year[df_year['setup'] == setup]
                 if len(df_sub) == 0:
-                    report_lines.append(f"| {setup} | No events | 0 | - | - | - | - | - |")
+                    report_lines.append(f"| {setup} | {dow_names[setup]} | 0 | - | - | - | - |")
                     continue
-                wr, mag_mode, ev_mean, ev_lb, ev_ub, is_sig = bootstrap_ev(df_sub)
+                wr, mag_mode, ev_mean, ev_lb, ev_ub = bootstrap_ev(df_sub)
                 n = len(df_sub)
-                desc = "Mon/Tue Bullish" if setup == 1 else "Thu/Fri Bearish"
-                sig_str = "Yes" if is_sig else "No"
-                report_lines.append(f"| {setup} | {desc} | {n} | {wr:.2f} | {mag_mode:.2f} | **{ev_mean:.2f}** | [{ev_lb:.2f}, {ev_ub:.2f}] | {sig_str} |")
+                desc = dow_names[setup]
+                report_lines.append(f"| {setup} | {desc} | {n} | {wr:.2f} | {mag_mode:.2f} | {ev_mean:.2f} | [{ev_lb:.2f}, {ev_ub:.2f}] |")
+        report_lines.append("")
+        
+        report_lines.append(f"#### Contrast vs Monday ({year})")
+        report_lines.append("| Day | Contrast (Day - Mon) | 95% CI | Significant? |")
+        report_lines.append("|---|---|---|---|")
+        if len(df) > 0:
+            for setup in [2, 3, 4, 5]:
+                df_sub = df_year[df_year['setup'] == setup]
+                if len(df_sub) == 0 or len(df_monday) == 0:
+                    report_lines.append(f"| {dow_names[setup]} | - | - | - |")
+                    continue
+                c_mean, c_lb, c_ub, c_sig = bootstrap_contrast(df_sub, df_monday)
+                sig_str = "Yes" if c_sig else "No"
+                report_lines.append(f"| {dow_names[setup]} | {c_mean:+.3f} | [{c_lb:+.3f}, {c_ub:+.3f}] | {sig_str} |")
         report_lines.append("")
         
     assets_dir = os.path.dirname(__file__)
     plot_path = os.path.join(assets_dir, 'DOC-SEASON-12_distributions.png')
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-    fig.suptitle('DOC-SEASON-12: Realizable Seasonality Setups (Both Years)', fontsize=16)
-    for i, setup in enumerate([1, 2]):
+    fig, axes = plt.subplots(1, 5, figsize=(20, 4))
+    fig.suptitle('DOC-SEASON-12: Gap Fill Probabilities by Weekday', fontsize=16)
+    
+    for i, setup in enumerate([1, 2, 3, 4, 5]):
         ax = axes[i]
         if len(df) > 0:
             df_sub = df[df['setup'] == setup]
             if len(df_sub) > 0:
-                winners = df_sub[df_sub['hit'] == 1]['magnitude']
-                losers = df_sub[df_sub['hit'] == 0]['magnitude']
-                if len(winners) > 0:
-                    ax.hist(winners, bins=10, alpha=0.6, color='green', label=f'Winners (n={len(winners)})')
-                    ax.axvline(np.median(winners), color='darkgreen', linestyle='dashed', linewidth=2, label='Median')
-                if len(losers) > 0:
-                    ax.hist(losers, bins=10, alpha=0.6, color='red', label=f'Losers (n={len(losers)})')
-                    ax.axvline(np.median(losers), color='darkred', linestyle='dashed', linewidth=2, label='Median')
-                ax.set_title(f"Setup {setup}")
-                ax.set_xlabel("Magnitude (Raw Points)")
+                hits = df_sub[df_sub['hit'] == 1]['magnitude']
+                misses = df_sub[df_sub['hit'] == 0]['magnitude']
+                if len(hits) > 0:
+                    ax.hist(hits, bins=10, alpha=0.6, color='green', label=f'Filled (n={len(hits)})')
+                if len(misses) > 0:
+                    ax.hist(misses, bins=10, alpha=0.6, color='red', label=f'Unfilled (n={len(misses)})')
+                ax.set_title(f"{dow_names[setup]}")
+                ax.set_xlabel("Gap Excursion")
                 ax.set_ylabel("Frequency")
                 ax.legend()
                 ax.grid(True, alpha=0.3)
             else:
-                ax.set_title(f"Setup {setup} (No Data)")
+                ax.set_title(f"{dow_names[setup]} (No Data)")
         else:
-             ax.set_title(f"Setup {setup} (No Data)")
+             ax.set_title(f"{dow_names[setup]} (No Data)")
 
     plt.tight_layout()
     plt.savefig(plot_path, dpi=150)
@@ -241,8 +236,13 @@ if __name__ == '__main__':
     report_lines.append("## Graphical Descriptive Statistics (Aggregate)")
     report_lines.append(f"![Distribution Plot](./DOC-SEASON-12_distributions.png)")
     
-    report_path = os.path.join(os.path.dirname(__file__), 'DOC_12.md')
+    report_path = os.path.join(os.path.dirname(__file__), 'DOC_12_Seasonality.md')
     with open(report_path, 'w') as f:
         f.write("\n".join(report_lines))
+        
+    # Also overwrite the old DOC_12.md to not leave legacy files
+    old_report_path = os.path.join(os.path.dirname(__file__), 'DOC_12.md')
+    if os.path.exists(old_report_path):
+        os.remove(old_report_path)
         
     print(f"[Seasonality Deep Dive] Complete. Report written to {report_path}")
