@@ -82,25 +82,27 @@ def process_day(day):
     magnitude = 0.0
     hit_target = False
     
-    if mode == 'bullish_runner':
-        for p in path:
-            if p <= or_mid:
-                magnitude = p - p0
+    if len(path) > 0:
+        p0 = path[0]
+        if mode == 'bullish_runner':
+            for p in path:
+                if p <= or_mid:
+                    magnitude = p - p0
+                    hit_target = magnitude > 0
+                    break
+            if magnitude == 0.0:
+                magnitude = path[-1] - p0
                 hit_target = magnitude > 0
-                break
-        if magnitude == 0.0:
-            magnitude = path[-1] - p0
-            hit_target = magnitude > 0
-            
-    elif mode == 'bearish_runner':
-        for p in path:
-            if p >= or_mid:
-                magnitude = p0 - p
+                
+        elif mode == 'bearish_runner':
+            for p in path:
+                if p >= or_mid:
+                    magnitude = p0 - p
+                    hit_target = magnitude > 0
+                    break
+            if magnitude == 0.0:
+                magnitude = p0 - path[-1]
                 hit_target = magnitude > 0
-                break
-        if magnitude == 0.0:
-            magnitude = p0 - path[-1]
-            hit_target = magnitude > 0
             
     # --- INJECTED MFE/MAE CALCULATION ---
     mfe = 0.0

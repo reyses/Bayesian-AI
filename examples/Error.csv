@@ -1,0 +1,5 @@
+NinjaScript File,Error,Code,Line,Column,
+3-BayesianBridge_v7\1\0-RC.cs,Non-invocable member '_1a_StatCloseRegressionBands_v10' cannot be used like a method.,CS1955,251,30,
+3-BayesianBridge_v7\1\0-RC.cs,Non-invocable member '_1b_StatHlRegressionBands_v10' cannot be used like a method.,CS1955,252,30,
+6-StructureContext_v1\0-RC.cs,The name 'Draw' does not exist in the current context,CS0103,243,13,
+6-StructureContext_v1\0-RC.cs,The name 'TextPosition' does not exist in the current context,CS0103,243,70,

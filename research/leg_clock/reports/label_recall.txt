@@ -1,0 +1,10 @@
+2025 labels in 9-13 CT: 2031 | caught by q0.995: 2.3% (46)
+
+missed (1985):
+  score percentile: median 47.5 | 25-75%: 9-84
+  within-reach (pct>=0.98): 5.0% of missed
+  label size:  ext med 289t vs caught 456t | dur med 20m vs caught 22m
+  |zsum| med:  missed 2.31 vs caught 3.32
+  recall at q0.99: 3.9%
+  recall at q0.98: 7.1%
+  recall at q0.95: 12.7%

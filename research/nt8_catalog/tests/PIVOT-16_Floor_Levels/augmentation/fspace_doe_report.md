@@ -20,3 +20,26 @@
 | (0.555, 0.626] | 26 | 0.5862 | 0.1538 | +2.36 pp | 4.68 | 4.68 |
 | (0.626, 0.705] | 26 | 0.6684 | 0.1923 | +6.20 pp | 7.93 | 7.93 |
 | (0.705, 0.867] | 26 | 0.7603 | 0.1923 | +6.20 pp | 1.95 | 1.95 |
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 260
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.7955
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_5m_Tminus1_L3_1m_SE_low_30`
+- `Ph1_1s_Tminus3_L5_5s_ldist_kurtosis`
+- `Ph1_5m_Tminus1_L3_1h_z_close_vs_high_30`
+- `Ph1_5m_Tminus1_L3_5s_z_close_vs_high_30`
+- `Ph1_1s_Tminus1_L3_15s_reversion_prob_12`
+- `Ph1_15s_Tminus4_L2_15s_price_accel_30`
+- `Ph1_15s_Tminus4_L4_5m_lambda_se_12`
+- `Ph1_1s_Tminus3_L4_1h_lambda_se_12`
+- `Ph1_5s_Tminus3_L4_15s_lambda_hat_21`
+- `Ph1_15s_Tminus4_L3_15m_hurst_30`
+- `Ph1_15s_Tminus3_L3_1m_SE_high_30`
+- `Ph1_15s_Tminus4_L1_1m_lower_wick`
+- `Ph1_1s_Tminus1_L2_1D_vol_accel_5`
+- `Ph1_5m_Tminus1_L5_1m_ldist_kurtosis`
+- `Ph1_5s_Tminus3_L1_1D_upper_wick`

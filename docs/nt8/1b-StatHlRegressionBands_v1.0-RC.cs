@@ -321,5 +321,63 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Browsable(false)] [XmlIgnore] public Series<double> Upper4HlNear => Values[17];
 
         #endregion
-    }
+    
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+	{
+		private _1b_StatHlRegressionBands_v10[] cache__1b_StatHlRegressionBands_v10;
+		public _1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			return _1b_StatHlRegressionBands_v10(Input, hlTimeFrameType, hlTimeFrameValue, hlPeriod, showHighFarSide, showHighNearSide, showLowFarSide, showLowNearSide, showSigma1, showSigma2, showSigma3, showSigma4);
+		}
+
+		public _1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(ISeries<double> input, BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			if (cache__1b_StatHlRegressionBands_v10 != null)
+				for (int idx = 0; idx < cache__1b_StatHlRegressionBands_v10.Length; idx++)
+					if (cache__1b_StatHlRegressionBands_v10[idx] != null && cache__1b_StatHlRegressionBands_v10[idx].HlTimeFrameType == hlTimeFrameType && cache__1b_StatHlRegressionBands_v10[idx].HlTimeFrameValue == hlTimeFrameValue && cache__1b_StatHlRegressionBands_v10[idx].HlPeriod == hlPeriod && cache__1b_StatHlRegressionBands_v10[idx].ShowHighFarSide == showHighFarSide && cache__1b_StatHlRegressionBands_v10[idx].ShowHighNearSide == showHighNearSide && cache__1b_StatHlRegressionBands_v10[idx].ShowLowFarSide == showLowFarSide && cache__1b_StatHlRegressionBands_v10[idx].ShowLowNearSide == showLowNearSide && cache__1b_StatHlRegressionBands_v10[idx].ShowSigma1 == showSigma1 && cache__1b_StatHlRegressionBands_v10[idx].ShowSigma2 == showSigma2 && cache__1b_StatHlRegressionBands_v10[idx].ShowSigma3 == showSigma3 && cache__1b_StatHlRegressionBands_v10[idx].ShowSigma4 == showSigma4 && cache__1b_StatHlRegressionBands_v10[idx].EqualsInput(input))
+						return cache__1b_StatHlRegressionBands_v10[idx];
+			return CacheIndicator<_1b_StatHlRegressionBands_v10>(new _1b_StatHlRegressionBands_v10(){ HlTimeFrameType = hlTimeFrameType, HlTimeFrameValue = hlTimeFrameValue, HlPeriod = hlPeriod, ShowHighFarSide = showHighFarSide, ShowHighNearSide = showHighNearSide, ShowLowFarSide = showLowFarSide, ShowLowNearSide = showLowNearSide, ShowSigma1 = showSigma1, ShowSigma2 = showSigma2, ShowSigma3 = showSigma3, ShowSigma4 = showSigma4 }, input, ref cache__1b_StatHlRegressionBands_v10);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+	{
+		public Indicators._1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			return indicator._1b_StatHlRegressionBands_v10(Input, hlTimeFrameType, hlTimeFrameValue, hlPeriod, showHighFarSide, showHighNearSide, showLowFarSide, showLowNearSide, showSigma1, showSigma2, showSigma3, showSigma4);
+		}
+
+		public Indicators._1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(ISeries<double> input, BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			return indicator._1b_StatHlRegressionBands_v10(input, hlTimeFrameType, hlTimeFrameValue, hlPeriod, showHighFarSide, showHighNearSide, showLowFarSide, showLowNearSide, showSigma1, showSigma2, showSigma3, showSigma4);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+	{
+		public Indicators._1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			return indicator._1b_StatHlRegressionBands_v10(Input, hlTimeFrameType, hlTimeFrameValue, hlPeriod, showHighFarSide, showHighNearSide, showLowFarSide, showLowNearSide, showSigma1, showSigma2, showSigma3, showSigma4);
+		}
+
+		public Indicators._1b_StatHlRegressionBands_v10 _1b_StatHlRegressionBands_v10(ISeries<double> input, BarsPeriodType hlTimeFrameType, int hlTimeFrameValue, int hlPeriod, bool showHighFarSide, bool showHighNearSide, bool showLowFarSide, bool showLowNearSide, bool showSigma1, bool showSigma2, bool showSigma3, bool showSigma4)
+		{
+			return indicator._1b_StatHlRegressionBands_v10(input, hlTimeFrameType, hlTimeFrameValue, hlPeriod, showHighFarSide, showHighNearSide, showLowFarSide, showLowNearSide, showSigma1, showSigma2, showSigma3, showSigma4);
+		}
+	}
+}
+
+#endregion
+
 }

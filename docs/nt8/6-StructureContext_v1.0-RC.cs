@@ -52,6 +52,7 @@ using NinjaTrader.Gui.Chart;
 using NinjaTrader.Cbi;
 using NinjaTrader.NinjaScript;
 using NinjaTrader.Data;
+using NinjaTrader.NinjaScript.DrawingTools;
 #endregion
 
 namespace NinjaTrader.NinjaScript.Indicators
@@ -73,17 +74,13 @@ namespace NinjaTrader.NinjaScript.Indicators
         private double clusterMax = double.NaN;
         private double clusterMin = double.NaN;
 
-        // Cross-referenced cubic indicator (their tested implementation --
-        // NOT recomputed here). See file header for why.
-        private _2_CubicRegressionEndpoint_v10 cubic;
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
                 Description = "Structure-context dashboard: macro position-in-range, " +
-                    "sigma-relative distance to the nearest tracked level, and curvature " +
-                    "phase (from 2-CubicRegressionEndpoint), combined into one glanceable " +
+                    "sigma-relative distance to the nearest tracked level, combined into one glanceable " +
                     "read. NOT a signal -- every component is a measured, weak (1-5pp) " +
                     "statistical tendency (research/level_hold/, 2026-07-07). Built to keep " +
                     "macro context visible while reading micro price action (the miss in " +
@@ -107,18 +104,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 SlowTimeFrameValue = 1;
                 SlowPeriod = 60;
 
-                // Cubic: matches 2-CubicRegressionEndpoint's own documented
-                // default (1s bars x 450 = 7.5 min) so the phase read lines
-                // up with what's already validated/plotted on your charts.
-                CubicTimeFrameType = BarsPeriodType.Second;
-                CubicTimeFrameValue = 1;
-                CubicPeriod = 450;
-
                 ZoneSigmaMultiplier = 1.0;   // "how near" = this many FAST sigmas
 
                 AddPlot(new Stroke(Brushes.DodgerBlue, 2), PlotStyle.Line, "MacroPosPct");
                 AddPlot(new Stroke(Brushes.Orange, 1),     PlotStyle.Line, "NearestLevelSigmaDist");
-                AddPlot(new Stroke(Brushes.Cyan, 1),       PlotStyle.Line, "CurvaturePhaseCode");
 
                 AddLine(new Stroke(Brushes.Gray, DashStyleHelper.Dash, 1), 50, "MidRange");
                 AddLine(new Stroke(Brushes.DarkGray, DashStyleHelper.Dot, 1), 85, "NearTop");
@@ -135,7 +124,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                 haveSlow = false;
                 clusterMax = double.NaN;
                 clusterMin = double.NaN;
-                cubic = _2_CubicRegressionEndpoint_v10(CubicTimeFrameType, CubicTimeFrameValue, CubicPeriod);
             }
         }
 
@@ -245,53 +233,14 @@ namespace NinjaTrader.NinjaScript.Indicators
             double sigmaDist = curFastSigma > 1e-9 ? nearestDist / curFastSigma : double.NaN;
             double tickDist = nearestDist / TickSize;
 
-            // Curvature phase, straight from the tested cubic indicator --
-            // raw slope/curvature = plotted value minus the endpoint offset
-            // (see 2-CubicRegressionEndpoint's OnBarUpdate: CubicSlope[0] =
-            // CubicValue[0] + rawSlope, CubicCurvature[0] = CubicValue[0] + rawCurv).
-            // Guard: the sub-indicator's Series<double> defaults to 0.0 until
-            // it has CubicPeriod bars on its own independent timeframe --
-            // reading it earlier would show a false confident phase read
-            // from all-zero values. A real MNQ close is never <= 0, so this
-            // is a safe, simple readiness check without depending on the
-            // sub-indicator's private internal bar count.
-            double phaseCode;
-            string phaseLabel;
-            if (cubic.CubicValue[0] <= 0.0)
-            {
-                phaseCode = 0; phaseLabel = "warming up";
-            }
-            else
-            {
-                double rawSlope = cubic.CubicSlope[0] - cubic.CubicValue[0];
-                double rawCurv = cubic.CubicCurvature[0] - cubic.CubicValue[0];
-                // Code: +2 accelerating up, +1 decelerating up, 0 flat,
-                //       -1 decelerating down, -2 accelerating down
-                if (Math.Abs(rawSlope) < 1e-9)
-                {
-                    phaseCode = 0; phaseLabel = "flat";
-                }
-                else if (rawSlope > 0)
-                {
-                    phaseCode = rawCurv >= 0 ? 2 : 1;
-                    phaseLabel = rawCurv >= 0 ? "UP-accelerating" : "UP-decelerating";
-                }
-                else
-                {
-                    phaseCode = rawCurv <= 0 ? -2 : -1;
-                    phaseLabel = rawCurv <= 0 ? "DOWN-accelerating" : "DOWN-decelerating";
-                }
-            }
-
             MacroPosPct[0] = macroPosPct;
             NearestLevelSigmaDist[0] = sigmaDist;
-            CurvaturePhaseCode[0] = phaseCode;
 
             string edge = nearMax ? "CLUSTER-TOP" : "CLUSTER-BOTTOM";
             string summary = string.Format(
-                "Macro: {0:F0}% of session range | Nearest: {1} @ {2:F1}σ / {3:F1} ticks | Curve: {4}\n" +
+                "Macro: {0:F0}% of session range | Nearest: {1} @ {2:F1}σ / {3:F1} ticks\n" +
                 "(weak, measured tendencies -- not a signal; see docs/daily/2026-07-07.md)",
-                macroPosPct, edge, sigmaDist, tickDist, phaseLabel);
+                macroPosPct, edge, sigmaDist, tickDist);
             Draw.TextFixed(this, "StructureContextSummary", summary, TextPosition.BottomLeft);
         }
 
@@ -320,29 +269,16 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Slow Rolling Window (Bars)", Order = 5, GroupName = "Slow Band")]
         public int SlowPeriod { get; set; }
 
-        [NinjaScriptProperty]
-        [Display(Name = "Cubic Timeframe Unit", Order = 6, GroupName = "Cubic (cross-ref)")]
-        public BarsPeriodType CubicTimeFrameType { get; set; }
-
-        [Range(1, int.MaxValue), NinjaScriptProperty]
-        [Display(Name = "Cubic Timeframe Value", Order = 7, GroupName = "Cubic (cross-ref)")]
-        public int CubicTimeFrameValue { get; set; }
-
-        [Range(4, int.MaxValue), NinjaScriptProperty]
-        [Display(Name = "Cubic Rolling Window (Bars)", Order = 8, GroupName = "Cubic (cross-ref)")]
-        public int CubicPeriod { get; set; }
-
         [Range(0.1, 10.0), NinjaScriptProperty]
         [Display(Name = "Zone Width (x Fast Sigma)", Description =
             "'How near' is measured in units of the FAST band's own current " +
             "sigma, never a fixed tick count -- corrected 2026-07-07 after " +
             "the fixed-tick version was shown to give a misleading answer.",
-            Order = 9, GroupName = "Parameters")]
+            Order = 6, GroupName = "Parameters")]
         public double ZoneSigmaMultiplier { get; set; }
 
         [Browsable(false)] [XmlIgnore] public Series<double> MacroPosPct           => Values[0];
         [Browsable(false)] [XmlIgnore] public Series<double> NearestLevelSigmaDist => Values[1];
-        [Browsable(false)] [XmlIgnore] public Series<double> CurvaturePhaseCode    => Values[2];
         #endregion
     }
 }

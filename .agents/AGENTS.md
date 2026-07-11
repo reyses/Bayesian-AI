@@ -20,4 +20,5 @@
 ## 4. Operational Habits
 - **Tool Reusability**: Always check the tools index before building something new. Save reusable tools when finished. *(See `research-discipline` skill)*
 - **Persistence**: Write every intermediate and final result to a file immediately. *(See `research-discipline` skill)*
+- **Read-Only Auditing**: When requested to "audit", "review", or "evaluate" a codebase or component, limit actions strictly to evaluation and review. Do not modify or edit the codebase being reviewed unless explicitly instructed otherwise.
 - **Session Wrap-Up**: At the end of every coding session, automatically write an exit report to `docs/daily/YYYY-MM-DD.md` using the strict 4-point structure. *(See `update-daily-journal` skill)*

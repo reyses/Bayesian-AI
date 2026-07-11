@@ -20,3 +20,49 @@
 | (0.623, 0.644] | 38 | 0.6323 | 0.3947 | -16.60 pp | 69.03 | -127.81 |
 | (0.644, 0.681] | 39 | 0.6589 | 0.6410 | +8.03 pp | 144.35 | -80.24 |
 | (0.681, 0.795] | 39 | 0.7215 | 0.6154 | +5.47 pp | 117.07 | -74.34 |
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 386
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.2150
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_5s_Tminus2_L4_4h_lambda_hat_12`
+- `Ph1_1s_Tminus2_L5_15m_ldist_kurtosis`
+- `Ph1_15s_Tminus2_L5_15s_ldist_outlier_pct`
+- `Ph1_5m_Tminus1_L2_1m_price_sigma_30`
+- `Ph1_1s_Tminus1_L1_1D_upper_wick`
+- `Ph1_15s_Tminus4_L1_5s_price_velocity_1b`
+- `Ph1_15s_Tminus3_L3_5s_z_close_vs_high_30`
+- `Ph1_1s_Tminus1_L2_5m_vol_accel_9`
+- `Ph1_5s_Tminus1_L4_4h_lambda_se_12`
+- `Ph1_5m_Tminus1_L3_5m_reversion_prob_30`
+- `Ph1_5s_Tminus1_L3_5m_reversion_prob_30`
+- `Ph1_5s_Tminus1_L4_1h_vr_exact`
+- `Ph1_1s_Tminus1_L4_5m_lambda_t_12`
+- `Ph1_15s_Tminus3_L4_15s_lambda_t_30`
+- `Ph1_15s_Tminus2_L5_15s_ldist_kurtosis`
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 386
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.2150
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_5s_Tminus2_L4_4h_lambda_hat_12`
+- `Ph1_1s_Tminus1_L5_15m_ldist_kurtosis`
+- `Ph1_15s_Tminus2_L5_15s_ldist_outlier_pct`
+- `Ph1_5m_Tminus1_L2_1m_price_sigma_30`
+- `Ph1_5s_Tminus2_L1_1D_upper_wick`
+- `Ph1_15s_Tminus4_L1_5s_price_velocity_1b`
+- `Ph1_15s_Tminus3_L3_5s_z_close_vs_high_30`
+- `Ph1_1s_Tminus1_L2_5m_vol_accel_9`
+- `Ph1_5s_Tminus1_L4_4h_lambda_se_12`
+- `Ph1_5m_Tminus1_L3_5m_reversion_prob_30`
+- `Ph1_15s_Tminus4_L3_5m_reversion_prob_30`
+- `Ph1_5s_Tminus1_L4_1h_vr_exact`
+- `Ph1_1s_Tminus1_L4_5m_lambda_t_12`
+- `Ph1_15s_Tminus3_L4_15s_lambda_t_30`
+- `Ph1_15s_Tminus2_L5_15s_ldist_kurtosis`

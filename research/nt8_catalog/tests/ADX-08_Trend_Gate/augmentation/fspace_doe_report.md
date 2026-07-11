@@ -43,3 +43,72 @@
 - `Ph1_15s_Tminus4_L1_5s_vol_velocity_1b`
 - `Ph1_5s_Tminus3_L5_5s_ldist_std`
 - `Ph1_1s_Tminus1_L1_15s_bar_range`
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 967
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.0467
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_1s_Tminus1_L2_1m_price_velocity_15`
+- `Ph1_1s_Tminus5_L5_15s_ldist_skew`
+- `Ph1_5m_Tminus1_L2_1m_vol_accel_30`
+- `Ph1_5m_Tminus1_L1_1m_vol_velocity_1b`
+- `Ph1_15s_Tminus2_L1_15s_price_accel_1b`
+- `Ph1_15s_Tminus2_L1_5s_lower_wick`
+- `Ph1_15s_Tminus2_L5_5s_ldist_kurtosis`
+- `Ph1_5s_Tminus2_L4_5s_lambda_t_12`
+- `Ph1_5s_Tminus3_L1_1m_upper_wick`
+- `Ph1_15s_Tminus3_L1_5s_lower_wick`
+- `Ph1_5s_Tminus1_L4_5s_lambda_hat_12`
+- `Ph1_5m_Tminus1_L3_5s_reversion_prob_30`
+- `Ph1_15s_Tminus4_L1_5s_vol_velocity_1b`
+- `Ph1_5s_Tminus3_L5_5s_ldist_std`
+- `Ph1_1s_Tminus1_L1_15s_bar_range`
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 967
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.0467
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_1s_Tminus2_L2_1m_price_velocity_15`
+- `Ph1_1s_Tminus5_L5_15s_ldist_skew`
+- `Ph1_5m_Tminus1_L2_1m_vol_accel_30`
+- `Ph1_5m_Tminus1_L1_1m_vol_velocity_1b`
+- `Ph1_15s_Tminus2_L1_15s_price_accel_1b`
+- `Ph1_15s_Tminus2_L1_5s_lower_wick`
+- `Ph1_15s_Tminus2_L5_5s_ldist_kurtosis`
+- `Ph1_5s_Tminus2_L4_5s_lambda_t_12`
+- `Ph1_5s_Tminus3_L1_1m_upper_wick`
+- `Ph1_15s_Tminus3_L1_5s_lower_wick`
+- `Ph1_5s_Tminus1_L4_5s_lambda_hat_12`
+- `Ph1_5m_Tminus1_L3_5s_reversion_prob_30`
+- `Ph1_15s_Tminus4_L1_5s_vol_velocity_1b`
+- `Ph1_5s_Tminus3_L5_5s_ldist_std`
+- `Ph1_5s_Tminus1_L1_15s_bar_range`
+## ML Feature Extraction & Selection
+- **Target:** Binary 'Hit' (Win Rate)
+- **Total Samples:** 967
+- **Total Dimensionality Explored:** 4644 (Fractal Slice)
+- **Pseudo R-Squared (McFadden):** 0.0467
+- **Compute Engine:** PyTorch CUDA
+
+### Top Selected Features (Stepwise Forward Elimination)
+- `Ph1_1s_Tminus2_L2_1m_price_velocity_15`
+- `Ph1_1s_Tminus5_L5_15s_ldist_skew`
+- `Ph1_5m_Tminus1_L2_1m_vol_accel_30`
+- `Ph1_5m_Tminus1_L1_1m_vol_velocity_1b`
+- `Ph1_15s_Tminus2_L1_15s_price_accel_1b`
+- `Ph1_15s_Tminus2_L1_5s_lower_wick`
+- `Ph1_15s_Tminus2_L5_5s_ldist_kurtosis`
+- `Ph1_5s_Tminus2_L4_5s_lambda_t_12`
+- `Ph1_5s_Tminus3_L1_1m_upper_wick`
+- `Ph1_15s_Tminus3_L1_5s_lower_wick`
+- `Ph1_5s_Tminus1_L4_5s_lambda_hat_12`
+- `Ph1_5m_Tminus1_L3_5s_reversion_prob_30`
+- `Ph1_15s_Tminus4_L1_5s_vol_velocity_1b`
+- `Ph1_5s_Tminus3_L5_5s_ldist_std`
+- `Ph1_1s_Tminus1_L1_15s_bar_range`

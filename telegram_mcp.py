@@ -147,12 +147,17 @@ def download_telegram_file(file_id: str, ext: str = "") -> str:
         print(f"Failed to download file: {e}", file=sys.stderr)
         return ""
 
+autonomous_active = False
+
 def wake_claude_timer():
-    """Waits 1 hour and uses pyautogui to wake up Claude ONCE."""
-    print("[INFO] Claude Wake Timer is LIVE. Waking Claude in 1 hour.", file=sys.stderr, flush=True)
-    time.sleep(3600)
-    inject_prompt("this is a programmed message continue in oatuomated mode")
-    print("[INFO] Claude Wake Timer finished.", file=sys.stderr, flush=True)
+    """Waits 1 hour and uses pyautogui to wake up Claude continuously."""
+    global autonomous_active
+    print("[INFO] Claude Wake Timer is LIVE. Waking Claude every 1 hour.", file=sys.stderr, flush=True)
+    while autonomous_active:
+        time.sleep(3600)
+        if autonomous_active:
+            inject_prompt("this is a programmed message continue in automated mode")
+            print("[INFO] Claude Wake Timer triggered.", file=sys.stderr, flush=True)
 
 def poll_telegram():
     """Background loop that listens for messages and injects them."""
@@ -213,12 +218,23 @@ def poll_telegram():
                     elif text:
                         match_stats = re.match(r"(?i)^/?autostats\((.*?)\)$", text.strip())
                         match_plot = re.match(r"(?i)^/?autoplot\((.*?)\)$", text.strip())
-                        match_auto = re.match(r"(?i)^/?autonomous$", text.strip())
+                        match_auto = re.match(r"(?i)^/?autonomous(?:\s+(on|off))?$", text.strip())
                         
                         if match_auto:
-                            print("[COMMAND] Intercepted /autonomous mode activation", file=sys.stderr, flush=True)
-                            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "Autonomous wake timer activated. Will wake Claude in 1 hour."})
-                            threading.Thread(target=wake_claude_timer, daemon=True).start()
+                            global autonomous_active
+                            state = match_auto.group(1)
+                            if state and state.lower() == "off":
+                                autonomous_active = False
+                                print("[COMMAND] Intercepted /autonomous OFF", file=sys.stderr, flush=True)
+                                requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "Autonomous wake timer DEACTIVATED."})
+                            else:
+                                if not autonomous_active:
+                                    autonomous_active = True
+                                    print("[COMMAND] Intercepted /autonomous mode activation", file=sys.stderr, flush=True)
+                                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "Autonomous wake timer activated. Will wake Claude every 1 hour."})
+                                    threading.Thread(target=wake_claude_timer, daemon=True).start()
+                                else:
+                                    requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "Autonomous wake timer is already active."})
                         elif match_stats:
                             arg = match_stats.group(1)
                             print(f"[COMMAND] Intercepted autostats({arg})", file=sys.stderr, flush=True)

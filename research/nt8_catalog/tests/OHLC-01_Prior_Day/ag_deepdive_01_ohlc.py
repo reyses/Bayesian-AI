@@ -57,13 +57,13 @@ def process_day(args):
     # Forward fill sigma for the first W-1 bars
     df['sigma'] = df['sigma'].bfill().fillna(1.0) 
     
+    df['sma20'] = df['close'].rolling(240).mean().bfill()
+    
     # Filter for RTH
     df['dt'] = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
     df_day = df[(df['dt'].dt.time >= pd.Timestamp('08:30').time()) & (df['dt'].dt.time <= pd.Timestamp('15:15').time())].copy()
     
     if len(df_day) < 100: return None
-        
-    df['sma20'] = df['close'].rolling(240).mean().bfill()
     prices = df_day['close'].values
     sma20 = df_day['sma20'].values
     times = df_day['dt'].values

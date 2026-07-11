@@ -10,3 +10,8 @@
 - `research/mamba_zigzag_baseline/tools/perf_parity_diff.py`: Diffs two `--loss-dump` .npz parity dumps (first action divergence, max |loss delta| over identical-action prefix).
 - `research/mamba_zigzag_baseline/tools/perf_mamba_ssm_probe.py`: Probes mamba-ssm fused kernels — import/ABI health, step() autograd verdict (silent None grads), L=1 vs L=500 fused/pure speed.
 - `train_mamba_rl.py` flags: `--seed --max-steps --no-checkpoint --compile --profile-dir --loss-dump --perf-warmup` (inert by default; bars/sec printed at end; compile is opt-in — fails the 1e-4 loss-parity gate at ~1.5e-3).
+
+## F-Space ML Pipeline (Logistic Regression & Validation)
+- `tools/fspace_ml/ml_extraction_pipeline.py`: Orchestrates multi-processing extraction of strategy features into `ML_CHECKPOINTS` and triggers the GPU solver.
+- `tools/fspace_ml/pytorch_stepwise.py`: PyTorch-accelerated GPU implementation of L-BFGS Stepwise Logistic Regression to identify the 'Vital Few' strategy features from thousands of dimensions.
+- `tools/fspace_ml/generate_doe_visuals.py`: Final visualization script that parses PyTorch outputs into Statsmodels and generates Pareto Standardized Effects and Interaction KDE plots.

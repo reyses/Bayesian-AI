@@ -33,20 +33,18 @@ namespace NinjaTrader.NinjaScript.Indicators
         private const string VERSION = "1.0-RC";
         private const int BIP_CUBIC = 1;
 
-        // Weights arrays
+        // Weights array
         private double[] valWeights;
-        private double[] slopeWeights;
-        private double[] curvWeights;
 
         // Cached values
-        private double curVal, curSlope, curCurv;
+        private double curVal;
         private bool haveCubicData;
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = "Fast O(1) endpoint value, slope, and curvature of a rolling Cubic Regression on an independent timeframe. " +
+                Description = "Fast O(1) endpoint value of a rolling Cubic Regression on an independent timeframe. " +
                               "Matches Python SFE 7.5m cubic.";
                 Name        = "2-CubicRegressionEndpoint_v1.0-RC";
                 Calculate   = Calculate.OnBarClose;
@@ -63,15 +61,11 @@ namespace NinjaTrader.NinjaScript.Indicators
                 Period = 450; // default 7.5 minutes on a 1-second chart (450 bars)
                 
                 AddPlot(new Stroke(Brushes.DarkOrange, 2), PlotStyle.Line, "CubicValue");
-                AddPlot(new Stroke(Brushes.Magenta, 1),    PlotStyle.Line, "CubicSlope");
-                AddPlot(new Stroke(Brushes.Cyan, 1),       PlotStyle.Line, "CubicCurvature");
             }
             else if (State == State.Configure)
             {
                 AddDataSeries(CubicTimeFrameType, CubicTimeFrameValue);
                 curVal = double.NaN;
-                curSlope = double.NaN;
-                curCurv = double.NaN;
                 haveCubicData = false;
             }
             else if (State == State.DataLoaded)
@@ -88,21 +82,15 @@ namespace NinjaTrader.NinjaScript.Indicators
                 if (CurrentBars[BIP_CUBIC] >= Period - 1 && Period >= 4)
                 {
                     double val = 0.0;
-                    double slope = 0.0;
-                    double curv = 0.0;
 
                     for (int i = 0; i < Period; i++)
                     {
                         double price = Closes[BIP_CUBIC][i];
                         int idx = Period - 1 - i; // map to chronological weights index
                         val   += valWeights[idx] * price;
-                        slope += slopeWeights[idx] * price;
-                        curv  += curvWeights[idx] * price;
                     }
 
                     curVal = val;
-                    curSlope = slope;
-                    curCurv = curv;
                     haveCubicData = true;
                 }
                 return;
@@ -114,17 +102,13 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (haveCubicData)
             {
                 CubicValue[0]     = curVal;
-                CubicSlope[0]     = curVal + curSlope;
-                CubicCurvature[0] = curVal + curCurv;
             }
         }
 
         private void ComputeWeights()
         {
             int n = Period;
-            valWeights   = new double[n];
-            slopeWeights = new double[n];
-            curvWeights  = new double[n];
+            valWeights = new double[n];
 
             if (n < 4) return;
 
@@ -186,8 +170,6 @@ namespace NinjaTrader.NinjaScript.Indicators
                 double p3 = Minv[3, 0] * xi3 + Minv[3, 1] * xi2 + Minv[3, 2] * xi + Minv[3, 3];
 
                 valWeights[i] = (xe * xe * xe) * p0 + (xe * xe) * p1 + xe * p2 + p3;
-                slopeWeights[i] = 3.0 * (xe * xe) * p0 + 2.0 * xe * p1 + p2;
-                curvWeights[i] = 6.0 * xe * p0 + 2.0 * p1;
             }
         }
 
@@ -286,10 +268,66 @@ namespace NinjaTrader.NinjaScript.Indicators
         [Display(Name = "Cubic Lookback (Min)", Description = "Calculated lookback in minutes for Cubic bands.", GroupName = "Calculators", Order = 0)]
         public double CalculatedCubicLookbackMinutes => CalculateMinutes(Period, CubicTimeFrameType, CubicTimeFrameValue);
 
-        [Browsable(false)] [XmlIgnore] public Series<double> CubicValue     => Values[0];
-        [Browsable(false)] [XmlIgnore] public Series<double> CubicSlope     => Values[1];
-        [Browsable(false)] [XmlIgnore] public Series<double> CubicCurvature => Values[2];
+        [Browsable(false)] [XmlIgnore] public Series<double> CubicValue => Values[0];
 
         #endregion
-    }
+    
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+	{
+		private _2_CubicRegressionEndpoint_v10[] cache__2_CubicRegressionEndpoint_v10;
+		public _2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			return _2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
+		}
+
+		public _2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			if (cache__2_CubicRegressionEndpoint_v10 != null)
+				for (int idx = 0; idx < cache__2_CubicRegressionEndpoint_v10.Length; idx++)
+					if (cache__2_CubicRegressionEndpoint_v10[idx] != null && cache__2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameType == cubicTimeFrameType && cache__2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameValue == cubicTimeFrameValue && cache__2_CubicRegressionEndpoint_v10[idx].Period == period && cache__2_CubicRegressionEndpoint_v10[idx].EqualsInput(input))
+						return cache__2_CubicRegressionEndpoint_v10[idx];
+			return CacheIndicator<_2_CubicRegressionEndpoint_v10>(new _2_CubicRegressionEndpoint_v10(){ CubicTimeFrameType = cubicTimeFrameType, CubicTimeFrameValue = cubicTimeFrameValue, Period = period }, input, ref cache__2_CubicRegressionEndpoint_v10);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+	{
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			return indicator._2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
+		}
+
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			return indicator._2_CubicRegressionEndpoint_v10(input, cubicTimeFrameType, cubicTimeFrameValue, period);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+	{
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			return indicator._2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
+		}
+
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		{
+			return indicator._2_CubicRegressionEndpoint_v10(input, cubicTimeFrameType, cubicTimeFrameValue, period);
+		}
+	}
+}
+
+#endregion
+
 }

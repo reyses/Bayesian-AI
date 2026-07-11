@@ -139,10 +139,13 @@ def worker_process_day(worker_args):
     if df_5s is None or df_1s is None:
         return day, day_results
 
-    base_dir_local = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    base_dir_local = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
     l0_dir_local = os.path.join(base_dir_local, 'DATA/ATLAS/5s')
 
     for s_name, s_path in strategy_paths.items():
+        if s_name in ['FIB-17_Confluence', 'ORDERFLOW-14']:
+            continue
+        print(f"Extracting features for {s_name}...")
         try:
             spec = importlib.util.spec_from_file_location(f"module_{s_name}", s_path)
             module = importlib.util.module_from_spec(spec)
@@ -150,32 +153,56 @@ def worker_process_day(worker_args):
             
             events = []
             if hasattr(module, 'process_day'):
-                varnames = module.process_day.__code__.co_varnames
-                
+                argcount = module.process_day.__code__.co_argcount
+                varnames = module.process_day.__code__.co_varnames[:argcount]
                 # Check if it strictly takes `args` tuple
                 if 'args' in varnames and 'day' not in varnames:
                     # Attempt to compute prior day profile
                     yest_profile = None
                     if day_idx > 0:
-                        yest_day = all_days[day_idx - 1]
-                        yest_path = os.path.join(l0_dir_local, f"{yest_day}.parquet")
-                        if hasattr(module, 'compute_prior_day_ohlc'):
-                            yest_profile = module.compute_prior_day_ohlc(yest_path)
-                        elif hasattr(module, 'compute_daily_profile'):
-                            yest_profile = module.compute_daily_profile(yest_path)
+                        # Look backward up to 5 days to find a valid prior day profile
+                        for offset in range(1, min(6, day_idx + 1)):
+                            candidate_yest_day = all_days[day_idx - offset]
+                            candidate_path = os.path.join(l0_dir_local, f"{candidate_yest_day}.parquet")
+                            
+                            if hasattr(module, 'compute_prior_day_ohlc'):
+                                temp_prof = module.compute_prior_day_ohlc(candidate_path)
+                            elif hasattr(module, 'compute_daily_profile'):
+                                temp_prof = module.compute_daily_profile(candidate_path)
+                            elif hasattr(module, 'compute_daily_summary'):
+                                temp_prof = module.compute_daily_summary(candidate_path)
+                            else:
+                                temp_prof = None
+                                
+                            if temp_prof is not None:
+                                yest_profile = temp_prof
+                                break
                     
                     if yest_profile is not None:
                         events_out = module.process_day((day, yest_profile))
                     else:
-                        # Fallback for ADX-08 which takes args but unpacks day=args directly
-                        events_out = module.process_day(day)
+                        # Some strategies expect (day, None) if yest_profile is missing
+                        # Others just expect day
+                        # Let's inspect the signature if possible, or try both intelligently
+                        try:
+                            # Try with day only first
+                            events_out = module.process_day(day)
+                        except ValueError as e:
+                            if "too many values to unpack" in str(e) or "not enough values to unpack" in str(e):
+                                # If it complains about unpacking, it probably wanted the tuple
+                                events_out = module.process_day((day, None))
+                            else:
+                                raise e
                 elif 'df' in varnames:
                     events_out = module.process_day(day)
                 else:
                     events_out = module.process_day(day)
                 
                 if events_out:
-                    events = events_out
+                    if isinstance(events_out, dict):
+                        events = [events_out]
+                    elif isinstance(events_out, list):
+                        events = events_out
             
             for event in events:
                 event['day'] = day
@@ -184,9 +211,11 @@ def worker_process_day(worker_args):
                     day_results[s_name].append(feat)
                     
         except Exception as e:
-            pass # Silently skip errors to avoid crashing worker
+            import traceback
+            print(f"Error in {s_name} on {day}: {e}")
+            traceback.print_exc()
             
-    return day, day_results
+    return (day, day_results)
 
 def process_strategy_ml(strategy_name, df_dataset, folder):
     if len(df_dataset) < 10:
