@@ -252,6 +252,9 @@ if __name__ == '__main__':
                 all_events.extend(res_list)
                 
     df = pd.DataFrame(all_events)
+    parquet_out = os.path.join(os.path.dirname(__file__), 'events.parquet')
+    df.to_parquet(parquet_out)
+
     print(f"[FIB Deep Dive] Extracted {len(df)} triggered events.")
     
     def calc_wr(mags_array):

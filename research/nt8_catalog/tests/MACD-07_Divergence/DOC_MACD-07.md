@@ -1,22 +1,22 @@
-# Document ID: AG-DOC-MACD-07 (FABLE-5 VERIFIED)
+# Document ID: AG-DOC-MACD-07 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #7: MACD Divergence
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Symmetric 2.0$\sigma$ barriers. Open = 08:30 CT. MFE Clamped.
+**Ruleset:** Bespoke Exit (MACD Mean Reverts to 0 or EOD). Unclamped Magnitude.
 
-## PQ: Empirical Expectation (EV)
-> *Note: For symmetric barriers ($\pm 2\sigma$), a random walk baseline expectation is a PF-WR of 0.00.*
+## LR: Unnormalized Expected Value (EV)
+> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
 
 ### Results for 2024
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence | 125 | -0.05 | -2.05$\sigma$ | **-0.05** | [-0.40, 0.30] | No |
-| 2 | Bullish Divergence | 133 | 0.61 | 1.95$\sigma$ | **0.47** | [0.14, 0.80] | Yes |
+| 1 | Bearish Divergence | 125 | 0.58 | 2.19 | **-4.22** | [-14.02, 4.62] | No |
+| 2 | Bullish Divergence | 133 | 0.61 | -1.83 | **-10.30** | [-23.83, 2.39] | No |
 
 ### Results for 2025
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Divergence | 104 | -0.11 | -2.05$\sigma$ | **-0.12** | [-0.50, 0.27] | No |
-| 2 | Bullish Divergence | 123 | -0.11 | -2.05$\sigma$ | **-0.12** | [-0.47, 0.24] | No |
+| 1 | Bearish Divergence | 104 | 0.54 | -5.14 | **-1.02** | [-10.46, 8.15] | No |
+| 2 | Bullish Divergence | 123 | 0.61 | 4.70 | **-0.59** | [-13.39, 12.00] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-MACD-07_distributions.png)

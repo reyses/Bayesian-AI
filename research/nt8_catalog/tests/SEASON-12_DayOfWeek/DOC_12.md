@@ -1,22 +1,22 @@
-# Document ID: AG-DOC-SEASON-12 (FABLE-5 VERIFIED)
+# Document ID: AG-DOC-SEASON-12 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #12: Seasonality / Day of Week Effects
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Symmetric 2.0$\sigma$ barriers. Open = 08:30 CT. MFE Clamped.
+**Ruleset:** Bespoke Exit (End of Day). Unclamped Magnitude.
 
-## PQ: Empirical Expectation (EV)
-> *Note: For symmetric barriers ($\pm 2\sigma$), a random walk baseline expectation is a PF-WR of 0.00.*
+## LR: Unnormalized Expected Value (EV)
+> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
 
 ### Results for 2024
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Mon/Tue Bullish | 104 | 0.36 | 1.95$\sigma$ | **0.31** | [-0.08, 0.69] | No |
-| 2 | Thu/Fri Bearish | 103 | 0.06 | 1.95$\sigma$ | **0.06** | [-0.33, 0.45] | No |
+| 1 | Mon/Tue Bullish | 104 | 0.60 | 8.78 | **21.74** | [-8.73, 51.96] | No |
+| 2 | Thu/Fri Bearish | 103 | 0.50 | 15.66 | **17.53** | [-17.93, 52.94] | No |
 
 ### Results for 2025
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Mon/Tue Bullish | 90 | 0.37 | 1.95$\sigma$ | **0.31** | [-0.09, 0.71] | No |
-| 2 | Thu/Fri Bearish | 90 | 0.05 | 1.95$\sigma$ | **0.04** | [-0.36, 0.44] | No |
+| 1 | Mon/Tue Bullish | 90 | 0.60 | 16.54 | **15.74** | [-28.98, 60.72] | No |
+| 2 | Thu/Fri Bearish | 90 | 0.54 | -125.15 | **50.46** | [-3.20, 104.77] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-SEASON-12_distributions.png)

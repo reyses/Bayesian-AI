@@ -110,6 +110,35 @@ def process_day(day):
             magnitude = p0 - path[-1]
             hit_target = magnitude > 0
             
+    # --- INJECTED MFE/MAE CALCULATION ---
+    mfe = 0.0
+    mae = 0.0
+    try:
+        if 'bullish' in mode:
+            exit_price_approx = p0 + magnitude
+            if hit_target:
+                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+            else:
+                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+        else:
+            exit_price_approx = p0 - magnitude
+            if hit_target:
+                idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+            else:
+                idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+            
+        exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
+        sub_path = path[:exit_idx+1]
+    
+        if 'bullish' in mode:
+            mfe = np.max(sub_path) - p0
+            mae = np.min(sub_path) - p0
+        else:
+            mfe = p0 - np.min(sub_path)
+            mae = p0 - np.max(sub_path)
+    except Exception:
+        pass
+    # ------------------------------------
     return {
         'year': day[:4],
         'day': day,
@@ -117,7 +146,9 @@ def process_day(day):
         'mode': mode,
         'event_idx': event_idx,
         'hit': int(hit_target),
-        'magnitude': magnitude
+        'magnitude': magnitude,
+        'mfe': mfe,
+        'mae': mae
     }
 
 if __name__ == '__main__':
@@ -137,6 +168,9 @@ if __name__ == '__main__':
                 all_events.append(res)
                 
     df = pd.DataFrame(all_events)
+    parquet_out = os.path.join(os.path.dirname(__file__), 'events.parquet')
+    df.to_parquet(parquet_out)
+
     print(f"[MACD Deep Dive] Extracted {len(df)} triggered events.")
     
     def calc_wr(mags_array):

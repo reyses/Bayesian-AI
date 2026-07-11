@@ -1,22 +1,22 @@
-# Document ID: AG-DOC-ROUND-05 (FABLE-5 VERIFIED)
+# Document ID: AG-DOC-ROUND-05 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #5: Psychological Round Numbers (00/50 Levels)
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Symmetric 2.0$\sigma$ barriers. Open = 08:30 CT. MFE Clamped.
+**Ruleset:** Bespoke Exit (Mean Revert to SMA20 or 10pt Stop). Unclamped Magnitude.
 
-## PQ: Empirical Expectation (EV)
-> *Note: For symmetric barriers ($\pm 2\sigma$), a random walk baseline expectation is a PF-WR of 0.00.*
+## LR: Unnormalized Expected Value (EV)
+> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
 
 ### Results for 2024
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Bounce | 127 | -0.02 | -2.05$\sigma$ | **-0.02** | [-0.36, 0.33] | No |
-| 2 | Bearish Bounce | 129 | -0.13 | -2.05$\sigma$ | **-0.13** | [-0.48, 0.20] | No |
+| 1 | Bullish Bounce | 127 | 0.31 | -12.55 | **-3.19** | [-8.08, 1.96] | No |
+| 2 | Bearish Bounce | 129 | 0.40 | -13.91 | **2.20** | [-2.12, 7.98] | No |
 
 ### Results for 2025
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Bounce | 115 | 0.09 | 1.95$\sigma$ | **0.09** | [-0.26, 0.43] | No |
-| 2 | Bearish Bounce | 112 | -0.44 | -2.05$\sigma$ | **-0.57** | [-0.93, -0.21] | Yes |
+| 1 | Bullish Bounce | 115 | 0.34 | -12.59 | **-2.51** | [-5.33, 0.34] | No |
+| 2 | Bearish Bounce | 112 | 0.29 | -10.83 | **-3.77** | [-6.41, -1.00] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ROUND-05_distributions.png)

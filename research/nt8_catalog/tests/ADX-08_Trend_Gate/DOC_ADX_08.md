@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Trend Gate | 258 | 0.58 | 20.48 | **1.23** | [-19.58, 21.47] | No |
-| 2 | Bearish Trend Gate | 258 | 0.42 | -2.80 | **0.02** | [-19.43, 20.72] | No |
+| 1 | Bullish Trend Gate | 258 | 0.58 | 20.48 | **1.22** | [-20.49, 21.81] | No |
+| 2 | Bearish Trend Gate | 258 | 0.42 | -2.80 | **-0.45** | [-20.26, 21.09] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Trend Gate | 227 | 0.56 | 34.28 | **7.13** | [-26.43, 43.08] | No |
-| 2 | Bearish Trend Gate | 227 | 0.45 | 0.81 | **-1.07** | [-36.27, 32.41] | No |
+| 1 | Bullish Trend Gate | 227 | 0.56 | 34.28 | **6.66** | [-26.52, 42.00] | No |
+| 2 | Bearish Trend Gate | 227 | 0.45 | 0.81 | **-1.36** | [-36.53, 31.77] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ADX-08_distributions.png)

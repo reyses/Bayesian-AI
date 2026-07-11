@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Fade | 37 | 0.14 | -9.60 | **-3.31** | [-9.26, 3.74] | No |
-| 2 | Bullish Fade | 50 | 0.08 | -9.58 | **-6.41** | [-11.85, 0.50] | No |
+| 1 | Bearish Fade | 37 | 0.14 | -9.60 | **-3.37** | [-9.26, 3.82] | No |
+| 2 | Bullish Fade | 50 | 0.08 | -9.58 | **-6.44** | [-11.91, 0.73] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Fade | 27 | 0.22 | -9.98 | **3.45** | [-7.10, 16.29] | No |
-| 2 | Bullish Fade | 37 | 0.11 | -11.83 | **-2.43** | [-12.43, 10.43] | No |
+| 1 | Bearish Fade | 27 | 0.22 | -9.98 | **3.23** | [-7.36, 16.34] | No |
+| 2 | Bullish Fade | 37 | 0.11 | -11.83 | **-2.28** | [-12.30, 10.28] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-ATR-09_distributions.png)

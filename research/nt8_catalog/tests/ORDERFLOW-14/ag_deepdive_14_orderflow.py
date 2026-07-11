@@ -117,6 +117,35 @@ def process_day(args):
                 magnitude = p0 - path[-1]
             hit_target = magnitude > 0
                 
+        # --- INJECTED MFE/MAE CALCULATION ---
+        mfe = 0.0
+        mae = 0.0
+        try:
+            if 'bullish' in mode:
+                exit_price_approx = p0 + magnitude
+                if hit_target:
+                    idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+                else:
+                    idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+            else:
+                exit_price_approx = p0 - magnitude
+                if hit_target:
+                    idx_candidates = np.where(path <= exit_price_approx + 0.0001)[0]
+                else:
+                    idx_candidates = np.where(path >= exit_price_approx - 0.0001)[0]
+            
+            exit_idx = idx_candidates[0] if len(idx_candidates) > 0 else len(path) - 1
+            sub_path = path[:exit_idx+1]
+    
+            if 'bullish' in mode:
+                mfe = np.max(sub_path) - p0
+                mae = np.min(sub_path) - p0
+            else:
+                mfe = p0 - np.min(sub_path)
+                mae = p0 - np.max(sub_path)
+        except Exception:
+            pass
+        # ------------------------------------
         return {
             'year': day_str[:4],
             'day': day_str,
@@ -125,7 +154,9 @@ def process_day(args):
             'open_price': opens[event_idx],
             'event_idx': event_idx,
             'hit': int(hit_target),
-            'magnitude': magnitude
+            'magnitude': magnitude,
+            'mfe': mfe,
+            'mae': mae
         }
 
     results = []

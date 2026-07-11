@@ -147,14 +147,30 @@ def download_telegram_file(file_id: str, ext: str = "") -> str:
         print(f"Failed to download file: {e}", file=sys.stderr)
         return ""
 
+def wake_claude_timer():
+    """Waits 1 hour and uses pyautogui to wake up Claude ONCE."""
+    print("[INFO] Claude Wake Timer is LIVE. Waking Claude in 1 hour.", file=sys.stderr, flush=True)
+    time.sleep(3600)
+    inject_prompt("this is a programmed message continue in oatuomated mode")
+    print("[INFO] Claude Wake Timer finished.", file=sys.stderr, flush=True)
+
 def poll_telegram():
     """Background loop that listens for messages and injects them."""
-    offset = None
     print("[INFO] Telegram Bridge is LIVE in MCP. Polling and injecting directly...", file=sys.stderr, flush=True)
     
     # Give the IDE 5 seconds to finish spinning up the MCP server before starting PyAutoGUI
     time.sleep(5)
     
+    # Clear backlog by fetching the latest update_id and setting offset
+    offset = None
+    try:
+        init_res = requests.get(f"https://api.telegram.org/bot{TOKEN}/getUpdates", timeout=10).json()
+        if init_res.get("ok") and init_res["result"]:
+            offset = init_res["result"][-1]["update_id"] + 1
+            print(f"[INFO] Cleared backlog up to offset {offset}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[WARN] Failed to clear backlog: {e}", file=sys.stderr)
+
     while True:
         try:
             req_url = f"https://api.telegram.org/bot{TOKEN}/getUpdates?timeout=30"
@@ -197,8 +213,13 @@ def poll_telegram():
                     elif text:
                         match_stats = re.match(r"(?i)^/?autostats\((.*?)\)$", text.strip())
                         match_plot = re.match(r"(?i)^/?autoplot\((.*?)\)$", text.strip())
+                        match_auto = re.match(r"(?i)^/?autonomous$", text.strip())
                         
-                        if match_stats:
+                        if match_auto:
+                            print("[COMMAND] Intercepted /autonomous mode activation", file=sys.stderr, flush=True)
+                            requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage", json={"chat_id": CHAT_ID, "text": "Autonomous wake timer activated. Will wake Claude in 1 hour."})
+                            threading.Thread(target=wake_claude_timer, daemon=True).start()
+                        elif match_stats:
                             arg = match_stats.group(1)
                             print(f"[COMMAND] Intercepted autostats({arg})", file=sys.stderr, flush=True)
                             script_path = str(DOWNLOAD_DIR.parent / "autostats.py")
@@ -227,4 +248,5 @@ if __name__ == "__main__":
     listener_thread.start()
     
     # Run the MCP server
+
     mcp.run()

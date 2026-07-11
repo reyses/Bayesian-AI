@@ -1,22 +1,22 @@
-# Document ID: AG-DOC-VA-13 (FABLE-5 VERIFIED)
+# Document ID: AG-DOC-VA-13 (LOGISTIC REGRESSION VERIFIED)
 **Title:** Deep Dive #13: Value-Area Rotation Rules
 **Status:** Completed (Dual-Year Validated)
-**Ruleset:** Symmetric 2.0$\sigma$ barriers. Open = 08:30 CT. MFE Clamped.
+**Ruleset:** Bespoke Exit (Target POC, Stop VA Boundary). Unclamped Magnitude.
 
-## PQ: Empirical Expectation (EV)
-> *Note: Expectation is calculated against symmetric $\pm 2\sigma$ thresholds; baseline EV 0.00.*
+## LR: Unnormalized Expected Value (EV)
+> *Note: Magnitudes are in raw points. Win Rate is binary (%).*
 
 ### Results for 2024
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Rotation (Setup 1) | 36 | -0.20 | -2.05$\sigma$ | **-0.24** | [-0.89, 0.44] | No |
-| 2 | Bullish Rotation (Setup 2) | 17 | 0.12 | 1.95$\sigma$ | **0.12** | [-0.82, 1.06] | No |
+| 1 | Bearish Rotation (Setup 1) | 53 | 0.11 | -2.78 | **1.66** | [-3.28, 9.01] | No |
+| 2 | Bullish Rotation (Setup 2) | 29 | 0.10 | -3.44 | **-2.88** | [-5.11, -0.24] | Yes |
 
 ### Results for 2025
-| Setup | Description | N | PF-WR | Mag (Mode) | EV (Mean $\sigma$) | EV 95% CI | Sig? |
+| Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bearish Rotation (Setup 1) | 18 | 0.00 | -2.05$\sigma$ | **-0.00** | [-0.89, 0.89] | No |
-| 2 | Bullish Rotation (Setup 2) | 17 | -0.45 | -2.05$\sigma$ | **-0.58** | [-1.53, 0.35] | No |
+| 1 | Bearish Rotation (Setup 1) | 27 | 0.22 | -1.49 | **-5.20** | [-16.69, 3.64] | No |
+| 2 | Bullish Rotation (Setup 2) | 23 | 0.04 | -10.71 | **-7.46** | [-10.24, -4.68] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-VA-13_distributions.png)

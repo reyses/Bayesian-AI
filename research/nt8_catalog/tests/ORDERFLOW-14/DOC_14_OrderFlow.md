@@ -15,14 +15,14 @@
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Delta Divergence | 110 | 0.47 | -2.31 | **-9.99** | [-19.12, -2.55] | Yes |
-| 2 | Trapped Traders | 110 | 0.50 | -3.14 | **-6.13** | [-16.09, 2.62] | No |
+| 1 | Delta Divergence | 110 | 0.47 | -2.31 | **-10.01** | [-19.07, -2.40] | Yes |
+| 2 | Trapped Traders | 110 | 0.50 | -3.14 | **-6.28** | [-15.69, 2.08] | No |
 
 ### Results for All Data (6-Month Single Validation Block)
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Delta Divergence | 130 | 0.46 | -2.31 | **-8.66** | [-16.48, -2.05] | Yes |
-| 2 | Trapped Traders | 130 | 0.51 | -3.14 | **-4.90** | [-13.19, 2.47] | No |
+| 1 | Delta Divergence | 130 | 0.46 | -2.31 | **-8.69** | [-16.27, -2.49] | Yes |
+| 2 | Trapped Traders | 130 | 0.51 | -3.14 | **-4.83** | [-13.10, 2.49] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-14-OrderFlow_distributions.png)
