@@ -254,7 +254,7 @@ def process_day(day):
                 'mfe': mfe,
         'resolution_idx': (_exit_idx + (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else i)) + 1) if ('_exit_idx' in locals() and _exit_idx != -1) else -1,
         'duration_bars': _exit_idx if '_exit_idx' in locals() else -1,
-        'depth': _trigger_depth,
+                        'depth': (lambda l: next((abs(float(l[k])) for k in ['magnitude', 'div', 'adx_val', 'z', 'z_val', 'z_score', 'distance', 'gap'] if k in l and l[k] is not None), abs(l.get('p0',0) - l.get('open_price',0)) if 'p0' in l and 'open_price' in l else 0.0))(locals()),
                 'mae': mae,
                 'magnitude_sigma': magnitude_sigma,
                 'mfe_sigma': mfe_sigma,

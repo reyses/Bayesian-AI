@@ -9,14 +9,14 @@
 ### Results for 2024
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | S1 Bullish Bounce | 67 | 0.13 | -11.39 | **0.51** | [-7.69, 10.22] | No |
-| 2 | R1 Bearish Bounce | 64 | 0.14 | -12.88 | **6.75** | [-5.69, 22.15] | No |
+| 1 | S1 Bullish Bounce | 67 | 0.13 | -11.39 | **0.34** | [-7.93, 10.03] | No |
+| 2 | R1 Bearish Bounce | 64 | 0.14 | -12.88 | **6.64** | [-5.80, 21.95] | No |
 
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | S1 Bullish Bounce | 63 | 0.16 | -12.92 | **3.10** | [-6.20, 13.88] | No |
-| 2 | R1 Bearish Bounce | 67 | 0.09 | -9.11 | **-5.41** | [-11.82, 2.38] | No |
+| 1 | S1 Bullish Bounce | 63 | 0.16 | -12.92 | **3.20** | [-6.36, 14.35] | No |
+| 2 | R1 Bearish Bounce | 67 | 0.09 | -9.11 | **-5.37** | [-11.67, 2.99] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-PIVOT-16_distributions.png)

@@ -16,7 +16,7 @@
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
 | 1 | Bullish Continuation | 48095 | 0.58 | 5.90 | **1.77** | [1.72, 1.81] | Yes |
-| 2 | Bearish Continuation | 47800 | 0.58 | 5.90 | **1.78** | [1.73, 1.82] | Yes |
+| 2 | Bearish Continuation | 47800 | 0.58 | 5.90 | **1.77** | [1.73, 1.82] | Yes |
 
 ## Graphical Descriptive Statistics (Aggregate)
 ![Distribution Plot](./DOC-RENKO-24_distributions.png)

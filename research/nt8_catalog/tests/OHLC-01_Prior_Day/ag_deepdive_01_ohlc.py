@@ -188,19 +188,7 @@ def process_day(args):
         except Exception:
             magnitude_sigma, mfe_sigma, mae_sigma = magnitude, mfe, mae
         # ------------------------
-        
-
-                # --- ROUND 2 DEPTH FIX ---
-                _trigger_depth = 0.0
-                if 'div' in locals() and div is not None: _trigger_depth = abs(div)
-                elif 'adx_val' in locals() and adx_val is not None: _trigger_depth = float(adx_val)
-                elif 'z' in locals() and z is not None: _trigger_depth = abs(z)
-                elif 'z_val' in locals() and z_val is not None: _trigger_depth = abs(z_val)
-                elif 'z_score' in locals() and z_score is not None: _trigger_depth = abs(z_score)
-                elif 'distance' in locals() and distance is not None: _trigger_depth = abs(distance)
-                elif 'gap' in locals() and gap is not None: _trigger_depth = abs(gap)
-                elif 'p0' in locals() and 'open_price' in locals(): _trigger_depth = abs(p0 - open_price)
-                results.append({
+        results.append({
             'year': day[:4],
             'day': day,
             'setup': setup,
@@ -215,7 +203,7 @@ def process_day(args):
                     'mfe': mfe,
         'resolution_idx': (_exit_idx + (event_idx if 'event_idx' in locals() else (e_idx if 'e_idx' in locals() else i)) + 1) if ('_exit_idx' in locals() and _exit_idx != -1) else -1,
         'duration_bars': _exit_idx if '_exit_idx' in locals() else -1,
-        'depth': _trigger_depth,
+                        'depth': (lambda l: next((abs(float(l[k])) for k in ['magnitude', 'div', 'adx_val', 'z', 'z_val', 'z_score', 'distance', 'gap'] if k in l and l[k] is not None), abs(l.get('p0',0) - l.get('open_price',0)) if 'p0' in l and 'open_price' in l else 0.0))(locals()),
                     'mae': mae,
                     'magnitude_sigma': magnitude_sigma,
                     'mfe_sigma': mfe_sigma,

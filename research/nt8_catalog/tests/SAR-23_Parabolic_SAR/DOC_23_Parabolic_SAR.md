@@ -15,7 +15,7 @@
 ### Results for 2025
 | Setup | Description | N | WR% | Mag (Mode) | EV (Mean Points) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|---|
-| 1 | Bullish Flip | 7657 | 0.50 | -6.38 | **-0.15** | [-0.40, 0.10] | No |
+| 1 | Bullish Flip | 7657 | 0.50 | -6.38 | **-0.15** | [-0.39, 0.10] | No |
 | 2 | Bearish Flip | 7946 | 0.50 | -4.80 | **-0.03** | [-0.26, 0.20] | No |
 
 ## Graphical Descriptive Statistics (Aggregate)

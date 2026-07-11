@@ -1,73 +1,77 @@
-# Document ID: COND_VP-01-REVISED
+# Document ID: COND_VP-01
 **Dossier:** VP-01_Volume_Profile
 **Total Base Events:** 233
 
-#### Condition: hour
-| Year | hour | N | PF-WR | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |
+#### Year: 2024 | Condition: hour
+| hour | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|
-| 2024 | 8 | 102 | 0.65 / 0.27 | **-3.248** | [-6.20, -0.21] | Yes |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>9</span> | <span style='color:gray'>4</span> | <span style='color:gray'>3.11 / 0.75</span> | <span style='color:gray'>**6.062**</span> | <span style='color:gray'>[-5.25, 17.38]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>10</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-16.000**</span> | <span style='color:gray'>[-16.00, -16.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>12</span> | <span style='color:gray'>3</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.000**</span> | <span style='color:gray'>[-13.00, -10.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>14</span> | <span style='color:gray'>3</span> | <span style='color:gray'>1.99 / 0.33</span> | <span style='color:gray'>**6.750**</span> | <span style='color:gray'>[-10.50, 40.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>15</span> | <span style='color:gray'>3</span> | <span style='color:gray'>3.12 / 0.67</span> | <span style='color:gray'>**10.583**</span> | <span style='color:gray'>[-15.00, 25.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>16</span> | <span style='color:gray'>3</span> | <span style='color:gray'>1.94 / 0.33</span> | <span style='color:gray'>**6.667**</span> | <span style='color:gray'>[-10.75, 41.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>17</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-15.250**</span> | <span style='color:gray'>[-15.25, -15.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>18</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.250**</span> | <span style='color:gray'>[-12.25, -12.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>20</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-14.750**</span> | <span style='color:gray'>[-14.75, -14.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>21</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.125**</span> | <span style='color:gray'>[-10.25, -10.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>24</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.500**</span> | <span style='color:gray'>[-10.50, -10.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>27</span> | <span style='color:gray'>1</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**24.500**</span> | <span style='color:gray'>[24.50, 24.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>31</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-11.250**</span> | <span style='color:gray'>[-11.25, -11.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>32</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-11.125**</span> | <span style='color:gray'>[-11.50, -10.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>49</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.750**</span> | <span style='color:gray'>[-10.75, -10.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>54</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.000**</span> | <span style='color:gray'>[-10.00, -10.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>78</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.000**</span> | <span style='color:gray'>[-12.00, -12.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>85</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.500**</span> | <span style='color:gray'>[-10.50, -10.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>86</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.38 / 0.50</span> | <span style='color:gray'>**-3.500**</span> | <span style='color:gray'>[-11.25, 4.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2025 | 8 | 77 | 0.65 / 0.29 | **-3.399** | [-7.18, 0.51] | No |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>9</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.48 / 0.50</span> | <span style='color:gray'>**-4.750**</span> | <span style='color:gray'>[-18.25, 8.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>10</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.500**</span> | <span style='color:gray'>[-10.50, -10.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>11</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-20.500**</span> | <span style='color:gray'>[-20.50, -20.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>12</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.000**</span> | <span style='color:gray'>[-13.25, -10.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>13</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-15.500**</span> | <span style='color:gray'>[-17.00, -14.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>14</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.90 / 0.50</span> | <span style='color:gray'>**-0.875**</span> | <span style='color:gray'>[-17.00, 15.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>15</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.500**</span> | <span style='color:gray'>[-10.50, -10.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>18</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-11.500**</span> | <span style='color:gray'>[-11.50, -11.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>23</span> | <span style='color:gray'>1</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**69.250**</span> | <span style='color:gray'>[69.25, 69.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>24</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.750**</span> | <span style='color:gray'>[-10.75, -10.75]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>26</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-14.000**</span> | <span style='color:gray'>[-14.00, -14.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>29</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-17.000**</span> | <span style='color:gray'>[-17.00, -17.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>34</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.000**</span> | <span style='color:gray'>[-10.00, -10.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>42</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.000**</span> | <span style='color:gray'>[-12.00, -12.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>51</span> | <span style='color:gray'>1</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**48.500**</span> | <span style='color:gray'>[48.50, 48.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>52</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-14.000**</span> | <span style='color:gray'>[-14.00, -14.00]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>62</span> | <span style='color:gray'>1</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**62.250**</span> | <span style='color:gray'>[62.25, 62.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
+| 8 | 102 | 30.4% | -2.01 | **-0.808** | [-1.17, -0.44] | Yes |
+| 9 | 4 | - | - | - | - | Insufficient N |
+| 10 | 1 | - | - | - | - | Insufficient N |
+| 12 | 3 | - | - | - | - | Insufficient N |
+| 14 | 3 | - | - | - | - | Insufficient N |
+| 15 | 3 | - | - | - | - | Insufficient N |
+| 16 | 3 | - | - | - | - | Insufficient N |
+| 17 | 1 | - | - | - | - | Insufficient N |
+| 18 | 1 | - | - | - | - | Insufficient N |
+| 20 | 1 | - | - | - | - | Insufficient N |
+| 21 | 2 | - | - | - | - | Insufficient N |
+| 24 | 1 | - | - | - | - | Insufficient N |
+| 27 | 1 | - | - | - | - | Insufficient N |
+| 31 | 1 | - | - | - | - | Insufficient N |
+| 32 | 2 | - | - | - | - | Insufficient N |
+| 49 | 1 | - | - | - | - | Insufficient N |
+| 54 | 1 | - | - | - | - | Insufficient N |
+| 78 | 1 | - | - | - | - | Insufficient N |
+| 85 | 1 | - | - | - | - | Insufficient N |
+| 86 | 2 | - | - | - | - | Insufficient N |
 
-#### Condition: er_tercile
-| Year | er_tercile | N | PF-WR | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |
+#### Year: 2025 | Condition: hour
+| hour | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|
-| <span style='color:gray'>2024</span> | <span style='color:gray'>high</span> | <span style='color:gray'>1</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-10.250**</span> | <span style='color:gray'>[-10.25, -10.25]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>low</span> | <span style='color:gray'>5</span> | <span style='color:gray'>0.80 / 0.20</span> | <span style='color:gray'>**-2.000**</span> | <span style='color:gray'>[-14.20, 19.80]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2024 | mid | 129 | 0.65 / 0.28 | **-3.093** | [-5.73, -0.32] | Yes |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>high</span> | <span style='color:gray'>4</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-14.062**</span> | <span style='color:gray'>[-17.62, -10.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>low</span> | <span style='color:gray'>4</span> | <span style='color:gray'>0.37 / 0.25</span> | <span style='color:gray'>**-6.625**</span> | <span style='color:gray'>[-15.50, 7.94]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2025 | mid | 90 | 0.77 / 0.29 | **-2.178** | [-6.10, 2.20] | No |
+| 8 | 77 | 44.2% | -2.01 | **-0.242** | [-0.72, 0.24] | No |
+| 9 | 2 | - | - | - | - | Insufficient N |
+| 10 | 1 | - | - | - | - | Insufficient N |
+| 11 | 1 | - | - | - | - | Insufficient N |
+| 12 | 2 | - | - | - | - | Insufficient N |
+| 13 | 2 | - | - | - | - | Insufficient N |
+| 14 | 2 | - | - | - | - | Insufficient N |
+| 15 | 1 | - | - | - | - | Insufficient N |
+| 18 | 1 | - | - | - | - | Insufficient N |
+| 23 | 1 | - | - | - | - | Insufficient N |
+| 24 | 1 | - | - | - | - | Insufficient N |
+| 26 | 1 | - | - | - | - | Insufficient N |
+| 29 | 1 | - | - | - | - | Insufficient N |
+| 34 | 1 | - | - | - | - | Insufficient N |
+| 42 | 1 | - | - | - | - | Insufficient N |
+| 51 | 1 | - | - | - | - | Insufficient N |
+| 52 | 1 | - | - | - | - | Insufficient N |
+| 62 | 1 | - | - | - | - | Insufficient N |
 
-#### Condition: vol_tercile
-| Year | vol_tercile | N | PF-WR | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |
+#### Year: 2024 | Condition: er_tercile
+| er_tercile | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|
-| <span style='color:gray'>2024</span> | <span style='color:gray'>high</span> | <span style='color:gray'>2</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-12.250**</span> | <span style='color:gray'>[-13.00, -11.50]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2024</span> | <span style='color:gray'>low</span> | <span style='color:gray'>4</span> | <span style='color:gray'>0.75 / 0.25</span> | <span style='color:gray'>**-2.062**</span> | <span style='color:gray'>[-12.06, 16.12]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2024 | mid | 129 | 0.67 / 0.28 | **-2.996** | [-5.67, -0.13] | Yes |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>high</span> | <span style='color:gray'>4</span> | <span style='color:gray'>0.00 / 0.00</span> | <span style='color:gray'>**-17.438**</span> | <span style='color:gray'>[-19.62, -15.06]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>low</span> | <span style='color:gray'>5</span> | <span style='color:gray'>0.30 / 0.20</span> | <span style='color:gray'>**-7.250**</span> | <span style='color:gray'>[-14.75, 4.40]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2025 | mid | 89 | 0.79 / 0.29 | **-1.941** | [-5.92, 2.25] | No |
+| high | 3 | - | - | - | - | Insufficient N |
+| low | 4 | - | - | - | - | Insufficient N |
+| mid | 128 | 37.5% | -2.01 | **-0.517** | [-0.86, -0.19] | Yes |
 
-#### Condition: depth_tercile
-| Year | depth_tercile | N | PF-WR | EV (Raw Pts) | EV 95% CI (Day-Block) | Sig? |
+#### Year: 2025 | Condition: er_tercile
+| er_tercile | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
 |---|---|---|---|---|---|---|
-| <span style='color:gray'>2024</span> | <span style='color:gray'>high</span> | <span style='color:gray'>28</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**21.598**</span> | <span style='color:gray'>[20.03, 22.77]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2024 | low | 107 | 0.16 / 0.08 | **-9.570** | [-11.38, -7.51] | Yes |
-| <span style='color:gray'>2025</span> | <span style='color:gray'>high</span> | <span style='color:gray'>20</span> | <span style='color:gray'>inf / 1.00</span> | <span style='color:gray'>**23.688**</span> | <span style='color:gray'>[21.24, 28.01]</span> | <span style='color:gray'>*Insufficient N*</span> |
-| 2025 | low | 78 | 0.22 / 0.09 | **-9.647** | [-12.56, -6.09] | Yes |
+| high | 4 | - | - | - | - | Insufficient N |
+| low | 4 | - | - | - | - | Insufficient N |
+| mid | 90 | 44.4% | -2.01 | **-0.225** | [-0.64, 0.18] | No |
+
+#### Year: 2024 | Condition: vol_tercile
+| vol_tercile | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
+|---|---|---|---|---|---|---|
+| high | 1 | - | - | - | - | Insufficient N |
+| low | 4 | - | - | - | - | Insufficient N |
+| mid | 130 | 36.9% | -2.01 | **-0.541** | [-0.88, -0.22] | Yes |
+
+#### Year: 2025 | Condition: vol_tercile
+| vol_tercile | N | WR% | Mag (Mode) | EV (Mean σ) | EV 95% CI | Sig? |
+|---|---|---|---|---|---|---|
+| high | 4 | - | - | - | - | Insufficient N |
+| low | 5 | - | - | - | - | Insufficient N |
+| mid | 89 | 44.9% | -2.01 | **-0.206** | [-0.62, 0.21] | No |
