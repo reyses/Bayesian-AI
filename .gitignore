@@ -376,3 +376,4 @@ scratch_check.py
 journal_payload.json
 epoch_*_summary.png
 epoch_*_trades.csv
+research/nt8_catalog/tools/_doe_cache/
