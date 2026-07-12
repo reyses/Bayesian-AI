@@ -4474,3 +4474,4 @@ Completed the AG_TASK_label_feature_discovery mandate. Exhaustively evaluated th
  
 2026-07-11: Phase 5 policy evaluation completed. Extracted F-Space arrays and executed Doc-027 3-way policy. ORDERFLOW-14 validated positive out-of-sample edge.
 2026-07-12 | nt8_catalog Phase-5 (Claude-executed): alignment bug fixed; realizable screen all 24; Tier-1 = ROUND-05 +-20 (+5.4/+6.6) & PIVOT-16 flip (+8.1/+9.1) both-yr sig; pierce-then-bounce level anatomy; path-accurate backtest in progress (handoff spec in docs/daily/2026-07-12.md)
+2026-07-12 CORRECTION | Tier-1 RETRACTED: path-accurate replay kills ROUND-05 & PIVOT-16-flip (all variants n.s.); stored-MFE/MAE screen was artifact; excursion screens = hypothesis-only henceforth (comms/042)
