@@ -106,9 +106,11 @@ def run(dossiers, days_limit=None):
                 else:
                     hit_st, hit_tp = hi >= p['stp'], lo <= p['tpp']
                 if hit_st:      # stop dominates in-bar (conservative)
-                    trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], -p['S']))
+                    trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], -p['S'],
+                                   p['long'], p['entry'], p['opened_ts'], bar_ts, 'stop'))
                 elif hit_tp:
-                    trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], p['T']))
+                    trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], p['T'],
+                                   p['long'], p['entry'], p['opened_ts'], bar_ts, 'target'))
                 else:
                     still.append(p)
             open_pos = still
@@ -124,10 +126,14 @@ def run(dossiers, days_limit=None):
         # EOD close leftovers
         for p in open_pos:
             pnl = (last_price - p['entry']) if p['long'] else (p['entry'] - last_price)
-            trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], pnl))
+            trades.append((p['doss'], p['dirn'], p['T'], p['S'], p['day'], pnl,
+                           p['long'], p['entry'], p['opened_ts'], int(bar_ts), 'eod'))
         if (k + 1) % 50 == 0:
             print(f'  {k+1}/{len(days)} days, {len(trades)} trades, {bars_done/(time.time()-t0):.0f} bars/s')
-    return pd.DataFrame(trades, columns=['doss', 'dirn', 'T', 'S', 'day', 'pnl'])
+    df = pd.DataFrame(trades, columns=['doss', 'dirn', 'T', 'S', 'day', 'pnl',
+                                       'is_long', 'entry_px', 'entry_ts', 'exit_ts', 'exit_reason'])
+    df['duration_s'] = df['exit_ts'] - df['entry_ts']
+    return df
 
 def report(tr, out_name='AG_cat_00_FPS_RESULTS.md'):
     lines = ["# FPS Catalog Run — all strategies through the canonical engine\n",
@@ -170,4 +176,7 @@ if __name__ == '__main__':
     tr = run(dossiers, days_limit=3 if smoke else None)
     print(f'{len(tr)} trades total')
     if len(tr):
+        tp = os.path.join(BASE, 'reports', 'fps_trades_smoke.parquet' if smoke else 'fps_trades.parquet')
+        tr.to_parquet(tp)   # full audit trail: entry/exit ts, px, reason, duration
+        print(f'trade log -> {tp}')
         report(tr, 'AG_cat_00_FPS_SMOKE.md' if smoke else 'AG_cat_00_FPS_RESULTS.md')
