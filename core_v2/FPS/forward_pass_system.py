@@ -72,11 +72,19 @@ class ForwardPassSystem:
                  labels_csv: str,
                  tfs: Optional[list[str]] = None,
                  layers: Optional[list[str]] = None,
-                 build_v2_dict: bool = True):
+                 build_v2_dict: bool = True,
+                 use_5s_price: bool = False):
         self.day = day
         # When False, BarState.v2 is an empty dict (consumers that only read
         # v2_vector, e.g. the Mamba RL env, skip 201 float()+dict inserts/bar)
         self._build_v2_dict = build_v2_dict
+        # Execution-price semantics. Default False = legacy behavior (price = last
+        # COMPLETED 1m close, up to 59s stale — fine for RL/regime consumers).
+        # True = price = the just-closed 5s bar close (required for fill-accurate
+        # strategy backtests; catalog runner sets this).
+        self._use_5s_price = use_5s_price
+        # Bars silently skipped by the price==0 guard (observability; was silent)
+        self.skipped_bars = 0
         # Load V2 features (185 cols + timestamp). Anchor cadence = 5s.
         feats = load_features(days=[day], root=features_root, tfs=tfs, layers=layers, require_all=False)
         if feats.empty:
@@ -158,14 +166,20 @@ class ForwardPassSystem:
         is_1m_start = (self._ts1m[0] % 60 == 0) if len(self._ts1m) > 0 else False
 
         build_v2_dict = self._build_v2_dict
+
+        # PERF: vectorize both OHLCV joins once per day (was 2 searchsorted/bar).
+        # Semantics identical to the per-bar version (parity-gated).
+        search5 = ts_arr - 5 if is_5s_start else ts_arr
+        search1 = ts_arr - 60 if is_1m_start else ts_arr
+        idx5_arr = np.searchsorted(self._ts5s, search5, side='right') - 1
+        idx1_arr = np.searchsorted(self._ts1m, search1, side='right') - 1
+
         for i in range(self._n):
             ts = int(ts_arr[i])
             v2_vec = self._v2_matrix[i]
             v2_dict = {name: float(v2_vec[j]) for j, name in enumerate(FEATURE_NAMES)} if build_v2_dict else {}
 
-            # 5s OHLCV — searchsorted nearest <= search_ts
-            search_ts_5s = ts - 5 if is_5s_start else ts
-            idx5 = np.searchsorted(self._ts5s, search_ts_5s, side='right') - 1
+            idx5 = idx5_arr[i]
             if 0 <= idx5 < len(self._ts5s):
                 ohlcv_5s = {
                     'timestamp': float(self._ts5s[idx5]),
@@ -179,9 +193,7 @@ class ForwardPassSystem:
                 ohlcv_5s = {'timestamp': float(ts), 'open': 0., 'high': 0.,
                                 'low': 0., 'close': 0., 'volume': 0.}
 
-            # 1m OHLCV — same pattern
-            search_ts_1m = ts - 60 if is_1m_start else ts
-            idx1 = np.searchsorted(self._ts1m, search_ts_1m, side='right') - 1
+            idx1 = idx1_arr[i]
             if 0 <= idx1 < len(self._ts1m):
                 ohlcv_1m = {
                     'timestamp': float(self._ts1m[idx1]),
@@ -196,7 +208,12 @@ class ForwardPassSystem:
                 ohlcv_1m = None
                 price = 0.0
 
+            if self._use_5s_price and ohlcv_5s['close'] > 0.0:
+                # Fill-accurate mode: execution price = just-closed 5s bar close.
+                price = ohlcv_5s['close']
+
             if price == 0.0:
+                self.skipped_bars += 1
                 continue
 
             yield BarState(
