@@ -301,43 +301,46 @@ class CuspMarker:
     direction from local trend, captures anchor snapshot, measures forward
     MFE/MAE over a fixed horizon at 1s resolution."""
 
-    def __init__(self, df, date_str, tf='1m', anchors=None, fwd_mins=60,
-                  loaded_trades=None, cubic_n=20):
-        self.df = df
-        self.date_str = date_str
+    def __init__(self, full_df, start_dt_cal, days_span=1, tf='1m', fwd_mins=60,
+                  load_ai=False, load_trades_path=None, cubic_n=20, burn_hours=0):
+        self.full_df = full_df
+        self.start_dt_cal = start_dt_cal
+        self.days_span = days_span
         self.tf = tf
-        self.anchors = anchors or {}
         self.fwd_mins = fwd_mins
+        self.load_ai = load_ai
+        self.load_trades_path = load_trades_path
         self.cubic_n = cubic_n
+        self.burn_hours = burn_hours
+        self.burn_applied = False
+        
+        self.df = None
+        self.date_str = ""
+        self.anchors = {}
         self._cache_1s = {}
-        # Loaded trades from --load-trades (read-only overlay, distinct from user picks)
-        self.loaded_trades = loaded_trades or []
+        self.loaded_trades = []
         self._loaded_artists = []
-
-        self.close = df['close'].values.astype(float)
-        self.high = df['high'].values.astype(float)
-        self.low = df['low'].values.astype(float)
-        self.timestamps = df['timestamp'].values.astype(float)
-        self.dt_stamps = [datetime.fromtimestamp(t, tz=timezone.utc) for t in self.timestamps]
-
+        
+        self.close = None
+        self.high = None
+        self.low = None
+        self.timestamps = None
+        self.dt_stamps = None
+        
+        self.picks = []
+        self._pick_artists = []
+        
         # Load candidate filter classifier
         self._classifier_model = None
         self._classifier_scaler = None
         self._classifier_features = None
         self._load_classifier()
         
-        # Pre-compute cubic candidates
         self.cubic_turns = []
         self.cubic_curve = None
         self.cubic_features = None
-        self._compute_cubic_candidates()
 
-        self.picks = []
-        self._pick_artists = []   # one per pick: (scatter, label) tuple
-        # Auto-load existing picks for this date (persistence across launches)
-        self._autoload_existing_picks()
-
-        # Load persisted overlay visibility (default: all on)
+        # Load persisted overlay visibility
         self._settings = load_settings()
         self._last_geometry = None
         ov = self._settings.get('overlays', {})
@@ -353,6 +356,167 @@ class CuspMarker:
         self._pending_entry_x = None
         self._pending_entry_y = None
         self._pending_vline = None
+        
+        # We don't load the day here, we do it after self.ax is created in run()
+
+    def load_day_range(self):
+        import pytz
+        est = pytz.timezone('US/Eastern')
+        
+        end_dt_cal = self.start_dt_cal + pd.Timedelta(days=self.days_span - 1).to_pytimedelta()
+        
+        session_start = est.localize(datetime(
+            self.start_dt_cal.year, self.start_dt_cal.month, self.start_dt_cal.day, 18, 0, 0
+        )) - pd.Timedelta(days=1)
+        
+        session_end = est.localize(datetime(
+            end_dt_cal.year, end_dt_cal.month, end_dt_cal.day, 17, 0, 0
+        ))
+
+        t_start = session_start.timestamp()
+        t_end = session_end.timestamp()
+        
+        start_str = self.start_dt_cal.strftime('%Y-%m-%d')
+        end_str = end_dt_cal.strftime('%Y-%m-%d')
+        self.date_str = f"{start_str}" if start_str == end_str else f"{start_str}:{end_str}"
+        print(f"\\n[load_day_range] Loading {self.date_str}...")
+
+        mask = (self.full_df['timestamp'] >= t_start) & (self.full_df['timestamp'] < t_end)
+        self.df = self.full_df[mask].reset_index(drop=True)
+        
+        if not self.burn_applied and self.burn_hours > 0:
+            burn_until = t_start + self.burn_hours * 3600
+            burn_mask = self.df['timestamp'] >= burn_until
+            self.df = self.df[burn_mask].reset_index(drop=True)
+            self.burn_applied = True
+            
+        if self.df.empty:
+            print(f"  WARNING: No data for {self.date_str} in full_df")
+            return
+
+        self.close = self.df['close'].values.astype(float)
+        self.high = self.df['high'].values.astype(float)
+        self.low = self.df['low'].values.astype(float)
+        self.timestamps = self.df['timestamp'].values.astype(float)
+        self.dt_stamps = [datetime.fromtimestamp(t, tz=timezone.utc) for t in self.timestamps]
+        
+        print("  Computing anchors...")
+        target_ts = self.df['timestamp'].values.astype(np.int64)
+        M_15s, S_15s = compute_anchor('15s', target_ts, t_start, t_end, window=20, column='close')
+        M_1m,  S_1m  = compute_anchor('1m',  target_ts, t_start, t_end, window=15, column='close')
+        M_15m, S_15m = compute_anchor('15m', target_ts, t_start, t_end, window=12, column='close')
+        Mh_1h, Sh_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='high')
+        Ml_1h, Sl_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='low')
+        Mc_1h, Sc_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='close')
+        
+        self.anchors = {}
+        if M_15s is not None: self.anchors['M_15s'], self.anchors['S_15s'] = M_15s, S_15s
+        if M_1m is not None: self.anchors['M_1m'], self.anchors['S_1m'] = M_1m, S_1m
+        if M_15m is not None: self.anchors['M_15m'], self.anchors['S_15m'] = M_15m, S_15m
+        if Mh_1h is not None: self.anchors['Mh_1h'], self.anchors['Sh_1h'] = Mh_1h, Sh_1h
+        if Ml_1h is not None: self.anchors['Ml_1h'], self.anchors['Sl_1h'] = Ml_1h, Sl_1h
+        if Mc_1h is not None: self.anchors['Mc_1h'], self.anchors['Sc_1h'] = Mc_1h, Sc_1h
+
+        self._compute_cubic_candidates()
+        
+        # Load trades for EVERY session-day in the span so multi-day and paged
+        # views stay CONTINUOUS across the end-of-day boundary. AI picks are stored
+        # per session-day (DATA/ai_cusp_picks/ai_picks_YYYY-MM-DD_multi.json), so a
+        # multi-day window or a pan past the current day must load each day's file,
+        # not just the first (start_str). The ts0<=entry_ts<=ts1 filter below trims
+        # anything outside the actually-loaded window.
+        self.loaded_trades = []
+        span_days = []
+        _d = self.start_dt_cal
+        while _d <= end_dt_cal:
+            span_days.append(_d.strftime('%Y-%m-%d'))
+            _d = _d + pd.Timedelta(days=1)
+        if self.load_ai:
+            import json
+            n_files = 0
+            for day_str in span_days:
+                ai_path = f"DATA/ai_cusp_picks/ai_picks_{day_str}_multi.json"
+                if os.path.exists(ai_path):
+                    with open(ai_path, 'r') as f:
+                        self.loaded_trades.extend(json.load(f).get('trades', []))
+                    n_files += 1
+            print(f"  [load-ai] {n_files}/{len(span_days)} day file(s), "
+                  f"{len(self.loaded_trades)} trades")
+        elif self.load_trades_path:
+            import re
+            seen_paths = set()
+            for day_str in span_days:
+                resolved_path = re.sub(r'\d{4}-\d{2}-\d{2}', day_str, self.load_trades_path)
+                if resolved_path in seen_paths:
+                    continue  # static (undated) file: load once, window-filter below
+                seen_paths.add(resolved_path)
+                if os.path.exists(resolved_path):
+                    self.loaded_trades.extend(load_trades(resolved_path))
+            if not self.loaded_trades:
+                print(f"  [autoload] No trade files found for {self.date_str}")
+
+        if self.loaded_trades:
+            ts0 = float(self.df['timestamp'].iloc[0])
+            ts1 = float(self.df['timestamp'].iloc[-1])
+            self.loaded_trades = [t for t in self.loaded_trades if ts0 <= t['entry_ts'] <= ts1]
+            
+        self.picks = []
+        self._pick_artists = []
+        self._autoload_existing_picks()
+        
+        self._draw_all()
+        
+    def _draw_all(self):
+        import matplotlib.dates as mdates
+        self.ax.cla()
+        self.ax.set_facecolor('#FAFAFA')
+
+        self.ax.plot(self.dt_stamps, self.close, color='#212121', linewidth=1.0, alpha=0.9, label='Close')
+        self.ax.fill_between(self.dt_stamps, self.low, self.high, alpha=0.06, color='#212121')
+
+        self._overlay_artists = {'15s': [], '1m': [], '15m': [], '1h_hl': [], 'cubic': []}
+        self._loaded_artists = []
+        
+        self._draw_overlays()
+        self._draw_loaded_trades()
+        self._apply_overlay_visibility()
+        
+        for i, p in enumerate(self.picks):
+            self._draw_pick(p, i)
+
+        self.ax.set_ylabel('Price', fontsize=11)
+        self.ax.grid(True, alpha=0.2)
+        self.ax.legend(loc='upper left', fontsize=8, ncol=2, framealpha=0.85)
+
+        seen = set()
+        for i, dt_s in enumerate(self.dt_stamps):
+            day_str = dt_s.strftime('%Y-%m-%d')
+            if day_str not in seen:
+                seen.add(day_str)
+                if i > 0:
+                    self.ax.axvline(x=dt_s, color='#FF9800', linewidth=1.2, linestyle='-', alpha=0.4)
+                    
+        n_bars = len(self.dt_stamps)
+        bars_per_hour = {'15s': 240, '30s': 120, '1m': 60, '5m': 12, '15m': 4, '30m': 2, '1h': 1}.get(self.tf, 60)
+        if self.picks:
+            pick_idxs = [p['bar_index'] for p in self.picks]
+            pad = bars_per_hour
+            left_idx = max(0, min(pick_idxs) - pad)
+            right_idx = min(n_bars - 1, max(pick_idxs) + pad)
+            min_width = bars_per_hour * 4
+            if right_idx - left_idx < min_width:
+                center = (left_idx + right_idx) // 2
+                left_idx = max(0, center - min_width // 2)
+                right_idx = min(n_bars - 1, center + min_width // 2)
+            self.ax.set_xlim(mdates.date2num(self.dt_stamps[left_idx]), mdates.date2num(self.dt_stamps[right_idx]))
+        else:
+            zoom_end = min(bars_per_hour * 4, n_bars - 1)
+            self.ax.set_xlim(mdates.date2num(self.dt_stamps[0]), mdates.date2num(self.dt_stamps[zoom_end]))
+            
+        self._autofit_y()
+        self._update_title()
+        self.fig.canvas.draw_idle()
+
 
     # ── Candidate Classifier & Cubic Generation ────────────────────────────
 
@@ -990,14 +1154,28 @@ class CuspMarker:
         x_max = mdates.date2num(self.dt_stamps[-1])
         new_left = xlim[0] + shift
         new_right = xlim[1] + shift
+        
+        hit_edge = False
         if new_left < x_min:
-            new_left = x_min
-            new_right = x_min + window
-        if new_right > x_max:
-            new_right = x_max
-            new_left = max(x_min, x_max - window)
-        self.ax.set_xlim(new_left, new_right)
-        self._autofit_y()
+            self.start_dt_cal -= pd.Timedelta(days=self.days_span)
+            hit_edge = True
+        elif new_right > x_max:
+            self.start_dt_cal += pd.Timedelta(days=self.days_span)
+            hit_edge = True
+            
+        if hit_edge:
+            self._save()  # Auto-save picks before loading new day
+            self.load_day_range()
+            # Restore window size approximately
+            new_x_min = mdates.date2num(self.dt_stamps[0])
+            new_x_max = mdates.date2num(self.dt_stamps[-1])
+            if direction > 0:
+                self.ax.set_xlim(new_x_min, new_x_min + window)
+            else:
+                self.ax.set_xlim(new_x_max - window, new_x_max)
+        else:
+            self.ax.set_xlim(new_left, new_right)
+            self._autofit_y()
         self._train_and_update_classifier()
         self.fig.canvas.draw_idle()
 
@@ -1248,61 +1426,10 @@ class CuspMarker:
         from matplotlib.widgets import Cursor, Button
 
         self.fig, self.ax = plt.subplots(1, 1, figsize=(22, 9))
-        # Extra bottom space for two rows of touch-friendly buttons
         self.fig.subplots_adjust(bottom=0.18)
-        self.ax.set_facecolor('#FAFAFA')
-
-        # Price (close + H/L band)
-        self.ax.plot(self.dt_stamps, self.close, color='#212121',
-                        linewidth=1.0, alpha=0.9, label='Close')
-        self.ax.fill_between(self.dt_stamps, self.low, self.high,
-                                alpha=0.06, color='#212121')
-
-        self._draw_overlays()
-        self._draw_loaded_trades()
-        # Apply persisted overlay visibility AFTER artists exist
-        self._apply_overlay_visibility()
-        # Render autoloaded picks (from disk via _autoload_existing_picks)
-        for i, p in enumerate(self.picks):
-            self._draw_pick(p, i)
-
-        self.ax.set_ylabel('Price', fontsize=11)
-        self.ax.grid(True, alpha=0.2)
-        self.ax.legend(loc='upper left', fontsize=8, ncol=2, framealpha=0.85)
-
-        # Day-divider lines
-        seen = set()
-        for i, dt_s in enumerate(self.dt_stamps):
-            day_str = dt_s.strftime('%Y-%m-%d')
-            if day_str not in seen:
-                seen.add(day_str)
-                if i > 0:
-                    self.ax.axvline(x=dt_s, color='#FF9800', linewidth=1.2,
-                                          linestyle='-', alpha=0.4)
-
-        # Initial zoom: if picks were autoloaded, span them all + 1h padding.
-        # Otherwise default to first 4 hours of the day.
-        n_bars = len(self.dt_stamps)
-        bars_per_hour = {'15s': 240, '30s': 120, '1m': 60, '5m': 12,
-                              '15m': 4, '30m': 2, '1h': 1}.get(self.tf, 60)
-        if self.picks:
-            pick_idxs = [p['bar_index'] for p in self.picks]
-            pad = bars_per_hour     # 1 hour of padding each side
-            left_idx = max(0, min(pick_idxs) - pad)
-            right_idx = min(n_bars - 1, max(pick_idxs) + pad)
-            # Ensure window is at least 4 hours wide for context
-            min_width = bars_per_hour * 4
-            if right_idx - left_idx < min_width:
-                center = (left_idx + right_idx) // 2
-                left_idx = max(0, center - min_width // 2)
-                right_idx = min(n_bars - 1, center + min_width // 2)
-            self.ax.set_xlim(mdates.date2num(self.dt_stamps[left_idx]),
-                                  mdates.date2num(self.dt_stamps[right_idx]))
-        else:
-            zoom_end = min(bars_per_hour * 4, n_bars - 1)
-            self.ax.set_xlim(mdates.date2num(self.dt_stamps[0]),
-                                  mdates.date2num(self.dt_stamps[zoom_end]))
-        self._autofit_y()
+        
+        # Load the data, compute anchors, and draw everything
+        self.load_day_range()
 
         self.ax.format_coord = lambda x, y: f'Price: {y:.2f}'
         self.cursor = Cursor(self.ax, useblit=True, color='gray',
@@ -1448,108 +1575,26 @@ def main():
     import pytz
     est = pytz.timezone('US/Eastern')
 
-    start_str, end_str = _parse_date_range(args.date)
-    
+    start_str, _ = _parse_date_range(args.date)
     start_dt_cal = datetime.strptime(start_str, '%Y-%m-%d')
-    end_dt_cal = datetime.strptime(end_str, '%Y-%m-%d')
     
-    if start_str == end_str and args.days > 1:
-        end_dt_cal = start_dt_cal + pd.Timedelta(days=args.days - 1).to_pytimedelta()
-
-    # The trading session for a given trade date starts at 18:00 EST on the PREVIOUS day,
-    # and ends at 17:00 EST on the CURRENT day. This captures the Globex open exactly after the maintenance window.
-    session_start = est.localize(datetime(
-        start_dt_cal.year, start_dt_cal.month, start_dt_cal.day, 18, 0, 0
-    )) - pd.Timedelta(days=1)
-    
-    session_end = est.localize(datetime(
-        end_dt_cal.year, end_dt_cal.month, end_dt_cal.day, 17, 0, 0
-    ))
-
-    t_start = session_start.timestamp()
-    t_end = session_end.timestamp()
-
-    date_label = (f"{start_str}" if start_str == end_str
-                       else f"{start_str}:{end_str}")
-    print(f"Cusp Marker -- {date_label} ({args.tf})")
-
     print("Loading data...")
     df = load_atlas_tf(args.data_dir, args.tf)
     if df.empty:
         print(f"ERROR: No {args.tf} data")
         sys.exit(1)
-    mask = (df['timestamp'] >= t_start) & (df['timestamp'] < t_end)
-    df_day = df[mask].reset_index(drop=True)
 
-    if args.burn_hours > 0:
-        burn_until = t_start + args.burn_hours * 3600
-        burn_mask = df_day['timestamp'] >= burn_until
-        n_burned = (~burn_mask).sum()
-        df_day = df_day[burn_mask].reset_index(drop=True)
-        print(f"  Burned first {args.burn_hours}h ({n_burned} bars skipped)")
-
-    if df_day.empty:
-        print(f"ERROR: No data for {date_label}")
-        sys.exit(1)
-
-    ts_first = datetime.fromtimestamp(float(df_day['timestamp'].iloc[0]), tz=timezone.utc)
-    ts_last = datetime.fromtimestamp(float(df_day['timestamp'].iloc[-1]), tz=timezone.utc)
-    span_hours = (float(df_day['timestamp'].iloc[-1]) - float(df_day['timestamp'].iloc[0])) / 3600
-    print(f"  {len(df_day)} bars | {ts_first.strftime('%a %b %d %H:%M')} -> "
-              f"{ts_last.strftime('%a %b %d %H:%M')} UTC ({span_hours:.1f}h)")
-
-    print("Computing anchors (15s CRM, 1m CRM, 15m CRM, 1h HL RM)...")
-    target_ts = df_day['timestamp'].values.astype(np.int64)
-    # 15s window=20 → 5-min lookback (tight tactical anchor)
-    # 1m  window=15 → 15-min lookback (matches L3_1m N_BASE=15)
-    # 15m window=12 → 3-hr lookback (medium context)
-    # 1h  window=12 → 12-hr lookback (slow HL envelope)
-    M_15s, S_15s = compute_anchor('15s', target_ts, t_start, t_end, window=20, column='close')
-    M_1m,  S_1m  = compute_anchor('1m',  target_ts, t_start, t_end, window=15, column='close')
-    M_15m, S_15m = compute_anchor('15m', target_ts, t_start, t_end, window=12, column='close')
-    Mh_1h, Sh_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='high')
-    Ml_1h, Sl_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='low')
-    Mc_1h, Sc_1h = compute_anchor('1h',  target_ts, t_start, t_end, window=12, column='close')
-
-    anchors = {}
-    if M_15s is not None:
-        anchors['M_15s'], anchors['S_15s'] = M_15s, S_15s
-    if M_1m is not None:
-        anchors['M_1m'], anchors['S_1m'] = M_1m, S_1m
-    if M_15m is not None:
-        anchors['M_15m'], anchors['S_15m'] = M_15m, S_15m
-    if Mh_1h is not None:
-        anchors['Mh_1h'], anchors['Sh_1h'] = Mh_1h, Sh_1h
-    if Ml_1h is not None:
-        anchors['Ml_1h'], anchors['Sl_1h'] = Ml_1h, Sl_1h
-    if Mc_1h is not None:
-        anchors['Mc_1h'], anchors['Sc_1h'] = Mc_1h, Sc_1h
-    print(f"  Anchors loaded: {list(anchors.keys())}")
-
-    # Load trades to overlay (optional)
-    loaded_trades = []
-    if args.load_ai:
-        ai_path = f"DATA/ai_cusp_picks/ai_picks_{start_str}_multi.json"
-        if os.path.exists(ai_path):
-            import json
-            print(f'Loading AI picks: {ai_path}')
-            with open(ai_path, 'r') as f:
-                loaded_trades = json.load(f).get('trades', [])
-    elif args.load_trades:
-        print(f'Loading trades: {args.load_trades}')
-        loaded_trades = load_trades(args.load_trades)
-        
-    if loaded_trades:
-            ts0 = float(df_day['timestamp'].iloc[0])
-            ts1 = float(df_day['timestamp'].iloc[-1])
-            in_window = [t for t in loaded_trades
-                              if ts0 <= t['entry_ts'] <= ts1]
-            print(f'  {len(in_window)}/{len(loaded_trades)} trades in chart window')
-            loaded_trades = in_window
-
-    marker = CuspMarker(df_day, date_label, tf=args.tf, anchors=anchors,
-                              fwd_mins=args.fwd_mins, loaded_trades=loaded_trades,
-                              cubic_n=args.cubic_n)
+    marker = CuspMarker(
+        full_df=df,
+        start_dt_cal=start_dt_cal,
+        days_span=args.days,
+        tf=args.tf,
+        fwd_mins=args.fwd_mins,
+        load_ai=args.load_ai,
+        load_trades_path=args.load_trades,
+        cubic_n=args.cubic_n,
+        burn_hours=args.burn_hours
+    )
     marker.run()
 
 
