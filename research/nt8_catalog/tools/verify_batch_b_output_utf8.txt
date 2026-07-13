@@ -1,0 +1,55 @@
+﻿Building daily context from parquets...
+
+--- Verifying 2024_02_01 ---
+Running FPS...
+ADX-08:
+  Native triggers: 2
+  Legacy triggers: 2
+  First native: {'timestamp': 1706803820, 'setup': 1, 'mode': 'bullish_runner'}
+  First legacy: {'timestamp': 1706803820, 'setup': 1, 'mode': 'bullish_runner'}
+ATR-09:
+  Native triggers: 3
+  Legacy triggers: 3
+  First native: {'timestamp': 1706807165, 'setup': 50, 'mode': 'bearish_fade'}
+  First legacy: {'timestamp': 1706803205, 'setup': 51, 'mode': 'bullish_fade'}
+CROSS-11:
+  Native triggers: 2
+  Legacy triggers: 1
+  First native: {'timestamp': 1706802195, 'setup': 1, 'mode': 'bullish_runner'}
+  First legacy: {'timestamp': 1706802195, 'setup': 1, 'mode': 'bullish_runner'}
+DOW-19:
+  Native triggers: 71
+  Legacy triggers: 70
+  First native: {'timestamp': 1706797880, 'setup': 2, 'mode': 'bullish_trap'}
+  First legacy: {'timestamp': 1706797910, 'setup': 1, 'mode': 'bearish_trap'}
+FIB-17:
+  Native triggers: 1
+  Legacy triggers: 0
+  First native: {'timestamp': 1706801385, 'setup': 2, 'mode': 'bearish_bounce'}
+
+--- Verifying 2024_01_03 ---
+Not enough history for this day.
+
+--- Verifying 2024_03_05 ---
+Running FPS...
+ADX-08:
+  Native triggers: 0
+  Legacy triggers: 0
+ATR-09:
+  Native triggers: 3
+  Legacy triggers: 3
+  First native: {'timestamp': 1709651325, 'setup': 51, 'mode': 'bullish_fade'}
+  First legacy: {'timestamp': 1709651325, 'setup': 51, 'mode': 'bullish_fade'}
+CROSS-11:
+  Native triggers: 0
+  Legacy triggers: 0
+DOW-19:
+  Native triggers: 71
+  Legacy triggers: 70
+  First native: {'timestamp': 1709649145, 'setup': 2, 'mode': 'bullish_trap'}
+  First legacy: {'timestamp': 1709649145, 'setup': 2, 'mode': 'bullish_trap'}
+FIB-17:
+  Native triggers: 1
+  Legacy triggers: 1
+  First native: {'timestamp': 1709667490, 'setup': 1, 'mode': 'bullish_bounce'}
+  First legacy: {'timestamp': 1709667195, 'setup': 1, 'mode': 'bullish_bounce'}
