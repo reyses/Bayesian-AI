@@ -24,18 +24,18 @@ part of the standard structure. **Every turn of the loop is a NEW standalone doc
 ## The loop
 1. **Findings**: Claude writes an audit/findings doc with a numbered
    "Required next actions" section (e.g., `SECOND_AUDIT_FINDINGS.md §4`).
-2. **Plan**: AG writes a response plan as a NEW dated file (or a dated appended
-   section) in the same folder, ending with `*(Waiting for Reviewer Verdict)*`.
-   A plan describes intended changes — it never claims completion.
-3. **Verdict**: Claude appends `## Reviewer Verdict (Claude, round N)` to that file:
-   **APPROVED — EXECUTE** (optionally with numbered BINDING mods) or
-   **MODS REQUIRED**. AG executes only after approval, mods folded in.
-4. **Execution report**: AG appends (or writes a linked doc): files touched,
-   root causes found, and how each numbered item was addressed.
-5. **Verification**: Claude verifies against ARTIFACTS, not claims — reads the
-   actual scripts/DOCs, sanity-checks magnitudes (MNQ per-event EVs must be
-   plausible: single-digit-to-tens of points), checks mtimes vs claims.
-   Appends **✅ VERIFIED** (may carry a non-blocking punch-list) or
+2. **Plan**: AG writes a plan as the NEXT FREE numbered doc, ending with
+   `*(Awaiting Reviewer Verdict)*`. **A plan describes intended changes — it never
+   claims completion, and NO CODE IS WRITTEN YET.**
+3. **Verdict**: Claude writes the NEXT FREE numbered doc: **APPROVED — EXECUTE**
+   (optionally with numbered BINDING mods) or **MODS REQUIRED**.
+   **AG executes ONLY after an APPROVED verdict.** "MODS REQUIRED" means revise the
+   plan and resubmit — it is NOT permission to build.
+4. **Execution report**: AG writes the NEXT FREE numbered doc: files touched, root
+   causes, how each numbered mod was addressed, and PASTED raw output as evidence.
+5. **Verification**: Claude verifies against ARTIFACTS, not claims — reads the actual
+   code, RE-RUNS the executor's own verifier, sanity-checks magnitudes, checks mtimes.
+   Writes the NEXT FREE numbered doc: **✅ VERIFIED** (may carry a punch-list) or
    **❌ REJECTED** with numbered failures → back to step 2.
 6. Journals updated at each verdict (docs/daily + INDEX).
 
@@ -51,6 +51,22 @@ part of the standard structure. **Every turn of the loop is a NEW standalone doc
   false completion checkbox.)
 - **No self-certification.** "Successfully executed" from the executor is a claim,
   not a verification. Only the reviewer stamps VERIFIED.
+- **TASK_COMPLETE and "cleared for next batch" are the REVIEWER's words, not the
+  executor's.** AG must never set `Status: TASK_COMPLETE`, never declare a loop
+  closed, and never authorise its own next phase. AG's status values are limited to
+  `PROPOSED` / `AWAITING VERDICT` / `EXECUTED — AWAITING VERIFICATION`.
+- **Claim-evidence coupling** (from doc 029): every factual claim in an AG doc must
+  carry (a) the artifact path and (b) PASTED raw output (command + result). A parity
+  or results claim with no pasted run output is void, and if the reviewer's re-run
+  contradicts it, that is a false-claim violation.
+- **Next FREE number only.** Never reuse or collide with an existing doc number; read
+  the folder listing first. A collision voids the turn.
+- **Read this protocol at the START of every turn.** It is the single source of truth
+  and it changes; project-specific amendments live in that project's comms docs and
+  bind equally (e.g. nt8_catalog doc 050: `core_v2/FPS/*` is FROZEN).
+- **Pre-registered auto-fail tells** — check BEFORE reporting any result:
+  impossible perfection (`%>0 = 1.00`, 100% win rates), physically impossible
+  magnitudes, and index-space provenance (which slice/convention is an index in?).
 - **mtime is evidence.** A "completed" item whose artifact predates the finding is
   automatically false.
 - **Numbers must be physically possible** before any table ships (the −533 pts/event

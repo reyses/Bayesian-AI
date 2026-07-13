@@ -22,8 +22,8 @@ class ORB02Detector(Detector):
         t = dt.time()
         
         if pd.Timestamp('08:30').time() <= t < pd.Timestamp('09:00').time():
-            self.or_high = max(self.or_high, state.ohlcv_5s['high'])
-            self.or_low = min(self.or_low, state.ohlcv_5s['low'])
+            self.or_high = max(self.or_high, state.ohlcv_5s['close'])
+            self.or_low = min(self.or_low, state.ohlcv_5s['close'])
             
         elif t >= pd.Timestamp('09:00').time() and t <= pd.Timestamp('15:15').time():
             self.or_set = True
@@ -99,31 +99,53 @@ class RENKO24Detector(Detector):
         close = state.ohlcv_5s['close']
         
         if self.prev_brick_close is None:
-            self.prev_brick_close = close
+            self.prev_brick_close = np.floor(close / self.brick_size) * self.brick_size
             return 0, ''
             
-        diff = close - self.prev_brick_close
-        if diff >= self.brick_size:
-            bricks = int(diff // self.brick_size)
-            self.prev_brick_close += bricks * self.brick_size
-            if self.curr_dir == 1:
-                self.brick_chain += bricks
-            else:
-                self.curr_dir = 1
-                self.brick_chain = bricks
-        elif diff <= -self.brick_size:
-            bricks = int(-diff // self.brick_size)
-            self.prev_brick_close -= bricks * self.brick_size
-            if self.curr_dir == -1:
-                self.brick_chain += bricks
-            else:
-                self.curr_dir = -1
-                self.brick_chain = bricks
-        else:
-            return 0, ''
-            
-        if self.brick_chain == 2:
-            return (1, 'bullish_renko') if self.curr_dir == 1 else (2, 'bearish_renko')
+        triggered_setup = 0
+        triggered_mode = ''
+        
+        while True:
+            if self.curr_dir == 0:
+                if close >= self.prev_brick_close + self.brick_size:
+                    self.curr_dir = 1
+                    self.prev_brick_close += self.brick_size
+                    self.brick_chain = 1
+                elif close <= self.prev_brick_close - self.brick_size:
+                    self.curr_dir = -1
+                    self.prev_brick_close -= self.brick_size
+                    self.brick_chain = 1
+                else:
+                    break
+            elif self.curr_dir == 1:
+                if close >= self.prev_brick_close + self.brick_size:
+                    self.curr_dir = 1
+                    self.prev_brick_close += self.brick_size
+                    self.brick_chain += 1
+                    if self.brick_chain == 2:
+                        triggered_setup, triggered_mode = 1, 'bullish_renko'
+                elif close <= self.prev_brick_close - 2 * self.brick_size:
+                    self.curr_dir = -1
+                    self.prev_brick_close -= 2 * self.brick_size
+                    self.brick_chain = 1
+                else:
+                    break
+            elif self.curr_dir == -1:
+                if close <= self.prev_brick_close - self.brick_size:
+                    self.curr_dir = -1
+                    self.prev_brick_close -= self.brick_size
+                    self.brick_chain += 1
+                    if self.brick_chain == 2:
+                        triggered_setup, triggered_mode = 2, 'bearish_renko'
+                elif close >= self.prev_brick_close + 2 * self.brick_size:
+                    self.curr_dir = 1
+                    self.prev_brick_close += 2 * self.brick_size
+                    self.brick_chain = 1
+                else:
+                    break
+                    
+        if triggered_setup != 0:
+            return triggered_setup, triggered_mode
             
         return 0, ''
 
@@ -135,8 +157,12 @@ class VWAP03Detector(Detector):
         self.primed_bull = False
         self.primed_bear = False
         self.z_prev = 0.0
+        self.triggered = False
         
     def on_bar(self, state) -> tuple[int, str]:
+        if self.triggered:
+            return 0, ''
+            
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
@@ -183,6 +209,8 @@ class VWAP03Detector(Detector):
             self.primed_bull = False
             
         self.z_prev = z_curr
+        if res[0] != 0:
+            self.triggered = True
         return res
 
 class OHLC01Detector(Detector):
@@ -190,15 +218,10 @@ class OHLC01Detector(Detector):
         self.pdh = pdh
         self.pdl = pdl
         self.pdc = pdc
-        self.setup_id = 0
-        self.mode = ''
-        self.triggered = False
+        self.triggered_setups = set()
         self.open_price = None
 
     def on_bar(self, state) -> tuple[int, str]:
-        if self.triggered:
-            return 0, ''
-            
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
@@ -208,32 +231,25 @@ class OHLC01Detector(Detector):
             
         if self.open_price is None:
             self.open_price = state.price
-            if self.open_price < self.pdh:
-                self.setup_id = 1
-                self.mode = 'bearish_bounce'
-            elif self.open_price > self.pdl:
-                self.setup_id = 2
-                self.mode = 'bullish_bounce'
-            elif abs(self.open_price - self.pdc) > 2.5:
-                self.setup_id = 3
-                self.mode = 'bullish_bounce' if self.open_price < self.pdc else 'bearish_bounce'
-            else:
-                self.triggered = True
-                return 0, ''
+            self.primed_1 = self.open_price < self.pdh
+            self.primed_2 = self.open_price > self.pdl
+            self.primed_3 = abs(self.open_price - self.pdc) > 2.5
                 
-        if self.setup_id == 1 and state.price >= self.pdh:
-            self.triggered = True
-            return 1, self.mode
-        if self.setup_id == 2 and state.price <= self.pdl:
-            self.triggered = True
-            return 2, self.mode
-        if self.setup_id == 3:
-            if self.mode == 'bullish_bounce' and state.price >= self.pdc:
-                self.triggered = True
-                return 3, self.mode
-            elif self.mode == 'bearish_bounce' and state.price <= self.pdc:
-                self.triggered = True
-                return 3, self.mode
+        if self.primed_1 and 1 not in self.triggered_setups and state.price >= self.pdh:
+            self.triggered_setups.add(1)
+            return 1, 'bearish_bounce'
+            
+        if self.primed_2 and 2 not in self.triggered_setups and state.price <= self.pdl:
+            self.triggered_setups.add(2)
+            return 2, 'bullish_bounce'
+            
+        if self.primed_3 and 3 not in self.triggered_setups:
+            if self.open_price < self.pdc and state.price >= self.pdc:
+                self.triggered_setups.add(3)
+                return 3, 'bullish_bounce'
+            elif self.open_price > self.pdc and state.price <= self.pdc:
+                self.triggered_setups.add(3)
+                return 3, 'bearish_bounce'
                 
         return 0, ''
 
@@ -242,15 +258,10 @@ class PIVOT16Detector(Detector):
         self.pp = (pdh + pdl + pdc) / 3.0
         self.s1 = (2 * self.pp) - pdh
         self.r1 = (2 * self.pp) - pdl
-        self.setup_id = 0
-        self.mode = ''
-        self.triggered = False
+        self.triggered_setups = set()
         self.open_price = None
 
     def on_bar(self, state) -> tuple[int, str]:
-        if self.triggered:
-            return 0, ''
-            
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
@@ -260,22 +271,16 @@ class PIVOT16Detector(Detector):
             
         if self.open_price is None:
             self.open_price = state.price
-            if self.open_price > self.s1:
-                self.setup_id = 1
-                self.mode = 'bullish_bounce'
-            elif self.open_price < self.r1:
-                self.setup_id = 2
-                self.mode = 'bearish_bounce'
-            else:
-                self.triggered = True
-                return 0, ''
+            self.primed_1 = self.open_price > self.s1
+            self.primed_2 = self.open_price < self.r1
                 
-        if self.setup_id == 1 and state.price <= self.s1:
-            self.triggered = True
-            return 1, self.mode
-        if self.setup_id == 2 and state.price >= self.r1:
-            self.triggered = True
-            return 2, self.mode
+        if self.primed_1 and 1 not in self.triggered_setups and state.price <= self.s1:
+            self.triggered_setups.add(1)
+            return 1, 'bullish_bounce'
+            
+        if self.primed_2 and 2 not in self.triggered_setups and state.price >= self.r1:
+            self.triggered_setups.add(2)
+            return 2, 'bearish_bounce'
             
         return 0, ''
 
@@ -283,8 +288,12 @@ class ROUND05Detector(Detector):
     def __init__(self):
         self.primed_bullish = {}
         self.primed_bearish = {}
+        self.triggered = False
 
     def on_bar(self, state) -> tuple[int, str]:
+        if self.triggered:
+            return 0, ''
+            
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
@@ -327,6 +336,7 @@ class ROUND05Detector(Detector):
                 self.primed_bearish[L] = False
                 
         if triggered_mode:
+            self.triggered = True
             return triggered_setup, triggered_mode
             
         return 0, ''

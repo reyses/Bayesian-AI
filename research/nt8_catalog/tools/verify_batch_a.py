@@ -28,11 +28,15 @@ def load_prior_ohlc(prior_day):
     p = os.path.join(ROOT, 'DATA', 'ATLAS', '5s', f'{prior_day}.parquet')
     if not os.path.exists(p):
         return None
-    df = pd.read_parquet(p, columns=['close'])
+    df = pd.read_parquet(p, columns=['close', 'timestamp'])
+    dt = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
+    m = (dt.dt.time >= pd.Timestamp('08:30').time()) & (dt.dt.time <= pd.Timestamp('15:15').time())
+    df_rth = df[m]
     return {
         'high': float(df['close'].max()),
         'low': float(df['close'].min()),
-        'close': float(df['close'].iloc[-1])
+        'close': float(df['close'].iloc[-1]),
+        'rth_close': float(df_rth['close'].iloc[-1]) if len(df_rth) > 0 else float(df['close'].iloc[-1])
     }
 
 def verify_day(day, prior_day):
@@ -48,10 +52,11 @@ def verify_day(day, prior_day):
         return
         
     pdh, pdl, pdc = yest_ohlc['high'], yest_ohlc['low'], yest_ohlc['close']
+    pdc_rth = yest_ohlc['rth_close']
     
     detectors = {
         'ORB-02': ORB02Detector(),
-        'SEASON-12': SEASON12Detector(pdc),
+        'SEASON-12': SEASON12Detector(pdc_rth),
         'RENKO-24': RENKO24Detector(),
         'VWAP-03': VWAP03Detector(),
         'OHLC-01': OHLC01Detector(pdh, pdl, pdc),
@@ -95,17 +100,26 @@ def verify_day(day, prior_day):
             continue
             
         legacy_df = pd.read_parquet(legacy_path)
-        legacy_day = legacy_df[legacy_df['day'] == day.replace('_', '-')]
+        legacy_day = legacy_df[legacy_df['day'] == day]
         
         legacy_events = []
         for _, row in legacy_day.iterrows():
             idx = int(row['event_idx'])
-            if idx < len(ts_map):
-                legacy_events.append({
-                    'timestamp': int(ts_map[idx]),
-                    'setup': row['setup'],
-                    'mode': row['mode']
-                })
+            if name == 'ORB-02':
+                idx += 360 # offset 08:30 to 09:00
+            
+            if name == 'RENKO-24':
+                ts = 0 # Brick indices are unmappable
+            elif idx < len(ts_map):
+                ts = int(ts_map[idx])
+            else:
+                ts = 0
+                
+            legacy_events.append({
+                'timestamp': ts,
+                'setup': row['setup'],
+                'mode': row['mode']
+            })
                 
         print(f"{name}:")
         print(f"  Native triggers: {len(triggers[name])}")
@@ -119,3 +133,4 @@ def verify_day(day, prior_day):
 if __name__ == '__main__':
     verify_day('2024_03_04', '2024_03_01')
     verify_day('2024_03_05', '2024_03_04')
+    verify_day('2024_03_06', '2024_03_05')
