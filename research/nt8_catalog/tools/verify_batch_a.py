@@ -24,6 +24,14 @@ def rth_ts(day_fmt):
     m = (dt.dt.time >= pd.Timestamp('08:30').time()) & (dt.dt.time <= pd.Timestamp('15:15').time())
     return df['timestamp'].values[m.values].astype(np.int64)
 
+def full_ts(day_fmt):
+    """Full 5s bar timestamps for a day to map full-session event_idx."""
+    p = os.path.join(ROOT, 'DATA', 'ATLAS', '5s', f'{day_fmt}.parquet')
+    if not os.path.exists(p):
+        return None
+    df = pd.read_parquet(p, columns=['timestamp'])
+    return df['timestamp'].values.astype(np.int64)
+
 def load_prior_ohlc(prior_day):
     p = os.path.join(ROOT, 'DATA', 'ATLAS', '5s', f'{prior_day}.parquet')
     if not os.path.exists(p):
@@ -42,7 +50,8 @@ def load_prior_ohlc(prior_day):
 def verify_day(day, prior_day):
     print(f"\n--- Verifying {day} ---")
     ts_map = rth_ts(day)
-    if ts_map is None:
+    ts_map_full = full_ts(day)
+    if ts_map is None or ts_map_full is None:
         print("No 5s data for day.")
         return
         
@@ -110,6 +119,11 @@ def verify_day(day, prior_day):
             
             if name == 'RENKO-24':
                 ts = 0 # Brick indices are unmappable
+            elif name == 'SEASON-12':
+                if idx < len(ts_map_full):
+                    ts = int(ts_map_full[idx])
+                else:
+                    ts = 0
             elif idx < len(ts_map):
                 ts = int(ts_map[idx])
             else:
@@ -122,6 +136,8 @@ def verify_day(day, prior_day):
             })
                 
         print(f"{name}:")
+        if name == 'RENKO-24':
+            print("  Note: RENKO timestamps are inherently unmappable (parity is count/mode-only).")
         print(f"  Native triggers: {len(triggers[name])}")
         print(f"  Legacy triggers: {len(legacy_events)}")
         

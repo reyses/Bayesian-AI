@@ -41,9 +41,6 @@ class ORB02Detector(Detector):
 class SEASON12Detector(Detector):
     def __init__(self, pdc: float):
         self.pdc = pdc
-        self.gap_measured = False
-        self.mode = ''
-        self.setup_id = 0
         self.triggered = False
         self.day_of_week = None
 
@@ -61,23 +58,15 @@ class SEASON12Detector(Detector):
         if self.day_of_week is None:
             self.day_of_week = dt.dayofweek + 1
             
-        if not self.gap_measured and t >= pd.Timestamp('08:30').time():
+        if t >= pd.Timestamp('08:30').time():
+            self.triggered = True
             gap = state.price - self.pdc
             if abs(gap) >= 5.0:
-                self.gap_measured = True
-                self.setup_id = self.day_of_week
-                self.mode = 'gap_down' if gap < 0 else 'gap_up'
+                setup_id = self.day_of_week
+                mode = 'gap_down' if gap < 0 else 'gap_up'
+                return setup_id, mode
             else:
-                self.triggered = True
                 return 0, ''
-                
-        if self.gap_measured and not self.triggered:
-            if self.mode == 'gap_down' and state.ohlcv_5s['high'] >= self.pdc:
-                self.triggered = True
-                return self.setup_id, self.mode
-            elif self.mode == 'gap_up' and state.ohlcv_5s['low'] <= self.pdc:
-                self.triggered = True
-                return self.setup_id, self.mode
                 
         return 0, ''
 
@@ -86,6 +75,7 @@ class RENKO24Detector(Detector):
         self.brick_size = 2.0
         self.prev_brick_close = None
         self.curr_dir = 0
+        self.prev_dir = 0
         self.brick_chain = 0
         
     def on_bar(self, state) -> tuple[int, str]:
@@ -109,10 +99,12 @@ class RENKO24Detector(Detector):
             if self.curr_dir == 0:
                 if close >= self.prev_brick_close + self.brick_size:
                     self.curr_dir = 1
+                    self.prev_dir = 0
                     self.prev_brick_close += self.brick_size
                     self.brick_chain = 1
                 elif close <= self.prev_brick_close - self.brick_size:
                     self.curr_dir = -1
+                    self.prev_dir = 0
                     self.prev_brick_close -= self.brick_size
                     self.brick_chain = 1
                 else:
@@ -122,9 +114,10 @@ class RENKO24Detector(Detector):
                     self.curr_dir = 1
                     self.prev_brick_close += self.brick_size
                     self.brick_chain += 1
-                    if self.brick_chain == 2:
+                    if self.brick_chain == 2 and self.prev_dir == -1:
                         triggered_setup, triggered_mode = 1, 'bullish_renko'
                 elif close <= self.prev_brick_close - 2 * self.brick_size:
+                    self.prev_dir = self.curr_dir
                     self.curr_dir = -1
                     self.prev_brick_close -= 2 * self.brick_size
                     self.brick_chain = 1
@@ -135,9 +128,10 @@ class RENKO24Detector(Detector):
                     self.curr_dir = -1
                     self.prev_brick_close -= self.brick_size
                     self.brick_chain += 1
-                    if self.brick_chain == 2:
+                    if self.brick_chain == 2 and self.prev_dir == 1:
                         triggered_setup, triggered_mode = 2, 'bearish_renko'
                 elif close >= self.prev_brick_close + 2 * self.brick_size:
+                    self.prev_dir = self.curr_dir
                     self.curr_dir = 1
                     self.prev_brick_close += 2 * self.brick_size
                     self.brick_chain = 1
