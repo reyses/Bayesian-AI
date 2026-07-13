@@ -378,3 +378,6 @@ epoch_*_summary.png
 epoch_*_trades.csv
 research/nt8_catalog/tools/_doe_cache/
 research/nt8_catalog/tools/_ladder_cache/
+
+# Root runtime flag — written/read at runtime, not source (2026-07-13 tidy)
+graceful_stop.flag
