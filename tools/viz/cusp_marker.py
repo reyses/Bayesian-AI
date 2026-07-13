@@ -472,7 +472,12 @@ class CuspMarker:
         self.ax.set_facecolor('#FAFAFA')
 
         self.ax.plot(self.dt_stamps, self.close, color='#212121', linewidth=1.0, alpha=0.9, label='Close')
-        self.ax.fill_between(self.dt_stamps, self.low, self.high, alpha=0.06, color='#212121')
+        # High-low band made visible (was alpha 0.06, near-invisible). Loaded trade
+        # fills are at intrabar WICK extremes (oracle labeler buys the low / sells the
+        # high), 15-30pt off the close line; the band shows they sit ON price, not
+        # floating. Do NOT snap markers to close — that would falsify the fill.
+        self.ax.fill_between(self.dt_stamps, self.low, self.high, alpha=0.18,
+                             color='#90A4AE', linewidth=0)
 
         self._overlay_artists = {'15s': [], '1m': [], '15m': [], '1h_hl': [], 'cubic': []}
         self._loaded_artists = []
