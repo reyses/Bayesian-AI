@@ -1,5 +1,8 @@
 import os
 import sys
+out_file = open("verifier_output.txt", "w", encoding="utf-8")
+sys.stdout = out_file
+import sys
 import glob
 import pandas as pd
 import numpy as np
@@ -102,6 +105,12 @@ def verify_day(day, daily_data, valid_days):
     df_yest = pd.read_parquet(p_prior, columns=['close'])
     prefill_closes = df_yest['close'].values.tolist()
     
+    p_today = os.path.join(ROOT, 'DATA', 'ATLAS', '5s', f'{day}.parquet')
+    df_today_full = pd.read_parquet(p_today, columns=['timestamp', 'close'])
+    df_today_full['dt'] = pd.to_datetime(df_today_full['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
+    df_today_eth = df_today_full[df_today_full['dt'].dt.time < pd.Timestamp('08:30').time()]
+    prefill_closes.extend(df_today_eth['close'].values.tolist())
+    
     # --- FIB-17 Context ---
     window_14_fib = valid_days[idx-14:idx]
     highs = [daily_data[d]['high'] for d in window_14_fib]
@@ -201,6 +210,6 @@ def verify_day(day, daily_data, valid_days):
 
 if __name__ == '__main__':
     daily_data, valid_days = build_daily_context()
-    verify_day('2024_02_01', daily_data, valid_days)
-    verify_day('2024_01_03', daily_data, valid_days)
-    verify_day('2024_03_05', daily_data, valid_days)
+    days_to_test = valid_days[1:]
+    for d in days_to_test:
+        verify_day(d, daily_data, valid_days)
