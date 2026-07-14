@@ -14,7 +14,8 @@ sys.path.insert(0, HERE)
 
 from core_v2.FPS.forward_pass_system import ForwardPassSystem
 from batch_b_detectors import (
-    ADX08Detector, ATR09Detector, CROSS11Detector, DOW19Detector, FIB17Detector
+    ADX08_SMA_Detector, ADX08_Wilder_Detector, ATR09Detector, CROSS11Detector,
+    DOW19Detector, FIB17Detector
 )
 
 def rth_ts(day_fmt):
@@ -135,7 +136,8 @@ def verify_day(day, daily_data, valid_days):
         fib_618 = swing_low + (range_val * 0.618)
         
     detectors = {
-        'ADX-08': ADX08Detector(),
+        'ADX-08-SMA': ADX08_SMA_Detector(),
+        'ADX-08-WILDER': ADX08_Wilder_Detector(),
         'ATR-09': ATR09Detector(daily_atr=daily_atr),
         'CROSS-11': CROSS11Detector(prefill_closes=prefill_closes),
         'DOW-19': DOW19Detector(),
@@ -143,7 +145,8 @@ def verify_day(day, daily_data, valid_days):
     }
     
     dossier_names = {
-        'ADX-08': 'ADX-08_Trend_Gate',
+        'ADX-08-SMA': 'ADX-08_Trend_Gate',
+        'ADX-08-WILDER': 'ADX-08_Trend_Gate',
         'ATR-09': 'ATR-09_Statistical_Fade',
         'CROSS-11': 'CROSS-11_Golden_Cross',
         'DOW-19': 'DOW-19_Price_Volume_Divergence',

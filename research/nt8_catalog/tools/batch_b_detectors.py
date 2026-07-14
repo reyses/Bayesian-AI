@@ -6,7 +6,15 @@ class Detector:
         """Process one 5s BarState and return (setup_id, mode) if triggered, else (0, '')."""
         return 0, ''
 
-class ADX08Detector(Detector):
+class ADX08_SMA_Detector(Detector):
+    """ADX-08, LEGACY smoothing (doc 071 variant A).
+
+    Reproduces ag_deepdive_08_adx.py:56-60 exactly: +DI/-DI/DX/ADX are smoothed with a
+    SIMPLE moving average (the legacy's own comment: "# Use SMA approximation for speed").
+    This is the comparability baseline against the audited event population.
+    168-bar DMI ADX + 240-bar SMA20; trigger = close crossing SMA20 while ADX > 25;
+    one bullish + one bearish trigger per day (:104).
+    """
     def __init__(self):
         self.prices = []
         self.highs = []
@@ -15,7 +23,7 @@ class ADX08Detector(Detector):
         self.dms_minus = []
         self.trs = []
         self.dxs = []
-        
+
         self.triggered_bull = False
         self.triggered_bear = False
 
@@ -98,6 +106,93 @@ class ADX08Detector(Detector):
             
         return 0, ''
 
+class ADX08_Wilder_Detector(Detector):
+    """ADX-08, CANONICAL Wilder smoothing (doc 071 variant B).
+
+    Identical rule to ADX08_SMA_Detector (168-bar DMI, 240-bar SMA20 cross, ADX>25,
+    one bull + one bear per day) EXCEPT +DM/-DM/TR/DX are smoothed with Wilder's RMA
+    (alpha = 1/N) instead of a simple mean. This is the ADX the article actually means;
+    the legacy concedes its SMA is an approximation "for speed" (:56).
+    Sibling of the SMA variant per Moises' ruling (doc 071) — NOT a replacement.
+    """
+    N_ADX = 168
+    N_SMA = 240
+
+    def __init__(self):
+        self.prices = []
+        self.prev_high = None
+        self.prev_low = None
+        self.prev_close = None
+        # Wilder RMA running state
+        self.rma_dm_plus = None
+        self.rma_dm_minus = None
+        self.rma_tr = None
+        self.rma_dx = None
+        self.warm = 0
+        self.triggered_bull = False
+        self.triggered_bear = False
+
+    @staticmethod
+    def _rma(prev, x, n):
+        return x if prev is None else prev + (x - prev) / n
+
+    def on_bar(self, state) -> tuple[int, str]:
+        ts_s = state.ohlcv_5s['timestamp']
+        dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
+        t = dt.time()
+        if t < pd.Timestamp('08:30').time() or t > pd.Timestamp('15:15').time():
+            return 0, ''
+
+        high = state.ohlcv_5s['high']
+        low = state.ohlcv_5s['low']
+        close = state.ohlcv_5s['close']
+
+        adx = None
+        if self.prev_high is not None:
+            up_move = high - self.prev_high
+            down_move = self.prev_low - low
+            dm_plus = up_move if (up_move > down_move and up_move > 0) else 0.0
+            dm_minus = down_move if (down_move > up_move and down_move > 0) else 0.0
+            tr = max(high - low, abs(high - self.prev_close), abs(low - self.prev_close))
+
+            self.rma_dm_plus = self._rma(self.rma_dm_plus, dm_plus, self.N_ADX)
+            self.rma_dm_minus = self._rma(self.rma_dm_minus, dm_minus, self.N_ADX)
+            self.rma_tr = self._rma(self.rma_tr, tr, self.N_ADX)
+
+            tr_s = self.rma_tr if self.rma_tr else 1e-10
+            di_plus = 100.0 * (self.rma_dm_plus / tr_s)
+            di_minus = 100.0 * (self.rma_dm_minus / tr_s)
+            dx = 100.0 * (abs(di_plus - di_minus) / (di_plus + di_minus + 1e-10))
+            self.rma_dx = self._rma(self.rma_dx, dx, self.N_ADX)
+            self.warm += 1
+            if self.warm >= self.N_ADX:      # same warmup depth as the SMA variant
+                adx = self.rma_dx
+
+        self.prices.append(close)
+        if len(self.prices) > self.N_SMA:
+            self.prices.pop(0)
+
+        self.prev_high, self.prev_low, self.prev_close = high, low, close
+
+        if adx is None or len(self.prices) < self.N_SMA:
+            return 0, ''
+
+        sma20 = float(np.mean(self.prices))
+        prev_sma20 = float(np.mean(self.prices[:-1]))
+        prev_close = self.prices[-2]
+
+        cross_above = (prev_close <= prev_sma20) and (close > sma20)
+        cross_below = (prev_close >= prev_sma20) and (close < sma20)
+
+        if not self.triggered_bull and adx > 25.0 and cross_above:
+            self.triggered_bull = True
+            return 1, 'bullish_runner'
+        if not self.triggered_bear and adx > 25.0 and cross_below:
+            self.triggered_bear = True
+            return 2, 'bearish_runner'
+        return 0, ''
+
+
 class ATR09Detector(Detector):
     def __init__(self, daily_atr: float):
         self.daily_atr = daily_atr
@@ -132,13 +227,22 @@ class ATR09Detector(Detector):
         return 0, ''
 
 class CROSS11Detector(Detector):
+    """CROSS-11: FIRST cross of the session only.
+
+    The legacy is not buggy here — its own comment is `# Scan for first cross` and it
+    `break`s on the first cross in EITHER direction (ag_deepdive_11_cross.py:75-86).
+    One setup per day IS the rule (doc 070/071). Emitting every cross would be a
+    different strategy ("trade every cross"), not a bug fix — so we stop after the
+    first trigger, whichever way it goes.
+    600-bar (50-min) / 2400-bar (200-min) SMAs; buffer seeded with prior-day + today's
+    ETH closes so the 2400-bar SMA is warm at the RTH open, as legacy's concat produces.
+    """
     def __init__(self, prefill_closes=None):
         self.prices = []
         if prefill_closes is not None:
             self.prices.extend(prefill_closes[-2400:])
         self.cross_state = 0 # 1 if > , -1 if <
-        self.triggered_bull = False
-        self.triggered_bear = False
+        self.done = False   # first-cross-only: one event per session, either direction
 
     def on_bar(self, state) -> tuple[int, str]:
         ts_s = state.ohlcv_5s['timestamp']
@@ -164,15 +268,18 @@ class CROSS11Detector(Detector):
         
         cross_up = (prev_sma50 <= prev_sma200) and (sma50 > sma200)
         cross_down = (prev_sma50 >= prev_sma200) and (sma50 < sma200)
-        
-        if cross_up and not self.triggered_bull:
-            self.triggered_bull = True
+
+        if self.done:                      # legacy `break` — first cross ends the scan
+            return 0, ''
+
+        if cross_up:
+            self.done = True
             return 1, 'bullish_runner'
-            
-        if cross_down and not self.triggered_bear:
-            self.triggered_bear = True
+
+        if cross_down:
+            self.done = True
             return 2, 'bearish_runner'
-            
+
         return 0, ''
 
 class DOW19Detector(Detector):
