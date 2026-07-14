@@ -56,10 +56,15 @@ def legacy_first(dossier, day, ts_map):
     return {'ts': ts, 'mode': str(r['mode'])}
 
 
+ADX_SMA_PERSIST = ADX08_SMA_Detector()      # persistent across the whole stream
+ADX_WILDER_PERSIST = ADX08_Wilder_Detector()
+
+
 def main():
     daily, valid = V.build_daily_context()
     days = valid[15:][:N_DAYS]          # skip warmup days needing 14-day context
-    print(f'Sampling {len(days)} days: {days[0]} .. {days[-1]}\n')
+    print(f'Sampling {len(days)} days: {days[0]} .. {days[-1]}')
+    print('ADX detectors: CONTINUOUS rolling window across all days (no cold start)\n')
 
     stat = {k: {'match': 0, 'div': 0, 'native_only': 0, 'legacy_only': 0, 'both_none': 0}
             for k in ['ADX-08-SMA', 'ADX-08-WILDER', 'CROSS-11']}
@@ -78,8 +83,11 @@ def main():
             dtt = pd.to_datetime(tod['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
             pre.extend(tod['close'].values[(dtt.dt.time < RTH0).values].tolist())
 
-            dets = {'ADX-08-SMA': ADX08_SMA_Detector(),
-                    'ADX-08-WILDER': ADX08_Wilder_Detector(),
+            # ADX detectors PERSIST across days (Moises 2026-07-14): one instance streams
+            # every bar of every day, so the rolling window never restarts — no cold start.
+            # CROSS-11 stays per-day (it is seeded from prior-day + ETH closes instead).
+            dets = {'ADX-08-SMA': ADX_SMA_PERSIST,
+                    'ADX-08-WILDER': ADX_WILDER_PERSIST,
                     'CROSS-11': CROSS11Detector(prefill_closes=pre)}
             first = {k: None for k in dets}
 

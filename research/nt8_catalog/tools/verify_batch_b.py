@@ -1,7 +1,8 @@
 import os
 import sys
-out_file = open("verifier_output.txt", "w", encoding="utf-8")
-sys.stdout = out_file
+# NOTE (Claude 2026-07-14): removed a module-level `sys.stdout = open("verifier_output.txt","w")`.
+# It hijacked stdout for ANY process that merely IMPORTED this module, and opened "w" so every
+# run TRUNCATED the previous run's evidence. A verifier must never destroy its own artifacts.
 import sys
 import glob
 import pandas as pd

@@ -26,19 +26,29 @@ class ADX08_SMA_Detector(Detector):
 
         self.triggered_bull = False
         self.triggered_bear = False
+        self._day = None          # session-day tracker: resets the once-per-day flags only
 
     def on_bar(self, state) -> tuple[int, str]:
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
-        
-        if t < pd.Timestamp('08:30').time() or t > pd.Timestamp('15:15').time():
-            return 0, ''
-            
+
+        # CONTINUOUS ROLLING WINDOW (Moises 2026-07-14): indicators are updated on EVERY
+        # bar — overnight/ETH included — and NEVER reset, so the window streams unbroken
+        # through days and months. There is no cold start, ever.
+        # The previous code returned BEFORE updating on non-RTH bars, which threw the
+        # overnight bars away and left the detector blind for the first ~34 min of RTH
+        # (240-bar SMA + 168-bar ADX = 408 bars) — the same defect we condemned in legacy
+        # DOW-19 for discarding 20 bars. Only the TRIGGER is gated to RTH.
+        if state.day != self._day:
+            self._day = state.day
+            self.triggered_bull = False
+            self.triggered_bear = False
+
         high = state.ohlcv_5s['high']
         low = state.ohlcv_5s['low']
         close = state.ohlcv_5s['close']
-        
+
         self.prices.append(close)
         self.highs.append(high)
         self.lows.append(low)
@@ -87,7 +97,11 @@ class ADX08_SMA_Detector(Detector):
             
         if len(self.prices) < 240 or len(self.dxs) < 168:
             return 0, ''
-            
+
+        # Indicators are now warm from the continuous stream; only ENTRIES are RTH-gated.
+        if t < pd.Timestamp('08:30').time() or t > pd.Timestamp('15:15').time():
+            return 0, ''
+
         adx_proxy = np.mean(self.dxs)
         sma20 = np.mean(self.prices)
         prev_sma20 = np.mean(self.prices[:-1])
@@ -131,6 +145,7 @@ class ADX08_Wilder_Detector(Detector):
         self.warm = 0
         self.triggered_bull = False
         self.triggered_bear = False
+        self._day = None
 
     @staticmethod
     def _rma(prev, x, n):
@@ -140,8 +155,14 @@ class ADX08_Wilder_Detector(Detector):
         ts_s = state.ohlcv_5s['timestamp']
         dt = pd.to_datetime(ts_s, unit='s', utc=True).tz_convert('America/Chicago')
         t = dt.time()
-        if t < pd.Timestamp('08:30').time() or t > pd.Timestamp('15:15').time():
-            return 0, ''
+
+        # CONTINUOUS ROLLING WINDOW (see SMA variant): RMA state streams unbroken through
+        # days and months, updated on every bar incl. overnight. No cold start. Only the
+        # TRIGGER is RTH-gated.
+        if state.day != self._day:
+            self._day = state.day
+            self.triggered_bull = False
+            self.triggered_bear = False
 
         high = state.ohlcv_5s['high']
         low = state.ohlcv_5s['low']
@@ -175,6 +196,10 @@ class ADX08_Wilder_Detector(Detector):
         self.prev_high, self.prev_low, self.prev_close = high, low, close
 
         if adx is None or len(self.prices) < self.N_SMA:
+            return 0, ''
+
+        # Warm from the continuous stream; only ENTRIES are RTH-gated.
+        if t < pd.Timestamp('08:30').time() or t > pd.Timestamp('15:15').time():
             return 0, ''
 
         sma20 = float(np.mean(self.prices))
