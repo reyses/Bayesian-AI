@@ -176,3 +176,12 @@ the measured tail at current equity. Hygiene, not edge.
   anti-aligned and aligned. Caveat: P(label-right) ≠ P($); economic conversion
   is the next gate. Full context: 27-stream league (combiner AUC 0.678,
   calibration honest, tails 84%/74%) in research/nt8_catalog/reports/.
+- **2026-07-16 (later)** — STAGE-0 EVIDENCE COMPLETE, MAMBA GATE OPEN (nt8_catalog
+  docs 087/088). 40-stream causal signal league vs golden labels; pooled combiner
+  OOS AUC 0.689 (N=714k), calibration diagonal. Economic conversion (no stops):
+  top P-decile @5m = mode +1.0 / median +3.25 / mean +3.86 pts [+2.46,+5.12],
+  net-of-friction +3.26 — a distributional shift, not a tail; 15m+ horizons NS →
+  the 1-5m harvest is the RL trade-management job. Shelf-life: median 37-41 weeks,
+  half of windows right-censored (never decayed); monthly retune safe. Next:
+  Mamba state-vector handoff spec (per-stream time-since-fire × direction × P +
+  pooled P as input features).
