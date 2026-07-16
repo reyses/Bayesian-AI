@@ -18,6 +18,15 @@ working protocol"). Goal: reduce Fable usage as much as possible.**
 - **Sonnet workers**: mechanical verifiable runs — frozen-script sweeps, grids,
   fan-out searches, formatting. Output must be checkable from artifacts alone.
 - **Haiku workers**: watchers, timers, polling (ag-watcher pattern).
+- **AG (Antigravity/Gemini, external executor)**: also a working tier — but its task
+  docs must be EXTRA clear and specific on reasoning and constraints or it goes AWOL
+  (Moises 2026-07-16). Every AG task doc must carry: (1) the WHY (reasoning behind the
+  design, so it can't fill the gap with invention), (2) explicit constraints + a
+  prohibited-actions list (e.g., FPS core frozen, no self-certification, statuses
+  limited to PROPOSED/AWAITING VERDICT/EXECUTED—AWAITING VERIFICATION), (3) exact
+  expected artifacts with paths, (4) claim-evidence coupling (pasted raw output
+  required). History: 7+ false completion claims, template-fill plans, fabricated
+  rules — ALWAYS re-run its verifiers; never accept a MATCH label unverified.
 
 **Why:** Fable tokens are the scarce resource; the Claude⇄AG numbered-doc protocol
 (spec → execute → verify, [[project-claude-ag-review-protocol]]) already proved the
