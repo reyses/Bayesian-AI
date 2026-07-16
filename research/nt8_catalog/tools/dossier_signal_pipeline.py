@@ -51,6 +51,7 @@ class DayCtx:
         self.c = full['close'].values
         self.h = full['high'].values
         self.l = full['low'].values
+        self.o = full['open'].values if 'open' in full else full['close'].values
         self.v = full['volume'].values.astype(float) if 'volume' in full else np.zeros(len(full))
         dt = pd.to_datetime(full['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
         tt = dt.dt.time
@@ -281,10 +282,363 @@ def gen_atr09(ctx):
     return out
 
 
+# ---- batch 2 (2026-07-16, easiest-first port of the doc-080 skip list) ---------------
+def gen_sar23(ctx):
+    """SAR-23 (ag_deepdive_23_sar.py:10-67,116-135: PSAR af 0.02/0.2 on high/low,
+    continuous; flip to bullish = LONG / bearish = SHORT; 60-bar cooldown)."""
+    h, l = ctx.h, ctx.l
+    n = len(h); bull = np.ones(n, dtype=bool); psar = np.zeros(n)
+    psar[0] = l[0]; ep = h[0]; af = 0.02
+    for i in range(1, n):
+        if bull[i-1]:
+            cur = psar[i-1] + af * (ep - psar[i-1])
+            cur = min(cur, l[i-1], l[i-2]) if i >= 2 else min(cur, l[i-1])
+            if l[i] < cur:
+                bull[i] = False; psar[i] = ep; ep = l[i]; af = 0.02
+            else:
+                bull[i] = True; psar[i] = cur
+                if h[i] > ep: ep = h[i]; af = min(af + 0.02, 0.2)
+        else:
+            cur = psar[i-1] - af * (psar[i-1] - ep)
+            cur = max(cur, h[i-1], h[i-2]) if i >= 2 else max(cur, h[i-1])
+            if h[i] > cur:
+                bull[i] = True; psar[i] = ep; ep = h[i]; af = 0.02
+            else:
+                bull[i] = False; psar[i] = cur
+                if l[i] < ep: ep = l[i]; af = min(af + 0.02, 0.2)
+    out = []; cool = 0
+    for i in ctx.rth_idx():
+        if i < 1: continue
+        if cool > 0: cool -= 1; continue
+        if bull[i] != bull[i-1]:
+            out.append(ctx.emit(i, bool(bull[i]), abs(ctx.c[i] - psar[i]))); cool = COOLDOWN
+    return out
+
+def gen_sqz04(ctx):
+    """SQZ-04 (ag_deepdive_04_squeeze.py:42-88: BB(20,2.0 ddof=0) vs Keltner(20,
+    1.5x SMA20|dClose|); squeeze on = BB inside KC; fire on close crossing outside
+    the BB while squeeze on now-or-prev. Deviation: one-shot latch removed,
+    60-bar cooldown (frequency knob; condition verbatim)."""
+    c = pd.Series(ctx.c)
+    sma = c.rolling(20, min_periods=20).mean()
+    std = c.rolling(20, min_periods=20).std(ddof=0)
+    ubb, lbb = (sma + 2.0 * std).values, (sma - 2.0 * std).values
+    patr = c.diff().abs().fillna(0).rolling(20, min_periods=20).mean()
+    on = ((sma + 2.0 * std < sma + 1.5 * patr) & (sma - 2.0 * std > sma - 1.5 * patr)).values
+    out = []; cool = 0
+    for i in ctx.rth_idx():
+        if i < 21 or not np.isfinite(ubb[i - 1]): continue
+        if cool > 0: cool -= 1; continue
+        sq = on[i] or on[i - 1]
+        if sq and ctx.c[i-1] <= ubb[i-1] and ctx.c[i] > ubb[i]:
+            out.append(ctx.emit(i, True, ctx.c[i] - ubb[i])); cool = COOLDOWN
+        elif sq and ctx.c[i-1] >= lbb[i-1] and ctx.c[i] < lbb[i]:
+            out.append(ctx.emit(i, False, lbb[i] - ctx.c[i])); cool = COOLDOWN
+    return out
+
+def gen_rsi06(ctx):
+    """RSI-06 divergence (ag_deepdive_06_rsi.py:24-97: RSI ewm com=167 (14x12 bars),
+    360-bar rolling extremes; price AT 30m max with RSI below its 30m max = SHORT,
+    mirror = LONG. Deviation: latch removed, 60-bar cooldown."""
+    delta = pd.Series(ctx.c).diff()
+    ag = delta.clip(lower=0).ewm(com=167, adjust=False).mean()
+    al = (-delta.clip(upper=0)).ewm(com=167, adjust=False).mean()
+    rsi = (100 - 100 / (1 + ag / al)).values
+    c = pd.Series(ctx.c); r = pd.Series(rsi)
+    pmax = c.rolling(360, min_periods=360).max().values
+    pmin = c.rolling(360, min_periods=360).min().values
+    rmax = r.rolling(360, min_periods=360).max().values
+    rmin = r.rolling(360, min_periods=360).min().values
+    out = []; cool = 0
+    for i in ctx.rth_idx():
+        if not np.isfinite(pmax[i]) or not np.isfinite(rmax[i]): continue
+        if cool > 0: cool -= 1; continue
+        if ctx.c[i] == pmax[i] and rsi[i] < rmax[i]:
+            out.append(ctx.emit(i, False, rmax[i] - rsi[i])); cool = COOLDOWN
+        elif ctx.c[i] == pmin[i] and rsi[i] > rmin[i]:
+            out.append(ctx.emit(i, True, rsi[i] - rmin[i])); cool = COOLDOWN
+    return out
+
+def gen_macd07(ctx):
+    """MACD-07 divergence (ag_deepdive_07_macd.py:42-80: MACD = EMA144-EMA312,
+    360-bar extremes; price >= 30m high with MACD < its 30m high = SHORT, mirror
+    = LONG. Deviation: latch removed, 60-bar cooldown."""
+    c = pd.Series(ctx.c)
+    macd = (c.ewm(span=144, adjust=False).mean() - c.ewm(span=312, adjust=False).mean())
+    ph = c.rolling(360, min_periods=360).max().values
+    pl = c.rolling(360, min_periods=360).min().values
+    mh = macd.rolling(360, min_periods=360).max().values
+    ml = macd.rolling(360, min_periods=360).min().values
+    m = macd.values
+    out = []; cool = 0
+    for i in ctx.rth_idx():
+        if not np.isfinite(ph[i]) or not np.isfinite(mh[i]): continue
+        if cool > 0: cool -= 1; continue
+        if ctx.c[i] >= ph[i] and m[i] < mh[i]:
+            out.append(ctx.emit(i, False, mh[i] - m[i])); cool = COOLDOWN
+        elif ctx.c[i] <= pl[i] and m[i] > ml[i]:
+            out.append(ctx.emit(i, True, m[i] - ml[i])); cool = COOLDOWN
+    return out
+
+def gen_scalp18(ctx):
+    """SCALP-18 (ag_deepdive_18_scalp.py:58-87: session VWAP + EMA240 + RSI(alpha=
+    1/168) computed on RTH bars only, first 240 RTH bars skipped; LONG = above VWAP,
+    pulled back to EMA, RSI<40; SHORT mirror). Session-scoped by design (VWAP is
+    session-anchored). Deviation: latch removed, 60-bar cooldown."""
+    idx = ctx.rth_idx()
+    if len(idx) < 500: return []
+    p = ctx.c[idx]; v = ctx.v[idx]
+    cum_v = np.maximum(np.cumsum(v), 1)
+    vwap = np.cumsum(p * v) / cum_v
+    ema = pd.Series(p).ewm(span=240, adjust=False).mean().values
+    d = np.diff(p, prepend=p[0])
+    up = pd.Series(np.where(d > 0, d, 0)).ewm(alpha=1/168, adjust=False).mean().values
+    dn = pd.Series(np.where(d < 0, -d, 0)).ewm(alpha=1/168, adjust=False).mean().values
+    rsi = 100 - 100 / (1 + up / (dn + 1e-10))
+    out = []; cool = 0
+    for k in range(240, len(idx)):
+        if cool > 0: cool -= 1; continue
+        if p[k] > vwap[k] and p[k] <= ema[k] and rsi[k] < 40:
+            out.append(ctx.emit(idx[k], True, vwap[k] - p[k])); cool = COOLDOWN
+        elif p[k] < vwap[k] and p[k] >= ema[k] and rsi[k] > 60:
+            out.append(ctx.emit(idx[k], False, p[k] - vwap[k])); cool = COOLDOWN
+    return out
+
+def gen_renko24(ctx):
+    """RENKO-24 (batch_a_detectors.RENKO24Detector verbatim: 2.0-pt bricks, 2-brick
+    reversal; trigger = 2nd consecutive brick right after a direction flip). Brick
+    chain seeded at first RTH bar each day, per legacy."""
+    BRICK = 2.0
+    out = []; prev_close = None; cur_d = 0; prev_d = 0; chain = 0
+    for i in ctx.rth_idx():
+        p = ctx.c[i]
+        if prev_close is None:
+            prev_close = np.floor(p / BRICK) * BRICK
+            continue
+        while True:
+            if cur_d == 0:
+                if p >= prev_close + BRICK: cur_d, prev_d, prev_close, chain = 1, 0, prev_close + BRICK, 1
+                elif p <= prev_close - BRICK: cur_d, prev_d, prev_close, chain = -1, 0, prev_close - BRICK, 1
+                else: break
+            elif cur_d == 1:
+                if p >= prev_close + BRICK:
+                    prev_close += BRICK; chain += 1
+                    if chain == 2 and prev_d == -1: out.append(ctx.emit(i, True, BRICK))
+                elif p <= prev_close - 2 * BRICK:
+                    prev_d, cur_d, prev_close, chain = 1, -1, prev_close - 2 * BRICK, 1
+                else: break
+            else:
+                if p <= prev_close - BRICK:
+                    prev_close -= BRICK; chain += 1
+                    if chain == 2 and prev_d == 1: out.append(ctx.emit(i, False, BRICK))
+                elif p >= prev_close + 2 * BRICK:
+                    prev_d, cur_d, prev_close, chain = -1, 1, prev_close + 2 * BRICK, 1
+                else: break
+    return out
+
+
+def gen_vp01(ctx):
+    """VP-01 (ag_deepdive_01_vol_profile.py:126-154 vs YESTERDAY's profile:
+    open in [VAH, prior-high] -> first touch of POC = LONG bounce; open in
+    [prior-low, VAL] -> first touch of POC = SHORT; open beyond prior extremes =
+    runner at the open in the breakout direction; one-shot per day).
+    ph/pl = prior TRUE H/L (doc-070 close-as-high defect ruling); POC/VA =
+    close-binned volume profile (the profile's own definition)."""
+    if not ctx.prior_daily or 'poc' not in ctx.prior_daily[-1]: return []
+    d = ctx.prior_daily[-1]
+    idx = ctx.rth_idx()
+    if len(idx) == 0: return []
+    o = ctx.c[idx[0]]
+    if d['vah'] < o < d['high']:
+        for i in idx:
+            if ctx.c[i] <= d['poc']: return [ctx.emit(i, True, d['vah'] - ctx.c[i])]
+    elif d['low'] < o < d['val']:
+        for i in idx:
+            if ctx.c[i] >= d['poc']: return [ctx.emit(i, False, ctx.c[i] - d['val'])]
+    elif o > d['high']:
+        return [ctx.emit(idx[0], True, o - d['high'])]
+    elif o < d['low']:
+        return [ctx.emit(idx[0], False, d['low'] - o)]
+    return []
+
+def gen_va13(ctx):
+    """VA-13 rotation (ag_deepdive_13_va.py:126-154: open INSIDE yesterday's value
+    area; first touch of VAH then close back below it = SHORT rotation toward POC;
+    mirror at VAL = LONG; one-shot per day)."""
+    if not ctx.prior_daily or 'poc' not in ctx.prior_daily[-1]: return []
+    d = ctx.prior_daily[-1]
+    idx = ctx.rth_idx()
+    if len(idx) == 0: return []
+    o = ctx.c[idx[0]]
+    if not (d['val'] < o < d['vah']): return []
+    t_vah = t_val = False
+    for i in idx:
+        p = ctx.c[i]
+        if not t_vah and not t_val:
+            if p >= d['vah']: t_vah = True
+            elif p <= d['val']: t_val = True
+        elif t_vah:
+            if p < d['vah']: return [ctx.emit(i, False, abs(p - d['poc']))]
+        elif t_val:
+            if p > d['val']: return [ctx.emit(i, True, abs(p - d['poc']))]
+    return []
+
+def gen_hns22(ctx):
+    """HNS-22 (ag_deepdive_22_hns.py:47-110,209-210: 21-bar CENTERED peak/trough
+    flags registered 10 bars late (causal); TOP pattern p3<t2<p2<t1<p1 with head
+    highest, shoulders within 0.5x(head-RS), volume divergence LS>Head>RS
+    (+-2-bar means); trigger = close crossing below the t2->t1 neckline; SHORT
+    only (legacy has no inverse); 60-bar cooldown, structure reset on fire)."""
+    idx = ctx.rth_idx()
+    n = len(idx)
+    if n < 120: return []
+    hi, lo, cl, vo = ctx.h[idx], ctx.l[idx], ctx.c[idx], ctx.v[idx]
+    hs, ls = pd.Series(hi), pd.Series(lo)
+    is_pk = ((hs == hs.rolling(21, center=True).max()) & (hs > hs.shift(1))).values
+    is_tr = ((ls == ls.rolling(21, center=True).min()) & (ls < ls.shift(1))).values
+    out = []; peaks = []; troughs = []; cool = 0
+    for i in range(10, n):
+        if cool > 0: cool -= 1
+        ci = i - 10
+        if is_pk[ci]: peaks.append(ci)
+        if is_tr[ci]: troughs.append(ci)
+        if cool > 0: continue
+        if len(peaks) >= 3 and len(troughs) >= 2:
+            p3, p2, p1 = peaks[-3], peaks[-2], peaks[-1]
+            t2, t1 = troughs[-2], troughs[-1]
+            if p3 < t2 < p2 < t1 < p1 and hi[p2] > hi[p3] and hi[p2] > hi[p1] \
+               and abs(hi[p3] - hi[p1]) < (hi[p2] - hi[p1]) * 0.5:
+                v_ls = vo[max(0, p3-2):p3+3].mean()
+                v_h = vo[max(0, p2-2):p2+3].mean()
+                v_rs = vo[max(0, p1-2):p1+3].mean()
+                if v_ls > v_h > v_rs:
+                    slope = (lo[t1] - lo[t2]) / (t1 - t2) if t1 > t2 else 0.0
+                    neck = lo[t1] + slope * (i - t1)
+                    if cl[i-1] >= neck and cl[i] < neck:
+                        out.append(ctx.emit(idx[i], False, hi[p2] - neck))
+                        cool = COOLDOWN; peaks.clear()
+    return out
+
+def gen_fib17(ctx):
+    """FIB-17 (batch_b FIB17Detector + ag_deepdive_17_fib.py:256-292 daily wiring:
+    prior-14-day ADX(n=7) SMA-approx > 25 gate; swing = prior-10-day H/L extremes;
+    trend = prior close vs 10-day close SMA; UP: retrace into [61.8%,50%] of
+    low->high = LONG; DOWN mirror = SHORT; one-shot per day)."""
+    pdays = ctx.prior_daily
+    if len(pdays) < 15: return []
+    d14 = pd.DataFrame(pdays[-14:])
+    up, dn = d14['high'].diff(), -d14['low'].diff()
+    dmp = np.where((up > dn) & (up > 0), up, 0.0)
+    dmm = np.where((dn > up) & (dn > 0), dn, 0.0)
+    pc = d14['close'].shift(1)
+    tr = pd.concat([d14['high'] - d14['low'], (d14['high'] - pc).abs(),
+                    (d14['low'] - pc).abs()], axis=1).max(axis=1)
+    trs = tr.rolling(7).mean()
+    dip = 100 * pd.Series(dmp).rolling(7).mean() / trs
+    dim = 100 * pd.Series(dmm).rolling(7).mean() / trs
+    dx = 100 * (dip - dim).abs() / (dip + dim)
+    adx = dx.rolling(7).mean().iloc[-1]
+    if not np.isfinite(adx) or adx <= 25.0: return []
+    d10 = pdays[-10:]
+    sw_h = max(x['high'] for x in d10); sw_l = min(x['low'] for x in d10)
+    trend_up = pdays[-1]['close'] > np.mean([x['close'] for x in d10])
+    rng = sw_h - sw_l
+    if trend_up: f50, f618 = sw_h - 0.5 * rng, sw_h - 0.618 * rng
+    else: f50, f618 = sw_l + 0.5 * rng, sw_l + 0.618 * rng
+    lo_b, hi_b = min(f50, f618), max(f50, f618)
+    for i in ctx.rth_idx():
+        p = ctx.c[i]
+        if trend_up and lo_b <= p <= hi_b: return [ctx.emit(i, True, float(adx))]
+        if not trend_up and lo_b <= p <= hi_b: return [ctx.emit(i, False, float(adx))]
+    return []
+
+def gen_zone21(ctx):
+    """ZONE-21 virgin supply/demand (ag_deepdive_21_zone.py:38-107: 3 consecutive
+    tight bars (range < 0.8xATR14 of h-l) + explosion bar (|close-open| > 1.5xATR
+    AND vol > 1.5x vol_sma20) forms a zone from the tight bars' extremes; first
+    touch = bounce in the explosion's direction; zone consumed (virgin-only);
+    zones per-day as legacy)."""
+    atr = pd.Series(ctx.h - ctx.l).rolling(14, min_periods=14).mean().values
+    vs = pd.Series(ctx.v).rolling(20, min_periods=20).mean().values
+    zones = []; out = []
+    for i in ctx.rth_idx():
+        if i < 21 or not np.isfinite(atr[i]): continue
+        t1 = (ctx.h[i-3] - ctx.l[i-3]) < atr[i-3] * 0.8
+        t2 = (ctx.h[i-2] - ctx.l[i-2]) < atr[i-2] * 0.8
+        t3 = (ctx.h[i-1] - ctx.l[i-1]) < atr[i-1] * 0.8
+        if t1 and t2 and t3:
+            if abs(ctx.c[i] - ctx.o[i]) > atr[i] * 1.5 and ctx.v[i] > vs[i] * 1.5:
+                zh = max(ctx.h[i-3], ctx.h[i-2], ctx.h[i-1])
+                zl = min(ctx.l[i-3], ctx.l[i-2], ctx.l[i-1])
+                zones.append((ctx.c[i] > ctx.o[i], zh, zl))
+        for k, (is_dem, zh, zl) in enumerate(zones):
+            if is_dem and ctx.l[i] <= zh:
+                zones.pop(k); out.append(ctx.emit(i, True, zh - zl)); break
+            if not is_dem and ctx.h[i] >= zl:
+                zones.pop(k); out.append(ctx.emit(i, False, zh - zl)); break
+    return out
+
+
+def gen_curve(ctx):
+    """CURVE (declared adaptation, Moises doc-075 roster: 'the Curve regression that
+    we have'). CAUSAL endpoint variant of the AI labeler's cubic: the labeler fits a
+    CENTERED cubic N=20 on 1m closes (ai_labeler_v2.py:4, cubic_utils.py) — hindsight
+    by construction. Here: TRAILING 20-bar cubic OLS on 1m closes, slope/curvature
+    evaluated at the RIGHT EDGE; fire on edge-slope sign flip (flip to + with curv>0
+    = bottom turn = LONG; flip to - with curv<0 = top = SHORT). value = |curvature|."""
+    N = 20
+    c1 = pd.Series(ctx.c).groupby(np.arange(len(ctx.c)) // BAR_1M).last().values
+    if len(c1) < N + 2: return []
+    x = np.arange(N, dtype=float) - (N - 1)          # right edge at x=0
+    X = np.vstack([x**3, x**2, x, np.ones(N)]).T
+    P = np.linalg.pinv(X)
+    w_slope, w_curv = P[2], 2 * P[1]
+    sw = np.lib.stride_tricks.sliding_window_view(c1, N)
+    slope = np.full(len(c1), np.nan); curv = np.full(len(c1), np.nan)
+    slope[N-1:] = sw @ w_slope; curv[N-1:] = sw @ w_curv
+    out = []
+    n5 = len(ctx.c)
+    for k in range(N, len(c1)):
+        s, sp = slope[k], slope[k-1]
+        if not (np.isfinite(s) and np.isfinite(sp)): continue
+        if np.sign(s) == np.sign(sp) or s == 0: continue
+        i = min((k + 1) * BAR_1M - 1, n5 - 1)        # 5s bar where 1m bar k completes
+        if i < ctx.start or not ctx.rth[i]: continue
+        if s > 0 and curv[k] > 0: out.append(ctx.emit(i, True, abs(curv[k])))
+        elif s < 0 and curv[k] < 0: out.append(ctx.emit(i, False, abs(curv[k])))
+    return out
+
+
 GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'VWAP-03': gen_vwap03, 'OHLC-01': gen_ohlc01, 'PIVOT-16': gen_pivot16,
         'ROUND-05': gen_round05, 'CROSS-11': gen_cross11, 'VWMA-10': gen_vwma10,
-        'DOW-19': gen_dow19, 'TUNNEL-20': gen_tunnel20, 'ATR-09': gen_atr09}
+        'DOW-19': gen_dow19, 'TUNNEL-20': gen_tunnel20, 'ATR-09': gen_atr09,
+        'SAR-23': gen_sar23, 'SQZ-04': gen_sqz04, 'RSI-06': gen_rsi06,
+        'MACD-07': gen_macd07, 'SCALP-18': gen_scalp18, 'RENKO-24': gen_renko24,
+        'FIB-17': gen_fib17, 'ZONE-21': gen_zone21, 'VP-01': gen_vp01,
+        'VA-13': gen_va13, 'HNS-22': gen_hns22, 'CURVE': gen_curve}
+
+
+def _day_profile(prices, volumes):
+    """RTH volume profile (ag_deepdive_01_vol_profile.compute_daily_profile verbatim:
+    0.25-tick close-binned volume; POC = argmax; VA = 70% expansion around POC)."""
+    hi, lo, tv = float(prices.max()), float(prices.min()), float(volumes.sum())
+    if tv == 0: return {}
+    bins = np.arange(lo, hi + 0.25, 0.25)
+    if len(bins) < 2: return dict(poc=lo, vah=hi, val=lo)
+    dig = np.clip(np.digitize(prices, bins) - 1, 0, len(bins) - 1)
+    vb = np.zeros(len(bins))
+    np.add.at(vb, dig, volumes)
+    pi = int(np.argmax(vb))
+    target = 0.7 * tv; va = vb[pi]; up, dn = pi + 1, pi - 1
+    while va < target:
+        vu = vb[up] if up < len(bins) else -1
+        vd = vb[dn] if dn >= 0 else -1
+        if vu == -1 and vd == -1: break
+        if vu > vd: va += vu; up += 1
+        else: va += vd; dn -= 1
+    return dict(poc=float(bins[pi]), vah=float(bins[min(up, len(bins) - 1)]),
+                val=float(bins[max(dn, 0)]))
 
 
 def run_all(dets):
@@ -298,7 +652,7 @@ def run_all(dets):
     tail = None; prior_daily = []
     for p in tqdm(files, desc='days'):
         day = os.path.basename(p)[:10]
-        df = pd.read_parquet(p, columns=['timestamp', 'high', 'low', 'close', 'volume'])
+        df = pd.read_parquet(p, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
         df = df.sort_values('timestamp').reset_index(drop=True)
         if day.replace('_', '-') in lblf:
             full = pd.concat([tail, df], ignore_index=True) if tail is not None else df
@@ -309,9 +663,11 @@ def run_all(dets):
         dt = pd.to_datetime(df['timestamp'], unit='s', utc=True).dt.tz_convert('America/Chicago')
         m = ((dt.dt.time >= RTH0) & (dt.dt.time <= RTH1)).values
         if m.any():
-            prior_daily.append(dict(high=float(df['high'].values[m].max()),
-                                    low=float(df['low'].values[m].min()),
-                                    close=float(df['close'].values[m][-1])))
+            entry = dict(high=float(df['high'].values[m].max()),
+                         low=float(df['low'].values[m].min()),
+                         close=float(df['close'].values[m][-1]))
+            entry.update(_day_profile(df['close'].values[m], df['volume'].values[m]))
+            prior_daily.append(entry)
             prior_daily = prior_daily[-20:]
         tail = df.tail(TAIL)
     return {d: pd.DataFrame(r) for d, r in rows.items()}, lblf
@@ -322,7 +678,7 @@ COLS = ['pivot_age_min', 'sig_with_leg', 'value', 'tod', 'inter']
 def evaluate(det, F, lblf):
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import roc_auc_score
-    if len(F) < 200: return dict(det=det, n=len(F), note='too few signals')
+    if len(F) == 0: return dict(det=det, n=0, note='no signals')
     tgt = []
     for day, g in F.groupby('day', sort=False):
         labs = [(t['entry_ts'], t['exit_ts'], t.get('direction') == 'LONG')
@@ -336,12 +692,17 @@ def evaluate(det, F, lblf):
     F = F.dropna(subset=['y'])
     F['year'] = F['day'].str[:4]
     F['inter'] = F['sig_with_leg'] * F['pivot_age_min']
+    F.to_parquet(os.path.join(REP, f'signal_rows_{det.replace("-", "")}.parquet'))
+    if len(F) < 200:
+        agr = float(F['y'].mean()) if len(F) else float('nan')
+        return dict(det=det, n=len(F), note=f'too few signals (raw agree {agr:.2f})')
     trm, tem = F['year'] == '2024', F['year'] != '2024'
-    if trm.sum() < 100 or tem.sum() < 100: return dict(det=det, n=len(F), note='thin split')
+    if trm.sum() < 100 or tem.sum() < 100:
+        return dict(det=det, n=len(F), note=f'thin split (raw agree {F["y"].mean():.2f})')
     Xtr, ytr = F.loc[trm, COLS].values, F.loc[trm, 'y'].astype(int).values
     Xte, yte = F.loc[tem, COLS].values, F.loc[tem, 'y'].astype(int).values
     if len(np.unique(ytr)) < 2 or len(np.unique(yte)) < 2:
-        return dict(det=det, n=len(F), note='one-class')
+        return dict(det=det, n=len(F), note=f'one-class (raw agree {F["y"].mean():.2f})')
     mu, sd = Xtr.mean(0), Xtr.std(0) + 1e-9
     clf = LogisticRegression(max_iter=1000).fit((Xtr - mu) / sd, ytr)
     pte = clf.predict_proba((Xte - mu) / sd)[:, 1]

@@ -14,7 +14,9 @@ sys.path.insert(0, HERE)
 import dossier_signal_pipeline as dsp
 
 ORDER = ['ZIGZAG', 'ORB-02', 'SEASON-12', 'VWAP-03', 'OHLC-01', 'PIVOT-16',
-         'ROUND-05', 'CROSS-11', 'VWMA-10', 'DOW-19', 'TUNNEL-20', 'ATR-09']
+         'ROUND-05', 'CROSS-11', 'VWMA-10', 'DOW-19', 'TUNNEL-20', 'ATR-09',
+         'SAR-23', 'SQZ-04', 'RSI-06', 'MACD-07', 'SCALP-18', 'RENKO-24',
+         'FIB-17', 'ZONE-21', 'VP-01', 'VA-13', 'HNS-22', 'CURVE', 'ADX08']
 
 lblf = {os.path.basename(f)[9:19]: f
         for f in glob.glob(os.path.join(dsp.LBL, 'ai_picks_*_multi.json'))}
@@ -22,6 +24,10 @@ lines = ['# Dossier signal league — direction agreement with AI labels',
          '(train 2024, test 2025+26, day-block bootstrap CIs; baseline 0.50)\n']
 for det in ORDER:
     p = os.path.join(dsp.REP, f'signal_rows_{det.replace("-", "")}.parquet')
+    if not os.path.exists(p):
+        lines.append(f'- **{det}**: no saved rows (see run log / skip list)')
+        print(det, 'no saved rows')
+        continue
     F = pd.read_parquet(p)[['ts', 'is_long', 'value', 'pivot_age_min',
                             'sig_with_leg', 'tod', 'day']]
     r = dsp.evaluate(det, F, lblf)
