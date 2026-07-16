@@ -68,6 +68,7 @@
 - **B-stack bad-day shave**: +$175/day CI[+98,+269] sig — the real bad-day mitigation (the non-sig +$42/day headline hid it).
 - **NMP threshold recalibration** (verified 2026-06-11): Z_ENTRY=**1.8481**, Z_EXIT=**0.4752** on `L3_1m_z_se_15` (quantile-matched to V1 `|z_21|>2.0 / <0.5`; thresholds DON'T transfer due to 21→15 window drift). vr cross-TF proxy DEAD (Spearman 0.38–0.73). Trigger parity 7.11% vs 7.51%.
 - **λ̂/vr derivation layer verified** (`research/nmp_state/`): λ̂ = trailing OLS slope of `log(|z_se|+EPS)`, EPS=0.1 (outlier damping); slope/SE vs np.polyfit 3.9e-16; vr rolling vs brute-force 1.5e-12. λ̂ t-stat ±2.0–2.4 (1m), ±1.6–1.7 (5m). NOT yet gated — Stage-0 forward pass pending.
+- **λ-completion: first label-alignment validation (2026-07-16, doc 084)**: V1 NMP pure-fade agreement with golden labels = 0.26 (ANTI-aligned; inverted 87% right); adding λ̂ (k=21, verified derivation) flips 59.6% of fires → 0.54 (+28pp OOS). The missing λ term measurably converts anti-aligned→aligned. P(label-right)≠P($) — economic layer pending. League: research/nt8_catalog/reports/dossier_signal_league.md (27 streams).
 - **R-trigger reversal exit = adaptive stop** recovering ~1R off the low — the structural reason fixed-dollar overlays lose (§4).
 
 ## 6. ARCHITECTURE FACTS (current)
