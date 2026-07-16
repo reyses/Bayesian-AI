@@ -609,6 +609,68 @@ def gen_curve(ctx):
     return out
 
 
+# ---- NMP master equation (Moises 2026-07-16: add NMP + extended NMP) -----------------
+# Canonical column L3_1m_z_se_15 (FEATURES_1s_v2 store — the ONLY store carrying the
+# window the verified thresholds live on; 5s store is a _30 build, thresholds don't
+# transfer across window drift). Thresholds: recalibration verified 2026-06-11.
+Z_ENTRY, Z_EXIT = 1.8481, 0.4752   # quantile-matched to V1 |z_21|>2.0 / <0.5
+NMP_EPS = 0.1                      # log-floor (research/nmp_state/derive.py:11-14)
+NMP_K = 21                         # lambda_hat OLS window, mid of verified K_SWEEP
+                                   # (12,21,30); matches the V1 z_21 window heritage
+
+def _nmp_lambda(ctx):
+    """lambda_hat per 5s row: trailing OLS slope (k=NMP_K) of log(|z_se|+EPS) over the
+    CLOSED-1m sequence (one sample per minute at ts%60==0 — the anchored value there
+    reflects the just-closed 1m bar), forward-filled to the 5s grid. Verified math:
+    research/nmp_state/derive.py:120-157 (vectorized, identical estimator)."""
+    z = ctx.zse
+    m_rows = np.flatnonzero(ctx.ts % 60 == 0)
+    z1m = z[m_rows]
+    lam1m = np.full(len(m_rows), np.nan)
+    ok = np.isfinite(z1m)
+    logz = np.where(ok, np.log(np.abs(z1m) + NMP_EPS), np.nan)
+    if len(logz) >= NMP_K:
+        x = np.arange(NMP_K, dtype=float)
+        w = (x - x.mean()) / ((x - x.mean()) ** 2).sum()   # OLS slope weights
+        sw = np.lib.stride_tricks.sliding_window_view(logz, NMP_K)
+        lam1m[NMP_K - 1:] = sw @ w                          # NaN windows -> NaN
+    lam = np.full(len(ctx.c), np.nan)
+    lam[m_rows] = lam1m
+    return pd.Series(lam).ffill().values
+
+def _nmp_fires(ctx):
+    """V1 episode semantics: armed while |z|<Z_EXIT has occurred since last fire;
+    fire at first RTH bar with |z|>Z_ENTRY while armed. Yields (i, z_i)."""
+    z = ctx.zse
+    armed = True
+    for i in range(len(z)):
+        zi = z[i]
+        if not np.isfinite(zi): continue
+        if abs(zi) < Z_EXIT: armed = True
+        elif armed and abs(zi) > Z_ENTRY:
+            armed = False
+            if ctx.rth[i] and i >= ctx.start:
+                yield i, zi
+
+def gen_nmp(ctx):
+    """NMP (V1 behavior, lambda hardcoded 0): |z|>Z_ENTRY -> FADE (-sign z);
+    re-arm at |z|<Z_EXIT. value=|z|."""
+    if getattr(ctx, 'zse', None) is None: return []
+    return [ctx.emit(i, zi < 0, abs(zi)) for i, zi in _nmp_fires(ctx)]
+
+def gen_nmp_ext(ctx):
+    """NMP-EXT (the completed master equation): |z|>Z_ENTRY AND lambda_hat<0 -> FADE;
+    lambda_hat>=0 -> RIDE. Skip fire if lambda_hat undefined. value=|lambda_hat|."""
+    if getattr(ctx, 'zse', None) is None: return []
+    lam = _nmp_lambda(ctx)
+    out = []
+    for i, zi in _nmp_fires(ctx):
+        if not np.isfinite(lam[i]): continue
+        fade = lam[i] < 0
+        out.append(ctx.emit(i, (zi < 0) if fade else (zi > 0), abs(lam[i])))
+    return out
+
+
 GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'VWAP-03': gen_vwap03, 'OHLC-01': gen_ohlc01, 'PIVOT-16': gen_pivot16,
         'ROUND-05': gen_round05, 'CROSS-11': gen_cross11, 'VWMA-10': gen_vwma10,
@@ -616,7 +678,9 @@ GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'SAR-23': gen_sar23, 'SQZ-04': gen_sqz04, 'RSI-06': gen_rsi06,
         'MACD-07': gen_macd07, 'SCALP-18': gen_scalp18, 'RENKO-24': gen_renko24,
         'FIB-17': gen_fib17, 'ZONE-21': gen_zone21, 'VP-01': gen_vp01,
-        'VA-13': gen_va13, 'HNS-22': gen_hns22, 'CURVE': gen_curve}
+        'VA-13': gen_va13, 'HNS-22': gen_hns22, 'CURVE': gen_curve,
+        'NMP': gen_nmp, 'NMP-EXT': gen_nmp_ext}
+NMP_STREAMS = {'NMP', 'NMP-EXT'}
 
 
 def _day_profile(prices, volumes):
@@ -657,6 +721,13 @@ def run_all(dets):
         if day.replace('_', '-') in lblf:
             full = pd.concat([tail, df], ignore_index=True) if tail is not None else df
             ctx = DayCtx(full, len(tail) if tail is not None else 0, day, prior_daily)
+            if NMP_STREAMS & set(dets):
+                zp = os.path.join(ROOT, 'DATA', 'ATLAS', 'FEATURES_1s_v2', 'L3_1m', f'{day}.parquet')
+                ctx.zse = None
+                if os.path.exists(zp):
+                    zf = pd.read_parquet(zp, columns=['timestamp', 'L3_1m_z_se_15'])
+                    ctx.zse = pd.Series(full['timestamp']).map(
+                        dict(zip(zf['timestamp'].values, zf['L3_1m_z_se_15'].values))).values
             for d in dets:
                 rows[d] += GENS[d](ctx)
         # today's TRUE RTH H/L/C for tomorrow's prior-day context (audit-fixed: not close-as-high)

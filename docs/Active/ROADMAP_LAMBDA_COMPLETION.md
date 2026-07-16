@@ -163,3 +163,16 @@ the measured tail at current equity. Hygiene, not edge.
   (`docs/JULES_NMP_V2_FORWARD_PASS.md`). Segment corpus VM run in flight.
 - **2026-06-11 (Later)** — Completed STAGE 0 (Instrumented Causal Baseline). Fixed missing L4 generation in `core_v2/build_dataset.py`. Ran IS and OOS benchmarks. The λ̂ separation showed perfectly uniform negative decay across all quartiles in the un-instrumented state. This formally validates the necessity of the PW-CRL RL agent for dynamic parameterization and exit flip logic (ride vs fade), transitioning the roadmap away from static rule thresholding. Architecture document updated to reflect the PW-CRL implementation.
 - **2026-06-12** — VM autonomous pipeline finished the full-year run. Downloaded the 111MB `stage2_year_segments.json` and 17.5MB `stage1_year_segments.zip`. The empirical segment corpus ground truth is now complete and ready for PW-CRL integration.
+- **2026-07-16** — FIRST LABEL-ALIGNMENT VALIDATION OF THE λ TERM (nt8_catalog docs
+  083/084). NMP and NMP-EXT run as causal signal streams through the standard
+  dossier pipeline (canonical L3_1m_z_se_15 from FEATURES_1s_v2; verified
+  thresholds 1.8481/0.4752; λ̂ = k=21 trailing OLS slope of log(|z_se|+0.1) on
+  closed 1m bars per research/nmp_state/derive.py). Target = direction agreement
+  with the golden AI labels, train 2024 / test 2025+26, day-block CIs.
+  **V1 NMP (λ=0, pure fade): agreement 0.26 — anti-aligned; labels ride the move
+  the equation fades (inverted low tercile = 87% right). NMP-EXT (λ̂ ride/fade):
+  λ̂ flips 59.6% of fires to ride → agreement 0.54 (+28pp), AUC 0.574.**
+  The missing λ term is, measured and out-of-sample, the difference between
+  anti-aligned and aligned. Caveat: P(label-right) ≠ P($); economic conversion
+  is the next gate. Full context: 27-stream league (combiner AUC 0.678,
+  calibration honest, tails 84%/74%) in research/nt8_catalog/reports/.
