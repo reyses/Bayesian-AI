@@ -675,6 +675,17 @@ def run_all(dets):
 
 COLS = ['pivot_age_min', 'sig_with_leg', 'value', 'tod', 'inter']
 
+def day_block_ci(y, days, boots=1000, seed=0):
+    """Day-block bootstrap 95% CI on mean(y), vectorized: per-day sums precomputed,
+    each resample = gather + divide (identical statistic to concatenating sampled
+    days; ~1000x the naive per-day rescan)."""
+    uq, inv = np.unique(days, return_inverse=True)
+    s = np.zeros(len(uq)); n = np.zeros(len(uq))
+    np.add.at(s, inv, y); np.add.at(n, inv, 1)
+    idx = np.random.default_rng(seed).integers(0, len(uq), size=(boots, len(uq)))
+    means = s[idx].sum(1) / np.maximum(n[idx].sum(1), 1)
+    return float(np.percentile(means, 2.5)), float(np.percentile(means, 97.5))
+
 def evaluate(det, F, lblf):
     from sklearn.linear_model import LogisticRegression
     from sklearn.metrics import roc_auc_score
@@ -716,13 +727,8 @@ def evaluate(det, F, lblf):
     for b in ['low', 'mid', 'high']:
         m = np.asarray(q == b)
         if m.sum() < 10: continue
-        uq = np.unique(days_te[m]); boots = []
-        for _ in range(1000):
-            s = np.random.choice(uq, len(uq), True)
-            vv = np.concatenate([yte[m][days_te[m] == d2] for d2 in s])
-            if len(vv): boots.append(vv.mean())
-        ter[b] = (int(m.sum()), float(yte[m].mean()),
-                  float(np.percentile(boots, 2.5)), float(np.percentile(boots, 97.5)))
+        lo, hi = day_block_ci(yte[m], days_te[m])
+        ter[b] = (int(m.sum()), float(yte[m].mean()), lo, hi)
     F.to_parquet(os.path.join(REP, f'signal_rows_{det.replace("-", "")}.parquet'))
     return dict(det=det, n=len(F), n_tr=int(trm.sum()), n_te=int(tem.sum()),
                 base_te=float(yte.mean()), auc=float(auc), ter=ter,

@@ -15,13 +15,15 @@ toward the full state-vector fusion the Mamba will consume.
 Reads:  reports/signal_rows_<det>.parquet (from dossier_signal_pipeline.py)
 Writes: reports/combiner_preview.md
 """
-import os, glob
+import os, sys, glob
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import roc_auc_score
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+from dossier_signal_pipeline import day_block_ci  # vectorized day-block bootstrap
 REP = os.path.abspath(os.path.join(HERE, '..', 'reports'))
 CONSENSUS_S = 180   # +-3 min window for cross-stream direction consensus
 BASE = ['pivot_age_min', 'sig_with_leg', 'tod', 'inter']
@@ -35,17 +37,23 @@ def load_pool():
         df['det'] = det
         frames.append(df)
     P = pd.concat(frames, ignore_index=True).sort_values('ts').reset_index(drop=True)
-    # consensus: same-direction fires from OTHER streams within +-3 min
-    ts = P['ts'].values; lng = P['is_long'].values; det = P['det'].values
-    n = len(P); cons = np.zeros(n, dtype=np.int16)
-    lo = 0
-    for i in range(n):
-        while ts[lo] < ts[i] - CONSENSUS_S: lo += 1
-        j = i
-        while j + 1 < n and ts[j + 1] <= ts[i] + CONSENSUS_S: j += 1
-        for k in range(lo, j + 1):
-            if k != i and det[k] != det[i] and lng[k] == lng[i]: cons[i] += 1
-    P['consensus'] = cons
+    # consensus: same-direction fires from OTHER streams within +-3 min.
+    # Vectorized: windowed count via prefix sums = same-direction total minus the
+    # row's own (det, direction) group — self cancels, det!=self enforced exactly.
+    ts = P['ts'].values.astype(np.int64)
+    lng = P['is_long'].values.astype(bool)
+    lo = np.searchsorted(ts, ts - CONSENSUS_S, 'left')
+    hi = np.searchsorted(ts, ts + CONSENSUS_S, 'right')
+    def wcount(flags):
+        c = np.concatenate([[0], np.cumsum(flags)])
+        return c[hi] - c[lo]
+    same_dir = np.where(lng, wcount(lng), wcount(~lng))
+    own = np.zeros(len(P), dtype=np.int64)
+    for (d, is_l), g in P.groupby(['det', 'is_long'], sort=False):
+        flags = np.zeros(len(P), dtype=np.int64)
+        flags[g.index.values] = 1
+        own[g.index.values] = wcount(flags)[g.index.values]
+    P['consensus'] = (same_dir - own).astype(np.int16)
     return P
 
 
@@ -76,12 +84,7 @@ def fit_report(P):
     for b in range(10):
         m = q == b
         if m.sum() < 10: continue
-        uq = np.unique(days_te[m]); boots = []
-        for _ in range(1000):
-            s = np.random.choice(uq, len(uq), True)
-            vv = np.concatenate([yte[m][days_te[m] == d2] for d2 in s])
-            if len(vv): boots.append(vv.mean())
-        lo, hi = np.percentile(boots, [2.5, 97.5])
+        lo, hi = day_block_ci(yte[m], days_te[m])
         lines.append(f'| {b} | {int(m.sum())} | {pte[m].mean():.2f} | {yte[m].mean():.2f} '
                      f'| [{lo:.2f},{hi:.2f}] |')
     # consensus effect, raw
