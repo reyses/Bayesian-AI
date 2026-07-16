@@ -91,6 +91,7 @@
 - Detail: `USER_PERSONA_AND_PROTOCOL.md` (cognitive style, collaboration protocol, headroom/nesting framework, VP zone-map trading manual, schedule, specs). Full feedback corpus: `AGENT_FEEDBACK_RULES.md`.
 
 ## 8. POINTERS
+- [Worker delegation ladder](feedback-worker-delegation-ladder.md) — STANDING PROTOCOL (2026-07-16): Fable=spec+verdict only; Opus=self-contained builds; Sonnet=mechanical verifiable runs; Haiku=watchers. Minimize Fable usage; verify artifacts before use.
 - [Data locations](project-data-locations.md) — WSL venv at /home/reyses/venvs/bayesian-ai (ext4); raw dumps on D:Bayesian-AI-data; artifacts/+checkpoints/ ephemeral (2026-07-16 reorg).
 - [ATLAS keep-policy](project-atlas-keep-policy.md) — DATA/ATLAS = OHLCV 1s→1D + SFE feature stores ONLY; all else regenerate-on-need (2026-07-16, post 0-bytes incident).
 - [Claude⇄AG review protocol](project-claude-ag-review-protocol.md) — reviewer/executor loop, append-only verdicts, artifact-level verification, ag-watcher Haiku agent for timers (2026-07-11).
