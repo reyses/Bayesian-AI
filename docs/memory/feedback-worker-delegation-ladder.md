@@ -29,3 +29,11 @@ acceptable; always give workers a written spec + expected-artifact checklist; ve
 artifacts before use (a result from unverified plumbing is not a result). It took
 Moises three asks to get this answered — when he proposes a process change, answer
 DIRECTLY and first, before continuing task work.
+
+**ALT ladder — Fable unavailable (Moises 2026-07-16):** when Fable usage is exhausted
+(or the session runs on Opus), **Opus takes the reasoner/orchestrator seat**: writes
+the specs, issues verdicts, runs the statistical-trap checks — and delegates the
+working tiers exactly as above (Sonnet = mechanical verifiable runs, Haiku =
+watchers). Same verification discipline, same numbered-doc protocol; only the top
+seat changes. Escalate back to Fable (or flag for Moises) anything touching the
+frozen FPS core or a major program-level verdict.
