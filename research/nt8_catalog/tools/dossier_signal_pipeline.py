@@ -652,15 +652,32 @@ def _nmp_fires(ctx):
             if ctx.rth[i] and i >= ctx.start:
                 yield i, zi
 
-def gen_nmp(ctx):
-    """NMP (V1 behavior, lambda hardcoded 0): |z|>Z_ENTRY -> FADE (-sign z);
-    re-arm at |z|<Z_EXIT. value=|z|."""
-    if getattr(ctx, 'zse', None) is None: return []
-    return [ctx.emit(i, zi < 0, abs(zi)) for i, zi in _nmp_fires(ctx)]
+def _vr_1m(ctx):
+    """V1 variance_ratio on 1m closes: rolling std(10)/std(60), ddof=1 — the exact
+    formula (research/nmp_state/derive.py:67-72; NMP_V2_FEATURE_MAP §1 row 6).
+    Computed on clock-aligned 1m buckets, mapped to each 5s row's LAST CLOSED bar."""
+    b = ctx.ts // 60
+    c1 = pd.Series(ctx.c).groupby(b).last()
+    s10 = c1.rolling(10, min_periods=10).std(ddof=1)
+    s60 = c1.rolling(60, min_periods=60).std(ddof=1).replace(0, np.nan)
+    vr_by_bucket = (s10 / s60)
+    closed = pd.Series(b - 1)                     # last CLOSED 1m bucket per row
+    return closed.map(vr_by_bucket).values
 
-def gen_nmp_ext(ctx):
-    """NMP-EXT (the completed master equation): |z|>Z_ENTRY AND lambda_hat<0 -> FADE;
-    lambda_hat>=0 -> RIDE. Skip fire if lambda_hat undefined. value=|lambda_hat|."""
+def gen_nmp(ctx):
+    """NMP (V1 trigger CORRECTED per doc 085): |z_se|>Z_ENTRY AND vr_1m<1.0 -> FADE
+    (-sign z); re-arm at |z|<Z_EXIT. The vr<1 gate was V1's de-facto stability term
+    (NMP_V2_FEATURE_MAP trap #6: without vr you are not running the NMP trigger).
+    value=|z|."""
+    if getattr(ctx, 'zse', None) is None: return []
+    vr = _vr_1m(ctx)
+    return [ctx.emit(i, zi < 0, abs(zi)) for i, zi in _nmp_fires(ctx)
+            if np.isfinite(vr[i]) and vr[i] < 1.0]
+
+def gen_nmp_lambda(ctx):
+    """NMP-LAMBDA (the lambda-complete trigger, NMP_V2_FEATURE_MAP §3 — the
+    never-built branch; formerly mislabeled NMP-EXT): |z|>Z_ENTRY AND lambda_hat<0
+    -> FADE; lambda_hat>=0 -> RIDE. Skip if lambda_hat undefined. value=|lambda_hat|."""
     if getattr(ctx, 'zse', None) is None: return []
     lam = _nmp_lambda(ctx)
     out = []
@@ -671,6 +688,146 @@ def gen_nmp_ext(ctx):
     return out
 
 
+# ---- NMP TIER LADDER = "extended NMP" (Moises 2026-07-16: "a bunch of augmented
+# NMP") — verbatim port of blended_engine_2026_04_18._classify_full_tier (:663-770)
+# with every V1 quantity recomputed EXACTLY from raw bars at the decision layer
+# (map §4 recipe A — original thresholds therefore transfer; no window drift).
+# V1 units: velocity/bar_range in TICKS (0.25). Evaluated at 1m boundaries,
+# edge-triggered on (tier, direction) change. REGIME_FLIP excluded (only reachable
+# via manual injection in legacy). PEAK disabled in legacy.
+TICK = 0.25
+_TIER_C = dict(ROCHE=2.0, VR_ENTRY=1.0, VELOCITY_THRESHOLD=50.0,
+               FREIGHT_TRAIN_THRESHOLD=100.0, FREIGHT_TRAIN_VR_MAX=0.85,
+               WICK_5M_MIN=0.83, WICK_15M_MIN=0.77, H1_Z_MIN=1.0,
+               H1_AGAINST_Z_MIN=1.5, MTF_5M_VEL_MIN=30.0, MTF_1M_VEL_ALIVE=10.0,
+               MTF_Z_MIN=1.4, MTF_VR_MIN=0.58, MTF_VOL_MIN=2.0)
+
+def _z21(closes):
+    """V1 21-bar OLS endpoint z (derive.py:74-95 exact estimator, ddof=2), vectorized."""
+    n, w = len(closes), 21
+    z = np.full(n, np.nan)
+    if n < w: return z
+    x = np.arange(w, dtype=float); xm = x.mean(); xv = ((x - xm) ** 2).sum()
+    sw = np.lib.stride_tricks.sliding_window_view(closes, w)
+    ym = sw.mean(1)
+    slope = ((sw - ym[:, None]) * (x - xm)).sum(1) / xv
+    inter = ym - slope * xm
+    fit = slope[:, None] * x + inter[:, None]
+    resid = sw - fit
+    var = (resid ** 2).sum(1) / (w - 2)
+    sd = np.sqrt(np.maximum(var, 0))
+    z[w - 1:] = np.where(sd > 0, (sw[:, -1] - fit[:, -1]) / np.where(sd > 0, sd, 1), np.nan)
+    return z
+
+def _tf_state(ctx, period):
+    """Clock-aligned TF buckets from the 5s stream. Returns dict of per-bucket
+    arrays (V1 formulas) + per-row index of the LAST CLOSED bucket."""
+    b = ctx.ts // period
+    g = pd.DataFrame({'b': b, 'o': ctx.o, 'h': ctx.h, 'l': ctx.l,
+                      'c': ctx.c, 'v': ctx.v}).groupby('b')
+    o = g['o'].first(); h = g['h'].max(); l = g['l'].min()
+    c = g['c'].last(); v = g['v'].sum()
+    ids = c.index.values
+    cl = c.values
+    vel = np.diff(cl, prepend=np.nan) / TICK                     # V1 velocity (ticks)
+    acc = np.diff(vel, prepend=np.nan)
+    rng = np.maximum((h - l).values, 1e-9)
+    wick = 1.0 - np.abs(c.values - o.values) / rng               # V1 wick_ratio
+    s10 = c.rolling(10, min_periods=10).std(ddof=1)
+    s60 = c.rolling(60, min_periods=60).std(ddof=1).replace(0, np.nan)
+    vr = (s10 / s60).values
+    volr = (v / v.rolling(30, min_periods=30).mean()).values     # V1 vol_rel
+    # Wilder-14 dmi_diff = DI+ - DI-
+    up, dn = h.diff(), -l.diff()
+    dmp = pd.Series(np.where((up > dn) & (up > 0), up, 0.0), index=c.index)
+    dmm = pd.Series(np.where((dn > up) & (dn > 0), dn, 0.0), index=c.index)
+    pc = c.shift(1)
+    tr = pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
+    trs = tr.ewm(alpha=1 / 14, adjust=False).mean().replace(0, np.nan)
+    dip = 100 * dmp.ewm(alpha=1 / 14, adjust=False).mean() / trs
+    dim = 100 * dmm.ewm(alpha=1 / 14, adjust=False).mean() / trs
+    dmi = (dip - dim).values
+    pos = pd.Series(np.arange(len(ids)), index=ids)              # bucket id -> position
+    row_closed = pd.Series(ctx.ts // period - 1).map(pos).values # NaN if not present
+    return dict(z=_z21(cl), vel=vel, acc=acc, wick=wick, vr=vr, volr=volr,
+                dmi=dmi, row_closed=row_closed)
+
+def _nmp_tier_events(ctx):
+    """Classify every RTH 1m boundary with the verbatim V1 ladder; emit on
+    (tier, direction) EDGE (documented adaptation: legacy frequency arose from
+    position occupancy, a trade-management artifact, not signal definition)."""
+    if getattr(ctx, '_nmpt', None) is not None: return ctx._nmpt
+    C = _TIER_C
+    m1 = _tf_state(ctx, 60); m5 = _tf_state(ctx, 300)
+    m15 = _tf_state(ctx, 900); h1 = _tf_state(ctx, 3600)
+    events = []
+    prev = None
+    rows = np.flatnonzero((ctx.ts % 60 == 0) & ctx.rth &
+                          (np.arange(len(ctx.c)) >= ctx.start))
+    def at(st, i):
+        k = st['row_closed'][i]
+        return None if not np.isfinite(k) else int(k)
+    for i in rows:
+        k1, k5, k15, kh = at(m1, i), at(m5, i), at(m15, i), at(h1, i)
+        if None in (k1, k5, k15, kh): continue
+        z = m1['z'][k1]
+        if not np.isfinite(z): continue
+        direction = 'short' if z > 0 else 'long'
+        wick_5m, wick_15m = m5['wick'][k5], m15['wick'][k15]
+        h1_z, h1_vel = h1['z'][kh], h1['vel'][kh]
+        velocity, acceleration = m1['vel'][k1], m1['acc'][k1]
+        abs_vel = abs(velocity)
+        vr, v5_vel, v5_accel = m1['vr'][k1], m5['vel'][k5], m5['acc'][k5]
+        dmi, vol_rel = m1['dmi'][k1], m1['volr'][k1]
+        z_5m, z_15m = abs(m5['z'][k5]), abs(m15['z'][k15])
+        has_wick = wick_5m > C['WICK_5M_MIN'] and wick_15m > C['WICK_15M_MIN']
+        h1_against_fade = ((direction == 'long' and h1_z > C['H1_AGAINST_Z_MIN']) or
+                           (direction == 'short' and h1_z < -C['H1_AGAINST_Z_MIN']))
+        h1_aligned = ((direction == 'long' and h1_z < -C['H1_Z_MIN']) or
+                      (direction == 'short' and h1_z > C['H1_Z_MIN']))
+        res = None
+        if (np.isfinite(vr) and abs_vel >= C['FREIGHT_TRAIN_THRESHOLD'] and
+                velocity * acceleration > 0 and vr < C['FREIGHT_TRAIN_VR_MAX']):
+            res = ('long' if velocity > 0 else 'short', 'FREIGHT', abs_vel)
+        elif has_wick and not h1_aligned:
+            res = (direction, 'KILLSHOT', wick_5m)
+        elif has_wick and h1_aligned:
+            res = (direction, 'CASCADE', wick_5m)
+        elif (((direction == 'long' and h1_vel < -3.0) or
+               (direction == 'short' and h1_vel > 3.0)) and not h1_against_fade):
+            res = ('long' if h1_vel > 0 else 'short', 'RIDEAGN', abs(h1_vel))
+        elif h1_against_fade and abs(v5_vel) < 10.0:
+            res = (direction, 'FADEAGN', abs(h1_z))
+        elif (np.isfinite(vr) and np.isfinite(vol_rel) and v5_accel < 0 and
+              abs(v5_vel) > C['MTF_5M_VEL_MIN'] and abs_vel > C['MTF_1M_VEL_ALIVE'] and
+              abs(z) > C['MTF_Z_MIN'] and vr > C['MTF_VR_MIN'] and
+              vol_rel > C['MTF_VOL_MIN']):
+            res = ('long' if v5_vel > 0 else 'short', 'MTFEXH', abs(v5_vel))
+        elif z_5m > 1.3 and z_15m > 1.3:
+            bdir = 'long' if z > 0 else 'short'
+            if (bdir == 'long' and dmi > -5) or (bdir == 'short' and dmi < 5):
+                res = (bdir, 'MTFBRK', min(z_5m, z_15m))
+        else:
+            hi_opp = ((direction == 'long' and v5_vel < -3 and h1_vel < -3) or
+                      (direction == 'short' and v5_vel > 3 and h1_vel > 3))
+            if not hi_opp:
+                res = (direction, 'FADECALM', abs(z))
+        key = (res[0], res[1]) if res else None
+        if res and key != prev:
+            events.append((i, res[0] == 'long', res[1], res[2]))
+        prev = key
+    ctx._nmpt = events
+    return events
+
+def _make_tier_gen(tier):
+    def gen(ctx):
+        return [ctx.emit(i, is_long, float(val))
+                for i, is_long, t, val in _nmp_tier_events(ctx) if t == tier]
+    gen.__doc__ = (f"NMPT-{tier}: V1 tier ladder port (blended_engine_2026_04_18"
+                   f"._classify_full_tier verbatim), edge-triggered at 1m boundaries.")
+    return gen
+
+
 GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'VWAP-03': gen_vwap03, 'OHLC-01': gen_ohlc01, 'PIVOT-16': gen_pivot16,
         'ROUND-05': gen_round05, 'CROSS-11': gen_cross11, 'VWMA-10': gen_vwma10,
@@ -679,8 +836,11 @@ GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'MACD-07': gen_macd07, 'SCALP-18': gen_scalp18, 'RENKO-24': gen_renko24,
         'FIB-17': gen_fib17, 'ZONE-21': gen_zone21, 'VP-01': gen_vp01,
         'VA-13': gen_va13, 'HNS-22': gen_hns22, 'CURVE': gen_curve,
-        'NMP': gen_nmp, 'NMP-EXT': gen_nmp_ext}
-NMP_STREAMS = {'NMP', 'NMP-EXT'}
+        'NMP': gen_nmp, 'NMP-LAMBDA': gen_nmp_lambda}
+for _t in ('FREIGHT', 'KILLSHOT', 'CASCADE', 'RIDEAGN', 'FADEAGN',
+           'MTFEXH', 'MTFBRK', 'FADECALM'):
+    GENS[f'NMPT-{_t}'] = _make_tier_gen(_t)
+NMP_STREAMS = {'NMP', 'NMP-LAMBDA'}   # streams needing the canonical z_se load
 
 
 def _day_profile(prices, volumes):
