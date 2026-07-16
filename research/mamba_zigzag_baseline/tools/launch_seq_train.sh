@@ -6,6 +6,6 @@
 set -u
 N="${1:-50}"
 cd /mnt/c/Users/reyse/OneDrive/Desktop/Bayesian-AI
-exec .venv_wsl/bin/python -u \
+exec $HOME/venvs/bayesian-ai/bin/python -u \
     research/mamba_zigzag_baseline/pipeline/train_mamba_rl_seq.py \
     --num_episodes "$N" --seed 42 > seq_train.log 2>&1

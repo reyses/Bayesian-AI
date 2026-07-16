@@ -17,7 +17,7 @@ milliseconds per bar to:
   backward_opt    - TBPTT window backward + optimizer step (amortized)
 
 Usage (from repo root, inside WSL venv):
-  .venv_wsl/bin/python research/mamba_zigzag_baseline/tools/perf_step_breakdown.py \
+  $HOME/venvs/bayesian-ai/bin/python research/mamba_zigzag_baseline/tools/perf_step_breakdown.py \
       --days 2024_02_20 --steps 600 [--compile] [--out report.txt]
 
 Runtime-only measurement; no training math is altered (same ops, same order,

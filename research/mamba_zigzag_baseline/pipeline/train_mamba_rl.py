@@ -485,8 +485,8 @@ if __name__ == "__main__":
         import subprocess
         import sys
         try:
-            # Use wsl to run the .venv_wsl python environment
-            subprocess.run(["wsl", ".venv_wsl/bin/python", sys.argv[0]] + sys.argv[1:], check=True)
+            # venv moved to WSL ext4 2026-07-16 (perf: avoid /mnt/c); absolute path — wsl -e does no ~ expansion
+            subprocess.run(["wsl", "/home/reyses/venvs/bayesian-ai/bin/python", sys.argv[0]] + sys.argv[1:], check=True)
             sys.exit(0)
         except Exception as e:
             print("Failed to auto-respawn in WSL:", e)

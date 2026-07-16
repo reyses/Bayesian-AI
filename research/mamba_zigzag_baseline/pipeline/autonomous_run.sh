@@ -16,7 +16,7 @@ while true; do
     fi
 
     echo "Launching train_mamba_rl.py..."
-    .venv_wsl/bin/python research/mamba_zigzag_baseline/pipeline/train_mamba_rl.py --num_episodes $TOTAL_EPOCHS
+    $HOME/venvs/bayesian-ai/bin/python research/mamba_zigzag_baseline/pipeline/train_mamba_rl.py --num_episodes $TOTAL_EPOCHS
     EXIT_CODE=$?
 
     if [ $EXIT_CODE -eq 0 ]; then

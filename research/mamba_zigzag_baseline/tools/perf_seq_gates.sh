@@ -3,7 +3,7 @@
 # longer speed run. Run from repo root inside WSL.
 set -u
 P=research/mamba_zigzag_baseline
-PY=.venv_wsl/bin/python
+PY=$HOME/venvs/bayesian-ai/bin/python
 $PY $P/pipeline/train_mamba_rl_seq.py --num_episodes 1 --days 2024_02_20 --seed 42 \
     --max-steps 2300 --no-checkpoint --loss-dump $P/reports/perf/parity_seq_a.npz 2>&1 | grep -E 'PERF|Error|Traceback'
 $PY $P/pipeline/train_mamba_rl_seq.py --num_episodes 1 --days 2024_02_20 --seed 42 \

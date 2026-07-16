@@ -6,7 +6,8 @@ Bayesian-AI - System State Control
 OPERATIONAL_MODE = "LEARNING"
 
 # Data Path Configuration
-RAW_DATA_PATH = "DATA/RAW"
+# Raw source dumps moved to D: 2026-07-16 (OneDrive/C: space); ATLAS stays in-repo
+RAW_DATA_PATH = "D:/Bayesian-AI-data/DATA/RAW"
 
 # Anchor Date for Training/Simulation (YYYY-MM-DD)
 # Determines the start date for data file selection

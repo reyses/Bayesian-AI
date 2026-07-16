@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 def build_delta_features():
-    raw_dir = "DATA/RAW/GLBX-20260131-LBJYPKPMWM"
+    raw_dir = "D:/Bayesian-AI-data/DATA/RAW/GLBX-20260131-LBJYPKPMWM"  # moved off C: 2026-07-16
     files = sorted(glob.glob(os.path.join(raw_dir, "*.trades.*.dbn.zst")))
     print(f"Found {len(files)} trade files.")
     

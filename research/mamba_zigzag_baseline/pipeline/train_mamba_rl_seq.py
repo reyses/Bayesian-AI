@@ -380,7 +380,8 @@ if __name__ == "__main__":
         import subprocess
         try:
             script_path = sys.argv[0].replace('\\', '/')
-            subprocess.run(["wsl", ".venv_wsl/bin/python", script_path] + sys.argv[1:],
+            # venv moved to WSL ext4 2026-07-16 (perf: avoid /mnt/c); absolute path — wsl -e does no ~ expansion
+            subprocess.run(["wsl", "/home/reyses/venvs/bayesian-ai/bin/python", script_path] + sys.argv[1:],
                            check=True)
             sys.exit(0)
         except Exception as e:

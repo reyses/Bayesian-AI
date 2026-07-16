@@ -10,7 +10,7 @@ for i in $(seq "$START" "$END"); do
   for V in A B; do
     FLAG=""
     if [ "$V" = B ]; then FLAG="--compile"; fi
-    R=$(.venv_wsl/bin/python "$F" --num_episodes 1 --days 2024_02_20 --seed 42 \
+    R=$($HOME/venvs/bayesian-ai/bin/python "$F" --num_episodes 1 --days 2024_02_20 --seed 42 \
         --max-steps "$MAXSTEPS" --no-checkpoint $FLAG 2>&1 | grep -o 'bars/sec = [0-9.]*')
     echo "$V$i: ${R:-RUN_FAILED}" | tee -a "$OUT"
   done

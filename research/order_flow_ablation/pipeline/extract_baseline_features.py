@@ -13,7 +13,7 @@ def extract_features():
     labels_csv = os.path.join(atlas_root, "regime_labels_2d.csv")
     
     import glob
-    raw_dir = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/RAW/GLBX-20260131-LBJYPKPMWM"
+    raw_dir = "D:/Bayesian-AI-data/DATA/RAW/GLBX-20260131-LBJYPKPMWM"  # moved off C: 2026-07-16
     files = sorted(glob.glob(os.path.join(raw_dir, "*.trades.*.dbn.zst")))
     
     days = []

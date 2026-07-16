@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from core_v2.sessions import session_day_array, session_day
 from DATA.pipeline.databento_to_atlas import _build_roll_calendar, _front_for_day
 
-RAW_ROOT = Path('DATA/RAW_NT8')
+RAW_ROOT = Path('D:/Bayesian-AI-data/DATA/RAW_NT8')  # moved off C: 2026-07-16
 ATLAS_OUT = Path('DATA/ATLAS_NT8')
 
 QCODE_REV = {'03': 'H', '06': 'M', '09': 'U', '12': 'Z'}

@@ -10,7 +10,7 @@ F=research/mamba_zigzag_baseline/pipeline/train_mamba_rl.py
 for i in $(seq 1 "$REPS"); do
   for V in A B; do
     if [ "$V" = A ]; then cp "$A_SRC" "$F"; else cp "$B_SRC" "$F"; fi
-    R=$(.venv_wsl/bin/python "$F" --num_episodes 1 --days 2024_02_20 --seed 42 \
+    R=$($HOME/venvs/bayesian-ai/bin/python "$F" --num_episodes 1 --days 2024_02_20 --seed 42 \
         --max-steps "$MAXSTEPS" --no-checkpoint 2>&1 | grep -o 'bars/sec = [0-9.]*')
     echo "$V$i: ${R:-RUN_FAILED}" | tee -a "$OUT"
   done

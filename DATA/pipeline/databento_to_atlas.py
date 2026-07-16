@@ -31,7 +31,7 @@ from tqdm import tqdm
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from core_v2.sessions import session_day_array  # canonical session-day boundary (CME 17:00 CT)
 
-RAW_ROOT = 'C:/Users/reyse/OneDrive/Desktop/RAW'
+RAW_ROOT = 'D:/Bayesian-AI-data/Desktop_RAW'  # moved off C:/OneDrive 2026-07-16
 ATLAS_OUT = 'DATA/ATLAS'
 
 # --- Front-month roll: NT8 convention --------------------------------------
