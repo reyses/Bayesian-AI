@@ -819,6 +819,61 @@ def _nmp_tier_events(ctx):
     ctx._nmpt = events
     return events
 
+def _cdl_flags(ctx):
+    """Legacy candlestick cascade on 1m buckets (core/cuda_pattern_detector.py
+    @09cd30d8:108-126 verbatim, incl. priority: DOJI first, then HAMMER, then
+    ENGULFING). Returns per-bucket flags + the 5s row where each bucket's bar
+    CLOSES (first row of the next bucket)."""
+    b = ctx.ts // 60
+    g = pd.DataFrame({'b': b, 'o': ctx.o, 'h': ctx.h, 'l': ctx.l, 'c': ctx.c}).groupby('b')
+    o = g['o'].first().values; h = g['h'].max().values
+    l = g['l'].min().values; c = g['c'].last().values
+    ids = g['c'].last().index.values
+    body = np.abs(c - o)
+    rng = np.where(h - l == 0, 1e-10, h - l)
+    upper = h - np.maximum(c, o)
+    lower = np.minimum(c, o) - l
+    po = np.roll(o, 1); pc = np.roll(c, 1); po[0] = np.nan; pc[0] = np.nan
+    doji = body / rng < 0.1
+    hammer = ~doji & (lower > 2.0 * body) & (upper < 0.1 * rng) & (body < 0.3 * rng)
+    ebull = ~doji & ~hammer & (pc < po) & (c > o) & (o <= pc) & (c >= po)
+    ebear = ~doji & ~hammer & (pc > po) & (c < o) & (o >= pc) & (c <= po)
+    # bucket k's bar closes at the first row of bucket k+1
+    first_row = pd.Series(np.arange(len(ctx.ts)), index=b).groupby(level=0).first()
+    close_row = pd.Series(first_row.values, index=first_row.index - 1)  # bucket -> closing row
+    pos = pd.Series(np.arange(len(ids)), index=ids)
+    return dict(hammer=hammer, ebull=ebull, ebear=ebear, body=body, lower=lower,
+                ids=ids, close_row=close_row, pos=pos)
+
+def gen_ptrn_engulf(ctx):
+    """PTRN-ENGULF (template-era event layer, legacy formula verbatim): 1m engulfing
+    bull = LONG / bear = SHORT — direction is IN the formula. value = body (pts)."""
+    F = _cdl_flags(ctx)
+    out = []
+    for k in range(1, len(F['ids'])):
+        if not (F['ebull'][k] or F['ebear'][k]): continue
+        r = F['close_row'].get(F['ids'][k])
+        if r is None or not np.isfinite(r): continue
+        r = int(r)
+        if r < ctx.start or not ctx.rth[r]: continue
+        out.append(ctx.emit(r, bool(F['ebull'][k]), float(F['body'][k])))
+    return out
+
+def gen_ptrn_hammer(ctx):
+    """PTRN-HAMMER (template-era event layer, legacy formula verbatim; direction =
+    classic bullish-reversal reading — DECLARED adaptation: legacy used patterns as
+    state flags, direction was learned by the Bayesian brain). value = lower shadow."""
+    F = _cdl_flags(ctx)
+    out = []
+    for k in range(1, len(F['ids'])):
+        if not F['hammer'][k]: continue
+        r = F['close_row'].get(F['ids'][k])
+        if r is None or not np.isfinite(r): continue
+        r = int(r)
+        if r < ctx.start or not ctx.rth[r]: continue
+        out.append(ctx.emit(r, True, float(F['lower'][k])))
+    return out
+
 def _make_tier_gen(tier):
     def gen(ctx):
         return [ctx.emit(i, is_long, float(val))
@@ -836,7 +891,8 @@ GENS = {'ZIGZAG': gen_zigzag, 'ORB-02': gen_orb02, 'SEASON-12': gen_season12,
         'MACD-07': gen_macd07, 'SCALP-18': gen_scalp18, 'RENKO-24': gen_renko24,
         'FIB-17': gen_fib17, 'ZONE-21': gen_zone21, 'VP-01': gen_vp01,
         'VA-13': gen_va13, 'HNS-22': gen_hns22, 'CURVE': gen_curve,
-        'NMP': gen_nmp, 'NMP-LAMBDA': gen_nmp_lambda}
+        'NMP': gen_nmp, 'NMP-LAMBDA': gen_nmp_lambda,
+        'PTRN-ENGULF': gen_ptrn_engulf, 'PTRN-HAMMER': gen_ptrn_hammer}
 for _t in ('FREIGHT', 'KILLSHOT', 'CASCADE', 'RIDEAGN', 'FADEAGN',
            'MTFEXH', 'MTFBRK', 'FADECALM'):
     GENS[f'NMPT-{_t}'] = _make_tier_gen(_t)
