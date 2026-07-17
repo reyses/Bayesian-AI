@@ -110,10 +110,25 @@ label-ends-within-3min (CE 0.95→0.82 / 1.256→1.242 over 3 epochs; ckpt
    (gap watched from epoch ~5) or a selectivity/wiggle weight bump if it
    fails to emerge. Trades/day trajectory (3854→517, ~7.5× collapse per
    epoch) says the pressure is working.
-4. **Speed: 248 → 293.5 bars/s from env fixes; `--compile_act` gates
-   (fp32 1e-6 parity / bitwise self-determinism / bf16 perf) in
-   `reports/speed_gates.log`.** Causality untouched — all changes are
+4. **Speed: 248 → 293.5 bars/s from env fixes, → 431.2 with `--compile_act`
+   (1.74× total). ALL THREE GATES PASS** (fp32 parity: actions exact, losses
+   2.4e-07; bitwise self-determinism: byte-identical; bf16 full-epoch 1.47×).
+   Full-curriculum epoch ~18h → ~10.3h. Causality untouched — all changes are
    reward-side or overhead-side; the observation path is byte-identical.
+
+## 5. Morning queue (decisions only — nothing built)
+1. **Interim-NT8 architecture**: A (python sensor → thin NT8 executor) vs B
+   (native port). Every line of evidence gathered so far favors A (operator
+   bug reports are about complex in-strategy logic; canonical sensor stays
+   verified; regime state lives in python).
+2. **Exit Dojo full run budget**: 100-300 episodes (pilot grammar is stable;
+   the full run hardens per-regime stats + feeds EXIT-GRAMMAR-01).
+3. **EXIT-GRAMMAR-01 build scope**: codify the dojo grammar causally
+   (ER10-floor × ≥2-family fresh-against × giveback-dynamics; tighten at 1,
+   exit at 2-3), 2024-tune / sealed 2025-26 test vs bracket + 5m refs.
+4. **Mamba production run config**: warm-start + longer curriculum (gap watch
+   from epoch ~5; w_s/w_w bump if selectivity hasn't emerged), --compile_act
+   ON (gates passed), FIXED2 wiring.
 
 ## 3. Reward-wiring audit (found DURING the smoke; the real product of the night)
 The COLD [SMOKE] lines showed `sum_capture=0.0` in both epochs. Root-cause

@@ -187,11 +187,19 @@ cliff removed; per-fire regret capping; `--init_from`; `--smoke_metrics`.
 - `--compile_act` (torch.compile forward_step, default mode — NO cudagraphs,
   carried-state trap) + `--no_autocast` (fp32 parity harness) added to the
   trainer; acting path only, learning pass eager.
-- Gates (tools/run_speed_gates.sh → reports/speed_gates.log):
-  fp32 eager-vs-compiled parity (tol 1e-6, actions exact) → compiled bitwise
-  self-determinism → bf16 full-epoch perf A/B. Causality untouched — every
-  change is reward-side or overhead-side; the observation path is
-  byte-identical.
+- Gates (tools/run_speed_gates.sh → reports/speed_gates.log) — **ALL PASS**:
+  - Gate 1 (fp32 parity, 2000 bars): actions byte-identical, losses
+    max|Δ|=2.4e-07 (tol 1e-6), rewards Δ=0.
+  - Gate 2 (bitwise self-determinism): two compiled runs byte-identical on
+    actions, losses, AND rewards.
+  - Gate 3 (bf16 full epoch): **431.2 bars/s vs 293.5 eager = 1.47×**; the
+    [SMOKE] json tracks FIXED2·ep0 closely (15,414 trades in both; small
+    component drift = bf16 compiled-vs-eager sampling noise, expected — fp32
+    is where exactness was proven).
+  - **Night total: 248 → 431 bars/s (1.74×).** Full-curriculum scale
+    (~16M bars/epoch): ~18h → ~10.3h per epoch.
+  Causality untouched — every change is reward-side or overhead-side; the
+  observation path is byte-identical.
 
 ## 8. Artifacts
 
