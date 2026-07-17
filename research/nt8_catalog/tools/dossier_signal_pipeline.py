@@ -1446,3 +1446,236 @@ def gen_propturn(ctx):
 
 
 GENS['PROP-TURN'] = gen_propturn
+
+
+# ---- PROP-TURN-P (2026-07-17, doc 094: P-modulated proportional turn) -----------------
+# Moises' design: "use the confidence P() to tune the signal dynamically -- in theory we
+# should have high conviction that it is turning after the flat and the giveback." The
+# static PROP-TURN was killed (doc 093): a FIXED retrace fraction r cannot separate a noise
+# giveback from a conviction giveback. PROP-TURN-P replaces the fixed r with a DYNAMIC
+# r_eff modulated by a 2024-fitted turn-conviction logistic P_turn:
+#   r_eff = r_hi - (r_hi - r_lo) * clip((P_turn - p0)/(p1 - p0), 0, 1)   (fire when g>=r_eff)
+# High P_turn (strong turn evidence) -> r_eff -> r_lo (fire on a SMALL giveback; sensitive);
+# low P_turn -> r_eff -> r_hi (demand a LARGE giveback; insensitive). The static stall GATE
+# is REMOVED (it forced the degenerate S>=3 cell in doc 093); stall becomes a P_turn FEATURE.
+# The escape clause + A_min noise floor are RETAINED verbatim from _propturn_core.
+#
+# P_turn (10 causal features at each 1m boundary during a leg; standardized logistic, 2024):
+#   0 g=giveback fraction retr/A        5 ER(10) efficiency ratio (1m closes, CTX-ER formula)
+#   1 stall_min since extreme improved  6 min-since EXIT-KMDR fire AGAINST leg dir (cap 30)
+#   2 A leg amplitude (pts)             7 min-since TURN-CLIMAX fire against leg dir (cap 30)
+#   3 leg_age_min since last pivot      8 min-since TURN-HA   fire against leg dir (cap 30)
+#   4 A/std21 (amp / std of 21 1m closes) 9 trail_vol = std of last 60 5s closes (5-min vol)
+# DECLARED CHOICES (spec 094 leaves these open; sealed on 2024 before any test read):
+#  * "A/21 ratio" read as A / std(last 21 one-minute closes) (STD21_FLOOR=1pt) -- a
+#    vol-normalized amplitude; standardization makes the exact scale irrelevant.
+#  * P_turn is fit on the leg trajectory of a REFERENCE tracker (fixed r=RREF, A_min=AMIN_REF,
+#    no stall gate, escape on) to break the tracker<->P_turn circularity; the frozen model is
+#    then applied to the dynamic tracker's own live state (a declared, standard train/deploy
+#    shift). "Against leg dir": an up-leg (long) is opposed by SHORT aux fires, a down-leg by
+#    LONG aux fires (fresh opposite-side evidence = the leg is exhausting).
+#  * r_eff updates at EVERY 1m boundary (RTH + overnight) from P_turn; fit samples only RTH
+#    boundaries (where labels live); fires stay RTH-gated. Label = interior turn in [t, t+3min].
+# Aux fires (EXIT-KMDR / TURN-CLIMAX / TURN-HA) are the EXISTING generators, independent of the
+# proportional tracker, precomputed once per day. Frozen coefs + winning cell live in
+# reports/propturn_p_frozen.json (JSON, no pickle). Tuning/selection: tools/propturn_p_tune.py
+# (imports the SHARED cores below, so tuning and production never drift). 36-cell grid
+# r_lo x r_hi x (p0,p1) x A_min, sealed 2024, objective = max dir-recall@+-2m s.t.
+# direction-correctness(near-turn) >= 0.80 AND lead-median in [-2,+1] min, NO fires/day cap.
+# ---------------------------------------------------------------------------------------
+PROPTURNP_FROZEN = os.path.join(REP, 'propturn_p_frozen.json')
+PROPTURNP_RREF = 0.15          # reference-tracker giveback for P_turn FITTING (declared)
+PROPTURNP_AMIN_REF = 10.0      # reference-tracker A_min for P_turn FITTING (declared)
+PROPTURNP_STD21_FLOOR = 1.0    # pts; floor on std(21 1m closes) for the A/std21 feature
+PROPTURNP_AUX_CAP_S = 1800.0   # 30-min cap on minutes-since-aux-fire (declared, spec 094)
+PROPTURNP_NFEAT = 10
+_PPFROZEN = None
+
+
+def _pp_since(ts, mask):
+    """Seconds since the last True in `mask` at/before each row (cap PROPTURNP_AUX_CAP_S),
+    vectorized. Rows before the first event get the cap."""
+    n = len(ts); cap = PROPTURNP_AUX_CAP_S
+    out = np.full(n, cap)
+    ev = np.flatnonzero(mask)
+    if len(ev) == 0:
+        return out
+    pos = np.searchsorted(ev, np.arange(n), side='right') - 1
+    have = pos >= 0
+    lastrow = np.zeros(n, dtype=np.int64)
+    lastrow[have] = ev[pos[have]]
+    sec = (ts - ts[lastrow]).astype(np.float64)
+    return np.where(have, np.minimum(cap, sec), cap)
+
+
+def _pp_aux_since(ctx, gen):
+    """(since_long, since_short) per 5s row for one EXISTING turn generator: seconds since
+    its last LONG / SHORT fire. Fires are the generator's RTH-gated emits, mapped to rows."""
+    fires = gen(ctx)
+    ts = ctx.ts.astype(np.int64); n = len(ts)
+    is_l = np.zeros(n, bool); is_s = np.zeros(n, bool)
+    if fires:
+        fts = np.array([e['ts'] for e in fires], dtype=np.int64)
+        flong = np.array([e['is_long'] for e in fires], dtype=bool)
+        ridx = np.clip(np.searchsorted(ts, fts), 0, n - 1)
+        is_l[ridx[flong]] = True
+        is_s[ridx[~flong]] = True
+    return _pp_since(ts, is_l), _pp_since(ts, is_s)
+
+
+def _pp_arrays(ctx):
+    """All tracker-INDEPENDENT per-5s-row arrays P_turn needs (ER10, trail_vol, std21, and
+    the six aux since-arrays). Identical in tuning (imported) and production -> no drift."""
+    b = ctx.ts // 60
+    c1 = pd.Series(ctx.c).groupby(b).last()
+    dc = c1.diff().abs()
+    denom = dc.rolling(ER_N, min_periods=ER_N).sum().replace(0, np.nan)   # ER_N=10 (CTX-ER)
+    er = (c1 - c1.shift(ER_N)).abs() / denom
+    std21 = c1.rolling(21, min_periods=21).std(ddof=1)
+    closed = pd.Series(b - 1)                                             # last CLOSED 1m bucket
+    er10 = closed.map(er).ffill().values
+    s21 = closed.map(std21).ffill().values
+    tvol = pd.Series(ctx.c).rolling(60, min_periods=60).std(ddof=1).values
+    kl, ks = _pp_aux_since(ctx, gen_exit_kmdr)
+    cl, cs = _pp_aux_since(ctx, gen_turn_climax)
+    hl, hs = _pp_aux_since(ctx, gen_turn_ha)
+    er10 = np.nan_to_num(er10, nan=0.5)                                   # ER undefined -> neutral
+    tvol = np.nan_to_num(tvol, nan=0.0)
+    s21 = np.maximum(np.where(np.isfinite(s21), s21, PROPTURNP_STD21_FLOOR), PROPTURNP_STD21_FLOOR)
+    return dict(er10=er10.astype(np.float64), tvol=tvol.astype(np.float64),
+                std21=s21.astype(np.float64), kl=kl, ks=ks, cl=cl, cs=cs, hl=hl, hs=hs)
+
+
+@_njit(cache=True)
+def _pp_featvec(out, d, P0, hi_v, lo_v, hi_ts, lo_ts, piv_ts, x, ts_i,
+                er10_i, tvol_i, std21_i, kl_i, ks_i, cl_i, cs_i, hl_i, hs_i):
+    """Fill out[0:10] with the P_turn feature vector for the CURRENT leg state. Single source
+    of truth for both the fit trace and the dynamic core (identical features guaranteed)."""
+    if d >= 0:                                   # up-leg: opposed by SHORT aux fires
+        A = hi_v - P0; retr = hi_v - x; stall = ts_i - hi_ts
+        opp_k = ks_i; opp_c = cs_i; opp_h = hs_i
+    else:                                        # down-leg: opposed by LONG aux fires
+        A = P0 - lo_v; retr = x - lo_v; stall = ts_i - lo_ts
+        opp_k = kl_i; opp_c = cl_i; opp_h = hl_i
+    out[0] = retr / A if A > 0.0 else 0.0        # g = giveback fraction
+    out[1] = stall / 60.0                        # stall_min
+    out[2] = A                                   # amplitude (pts)
+    out[3] = (ts_i - piv_ts) / 60.0              # leg_age_min
+    out[4] = A / std21_i                         # A/std21 (std21 floored > 0)
+    out[5] = er10_i                              # ER(10)
+    out[6] = opp_k / 60.0                        # min since opposing EXIT-KMDR (capped)
+    out[7] = opp_c / 60.0                        # min since opposing TURN-CLIMAX (capped)
+    out[8] = opp_h / 60.0                        # min since opposing TURN-HA (capped)
+    out[9] = tvol_i                              # trail_vol (60x5s std)
+
+
+@_njit(cache=True)
+def _propturn_p_trace(c, ts, rth, start, is1m, r_ref, a_min,
+                      er10, tvol, std21, kl, ks, cl, cs, hl, hs):
+    """REFERENCE tracker for P_turn FITTING: fixed r=r_ref, no stall gate, escape+A_min.
+    Records the feature vector at every RTH 1m boundary during a leg (A>0). Returns
+    (feat[m,10], fire_row_idx[m]). Leg state updates every bar; sampling gated RTH & >=start."""
+    n = c.shape[0]
+    feat = np.empty((n, PROPTURNP_NFEAT), np.float64)
+    fidx = np.empty(n, np.int64)
+    m = 0
+    P0 = c[0]; d = 0
+    hi_v = c[0]; lo_v = c[0]; hi_ts = ts[0]; lo_ts = ts[0]; piv_ts = ts[0]
+    tmp = np.empty(PROPTURNP_NFEAT, np.float64)
+    for i in range(1, n):
+        x = c[i]
+        if x > hi_v: hi_v = x; hi_ts = ts[i]
+        if x < lo_v: lo_v = x; lo_ts = ts[i]
+        if is1m[i] and rth[i] and i >= start:
+            A_now = (hi_v - P0) if d >= 0 else (P0 - lo_v)
+            if A_now > 0.0:
+                _pp_featvec(tmp, d, P0, hi_v, lo_v, hi_ts, lo_ts, piv_ts, x, ts[i],
+                            er10[i], tvol[i], std21[i], kl[i], ks[i], cl[i], cs[i], hl[i], hs[i])
+                for jj in range(PROPTURNP_NFEAT):
+                    feat[m, jj] = tmp[jj]
+                fidx[m] = i; m += 1
+        fired = False
+        if d >= 0:
+            A = hi_v - P0; retr = hi_v - x
+            if (A >= a_min and retr >= r_ref * A) or (A < a_min and retr >= a_min):
+                P0 = hi_v; d = -1; lo_v = x; lo_ts = ts[i]; piv_ts = ts[i]; fired = True
+        if (not fired) and d <= 0:
+            A = P0 - lo_v; retr = x - lo_v
+            if (A >= a_min and retr >= r_ref * A) or (A < a_min and retr >= a_min):
+                P0 = lo_v; d = 1; hi_v = x; hi_ts = ts[i]; piv_ts = ts[i]; fired = True
+    return feat[:m], fidx[:m]
+
+
+@_njit(cache=True)
+def _propturn_p_core(c, ts, rth, start, is1m, a_min, r_lo, r_hi, p0f, p1f,
+                     mu, sd, coef, b0, er10, tvol, std21, kl, ks, cl, cs, hl, hs):
+    """DYNAMIC tracker: r_eff modulated by P_turn (frozen logistic) at each 1m boundary; fire
+    when g>=r_eff (escape+A_min retained; no stall gate). Returns (fire_idx, new_leg_dir int8
+    1=long/0=short, closed-leg amplitude A). State updates every bar; emission RTH-gated."""
+    n = c.shape[0]
+    fi = np.empty(n, np.int64); fl = np.empty(n, np.int8); fa = np.empty(n, np.float64)
+    k = 0
+    P0 = c[0]; d = 0
+    hi_v = c[0]; lo_v = c[0]; hi_ts = ts[0]; lo_ts = ts[0]; piv_ts = ts[0]
+    tmp = np.empty(PROPTURNP_NFEAT, np.float64)
+    r_eff = r_hi
+    for i in range(1, n):
+        x = c[i]
+        if x > hi_v: hi_v = x; hi_ts = ts[i]
+        if x < lo_v: lo_v = x; lo_ts = ts[i]
+        if is1m[i]:
+            _pp_featvec(tmp, d, P0, hi_v, lo_v, hi_ts, lo_ts, piv_ts, x, ts[i],
+                        er10[i], tvol[i], std21[i], kl[i], ks[i], cl[i], cs[i], hl[i], hs[i])
+            zz = b0
+            for jj in range(PROPTURNP_NFEAT):
+                zz += coef[jj] * (tmp[jj] - mu[jj]) / sd[jj]
+            P = 1.0 / (1.0 + np.exp(-zz))
+            frac = (P - p0f) / (p1f - p0f)
+            if frac < 0.0: frac = 0.0
+            elif frac > 1.0: frac = 1.0
+            r_eff = r_hi - (r_hi - r_lo) * frac
+        fired = False
+        if d >= 0:
+            A = hi_v - P0; retr = hi_v - x
+            g = retr / A if A > 0.0 else 0.0
+            if (A >= a_min and g >= r_eff) or (A < a_min and retr >= a_min):
+                if rth[i] and i >= start:
+                    fi[k] = i; fl[k] = 0; fa[k] = A; k += 1
+                P0 = hi_v; d = -1; lo_v = x; lo_ts = ts[i]; piv_ts = ts[i]; fired = True
+        if (not fired) and d <= 0:
+            A = P0 - lo_v; retr = x - lo_v
+            g = retr / A if A > 0.0 else 0.0
+            if (A >= a_min and g >= r_eff) or (A < a_min and retr >= a_min):
+                if rth[i] and i >= start:
+                    fi[k] = i; fl[k] = 1; fa[k] = A; k += 1
+                P0 = lo_v; d = 1; hi_v = x; hi_ts = ts[i]; piv_ts = ts[i]; fired = True
+    return fi[:k], fl[:k], fa[:k]
+
+
+def _pp_load():
+    """Frozen P_turn coefs + winning cell (JSON, no pickle). Cached on the module."""
+    global _PPFROZEN
+    if _PPFROZEN is None:
+        with open(PROPTURNP_FROZEN, encoding='utf-8') as f:
+            _PPFROZEN = json.load(f)
+    return _PPFROZEN
+
+
+def gen_propturn_p(ctx):
+    """PROP-TURN-P: P-modulated proportional leg-turn stop-and-reverse. Fires at each dynamic
+    turn; direction = the NEW leg; value = the completed leg amplitude A (pts). Frozen coefs +
+    cell are 2024-SEALED (reports/propturn_p_frozen.json)."""
+    fr = _pp_load(); pt = fr['p_turn']; cell = fr['cell']
+    a = _pp_arrays(ctx)
+    is1m = (ctx.ts % 60 == 0).astype(np.bool_)
+    fi, fl, fa = _propturn_p_core(
+        ctx.c.astype(np.float64), ctx.ts.astype(np.int64), ctx.rth.astype(np.bool_),
+        np.int64(ctx.start), is1m, float(cell['A_min']),
+        float(cell['r_lo']), float(cell['r_hi']), float(cell['p0']), float(cell['p1']),
+        np.asarray(pt['mu'], np.float64), np.asarray(pt['sd'], np.float64),
+        np.asarray(pt['coef'], np.float64), float(pt['intercept']),
+        a['er10'], a['tvol'], a['std21'], a['kl'], a['ks'], a['cl'], a['cs'], a['hl'], a['hs'])
+    return [ctx.emit(int(fi[k]), bool(fl[k]), float(fa[k])) for k in range(len(fi))]
+
+
+GENS['PROP-TURN-P'] = gen_propturn_p
