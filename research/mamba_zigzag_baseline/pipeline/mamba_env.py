@@ -14,6 +14,7 @@ from core_v2.ledger import Ledger
 from core_v2.features import assemble_v2_grid, TF_HIERARCHY_V2
 from core_v2.exits import default_exit_suite
 from reward_env import RewardConfig, BetaRewardPolicy
+from phit_feed import PhitFeed
 import json
 import pandas_market_calendars as mcal
 
@@ -87,10 +88,30 @@ class MambaRLTradingEnv:
         # V2 Reward Policy
         self.reward_config = RewardConfig()
         self.reward_policy = BetaRewardPolicy(self.reward_config)
+        # Fixed vol normalizer for the smoke reward (ticks). Replace with the
+        # rolling window (RewardConfig.vol_normalization_window) when the
+        # reward graduates from smoke to full training.
+        self.sigma_ticks = 10.0
+        # Env-local per-trade MAE tracker (most negative unrealized ticks).
+        # core_v2 Position tracks peak_pnl but not the trough; tracking here
+        # avoids editing the shared ledger for a research-reward input.
+        self._trade_min_pnl_ticks = 0.0
+        # Extras of the most recently closed trade (entry-time truth for the
+        # exit-time scorecard); set at the remove_position call site.
+        self._last_exit_extras = {}
         
         # Load AI Picks for Oracle
         self.ai_picks = self._load_ai_picks(atlas_root, days)
         self.h_bars_tolerance = 25  # Derived ~10% of median turn spacing (299.20 bars)
+
+        # Causal knowability feed (replaces the mocked c_t=1.0). Surfaces the
+        # calibrated decile-9/0 fires per bar so regret only stings when a
+        # high-P setup was genuinely readable, and selectivity can credit
+        # aligned entries.
+        self.phit_feed = PhitFeed(days)
+        # Stable per-swing id for once-per-swing regret capping (= the driving
+        # fire's ts). None when no live signal.
+        self._flat_swing_id = None
 
     def _load_ai_picks(self, atlas_root, days):
         queue = []
@@ -127,6 +148,8 @@ class MambaRLTradingEnv:
         self.realized_pnl = 0.0
         self.last_hour_ts = None
         self.last_hour_equity = 0.0
+        self._trade_min_pnl_ticks = 0.0
+        self._last_exit_extras = {}
 
         # Invalidate epoch-scoped caches: the iterator restarts at day 1, so
         # timestamps jump backward and cached boundaries would go stale.
@@ -268,19 +291,32 @@ class MambaRLTradingEnv:
         day_str_underscores = self.current_day_str.replace('-', '_') if self.current_day_str else ""
         is_label_covered = day_str_underscores in getattr(self, 'covered_days_set', set())
         turn_imminent = 0.0
-        c_t = 1.0 # Mocked to 1.0 for V2 Reward to penalize missed trades
+        # REAL causal knowability: c_t = calibrated P of the most recent
+        # decile-9 fire (or 1-P of a decile-0 fire, direction inverted) within
+        # the last 120s; (0.0, 0) if none. Replaces the old c_t=1.0 mock that
+        # made regret a blanket one-shot whisper.
+        c_t, sig_dir = self.phit_feed.live_signal(ts)
+        self._flat_swing_id = (f"flat_{self.phit_feed.last_fire_ts}"
+                               if self.phit_feed.last_fire_ts is not None else None)
         
         # Prune old trades (older than 1 hour)
         while self.ai_picks and self.ai_picks[0]['exit_ts'] < ts - 3600:
             self.ai_picks.pop(0)
             
         active_oracle = None
+        tol_s = self.h_bars_tolerance * 5
         for t in self.ai_picks:
+            # Sorted by entry_ts: anything starting beyond ts+tol_s can be
+            # neither active nor turn-imminent — stop scanning. Bounds the
+            # per-bar cost at full-curriculum scale (year of picks) without
+            # changing which pick wins (same last-match-in-order semantics).
+            if t['entry_ts'] > ts + tol_s:
+                break
             if t['entry_ts'] <= ts <= t['exit_ts']:
                 active_oracle = t
-            
+
             # Turn imminent (within h_bars_tolerance * 5 seconds)
-            if 0 <= (t['exit_ts'] - ts) <= (self.h_bars_tolerance * 5):
+            if 0 <= (t['exit_ts'] - ts) <= tol_s:
                 turn_imminent = 1.0
 
         info['is_label_covered'] = is_label_covered
@@ -291,8 +327,14 @@ class MambaRLTradingEnv:
         
         # 1. Update ledger state for the current bar (monitors peak PnL, draws, etc)
         if not self.ledger.is_flat:
-            action_type = 'IN_POSITION_STEP' 
+            action_type = 'IN_POSITION_STEP'
             self.ledger.update_bar(self.current_bar.v2_vector, self.current_bar.price, self.current_bar.timestamp)
+            # Track the trade's MAE (feeds the cut-bonus decay at exit).
+            pos0 = self.ledger.primary
+            dsign0 = 1.0 if pos0.direction == 'long' else -1.0
+            unreal_ticks = dsign0 * (self.current_bar.price - pos0.entry_price) / self.ledger.tick_size
+            if unreal_ticks < self._trade_min_pnl_ticks:
+                self._trade_min_pnl_ticks = unreal_ticks
             
             exit_reason = None
             
@@ -312,13 +354,21 @@ class MambaRLTradingEnv:
 
             # Execute Exit
             if exit_reason:
-                action_type = 'EXIT' 
+                action_type = 'EXIT'
                 pos = self.ledger.primary
                 record = self.ledger.remove_position(pos.contract_id, self.current_bar.price, self.current_bar.timestamp, exit_reason)
                 trade_pnl = record['pnl']
+                # Stash the closed trade's extras for the hindsight block
+                # below: Ledger has NO last_removed_position attribute — the
+                # old hasattr guard silently returned False on every exit,
+                # so entry-time truth (oracle, alignment, remaining extent)
+                # never reached the scorecard.
+                self._last_exit_extras = record.get('extras', {}) or {}
                 
-                # Reward for closing the trade
-                reward += trade_pnl
+                # Scorecard-only reward: raw dollar PnL stays OUT of the
+                # reward signal — it drowned the ±0.35 scorecard terms ~100:1
+                # and re-created the flat attractor the scorecard was built to
+                # remove. Dollars are tracked for reporting only.
                 self.realized_pnl += trade_pnl
                 
                 # Store the expected vs actual diff for auxiliary tracking
@@ -340,38 +390,46 @@ class MambaRLTradingEnv:
             ct = dt.astimezone(self.central_tz)
             if not (ct.hour == 15 and ct.minute >= 55):
                 direction = 'long' if action == 1 else 'short'
+                entry_dir = 1 if action == 1 else -1
+                # Entry-time truth stored for the exit-time scorecard. Labels
+                # may TEACH (reward inputs) — they never enter the observation.
+                # (a) qualifying = a readable fire aligned with this entry
+                entry_sig_aligned = (sig_dir != 0 and sig_dir == entry_dir)
+                # (b) the live label's remaining favorable move from HERE
+                #     (ticks to the label's exit, floored at 0) — the capture
+                #     denominator; the 0.0 stub kept capture structurally zero.
+                remaining_vol_norm = 0.0
+                if active_oracle is not None:
+                    osign = 1.0 if str(active_oracle.get('direction', '')).upper() == 'LONG' else -1.0
+                    rem_ticks = osign * (active_oracle['exit_price'] - self.current_bar.price) / self.ledger.tick_size
+                    remaining_vol_norm = max(0.0, rem_ticks) / self.sigma_ticks
+                self._trade_min_pnl_ticks = 0.0
                 self.ledger.add_position(
                     direction=direction,
                     entry_price=self.current_bar.price,
                     entry_ts=self.current_bar.timestamp,
                     entry_tier="RL_MAMBA",
                     entry_features=self.current_bar.v2_vector,
-                    restore_extras={'expected_outcome': expected_outcome, 'oracle_trade': active_oracle}
+                    restore_extras={'expected_outcome': expected_outcome,
+                                    'oracle_trade': active_oracle,
+                                    'entry_sig_aligned': entry_sig_aligned,
+                                    'remaining_extent_vol_norm': remaining_vol_norm}
                 )
                 # No $5 penalty anymore! We want the agent to trade freely.
+                # Flag the actual entry (post guard-rail) so the reward can
+                # score selectivity and the smoke can measure P(enter|signal).
+                info['entered'] = True
+                info['entry_dir'] = entry_dir
         
-        # 4. Compute Equity and check for hourly stagnation
-        unrealized_pnl = 0.0
-        if not self.ledger.is_flat:
-            action_type = 'IN_POSITION_STEP' 
-            pos = self.ledger.primary
-            if pos.direction == 'long':
-                unrealized_pnl = ((self.current_bar.price - pos.entry_price) / self.ledger.tick_size * self.ledger.tick_value) - self.ledger.round_trip_fee
-            else:
-                unrealized_pnl = ((pos.entry_price - self.current_bar.price) / self.ledger.tick_size * self.ledger.tick_value) - self.ledger.round_trip_fee
-                
-        total_equity = self.realized_pnl + unrealized_pnl
-        
-        if self.last_hour_ts is None:
-            self.last_hour_ts = self.current_bar.timestamp
-            self.last_hour_equity = total_equity
-        elif self.current_bar.timestamp - self.last_hour_ts >= 3600: # 1 hour passed
-            if total_equity < self.last_hour_equity + 10.0:
-                reward -= 50.0 # Massive penalty for failing to grow equity by $10 over the hour
-                info['hourly_penalty'] = True
-                
-            self.last_hour_ts = self.current_bar.timestamp
-            self.last_hour_equity = total_equity
+        # 4. (REMOVED) -50 hourly-stagnation penalty.
+        # The -$50 "failed to grow equity by $10/hour" cliff distorted the
+        # scorecard instead of guiding it (path-dependent, punished patience,
+        # and stacked with raw PnL to make flat look strictly safest). The
+        # anti-freeze signal now lives in the path-independent scorecard:
+        # regret (missing a knowable fire) + selectivity (taking an aligned
+        # one). Deleting this block also stops action_type=='ENTRY' from being
+        # clobbered to 'IN_POSITION_STEP' before the reward is scored (the
+        # in-position label is already set at the top of step()).
 
         # V2 Reward computation
         # Hindsight variables needed for compute_reward:
@@ -389,26 +447,45 @@ class MambaRLTradingEnv:
             trade_pnl = info.get('actual_pnl', 0.0)
             duration = info.get('duration', 1.0)
             
-            oracle_trade = None
-            if hasattr(self.ledger, 'last_removed_position') and self.ledger.last_removed_position is not None:
-                oracle_trade = self.ledger.last_removed_position['extras'].get('oracle_trade', None)
-            
-            # Simple fallback defaults
+            extras = self._last_exit_extras
+            oracle_trade = extras.get('oracle_trade', None)
+
             hindsight['predicted_dir'] = 1 if info.get('direction', 'long') == 'long' else -1
-            hindsight['actual_dir'] = hindsight['predicted_dir'] if trade_pnl > 0 else -hindsight['predicted_dir']
-            hindsight['is_qualifying'] = True
-            
-            # Use fixed 10-tick sigma for normalization
-            hindsight['sigma_ticks'] = 10.0 
-            hindsight['captured_vol_norm'] = (trade_pnl / self.ledger.tick_value) / hindsight['sigma_ticks']
-            hindsight['remaining_extent_vol_norm'] = 0.0
-            hindsight['time_in_trade_bars'] = duration
-            
+            # Ground truth from the label live at entry when one exists;
+            # PnL-sign proxy only for uncovered trades.
             if oracle_trade:
-                hindsight['swing_id'] = oracle_trade.get('id', 'unknown')
-        
+                hindsight['actual_dir'] = 1 if str(oracle_trade.get('direction', '')).upper() == 'LONG' else -1
+            else:
+                hindsight['actual_dir'] = hindsight['predicted_dir'] if trade_pnl > 0 else -hindsight['predicted_dir']
+            # Qualifying = entry coincided with a readable aligned fire
+            # (stored at entry; hardcoded True kept the wiggle term dead).
+            hindsight['is_qualifying'] = bool(extras.get('entry_sig_aligned', False))
+
+            hindsight['sigma_ticks'] = self.sigma_ticks
+            hindsight['captured_vol_norm'] = (trade_pnl / self.ledger.tick_value) / self.sigma_ticks
+            # Oracle remaining extent measured AT ENTRY (stored in extras).
+            hindsight['remaining_extent_vol_norm'] = float(extras.get('remaining_extent_vol_norm', 0.0))
+            hindsight['time_in_trade_bars'] = duration
+            # Cut-bonus inputs: reward_env reads t_hold / mae_vol_norm — the
+            # old names never arrived, so every wrong trade earned the FULL
+            # w_x bonus regardless of how fast it cut.
+            hindsight['t_hold'] = duration
+            hindsight['mae_vol_norm'] = max(0.0, -self._trade_min_pnl_ticks) / self.sigma_ticks
+
+            if oracle_trade:
+                # loader stamps 'swing_id' (the old .get('id') never existed)
+                hindsight['swing_id'] = oracle_trade.get('swing_id', 'unknown')
+
+        elif action_type == 'ENTRY':
+            # Selectivity: credit an aligned, knowable entry (scored in reward_env).
+            hindsight['predicted_dir'] = info.get('entry_dir', 0)
+            hindsight['signal_dir'] = sig_dir
+            hindsight['is_qualifying'] = True
+
         elif action_type == 'FLAT_STEP':
-            hindsight['swing_id'] = 's_flat'
+            # Real per-swing id (driving fire ts) so regret caps ONCE per distinct
+            # knowable fire, not once per episode ('s_flat' was a constant).
+            hindsight['swing_id'] = self._flat_swing_id
             hindsight['is_qualifying'] = True
         
         v2_score = self.reward_policy.compute_reward(None, action_type, hindsight)

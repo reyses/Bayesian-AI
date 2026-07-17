@@ -27,6 +27,7 @@ import numpy as np
 import os
 import sys
 import time
+import json
 import psutil
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
@@ -151,6 +152,23 @@ def train():
     parser.add_argument('--no-checkpoint', action='store_true')
     parser.add_argument('--loss-dump', type=str, default='')
     parser.add_argument('--perf-warmup', type=int, default=300)
+    parser.add_argument('--init_from', type=str, default='',
+                        help='Warm-start checkpoint (state_dict or {"model":...}); '
+                             'loaded non-strict. Overridden by a resumed --no-checkpoint '
+                             'CHECKPOINT if present.')
+    parser.add_argument('--smoke_metrics', action='store_true',
+                        help='Emit a per-epoch [SMOKE] json line (trades/day, %%flat, '
+                             'P(enter|signal), hold dist, reward-component sums). '
+                             'Off by default: default training behavior is unchanged.')
+    parser.add_argument('--compile_act', action='store_true',
+                        help='torch.compile the acting forward_step (default mode; NOT '
+                             'reduce-overhead — cudagraphs crash on carried (h, conv) '
+                             'state). Learning pass stays eager. Parity-gate before '
+                             'trusting any run that uses this.')
+    parser.add_argument('--no_autocast', action='store_true',
+                        help='Disable bf16 autocast (fp32 everywhere). For the compile '
+                             'parity harness: bf16 fusion reassociation masks real '
+                             'graph bugs at the 1e-7 gate.')
     args = parser.parse_args()
 
     if args.seed is not None:
@@ -178,12 +196,31 @@ def train():
     model = MambaRLTradingNetwork().to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     start_epoch = 0
+    if args.init_from:
+        if not os.path.exists(args.init_from):
+            raise FileNotFoundError(f"--init_from checkpoint not found: {args.init_from}")
+        sd = torch.load(args.init_from, map_location=device, weights_only=False)
+        if isinstance(sd, dict) and 'model' in sd:
+            sd = sd['model']
+        res = model.load_state_dict(sd, strict=False)
+        logger.info(f"[INIT_FROM] loaded {args.init_from} | "
+                    f"missing={list(res.missing_keys)} | unexpected={list(res.unexpected_keys)}")
     if not args.no_checkpoint and os.path.exists(CHECKPOINT):
         ck = torch.load(CHECKPOINT, map_location=device, weights_only=False)
         model.load_state_dict(ck['model'])
         optimizer.load_state_dict(ck['optimizer'])
         start_epoch = ck.get('epoch', -1) + 1
         logger.info(f"Resumed {CHECKPOINT} at epoch {start_epoch}")
+
+    act_step = model.forward_step
+    if args.compile_act:
+        # Acting-only compile: fuses the per-bar no_grad path (launch overhead
+        # dominates at batch 1). Two graph specializations expected (states
+        # None at session resets vs carried tuples) — both compile once.
+        act_step = torch.compile(model.forward_step, mode='default')
+        logger.info("[COMPILE] acting forward_step compiled (default mode, learning pass eager)")
+
+    autocast_on = (device.type == 'cuda' and not args.no_autocast)
 
     reporter = TelemetryReporter("Mamba_RL_SEQ")
     from epoch_summary import plot_epoch_summary, plot_learning_curve
@@ -219,6 +256,11 @@ def train():
         done = False
         episode_reward = 0.0
         epoch_trades, epoch_entropies = [], []
+        # Smoke A/B accumulators (only touched when --smoke_metrics).
+        sm = dict(n_bars=0, n_flat=0, n_entry=0,
+                  n_flat_sig=0, n_entry_sig=0, n_flat_nosig=0, n_entry_nosig=0,
+                  sum_capture=0.0, sum_regret=0.0, sum_selectivity=0.0,
+                  sum_cut=0.0, sum_direction=0.0, sum_wiggle=0.0, sum_cost=0.0)
         states_carry = None  # canonical (h, conv) carry, from the LEARNING pass
         # env.reset() consumed the first seq_len valid bars as warmup, so the
         # current bar is prefetch index seq_len-1 (guarded per bar below).
@@ -246,8 +288,8 @@ def train():
                     ledger_day[t].copy_(ledger_pin, non_blocking=True)
 
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
-                                        enabled=(device.type == 'cuda')):
-                        e_l, x_l, _, act_states = model.forward_step(
+                                        enabled=autocast_on):
+                        e_l, x_l, _, act_states = act_step(
                             v2_day[t].view(1, 8, 1, 52), l0_day[t].view(1, 1, 1),
                             ledger_day[t].view(1, 1, 4), macro_day[t].view(1, 1, 261),
                             tod_day[t].view(1, 1, 4), act_states)
@@ -277,6 +319,32 @@ def train():
                     flats.append(is_flat)
                     turns.append(1.0 if info.get('turn_imminent', 0.0) else 0.0)
                     episode_reward += reward
+
+                    if args.smoke_metrics:
+                        # is_flat is the PRE-step state; 'entered' is set by the
+                        # env only on an actual (post guard-rail) entry.
+                        ct = info.get('c_t', 0.0)
+                        entered = info.get('entered', False)
+                        sm['n_bars'] += 1
+                        if entered:
+                            sm['n_entry'] += 1
+                        if is_flat:
+                            sm['n_flat'] += 1
+                            if ct >= 0.5:
+                                sm['n_flat_sig'] += 1
+                                if entered:
+                                    sm['n_entry_sig'] += 1
+                            else:
+                                sm['n_flat_nosig'] += 1
+                                if entered:
+                                    sm['n_entry_nosig'] += 1
+                        sm['sum_capture'] += info.get('reward_capture', 0.0)
+                        sm['sum_regret'] += info.get('reward_regret', 0.0)
+                        sm['sum_selectivity'] += info.get('reward_selectivity', 0.0)
+                        sm['sum_cut'] += info.get('reward_cut_bonus', 0.0)
+                        sm['sum_direction'] += info.get('reward_direction', 0.0)
+                        sm['sum_wiggle'] += info.get('reward_wiggle', 0.0)
+                        sm['sum_cost'] += info.get('reward_cost', 0.0)
                     if info.get('trade_closed', False):
                         epoch_trades.append({
                             'pnl': info['actual_pnl'], 'duration': info['duration'],
@@ -305,8 +373,8 @@ def train():
                     ledger_pin.copy_(torch.from_numpy(env.ledger_state_vec()))
                     ledger_day[t].copy_(ledger_pin, non_blocking=True)
                     with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
-                                        enabled=(device.type == 'cuda')):
-                        _, _, boot_v, _ = model.forward_step(
+                                        enabled=autocast_on):
+                        _, _, boot_v, _ = act_step(
                             v2_day[t].view(1, 8, 1, 52), l0_day[t].view(1, 1, 1),
                             ledger_day[t].view(1, 1, 4), macro_day[t].view(1, 1, 261),
                             tod_day[t].view(1, 1, 4), act_states)
@@ -321,7 +389,7 @@ def train():
             turns_t = torch.tensor(turns, dtype=torch.float32, device=device)
 
             with torch.autocast(device_type=device.type, dtype=torch.bfloat16,
-                                enabled=(device.type == 'cuda')):
+                                enabled=autocast_on):
                 loss, states_new, per_bar, ents = window_losses(
                     model, day, win_start, w, actions_t, rewards_t, flats_t, turns_t,
                     resets, bootstrap, states_carry, entropy_coef, device)
@@ -344,6 +412,34 @@ def train():
 
         print(f"Epoch {epoch} | Reward: {episode_reward:.2f} | "
               f"Duration: {time.time() - t_ep:.2f}s")
+
+        if args.smoke_metrics:
+            n_days = len([d for d in args.days.split(',') if d.strip()])
+            dur = [t['duration'] for t in epoch_trades]
+            metrics = {
+                'epoch': epoch,
+                'n_bars': sm['n_bars'],
+                'n_days': n_days,
+                'n_trades': len(epoch_trades),
+                'trades_per_day': (len(epoch_trades) / n_days) if n_days else 0.0,
+                'pct_flat': (sm['n_flat'] / sm['n_bars']) if sm['n_bars'] else 0.0,
+                'n_flat_sig': sm['n_flat_sig'],
+                'n_flat_nosig': sm['n_flat_nosig'],
+                'P_enter_given_sig': (sm['n_entry_sig'] / sm['n_flat_sig']) if sm['n_flat_sig'] else 0.0,
+                'P_enter_given_nosig': (sm['n_entry_nosig'] / sm['n_flat_nosig']) if sm['n_flat_nosig'] else 0.0,
+                'hold_median': float(np.median(dur)) if dur else 0.0,
+                'hold_p90': float(np.percentile(dur, 90)) if dur else 0.0,
+                'sum_capture': round(sm['sum_capture'], 3),
+                'sum_regret': round(sm['sum_regret'], 3),
+                'sum_selectivity': round(sm['sum_selectivity'], 3),
+                'sum_cut': round(sm['sum_cut'], 3),
+                'sum_direction': round(sm['sum_direction'], 3),
+                'sum_wiggle': round(sm['sum_wiggle'], 3),
+                'sum_cost': round(sm['sum_cost'], 3),
+                'episode_reward': round(episode_reward, 2),
+            }
+            print("[SMOKE] " + json.dumps(metrics))
+
         if stop_training:
             break
 

@@ -8,7 +8,10 @@ class RewardConfig:
     # V2 Config weights
     w_c: float = 1.00     # Capture
     w_x: float = 0.35     # Cut bonus
-    w_r: float = 0.25     # Regret
+    w_r: float = 0.75     # Regret (raised 0.25->0.75, anti-freeze: missing a
+                          #   knowable high-P fire must STING, not whisper)
+    w_s: float = 0.30     # Selectivity credit (anti-freeze: taking a knowable,
+                          #   aligned setup pays immediately, independent of exit)
     w_d: float = 0.20     # Direction
     w_w: float = 0.15     # Wiggle penalty
     w_aux: float = 0.20   # Aux hazard loss (used in training loop)
@@ -51,6 +54,7 @@ class BetaRewardPolicy:
             'cut_bonus': 0.0,
             'wiggle': 0.0,
             'regret': 0.0,
+            'selectivity': 0.0,
             'total': 0.0
         }
 
@@ -117,6 +121,22 @@ class BetaRewardPolicy:
                 cut_score = self.config.w_x * math.exp(-t_hold / self.config.tau) * math.exp(-mae_norm)
                 scorecard['cut_bonus'] = cut_score
 
+            scorecard['total'] = sum(scorecard.values())
+            return scorecard
+
+        # Handle Entry Action (Selectivity credit)
+        if action_type == 'ENTRY':
+            # Anti-freeze: taking a KNOWABLE, ALIGNED setup pays immediately and
+            # additively -- independent of the later exit outcome. A direction
+            # mismatch or an absent live signal scores 0 (NO penalty; the wiggle
+            # term already charges junk entries at exit). The gate is the REAL
+            # calibrated c_t from phit_feed, so this only rewards entries that
+            # coincide with a decile-9/0 fire the agent could actually read.
+            c_t = hindsight_oracle.get('c_t', 0.0)
+            signal_dir = hindsight_oracle.get('signal_dir', 0)
+            entry_dir = hindsight_oracle.get('predicted_dir', 0)
+            if c_t >= self.config.theta_c and signal_dir != 0 and entry_dir == signal_dir:
+                scorecard['selectivity'] = self.config.w_s * c_t
             scorecard['total'] = sum(scorecard.values())
             return scorecard
 
@@ -194,14 +214,46 @@ def run_synthetic_tests():
     r_b = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5b)['regret']
     r_c = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5c)['regret']
     r_d = policy2.compute_reward({}, 'FLAT_STEP', hindsight_5d)['regret']
-    
-    assert r_a == -0.25 * 0.8
+
+    # NOTE: magnitude tracks config.w_r (raised 0.25->0.75); the SEMANTICS of the
+    # test are unchanged (capped once/swing, credited only on c_t>=theta_c).
+    assert abs(r_a - (-config.w_r * 0.8)) < 1e-9
     assert r_b == 0.0
-    assert r_c == -0.25 * 0.6
+    assert abs(r_c - (-config.w_r * 0.6)) < 1e-9
     assert r_d == 0.0
     print(f"[PASS] (5) regret 2x capped, c_t-window-credited only: Capped: {r_b==0.0}, Windowed: {r_d==0.0}")
-    
-    print("All 5 Mandated Synthetic Tests Passed explicitly!")
+
+    # Test 6: REAL gate -- regret fires only when c_t >= theta_c (0.5), now that
+    # c_t is the live calibrated probability (no longer mocked to 1.0).
+    policy6 = BetaRewardPolicy(config)
+    r_hi = policy6.compute_reward({}, 'FLAT_STEP',
+        {'c_t': 0.51, 'is_label_covered': True, 'swing_id': 'g_hi', 'is_qualifying': True})['regret']
+    r_lo = policy6.compute_reward({}, 'FLAT_STEP',
+        {'c_t': 0.49, 'is_label_covered': True, 'swing_id': 'g_lo', 'is_qualifying': True})['regret']
+    assert abs(r_hi - (-config.w_r * 0.51)) < 1e-9, f"Test 6 hi Failed: {r_hi}"
+    assert r_lo == 0.0, f"Test 6 lo Failed: {r_lo}"
+    print(f"[PASS] (6) regret real-gated at theta_c: c_t=.51->{r_hi:.3f}, c_t=.49->{r_lo:.3f}")
+
+    # Test 7: Selectivity credit on a KNOWABLE, ALIGNED entry (additive, +w_s*c_t).
+    s_aligned = policy.compute_reward({}, 'ENTRY',
+        {'c_t': 0.8, 'signal_dir': 1, 'predicted_dir': 1})
+    assert abs(s_aligned['selectivity'] - config.w_s * 0.8) < 1e-9, f"Test 7 Failed: {s_aligned}"
+    assert abs(s_aligned['total'] - config.w_s * 0.8) < 1e-9, f"Test 7 total Failed: {s_aligned}"
+    print(f"[PASS] (7) selectivity credit on aligned entry: {s_aligned['selectivity']:.3f}")
+
+    # Test 8: NO selectivity (and NO penalty) on misaligned / absent / sub-gate signal.
+    s_mis = policy.compute_reward({}, 'ENTRY',
+        {'c_t': 0.8, 'signal_dir': 1, 'predicted_dir': -1})   # direction mismatch
+    s_nosig = policy.compute_reward({}, 'ENTRY',
+        {'c_t': 0.0, 'signal_dir': 0, 'predicted_dir': 1})    # no live signal
+    s_weak = policy.compute_reward({}, 'ENTRY',
+        {'c_t': 0.4, 'signal_dir': 1, 'predicted_dir': 1})    # aligned but below theta_c
+    assert s_mis['selectivity'] == 0.0 and s_mis['total'] == 0.0, f"Test 8 mismatch Failed: {s_mis}"
+    assert s_nosig['selectivity'] == 0.0, f"Test 8 nosig Failed: {s_nosig}"
+    assert s_weak['selectivity'] == 0.0, f"Test 8 weak Failed: {s_weak}"
+    print(f"[PASS] (8) no selectivity on misaligned/absent/weak signal (no penalty)")
+
+    print("All 8 Synthetic Tests Passed explicitly (5 original + 3 anti-freeze)!")
 
 if __name__ == '__main__':
     run_synthetic_tests()
