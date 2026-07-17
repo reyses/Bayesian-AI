@@ -5,7 +5,14 @@ import pytz
 import os
 import csv
 
-def plot_epoch_summary(episode_num, trades_list, output_dir="."):
+# Default artifact sink: the mamba project's reports/runs/, resolved relative
+# to THIS file so it holds from any cwd. The old default "." dumped epoch
+# csv/png artifacts into whatever directory the trainer ran from (repo root).
+DEFAULT_RUNS_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'reports', 'runs'))
+
+def plot_epoch_summary(episode_num, trades_list, output_dir=DEFAULT_RUNS_DIR):
+    os.makedirs(output_dir, exist_ok=True)
     if not trades_list:
         print(f"No trades in episode {episode_num} to summarize.")
         return
@@ -100,9 +107,11 @@ def plot_epoch_summary(episode_num, trades_list, output_dir="."):
     print(f"Average Duration: {mean_dur:.2f} bars ± {ci_dur:.2f} bars")
     print(f"Saved histogram to {output_path}")
 
-def plot_learning_curve(epoch_rewards, epoch_mean_pnls, epoch_entropies=None, output_dir="."):
+def plot_learning_curve(epoch_rewards, epoch_mean_pnls, epoch_entropies=None,
+                        output_dir=DEFAULT_RUNS_DIR):
     if not epoch_rewards:
         return
+    os.makedirs(output_dir, exist_ok=True)
         
     epochs = range(len(epoch_rewards))
     num_plots = 3 if epoch_entropies else 2

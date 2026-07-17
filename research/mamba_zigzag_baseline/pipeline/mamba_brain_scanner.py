@@ -37,7 +37,9 @@ def build_brain_scanner():
 
     net = MambaRLTradingNetwork().to(device)
     
-    checkpoint_path = "mamba_rl_checkpoint.pth"
+    checkpoint_path = os.path.abspath(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'checkpoints',
+        'mamba_rl_checkpoint.pth'))
     if os.path.exists(checkpoint_path):
         state_dict = torch.load(checkpoint_path)
         new_state_dict = {}
@@ -184,7 +186,9 @@ def build_brain_scanner():
     plt.title("Brain Scanner: Mamba-RL Internal State Trajectory")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("C:/Users/reyse/.gemini/antigravity/brain/0b405af3-d525-4c87-b71d-cb77ea225a55/mamba_q_trajectories.png", dpi=150)
+    _out = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'reports', 'runs')
+    os.makedirs(_out, exist_ok=True)
+    plt.savefig(os.path.join(_out, "mamba_q_trajectories.png"), dpi=150)
     plt.close()
     
     print("Saved Q-Trajectory plot.")

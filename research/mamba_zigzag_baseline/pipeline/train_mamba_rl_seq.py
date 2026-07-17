@@ -40,7 +40,12 @@ logger = logging.getLogger(__name__)
 GAMMA = 0.99
 W_AUX = 0.20
 POS_WEIGHT = 10.40  # turn-bar vs non-turn-bar ratio (matches per-bar trainer)
-CHECKPOINT = "mamba_rl_seq_checkpoint.pth"
+# All .pth artifacts go to the sanctioned repo-root checkpoints/ (gitignored),
+# resolved file-relative so no cwd ever gets checkpoint droppings.
+_CKPT_DIR = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'checkpoints'))
+os.makedirs(_CKPT_DIR, exist_ok=True)
+CHECKPOINT = os.path.join(_CKPT_DIR, "mamba_rl_seq_checkpoint.pth")
 
 
 def prefetch_day_tensors(env, device):
@@ -269,7 +274,8 @@ def train():
         while not done:
             if e_exit_vram_check():
                 logger.error("[E-EXIT] VRAM failsafe (window boundary).")
-                torch.save(model.state_dict(), f"mamba_rl_seq_e_exit_ep{epoch}.pth")
+                torch.save(model.state_dict(),
+                           os.path.join(_CKPT_DIR, f"mamba_rl_seq_e_exit_ep{epoch}.pth"))
                 sys.exit(88)
 
             # ── ACTING PASS ──
@@ -453,7 +459,7 @@ def train():
             ck = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(),
                   'epoch': epoch}
             torch.save(ck, CHECKPOINT)
-            torch.save(ck, f"mamba_rl_seq_checkpoint_ep{epoch}.pth")
+            torch.save(ck, os.path.join(_CKPT_DIR, f"mamba_rl_seq_checkpoint_ep{epoch}.pth"))
 
     if perf_t0 is not None:
         el = time.time() - perf_t0

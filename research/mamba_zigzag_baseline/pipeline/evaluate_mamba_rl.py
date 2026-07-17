@@ -172,8 +172,12 @@ def evaluate_mamba_rl(num_null_seeds=20):
     t1_pass = all(reward_components_fired.values())
     logger.info(f"T1 Mechanical Pass (components): {t1_pass}")
 
-    # Write report
-    with open('reports/beta_smoke_verdict.md', 'w') as f:
+    # Write report into the mamba project's reports/ (file-relative — the old
+    # bare 'reports/' path landed in the top-level reports/, which is reserved
+    # for cross-cutting reports only)
+    _rep = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'reports')
+    os.makedirs(_rep, exist_ok=True)
+    with open(os.path.join(_rep, 'beta_smoke_verdict.md'), 'w') as f:
         f.write("# Beta Smoke Test Verdict\n\n")
         f.write("## T1 Mechanical (pass/fail)\n")
         f.write("- [x] No crash/OOM\n")

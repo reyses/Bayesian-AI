@@ -12,6 +12,12 @@ import sys
 import time
 import datetime
 import psutil
+
+# All .pth artifacts go to the sanctioned repo-root checkpoints/ (gitignored),
+# resolved file-relative so no cwd ever gets checkpoint droppings.
+_CKPT_DIR = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'checkpoints'))
+os.makedirs(_CKPT_DIR, exist_ok=True)
 try:
     import torch._inductor.config
     torch._inductor.config.layout_optimization = False
@@ -134,8 +140,9 @@ def train_mamba_rl():
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
     start_epoch = 0
 
-    if not args.no_checkpoint and os.path.exists("mamba_rl_checkpoint.pth"):
-        checkpoint = torch.load("mamba_rl_checkpoint.pth", map_location=device, weights_only=False)
+    _ckpt_main = os.path.join(_CKPT_DIR, "mamba_rl_checkpoint.pth")
+    if not args.no_checkpoint and os.path.exists(_ckpt_main):
+        checkpoint = torch.load(_ckpt_main, map_location=device, weights_only=False)
         if 'model' in checkpoint and 'optimizer' in checkpoint:
             if 'epoch' in checkpoint:
                 start_epoch = checkpoint['epoch'] + 1
@@ -233,7 +240,8 @@ def train_mamba_rl():
         while not done:
             if e_exit_vram_check():
                 logger.error("[E-EXIT] Triggered mid-epoch. Failsafe activated. Landing sequence initiated.")
-                torch.save(model.state_dict(), f"mamba_rl_e_exit_failsafe_ep{epoch}.pth")
+                torch.save(model.state_dict(),
+                           os.path.join(_CKPT_DIR, f"mamba_rl_e_exit_failsafe_ep{epoch}.pth"))
                 torch.cuda.empty_cache()
                 sys.exit(88)
 
@@ -453,8 +461,9 @@ def train_mamba_rl():
 
         if not args.no_checkpoint:
             checkpoint_data = {'model': model.state_dict(), 'optimizer': optimizer.state_dict(), 'epoch': epoch}
-            torch.save(checkpoint_data, "mamba_rl_checkpoint.pth")
-            torch.save(checkpoint_data, f"mamba_rl_checkpoint_ep{epoch}.pth")
+            torch.save(checkpoint_data, os.path.join(_CKPT_DIR, "mamba_rl_checkpoint.pth"))
+            torch.save(checkpoint_data,
+                       os.path.join(_CKPT_DIR, f"mamba_rl_checkpoint_ep{epoch}.pth"))
 
         try:
             print(f"TELEGRAM_TRIGGER: epoch_{epoch}_summary.png and mamba_learning_curve.png are ready!")

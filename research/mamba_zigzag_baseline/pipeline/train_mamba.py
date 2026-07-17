@@ -16,7 +16,9 @@ logger = logging.getLogger(__name__)
 
 # Action space mapping
 ACTIONS = {0: "HOLD", 1: "LONG", 2: "SHORT", 3: "SCRATCH"}
-CHECKPOINT_PATH = "mamba_checkpoint.pth"
+CHECKPOINT_PATH = os.path.abspath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'checkpoints',
+    'mamba_checkpoint.pth'))
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Batched Mamba+LLM Training Pipeline")
