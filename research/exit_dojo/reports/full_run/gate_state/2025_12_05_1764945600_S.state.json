@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_12_05_1764945600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "807c153d4f09c77c",
+      "ts": 1784315639.2240124
+    },
+    {
+      "frame": 1,
+      "nonce": "07ac68f43b4555f0",
+      "ts": 1784315646.370966
+    },
+    {
+      "frame": 2,
+      "nonce": "61e5bcad46ba8926",
+      "ts": 1784315653.7003324
+    },
+    {
+      "frame": 3,
+      "nonce": "b969d216fdaa9853",
+      "ts": 1784315660.3919299
+    },
+    {
+      "frame": 4,
+      "nonce": "0c2c3f79c11f023a",
+      "ts": 1784315673.1732287
+    },
+    {
+      "frame": 5,
+      "nonce": "f8a9fd1609db4824",
+      "ts": 1784315682.017384
+    },
+    {
+      "frame": 6,
+      "nonce": "3871d03937995419",
+      "ts": 1784315689.9708283
+    },
+    {
+      "frame": 7,
+      "nonce": "6bf641975a76f1f1",
+      "ts": 1784315702.8717265
+    },
+    {
+      "frame": 8,
+      "nonce": "b9eab43104a78490",
+      "ts": 1784315720.5195935
+    },
+    {
+      "frame": 9,
+      "nonce": "91286dcf4df06268",
+      "ts": 1784315726.8168762
+    },
+    {
+      "frame": 10,
+      "nonce": "58d8c2791a03072f",
+      "ts": 1784315748.8513033
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "807c153d4f09c77c",
+      "decision": "HOLD",
+      "reason": "frame0, px flat at entry, still early in leg, no clear exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "07ac68f43b4555f0",
+      "decision": "HOLD",
+      "reason": "px +34.5pts, giveback only 1%, all fires aligned with position, momentum favorable"
+    },
+    {
+      "frame": 2,
+      "nonce": "61e5bcad46ba8926",
+      "decision": "HOLD",
+      "reason": "px +50.75pts, giveback 16% still modest, fires still with-trend, momentum continuing"
+    },
+    {
+      "frame": 3,
+      "nonce": "b969d216fdaa9853",
+      "decision": "HOLD",
+      "reason": "giveback climbed to 31% and PROPP flipped against, but still only one against-fire and amp intact; watching closely"
+    },
+    {
+      "frame": 4,
+      "nonce": "0c2c3f79c11f023a",
+      "decision": "HOLD",
+      "reason": "px recovered to +43.5, giveback eased back to 25%, momentum still net favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "f8a9fd1609db4824",
+      "decision": "HOLD",
+      "reason": "still net +22.75pts, new leg reset with 0% giveback, only lone PROPP-against persists"
+    },
+    {
+      "frame": 6,
+      "nonce": "3871d03937995419",
+      "decision": "HOLD",
+      "reason": "px eroded to +12 over 3 frames but fires mixed (HA-against, PROPP-with), still net positive, watching for confirmed reversal"
+    },
+    {
+      "frame": 7,
+      "nonce": "6bf641975a76f1f1",
+      "decision": "HOLD",
+      "reason": "px dipped to -2.00 near breakeven after erosion, mixed fires persist, reversion_prob still high; holding through the dip per R-trigger structural pattern, will exit if it breaks down further"
+    },
+    {
+      "frame": 8,
+      "nonce": "b9eab43104a78490",
+      "decision": "HOLD",
+      "reason": "px recovered to +7.25 off the dip, PROPP-with fired again, holding through the noise was validated"
+    },
+    {
+      "frame": 9,
+      "nonce": "91286dcf4df06268",
+      "decision": "HOLD",
+      "reason": "px -9.50 new adverse low, both HA and PROPP now against for first time together - concerning but ER10 low (choppy not trending), watching next frame closely for confirmation"
+    },
+    {
+      "frame": 10,
+      "nonce": "58d8c2791a03072f",
+      "decision": "EXIT",
+      "reason": "px -12.75 and worsening for 3 straight frames (0% giveback = no bounce at all), PROPP persistently against, multi-TF lambda_hat now significantly negative, ER10 dropped to 0.16 - trend has genuinely reversed against the position, cutting here"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Exited at -12.75pts (frame 10/15) after the position round-tripped from a +50.75pt peak (frame 2) through repeated give-back/recovery cycles into a confirmed multi-frame breakdown: 3 consecutive frames of new adverse lows with 0% bounce (giveback), PROPP staying against for two straight frames, and lambda_hat turning significantly negative across the 5s/15s/1m stack simultaneously (t-stats -3.4 to -6.1) alongside ER10 collapsing to 0.16. Earlier single-frame dips (e.g. the -2pt dip at t=7m) recovered fully and I correctly held through those; what changed by t=10m was multi-timeframe confirmation (not just one detector) plus zero bounce on three straight bars. Next time I'd watch for that same signature earlier - simultaneous against-fires on independent detectors (HA+PROPP) combined with 0% giveback on a fresh adverse leg is a stronger tell than price level alone, and I'd weight the lambda_hat sign flip across timeframes more heavily as an early warning rather than waiting for a third confirming frame."
+}

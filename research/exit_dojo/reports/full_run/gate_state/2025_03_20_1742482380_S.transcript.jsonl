@@ -1,0 +1,15 @@
+{"ts": 1784311277.843209, "event": "serve", "frame": 0, "nonce": "3b89474cd6dd5154"}
+{"ts": 1784311281.811857, "event": "commit", "frame": 0, "nonce": "3b89474cd6dd5154", "decision": "HOLD", "reason": "frame0 at entry, no edge yet, wait for signal"}
+{"ts": 1784311284.5547795, "event": "serve", "frame": 1, "nonce": "62d1a85c55babd46"}
+{"ts": 1784311288.1443274, "event": "commit", "frame": 1, "nonce": "62d1a85c55babd46", "decision": "HOLD", "reason": "small favorable px, giveback rising but leg young, PROPP-with fire supports hold"}
+{"ts": 1784311290.6561768, "event": "serve", "frame": 2, "nonce": "e27ef279e1b29708"}
+{"ts": 1784311294.2602015, "event": "commit", "frame": 2, "nonce": "e27ef279e1b29708", "decision": "HOLD", "reason": "px inching favorable +1.0, giveback rising but still small abs move, no reversal signature yet"}
+{"ts": 1784311296.6204276, "event": "serve", "frame": 3, "nonce": "6712ce0d1bfc74c2"}
+{"ts": 1784311302.071605, "event": "commit", "frame": 3, "nonce": "6712ce0d1bfc74c2", "decision": "HOLD", "reason": "px +5.5 favorable, new leg forming in our direction, HA-with fire, hold for more"}
+{"ts": 1784311306.9967415, "event": "serve", "frame": 4, "nonce": "98332da5b5fb3dfe"}
+{"ts": 1784311312.115452, "event": "commit", "frame": 4, "nonce": "98332da5b5fb3dfe", "decision": "HOLD", "reason": "px +2.0 still favorable, giveback reset to 0%, no strong reversal signature"}
+{"ts": 1784311315.260833, "event": "serve", "frame": 5, "nonce": "2b1bbbd90d810e91"}
+{"ts": 1784311320.3687239, "event": "commit", "frame": 5, "nonce": "2b1bbbd90d810e91", "decision": "HOLD", "reason": "px +10.0, ER10 rising to 0.42, lambda_t_21 on 1m strongly positive, trend building in our favor"}
+{"ts": 1784311322.7400298, "event": "serve", "frame": 6, "nonce": "061db83b2af3a070"}
+{"ts": 1784311342.439848, "event": "commit", "frame": 6, "nonce": "061db83b2af3a070", "decision": "EXIT", "reason": "px at new trade-high +13.0 but local leg giveback spiked to 95% of its 14.2pt amp - fine-scale exhaustion/fade at the high, lock in profit rather than risk round-trip"}
+{"ts": 1784311348.3628337, "event": "finish", "summary": "Exited at px +13.0, the trade's high-water mark, when the local leg's giveback spiked to 95% of its 14.2pt amplitude even as absolute PnL kept climbing frame-to-frame - treated that fine-scale exhaustion/fade at a new high as the reversal signature. Next time I'd want to watch whether ER10/lambda_t_21 stayed strongly positive through the giveback spike before pulling the trigger, since those still looked constructive here and a HOLD might have captured more upside; would also want a clearer read on whether high giveback at a fresh PnL peak is reliably predictive or just noise on a short leg.", "exit_frame": 6, "n_commits": 7}

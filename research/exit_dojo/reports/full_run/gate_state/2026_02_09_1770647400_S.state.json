@@ -1,0 +1,56 @@
+{
+  "episode_id": "2026_02_09_1770647400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8f0da2cc5fd8d04c",
+      "ts": 1784316007.412837
+    },
+    {
+      "frame": 1,
+      "nonce": "5227438fbde5d102",
+      "ts": 1784316016.1274471
+    },
+    {
+      "frame": 2,
+      "nonce": "7ecb25df40f58cb9",
+      "ts": 1784316030.084673
+    },
+    {
+      "frame": 3,
+      "nonce": "ecabdf36e9a0c6cd",
+      "ts": 1784316046.9406989
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8f0da2cc5fd8d04c",
+      "decision": "HOLD",
+      "reason": "px flat at entry, no adverse momentum yet, lambda_t_30 mixed across TFs; wait for clearer signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "5227438fbde5d102",
+      "decision": "HOLD",
+      "reason": "big favorable move +98pts, giveback only 17%, KMDR-against is single countersignal vs HA/PROPP with-trend; let it run per R-trigger findings"
+    },
+    {
+      "frame": 2,
+      "nonce": "7ecb25df40f58cb9",
+      "decision": "HOLD",
+      "reason": "giveback climbed 17%->38% with KMDR+CLIMAX against signals but still net +68pts and HA/PROPP with-signals persist; watch next frame closely for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "ecabdf36e9a0c6cd",
+      "decision": "EXIT",
+      "reason": "giveback now 57% of 119.8pt amp, PROPP flipped with->against joining KMDR+CLIMAX against (3 of 4 signals against), px eroded 98->68->18 in 3 straight frames; lock in +18.25pts before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited on a giveback/momentum-erosion signature: price ran to +98pts favorable by t=1m then eroded three straight frames (98->68->18), with giveback climbing 17%->38%->57% of the leg amplitude while against-signals accumulated (KMDR at t=1m, CLIMAX joining at t=2m, PROPP flipping with->against at t=3m, leaving 3-of-4 fires against continuation). Exited at +18.25pts to lock in gains before the reversal turned the leg negative. Next time I'd watch for the PROPP flip specifically as a late confirmation trigger, and consider scaling out earlier once giveback crosses ~40% with 2+ against-signals rather than waiting for a 3rd confirmation, since the erosion rate here was roughly 30-50pts/min."
+}

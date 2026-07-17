@@ -1,0 +1,7 @@
+{"ts": 1784311277.3614829, "event": "serve", "frame": 0, "nonce": "b52f42205a925414"}
+{"ts": 1784311292.2484028, "event": "commit", "frame": 0, "nonce": "b52f42205a925414", "decision": "HOLD", "reason": "flat at entry, no adverse move yet, gathering signal"}
+{"ts": 1784311294.5179162, "event": "serve", "frame": 1, "nonce": "4fc1405104451c01"}
+{"ts": 1784311312.7575421, "event": "commit", "frame": 1, "nonce": "4fc1405104451c01", "decision": "HOLD", "reason": "favorable px+18.75, low giveback 10%, ER10 trending 0.71"}
+{"ts": 1784311315.150257, "event": "serve", "frame": 2, "nonce": "e67c26c52abc09aa"}
+{"ts": 1784311321.484704, "event": "commit", "frame": 2, "nonce": "e67c26c52abc09aa", "decision": "EXIT", "reason": "3 against-fires (KMDR/HA/PROPP) stacked within 1m, px flipped +18.75->-50.50, giveback jumped to 40%"}
+{"ts": 1784311326.7225971, "event": "finish", "summary": "Exited on a stacked adverse-fire signature: KMDR-against, HA-against, and PROPP-against all fired within the same 1-minute window, coinciding with px whipsawing from +18.75 favorable to -50.50 and giveback jumping from 10% to 40% in one bar. Next time I'd watch whether ER10 (trend efficiency) breaks down alongside the fire-stack rather than exiting on fires alone, since ER10 stayed ~0.70 here suggesting the move was still directional/fast rather than choppy chop -- worth checking if that combination (high ER10 + multi-fire-against) is actually a continuation flush rather than a reversal.", "exit_frame": 2, "n_commits": 3}

@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_02_24_1771943400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "737b66834a2f6202",
+      "ts": 1784314501.068503
+    },
+    {
+      "frame": 1,
+      "nonce": "e85662eb6f5d8320",
+      "ts": 1784314509.276024
+    },
+    {
+      "frame": 2,
+      "nonce": "61e2a07d47afbdf1",
+      "ts": 1784314523.1764133
+    },
+    {
+      "frame": 3,
+      "nonce": "a515a80f110d3bbf",
+      "ts": 1784314553.8522084
+    },
+    {
+      "frame": 4,
+      "nonce": "91d06200d0134d28",
+      "ts": 1784314564.3172328
+    },
+    {
+      "frame": 5,
+      "nonce": "0202dddbaf41ed2d",
+      "ts": 1784314573.3852403
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "737b66834a2f6202",
+      "decision": "HOLD",
+      "reason": "flat at entry, mixed lambda signs, no clear exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "e85662eb6f5d8320",
+      "decision": "HOLD",
+      "reason": "z_21 -2 to -3 across 1m/5m/15m with sig negative lambda = fade/reversion expected, favorable for short despite 28% giveback"
+    },
+    {
+      "frame": 2,
+      "nonce": "61e2a07d47afbdf1",
+      "decision": "HOLD",
+      "reason": "sharp favorable swing to +33.75, 1m z near zero (no extreme to fade), short-TF lambda positive=continuation; giveback only 12%, watching for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "a515a80f110d3bbf",
+      "decision": "HOLD",
+      "reason": "px +39.5, ER10 recovered to 0.77, 1m reversion_prob=0 + hurst 0.81 = trending not mean-reverting, PROPP-with fresh; let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "91d06200d0134d28",
+      "decision": "HOLD",
+      "reason": "px +86.5, giveback 0% (at peak), 1m lambda +0.118 sig = ride continuation, ER10 still 0.71; strong trend intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "0202dddbaf41ed2d",
+      "decision": "EXIT",
+      "reason": "px pulled back +86.5->+73.5, giveback jumped 0%->17%, fresh CLIMAX-against fire (highest-purity turn signal) plus KMDR-against; locking in the large favorable excursion before further giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through the initial adverse dip and a large favorable trend leg (px ran to +86.5 with lambda/hurst signals confirming continuation, not mean reversion), then exited at +73.5 once giveback jumped from 0% to 17% in one frame alongside a fresh CLIMAX-against fire on top of the already-present KMDR-against, reading that combination as exhaustion of the move. Next time I'd watch giveback velocity and CLIMAX purity more explicitly as the primary trailing-exit trigger rather than waiting for multiple confirmations, since the pullback had already started by the time I acted."
+}

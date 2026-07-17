@@ -1,0 +1,133 @@
+{
+  "episode_id": "2026_01_12_1768251575_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f1e413527b34effc",
+      "ts": 1784319175.0500553
+    },
+    {
+      "frame": 1,
+      "nonce": "6571d7e632e2f9ed",
+      "ts": 1784319182.3876343
+    },
+    {
+      "frame": 2,
+      "nonce": "a3445daf98c711ee",
+      "ts": 1784319191.2923727
+    },
+    {
+      "frame": 3,
+      "nonce": "698e85bf2d681cb3",
+      "ts": 1784319201.1375308
+    },
+    {
+      "frame": 4,
+      "nonce": "3fff81654186ff5a",
+      "ts": 1784319208.795992
+    },
+    {
+      "frame": 5,
+      "nonce": "100f24bfd6a4ea6b",
+      "ts": 1784319216.1774664
+    },
+    {
+      "frame": 6,
+      "nonce": "df0b28b9b54e9e40",
+      "ts": 1784319223.3135521
+    },
+    {
+      "frame": 7,
+      "nonce": "e1c26612a96e8573",
+      "ts": 1784319229.8991349
+    },
+    {
+      "frame": 8,
+      "nonce": "87d48732d164b85c",
+      "ts": 1784319237.5982556
+    },
+    {
+      "frame": 9,
+      "nonce": "f397da26b7a9a3a5",
+      "ts": 1784319270.6110113
+    },
+    {
+      "frame": 10,
+      "nonce": "0f7d0b481a9b4f25",
+      "ts": 1784319279.6989183
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f1e413527b34effc",
+      "decision": "HOLD",
+      "reason": "entry frame, flat pts, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "6571d7e632e2f9ed",
+      "decision": "HOLD",
+      "reason": "in profit +3.25pts, low giveback 15%, lambda positive multi-TF = trending in our favor, ride it"
+    },
+    {
+      "frame": 2,
+      "nonce": "a3445daf98c711ee",
+      "decision": "HOLD",
+      "reason": "giveback rising to 32% and ER10 dropping (chop), but still net positive; watching for further deterioration"
+    },
+    {
+      "frame": 3,
+      "nonce": "698e85bf2d681cb3",
+      "decision": "HOLD",
+      "reason": "new high +5.0pts, giveback improved to 18%, momentum still favorable despite low ER10"
+    },
+    {
+      "frame": 4,
+      "nonce": "3fff81654186ff5a",
+      "decision": "HOLD",
+      "reason": "new leg started giveback 0%, still +2.5pts net, HA firing with us"
+    },
+    {
+      "frame": 5,
+      "nonce": "100f24bfd6a4ea6b",
+      "decision": "HOLD",
+      "reason": "still +2.75pts, vol compressing, no strong reversal signature yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "df0b28b9b54e9e40",
+      "decision": "HOLD",
+      "reason": "still +1.75pts net, giveback low 11%, vol contracting, no decisive against signature"
+    },
+    {
+      "frame": 7,
+      "nonce": "e1c26612a96e8573",
+      "decision": "HOLD",
+      "reason": "still +2.5pts, vol compressed to 1.3pts, no strong signal, riding consolidation"
+    },
+    {
+      "frame": 8,
+      "nonce": "87d48732d164b85c",
+      "decision": "HOLD",
+      "reason": "px dipped to -1.25 but leg-giveback only 6%, no confirmed reversal; cutting losers on drawdown alone is a known losing pattern, waiting for clearer signature"
+    },
+    {
+      "frame": 9,
+      "nonce": "f397da26b7a9a3a5",
+      "decision": "HOLD",
+      "reason": "px -1.75, modest loss, ER10 very low (choppy not trending against us), holding for reversion per R-trigger logic"
+    },
+    {
+      "frame": 10,
+      "nonce": "0f7d0b481a9b4f25",
+      "decision": "EXIT",
+      "reason": "px deteriorated from +5.0 peak to -5.0, accelerating adverse move (-1.75->-5.00 in one frame), ER10 collapsed to 0.08 with no counter-fires; cutting the round-trip before further slippage"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Held through an initial +5.0pt favorable peak around t=3-4m, then watched the position round-trip back through breakeven as ER10 collapsed from ~0.6 to 0.08 (trend-efficiency evaporating into chop) while lambda on 1m turned significantly negative. Exited at t=10m at -5.0pts when the adverse drift accelerated sharply (-1.75 to -5.00 in one frame) with no counter-fires supporting a bounce, rather than let a clearly deteriorating leg run further into frames 11-15. Next time: watch for the ER10 collapse earlier as the real warning (not just raw px giveback%), since it preceded the accelerating adverse leg by 2-3 frames; also want a clearer read on whether 1m lambda-negative was signaling mean-reversion back in our favor vs. a genuine trend flip before trusting it either way."
+}

@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_08_29_1756476195_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "67e4b2d8d398f729",
+      "ts": 1784312469.5260847
+    },
+    {
+      "frame": 1,
+      "nonce": "e96c852a7afbdced",
+      "ts": 1784312478.4925063
+    },
+    {
+      "frame": 2,
+      "nonce": "0d7d0537b09cdf13",
+      "ts": 1784312485.5662751
+    },
+    {
+      "frame": 3,
+      "nonce": "be9e9e57d7bb7430",
+      "ts": 1784312492.7962663
+    },
+    {
+      "frame": 4,
+      "nonce": "01ae5310a7a30243",
+      "ts": 1784312499.3038678
+    },
+    {
+      "frame": 5,
+      "nonce": "f279255496553171",
+      "ts": 1784312506.2536168
+    },
+    {
+      "frame": 6,
+      "nonce": "1ad1f9acb63c002e",
+      "ts": 1784312514.3718433
+    },
+    {
+      "frame": 7,
+      "nonce": "903eeb35e609ba29",
+      "ts": 1784312520.564488
+    },
+    {
+      "frame": 8,
+      "nonce": "b1457ca54f8774a0",
+      "ts": 1784312531.4028182
+    },
+    {
+      "frame": 9,
+      "nonce": "b40e708c08257ac5",
+      "ts": 1784312537.6330059
+    },
+    {
+      "frame": 10,
+      "nonce": "09fc5e4b216a7253",
+      "ts": 1784312544.2290235
+    },
+    {
+      "frame": 11,
+      "nonce": "2a876adbf8828aad",
+      "ts": 1784312551.5640328
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "67e4b2d8d398f729",
+      "decision": "HOLD",
+      "reason": "at entry, no adverse move yet, holding to see development"
+    },
+    {
+      "frame": 1,
+      "nonce": "e96c852a7afbdced",
+      "decision": "HOLD",
+      "reason": "price now +12.5pts favorable, fresh leg (giveback only 2%), momentum in our favor"
+    },
+    {
+      "frame": 2,
+      "nonce": "0d7d0537b09cdf13",
+      "decision": "HOLD",
+      "reason": "px +25.25pts, leg amp growing to 67.2pts w/ only 7% giveback, still trending favorably"
+    },
+    {
+      "frame": 3,
+      "nonce": "be9e9e57d7bb7430",
+      "decision": "HOLD",
+      "reason": "px +36.75pts, amp 84.5pts giveback still just 7%, trend intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "01ae5310a7a30243",
+      "decision": "HOLD",
+      "reason": "px +45.5pts, amp 98pts, giveback only 10%, PROPP now firing with position"
+    },
+    {
+      "frame": 5,
+      "nonce": "f279255496553171",
+      "decision": "HOLD",
+      "reason": "px pulled back to +38 from +45.5 peak, giveback 18%, ER10 dropping to 0.31 but still net favorable, watching for further decay"
+    },
+    {
+      "frame": 6,
+      "nonce": "1ad1f9acb63c002e",
+      "decision": "HOLD",
+      "reason": "px new high +62.25pts, giveback reset to 3%, strong continuation, ER10 back to 0.48"
+    },
+    {
+      "frame": 7,
+      "nonce": "903eeb35e609ba29",
+      "decision": "HOLD",
+      "reason": "pulled back from +62.25 peak to +39.75, giveback 16%, both KMDR and PROPP now against - watching closely but still well in profit"
+    },
+    {
+      "frame": 8,
+      "nonce": "b1457ca54f8774a0",
+      "decision": "HOLD",
+      "reason": "recovered to +58.25pts, giveback back down to 4%, ER10 strong at 0.71"
+    },
+    {
+      "frame": 9,
+      "nonce": "b40e708c08257ac5",
+      "decision": "HOLD",
+      "reason": "new high +68.5pts, giveback 0%, trend still strong"
+    },
+    {
+      "frame": 10,
+      "nonce": "09fc5e4b216a7253",
+      "decision": "HOLD",
+      "reason": "px +63.25pts, minor pullback, giveback still low at 4%, ER10 0.68"
+    },
+    {
+      "frame": 11,
+      "nonce": "2a876adbf8828aad",
+      "decision": "EXIT",
+      "reason": "giveback spiked to 24% (new max, prior peak was 18%), ER10 crashed 0.68->0.31, PROPP against persisting, 1m lambda turning mean-reverting -- locking in +44.75pts before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Rode a strong favorable short trend from entry to a peak near +70-77pts, with giveback repeatedly resetting to low single digits after each pullback (a healthy trend signature). Exited at +44.75pts when giveback spiked to 24% of the run amplitude (well above the prior max of 18%), ER10 crashed from 0.68 to 0.31, and PROPP fired against the position -- the first time multiple independent signals agreed on exhaustion simultaneously. Next time I'd watch for that same confluence (giveback exceeding prior-max by a wide margin + efficiency-ratio collapse + a persistent against-fire) as the trigger, rather than reacting to any single metric spiking alone."
+}

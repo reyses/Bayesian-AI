@@ -1,0 +1,33 @@
+{"ts": 1784308317.2539272, "event": "serve", "frame": 0, "nonce": "63ecc8565032c51c"}
+{"ts": 1784308323.2261715, "event": "commit", "frame": 0, "nonce": "63ecc8565032c51c", "decision": "HOLD", "reason": "frame 0, just entered, no signal to act on yet"}
+{"ts": 1784308325.914617, "event": "serve", "frame": 1, "nonce": "786b10ba3c6430fe"}
+{"ts": 1784308331.6333418, "event": "commit", "frame": 1, "nonce": "786b10ba3c6430fe", "decision": "HOLD", "reason": "small giveback 16%, no extreme z, too early to bail"}
+{"ts": 1784308334.3254519, "event": "serve", "frame": 2, "nonce": "51435fb37b82ab58"}
+{"ts": 1784308338.3813462, "event": "commit", "frame": 2, "nonce": "51435fb37b82ab58", "decision": "HOLD", "reason": "giveback stable ~15%, mixed fires, no extreme adverse move"}
+{"ts": 1784308341.0384166, "event": "serve", "frame": 3, "nonce": "79ded34a0f58751e"}
+{"ts": 1784308346.911319, "event": "commit", "frame": 3, "nonce": "79ded34a0f58751e", "decision": "HOLD", "reason": "giveback 23%, but 5s lambda strongly negative (fading/reverting), not a breakout against us"}
+{"ts": 1784308349.916266, "event": "serve", "frame": 4, "nonce": "e537bc4322ac20a9"}
+{"ts": 1784308355.4310532, "event": "commit", "frame": 4, "nonce": "e537bc4322ac20a9", "decision": "HOLD", "reason": "price recovered to -3.50 from -9.25, reversion continuing in our favor"}
+{"ts": 1784308357.9663897, "event": "serve", "frame": 5, "nonce": "ae36971dab6ab2c5"}
+{"ts": 1784308370.944823, "event": "commit", "frame": 5, "nonce": "ae36971dab6ab2c5", "decision": "HOLD", "reason": "further recovery to -2.75, 5m/15s lambda negative confirms mean reversion in our favor"}
+{"ts": 1784308373.746652, "event": "serve", "frame": 6, "nonce": "ba8a7126335c6965"}
+{"ts": 1784308378.339343, "event": "commit", "frame": 6, "nonce": "ba8a7126335c6965", "decision": "HOLD", "reason": "minor pullback to -5.25, still inside prior range, no new extreme"}
+{"ts": 1784308381.4930966, "event": "serve", "frame": 7, "nonce": "d0fac57b4712675a"}
+{"ts": 1784308386.3068, "event": "commit", "frame": 7, "nonce": "d0fac57b4712675a", "decision": "HOLD", "reason": "px -6.75, vol compressing, still range-bound within prior swing"}
+{"ts": 1784308388.8846977, "event": "serve", "frame": 8, "nonce": "f1555705e05eb278"}
+{"ts": 1784308394.079979, "event": "commit", "frame": 8, "nonce": "f1555705e05eb278", "decision": "HOLD", "reason": "px -9.50 near prior range low, but 1m lambda strongly negative (mean-reverting), ER10 low=chop not trend"}
+{"ts": 1784308396.9560473, "event": "serve", "frame": 9, "nonce": "8fc66f668534a90c"}
+{"ts": 1784308401.3852324, "event": "commit", "frame": 9, "nonce": "8fc66f668534a90c", "decision": "HOLD", "reason": "sharp recovery to -4.75, 1m lambda strongly negative confirms reversion, still range-bound"}
+{"ts": 1784308403.9360285, "event": "serve", "frame": 10, "nonce": "40e573148578a104"}
+{"ts": 1784308411.3925066, "event": "commit", "frame": 10, "nonce": "40e573148578a104", "decision": "HOLD", "reason": "near breakeven -0.75, multi-TF lambda still strongly negative (reversion), ride the fade further"}
+{"ts": 1784308414.4712474, "event": "serve", "frame": 11, "nonce": "1ad3634eba9e306c"}
+{"ts": 1784308433.0812502, "event": "commit", "frame": 11, "nonce": "1ad3634eba9e306c", "decision": "HOLD", "reason": "px back to -9.50 (prior range low), fast TF momentum adverse but 1m lambda still strongly negative reversion; watching closely for breakdown"}
+{"ts": 1784308436.382487, "event": "serve", "frame": 12, "nonce": "9f26f165040c4907"}
+{"ts": 1784308448.7888045, "event": "commit", "frame": 12, "nonce": "9f26f165040c4907", "decision": "HOLD", "reason": "new low -11.25, but 5s lambda t=-21.4 extreme reversion signal and 1m lambda still sig negative; giving one more bar"}
+{"ts": 1784308452.304189, "event": "serve", "frame": 13, "nonce": "3c4f9d57df133a18"}
+{"ts": 1784308456.7583148, "event": "commit", "frame": 13, "nonce": "3c4f9d57df133a18", "decision": "HOLD", "reason": "recovered from -11.25 to -8.50 as lambda signals predicted, staying in the established range"}
+{"ts": 1784308459.4953504, "event": "serve", "frame": 14, "nonce": "79446d8d34819e07"}
+{"ts": 1784308464.714199, "event": "commit", "frame": 14, "nonce": "79446d8d34819e07", "decision": "HOLD", "reason": "px -10.25, within established range, 1m lambda still sig negative reversion"}
+{"ts": 1784308467.6965258, "event": "serve", "frame": 15, "nonce": "65eab14f5e7d1f9e"}
+{"ts": 1784308482.4738464, "event": "commit", "frame": 15, "nonce": "65eab14f5e7d1f9e", "decision": "EXIT", "reason": "new worst level -14.00, third consecutive lower-low despite repeated negative-lambda reversion calls that kept failing to hold; structure = deepening drawdown not chop, larger-TF (1h/4h/1D) context from frame0 showed uptrend against this short"}
+{"ts": 1784308489.3654184, "event": "finish", "summary": "Exited on a new-low breach (-14.00pts) after three consecutive rounds of the same pattern: 1m/5m lambda_hat went significantly negative (predicting reversion), price partially recovered, then broke to a fresh, deeper low. Each 'recovery' failed to make a new favorable high while the lows kept extending (-9.25 -> -11.25 -> -14.00), which reads as a trending structure fighting the fade thesis rather than noise/chop, consistent with the strong up-momentum context seen in the 1h/4h/1D blocks at frame 0. Next time I'd watch for that specific signature earlier -- successive lower-lows with unchanged/failing recovery highs -- as an override to a still-significant but track-record-failing lambda reversion signal, rather than waiting for a third breach.", "exit_frame": 15, "n_commits": 16}

@@ -1,0 +1,56 @@
+{
+  "episode_id": "2026_02_13_1770993005_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "14e14348716fe002",
+      "ts": 1784316007.9153428
+    },
+    {
+      "frame": 1,
+      "nonce": "8a6d94d22717eb1d",
+      "ts": 1784316019.096778
+    },
+    {
+      "frame": 2,
+      "nonce": "666bb4db28cce297",
+      "ts": 1784316038.490121
+    },
+    {
+      "frame": 3,
+      "nonce": "ee462a04f3176d39",
+      "ts": 1784316048.9157405
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "14e14348716fe002",
+      "decision": "HOLD",
+      "reason": "Early frame, giveback 0%, amp 35.8pts favorable, no reversal signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "8a6d94d22717eb1d",
+      "decision": "HOLD",
+      "reason": "Giveback 85% and against-fires are a warning, but only 1 bad frame in; watching for confirmation before cutting"
+    },
+    {
+      "frame": 2,
+      "nonce": "666bb4db28cce297",
+      "decision": "HOLD",
+      "reason": "px recovered to +1.5, giveback improved 85%->78%, mixed fires; still choppy not a clean reversal"
+    },
+    {
+      "frame": 3,
+      "nonce": "ee462a04f3176d39",
+      "decision": "EXIT",
+      "reason": "px -38 worst DD yet; 1m z_21=+3.19 with lambda_hat_12 strongly positive (t=7.04) = high-Z+positive-lambda = ride/continuation not reversion; ER10 0.75 confirms trending not chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited at t=3m on px -38pts, the worst drawdown of the episode. The driving signature was the lambda-completion condition: 1m z_21 was extremely stretched (+3.19) but lambda_hat_12 was strongly positive (t=7.04) rather than negative, meaning the high-Z excursion was being read as trend continuation ('ride') rather than mean-reversion ('fade') against the short. ER10 also jumped to 0.75, confirming directional/trending price action rather than noisy chop, so I didn't wait for the giveback/amp stats to reconverge. Next time I'd also watch vol(5m) delta (was accelerating, +6.2) earlier as a precursor before the z/lambda combo confirmed, to potentially cut a frame sooner."
+}

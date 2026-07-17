@@ -1,0 +1,9 @@
+{"ts": 1784315871.599115, "event": "serve", "frame": 0, "nonce": "cb4dd65f8a8eac25"}
+{"ts": 1784315890.9238474, "event": "commit", "frame": 0, "nonce": "cb4dd65f8a8eac25", "decision": "HOLD", "reason": "frame0: mixed multi-TF signal, no confirmed reversal yet, too early to act"}
+{"ts": 1784315893.5832672, "event": "serve", "frame": 1, "nonce": "780277f328f91b7e"}
+{"ts": 1784315903.104979, "event": "commit", "frame": 1, "nonce": "780277f328f91b7e", "decision": "HOLD", "reason": "frame1: now +23.5pts favorable, leg amp 61.8pts w/ only 23% giveback, PROPP-with fired, let it run"}
+{"ts": 1784315905.6728935, "event": "serve", "frame": 2, "nonce": "3a9f4a424215a64c"}
+{"ts": 1784315912.96476, "event": "commit", "frame": 2, "nonce": "3a9f4a424215a64c", "decision": "HOLD", "reason": "frame2: still +20.25pts, leg extended to 69.8pts, but PROPP flipped against - watching closely next frame"}
+{"ts": 1784315915.3714187, "event": "serve", "frame": 3, "nonce": "04be101e3d98a8d0"}
+{"ts": 1784315922.2201843, "event": "commit", "frame": 3, "nonce": "04be101e3d98a8d0", "decision": "EXIT", "reason": "frame3: giveback rising 11%->21%, 3-way against confluence (KMDR+CLIMAX+PROPP all against), ER10 rising - reversal signature, lock +14pts"}
+{"ts": 1784315926.7828867, "event": "finish", "summary": "Exited on a 3-way against-confluence at frame3 (t=3m): KMDR-against, CLIMAX-against, and PROPP-against all fired together while giveback jumped from 11% to 21% and ER10 rose to 0.58, signaling the favorable leg was exhausting and reversing. Locked +14.0pts rather than risk further erosion after peaking near +23.5pts. Next time I'd watch giveback% trajectory plus fire-count confluence (2+ against-signals firing within the same frame) as the primary trigger rather than any single detector alone.", "exit_frame": 3, "n_commits": 4}

@@ -1,0 +1,100 @@
+{
+  "episode_id": "2025_01_30_1738249200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e4802d8c765a845b",
+      "ts": 1784306454.1777332
+    },
+    {
+      "frame": 1,
+      "nonce": "777ccf5ca2bbfb7c",
+      "ts": 1784306463.4881494
+    },
+    {
+      "frame": 2,
+      "nonce": "78f3f4e9e0b90199",
+      "ts": 1784306470.3685045
+    },
+    {
+      "frame": 3,
+      "nonce": "9f102eb8a88f23ad",
+      "ts": 1784306478.2353172
+    },
+    {
+      "frame": 4,
+      "nonce": "2367f0d5d17bf135",
+      "ts": 1784306489.2285063
+    },
+    {
+      "frame": 5,
+      "nonce": "47f3522bcf92faa9",
+      "ts": 1784306496.4170291
+    },
+    {
+      "frame": 6,
+      "nonce": "d0272492fd8b77f3",
+      "ts": 1784306517.7971902
+    },
+    {
+      "frame": 7,
+      "nonce": "459f9e083d8b1f2a",
+      "ts": 1784306551.0507586
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e4802d8c765a845b",
+      "decision": "HOLD",
+      "reason": "early frame, position flat at entry, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "777ccf5ca2bbfb7c",
+      "decision": "HOLD",
+      "reason": "px +15.5pts favorable, giveback only 1%, trend still working"
+    },
+    {
+      "frame": 2,
+      "nonce": "78f3f4e9e0b90199",
+      "decision": "HOLD",
+      "reason": "small pullback to +11pts, giveback only 3%, PROPP firing with position"
+    },
+    {
+      "frame": 3,
+      "nonce": "9f102eb8a88f23ad",
+      "decision": "HOLD",
+      "reason": "px +82.75pts, giveback 0%, strong move continuing despite one KMDR-against flag"
+    },
+    {
+      "frame": 4,
+      "nonce": "2367f0d5d17bf135",
+      "decision": "HOLD",
+      "reason": "px +87.5pts, giveback only 2%, still trending favorably"
+    },
+    {
+      "frame": 5,
+      "nonce": "47f3522bcf92faa9",
+      "decision": "HOLD",
+      "reason": "giveback jumped to 17% with KMDR+CLIMAX both against - watching closely, one more frame to confirm before acting"
+    },
+    {
+      "frame": 6,
+      "nonce": "d0272492fd8b77f3",
+      "decision": "HOLD",
+      "reason": "giveback improved 17%->12%, price recovering toward +80; 3 against-signals stacking but not yet breaking down"
+    },
+    {
+      "frame": 7,
+      "nonce": "459f9e083d8b1f2a",
+      "decision": "EXIT",
+      "reason": "giveback rose to new high 22% off a 177.8pt leg, KMDR+CLIMAX against for 3 straight frames, px retreated to +69.25 from +87.5 peak - locking in the gain before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Exited at +69.25pts (frame 7) after a strong impulsive 177.8pt favorable leg peaked around +90-106 and began giving back. The exit signature was the confluence of KMDR-against and CLIMAX-against firing together for 3 consecutive frames while giveback climbed to a new high of 22%, rather than any single-frame dip (earlier smaller giveback blips at 3%/12% recovered). Next time I'd watch for the SAME multi-signal confluence (not one detector alone) plus a monotonic giveback trend (not just a spike) as the trigger, and would want to see whether holding through this specific giveback level historically still captured more upside vs the R-trigger/1R-recovery pattern noted in the graveyard research before treating 22% as a hard threshold."
+}

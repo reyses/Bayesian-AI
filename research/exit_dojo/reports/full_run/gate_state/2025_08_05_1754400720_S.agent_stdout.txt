@@ -1,0 +1,8 @@
+# exit_code=0 dt=150s
+## STDOUT
+Episode closed. I exited at frame 6 (t=6m, px -32.00) on the first unanimous against-signal alignment (KMDR + HA + PROPP all flipped against simultaneously) combined with a significant positive Î»Ì‚ on the 5s TF (t=3.4, momentum continuation) and a fresh adverse leg at 0% giveback. Earlier drawdowns to -14.75 and -13.00 were held through because signals stayed mixed and giveback stayed under ~30%. Summary logged via `finish`.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

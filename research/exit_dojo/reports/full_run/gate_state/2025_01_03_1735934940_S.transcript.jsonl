@@ -1,0 +1,31 @@
+{"ts": 1784316252.8890285, "event": "serve", "frame": 0, "nonce": "ad71263003d02c2b"}
+{"ts": 1784316256.9550667, "event": "commit", "frame": 0, "nonce": "ad71263003d02c2b", "decision": "HOLD", "reason": "just entered, px flat, no signal yet"}
+{"ts": 1784316259.182765, "event": "serve", "frame": 1, "nonce": "dd5c35ed5c069aba"}
+{"ts": 1784316264.3954008, "event": "commit", "frame": 1, "nonce": "dd5c35ed5c069aba", "decision": "HOLD", "reason": "px flat near entry, no strong reversion signal yet"}
+{"ts": 1784316269.5366142, "event": "serve", "frame": 2, "nonce": "69fc96159a9f060e"}
+{"ts": 1784316279.3427932, "event": "commit", "frame": 2, "nonce": "69fc96159a9f060e", "decision": "HOLD", "reason": "adverse move small relative to 17.8pt leg amplitude, no confirmed reversal signature"}
+{"ts": 1784316282.489792, "event": "serve", "frame": 3, "nonce": "3d6c733a03c0dfd3"}
+{"ts": 1784316300.188143, "event": "commit", "frame": 3, "nonce": "3d6c733a03c0dfd3", "decision": "HOLD", "reason": "px +5.75 gain, HA fires with position, giveback elevated but not yet confirmed by lambda flip"}
+{"ts": 1784316302.9207199, "event": "serve", "frame": 4, "nonce": "fb79e0b00c5ebdc6"}
+{"ts": 1784316311.1838365, "event": "commit", "frame": 4, "nonce": "fb79e0b00c5ebdc6", "decision": "HOLD", "reason": "whipsaw back to flat but no confirmed reversal, mixed HA/PROPP signals"}
+{"ts": 1784316313.4359796, "event": "serve", "frame": 5, "nonce": "ebf49612b3d0ce6a"}
+{"ts": 1784316327.965653, "event": "commit", "frame": 5, "nonce": "ebf49612b3d0ce6a", "decision": "HOLD", "reason": "flat pnl, only fast/noisy 5s lambda against; 1m lambda not decisive, no confirmed reversal"}
+{"ts": 1784316330.5958498, "event": "serve", "frame": 6, "nonce": "0545580b0dec7487"}
+{"ts": 1784316341.3064902, "event": "commit", "frame": 6, "nonce": "0545580b0dec7487", "decision": "HOLD", "reason": "small adverse px, PROPP fires with position now, lambda still weak/mixed not confirmed trend against"}
+{"ts": 1784316343.6566093, "event": "serve", "frame": 7, "nonce": "27ebb7bf2f836730"}
+{"ts": 1784316357.5964546, "event": "commit", "frame": 7, "nonce": "27ebb7bf2f836730", "decision": "HOLD", "reason": "loss growing to -5.25 but PROPP still fires with position, ER10 rising signals trend not yet clearly against us"}
+{"ts": 1784316360.2027166, "event": "serve", "frame": 8, "nonce": "0805c788a46c1f8c"}
+{"ts": 1784316365.166773, "event": "commit", "frame": 8, "nonce": "0805c788a46c1f8c", "decision": "HOLD", "reason": "px recovering (-5.25 to -3.50), giveback easing, 1m z_se still favorable-elevated"}
+{"ts": 1784316367.5233493, "event": "serve", "frame": 9, "nonce": "f991ef392b3c71b9"}
+{"ts": 1784316371.2318442, "event": "commit", "frame": 9, "nonce": "f991ef392b3c71b9", "decision": "HOLD", "reason": "HA and PROPP both fire with position now, small loss within normal leg noise"}
+{"ts": 1784316373.5584579, "event": "serve", "frame": 10, "nonce": "ccc7749f9f0a2c72"}
+{"ts": 1784316382.0685053, "event": "commit", "frame": 10, "nonce": "ccc7749f9f0a2c72", "decision": "HOLD", "reason": "ER10 collapsed to 0.01 (noise not trend), reversion_prob still high across TFs, leg near exhausted at 91% giveback"}
+{"ts": 1784316384.5602286, "event": "serve", "frame": 11, "nonce": "3669b215cb107678"}
+{"ts": 1784316388.8633723, "event": "commit", "frame": 11, "nonce": "3669b215cb107678", "decision": "HOLD", "reason": "px recovered to -1.50, HA fires with position confirming reversion"}
+{"ts": 1784316391.636644, "event": "serve", "frame": 12, "nonce": "b7dbbf6289386fb9"}
+{"ts": 1784316397.7077672, "event": "commit", "frame": 12, "nonce": "b7dbbf6289386fb9", "decision": "HOLD", "reason": "px back to +0.75, HA still with position; PROPP-against is single weak flag, watching for confirmation"}
+{"ts": 1784316400.4094858, "event": "serve", "frame": 13, "nonce": "ce5c1bfee53c0324"}
+{"ts": 1784316409.1282675, "event": "commit", "frame": 13, "nonce": "ce5c1bfee53c0324", "decision": "HOLD", "reason": "px +2.75 solid profit, HA still with position, no decisive multi-TF reversal confirmed"}
+{"ts": 1784316411.7034547, "event": "serve", "frame": 14, "nonce": "27c9ee0c71b5a61f"}
+{"ts": 1784316419.9539962, "event": "commit", "frame": 14, "nonce": "27c9ee0c71b5a61f", "decision": "EXIT", "reason": "HA-against and PROPP-against both fire simultaneously for first time this episode; giveback 93% of leg amplitude, taking the exit"}
+{"ts": 1784316425.6033328, "event": "finish", "summary": "Exited at t=14m on px -4.25 when HA-against and PROPP-against fired simultaneously for the first time all episode, combined with leg giveback at 93% of a 10.8pt amplitude leg. Prior single-detector-against readings were repeatedly followed by reversion (held through several -4 to -5pt dips that recovered), so I waited for detector confluence rather than reacting to any one signal or to raw px alone. Next time I'd want to watch whether HA+PROPP confluence against position is a reliably earlier/cheaper exit trigger than waiting for giveback to approach 100%, and whether 1m lambda_t crossing decisively negative (not just 5s noise) adds confirmation lead time.", "exit_frame": 14, "n_commits": 15}

@@ -1,0 +1,210 @@
+{
+  "episode_id": "2025_11_20_1763649060_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "11d85733e42ed835",
+      "ts": 1784313508.0861075
+    },
+    {
+      "frame": 1,
+      "nonce": "3694e7bff9f6b925",
+      "ts": 1784313517.0968893
+    },
+    {
+      "frame": 2,
+      "nonce": "9df3a1d72d6ca283",
+      "ts": 1784313524.9678843
+    },
+    {
+      "frame": 3,
+      "nonce": "1b52efd32fc8f872",
+      "ts": 1784313531.3292515
+    },
+    {
+      "frame": 4,
+      "nonce": "efb4ce9ca70f4dc5",
+      "ts": 1784313542.3774436
+    },
+    {
+      "frame": 5,
+      "nonce": "a4900366341561ca",
+      "ts": 1784313552.1134672
+    },
+    {
+      "frame": 6,
+      "nonce": "ff20b206e0b9920f",
+      "ts": 1784313562.0326064
+    },
+    {
+      "frame": 7,
+      "nonce": "d89a009d0f5a5fb7",
+      "ts": 1784313586.8932443
+    },
+    {
+      "frame": 8,
+      "nonce": "f10005593375b087",
+      "ts": 1784313600.8427868
+    },
+    {
+      "frame": 9,
+      "nonce": "70de118617782008",
+      "ts": 1784313609.862043
+    },
+    {
+      "frame": 10,
+      "nonce": "587296024dd918d6",
+      "ts": 1784313620.7867622
+    },
+    {
+      "frame": 11,
+      "nonce": "eeae191d2806e1a0",
+      "ts": 1784313628.1929271
+    },
+    {
+      "frame": 12,
+      "nonce": "95bf99761833538d",
+      "ts": 1784313635.0588038
+    },
+    {
+      "frame": 13,
+      "nonce": "857829e1f7313473",
+      "ts": 1784313643.7945504
+    },
+    {
+      "frame": 14,
+      "nonce": "c77a0c6c5ec999fd",
+      "ts": 1784313656.4463384
+    },
+    {
+      "frame": 15,
+      "nonce": "687db3f9485b82eb",
+      "ts": 1784313669.9383903
+    },
+    {
+      "frame": 16,
+      "nonce": "beca761e6eeb331e",
+      "ts": 1784313677.2953444
+    },
+    {
+      "frame": 17,
+      "nonce": "e59387d82298e898",
+      "ts": 1784313687.185984
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "11d85733e42ed835",
+      "decision": "HOLD",
+      "reason": "frame 0, at entry, no confirmed adverse trend yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "3694e7bff9f6b925",
+      "decision": "HOLD",
+      "reason": "adverse -7.5pts but mixed fires (PROPP-with), giveback already elevated from a small leg, too early to call trend"
+    },
+    {
+      "frame": 2,
+      "nonce": "9df3a1d72d6ca283",
+      "decision": "HOLD",
+      "reason": "back to +10pts favorable, PROPP-with confirms, still chopping inside leg range"
+    },
+    {
+      "frame": 3,
+      "nonce": "1b52efd32fc8f872",
+      "decision": "HOLD",
+      "reason": "fresh favorable leg +26.25pts, amp 80pts giveback only 8%, PROPP-with, let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "efb4ce9ca70f4dc5",
+      "decision": "HOLD",
+      "reason": "pulled back to +4pts, 41% giveback on the 80pt leg, PROPP flipped against but not yet a confirmed reversal"
+    },
+    {
+      "frame": 5,
+      "nonce": "a4900366341561ca",
+      "decision": "HOLD",
+      "reason": "giveback now 52% of leg, px slightly negative -3.25, but PROPP still with and no confirmed trend reversal, ER10 low = chop not trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "ff20b206e0b9920f",
+      "decision": "HOLD",
+      "reason": "new adverse leg -8.75pts, worst point so far but only 6min in, no structural break yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "d89a009d0f5a5fb7",
+      "decision": "HOLD",
+      "reason": "deepest adverse point yet -21.5pts, HA-against, watching for confirmed trend break next frame"
+    },
+    {
+      "frame": 8,
+      "nonce": "f10005593375b087",
+      "decision": "HOLD",
+      "reason": "stalled near -21pts, both HA and PROPP against but vol collapsing and ER10 low = chop not a clean trend break"
+    },
+    {
+      "frame": 9,
+      "nonce": "70de118617782008",
+      "decision": "HOLD",
+      "reason": "new worst -26.5pts, slow grind adverse with vol drying up, watching for one more confirmation before cutting"
+    },
+    {
+      "frame": 10,
+      "nonce": "587296024dd918d6",
+      "decision": "HOLD",
+      "reason": "sharp bounce back to -4.25 from -26.5, fresh favorable leg HA-with 0% giveback, glad we held through the chop"
+    },
+    {
+      "frame": 11,
+      "nonce": "eeae191d2806e1a0",
+      "decision": "HOLD",
+      "reason": "new trade high +32.25pts, vol expanding favorably, giveback only 11%, momentum with us"
+    },
+    {
+      "frame": 12,
+      "nonce": "95bf99761833538d",
+      "decision": "HOLD",
+      "reason": "pullback to +17.25 from +32.25, 32% giveback but still solidly favorable, consistent with this trade's chop pattern"
+    },
+    {
+      "frame": 13,
+      "nonce": "857829e1f7313473",
+      "decision": "HOLD",
+      "reason": "sharp swing to -20.5, 110% giveback erasing the leg, but this matches the trade's established wide-chop pattern that has recovered twice already"
+    },
+    {
+      "frame": 14,
+      "nonce": "c77a0c6c5ec999fd",
+      "decision": "HOLD",
+      "reason": "partial bounce to -15.75, but both HA and PROPP now against and vol expanding to 22.6 - highest yet, watching closely"
+    },
+    {
+      "frame": 15,
+      "nonce": "687db3f9485b82eb",
+      "decision": "HOLD",
+      "reason": "recovered to -3.75 near breakeven, HA-with confirms, still range-bound chop"
+    },
+    {
+      "frame": 16,
+      "nonce": "beca761e6eeb331e",
+      "decision": "HOLD",
+      "reason": "mild pullback -11.75, vol cooling off, still range-bound"
+    },
+    {
+      "frame": 17,
+      "nonce": "e59387d82298e898",
+      "decision": "EXIT",
+      "reason": "px -65.5, largest adverse leg yet (108.8pts, 0% giveback = fresh/no exhaustion), both HA and PROPP against - this breaks the prior chop-and-recover pattern, cutting losses"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 17,
+  "finished": true,
+  "summary": "Held through repeated 30-70pt whipsaws that kept round-tripping back to breakeven or favorable (worst prior excursion -26.5pts recovered to +32.25pts twice), consistent with a choppy, low-ER10 regime where cutting losers historically loses money. Exited at -65.5pts when a fresh 108.8pt leg formed with 0% giveback (no exhaustion) and both HA and PROPP fired against simultaneously - roughly double any prior adverse excursion and lacking the quick-recovery signature of earlier dips. Next time I'd watch leg amplitude relative to the trade's established range plus simultaneous multi-family against-fires as the key discriminator between normal chop and a real regime break, rather than reacting to single-frame adverse prints."
+}

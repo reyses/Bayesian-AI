@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_08_27_1756301415_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fb75bda3674ff326",
+      "ts": 1784308587.0720222
+    },
+    {
+      "frame": 1,
+      "nonce": "57445d2bfb4e6b4d",
+      "ts": 1784308601.9315648
+    },
+    {
+      "frame": 2,
+      "nonce": "b1764dc5611573a0",
+      "ts": 1784308610.9204903
+    },
+    {
+      "frame": 3,
+      "nonce": "96527afdbd325f67",
+      "ts": 1784308626.7184076
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fb75bda3674ff326",
+      "decision": "HOLD",
+      "reason": "frame0: at breakeven, mixed lambda signals, no confirmed adverse trend yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "57445d2bfb4e6b4d",
+      "decision": "HOLD",
+      "reason": "px +20.75, giveback only 5%, |z_21|=2.26 stretched but lambda_21 t=+3.67 strongly positive -> ride per momentum signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "b1764dc5611573a0",
+      "decision": "HOLD",
+      "reason": "giveback 54% of a 32.5pt leg + CLIMAX-against fire is noisy pullback signal; z_21=1.44 still below stretch threshold, lambda_21 still +3.47t; per prior research cutting winners on giveback has negative EV"
+    },
+    {
+      "frame": 3,
+      "nonce": "96527afdbd325f67",
+      "decision": "EXIT",
+      "reason": "peak +20.75 now +2.00, giveback 68%; two independent against-fires stacked (CLIMAX-against 1m ago, HA-against fresh) plus ER10 collapsed to 0.01 (no directional efficiency) and 5s lambda flipped negative t=-4.35 -- exhaustion signature outweighs lagging 1m lambda; lock in small gain before it turns negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Rode the initial favorable leg to +20.75pts, then held through a first pullback (giveback 54%) since z_21 was still sub-threshold and 1m lambda stayed strongly positive. Exited at +2.00pts once a second wave of reversal evidence stacked: giveback hit 68%, ER10 collapsed to 0.01 (no directional efficiency left), the fast 5s lambda flipped sharply negative, and two independent against-direction fires (CLIMAX-against, HA-against) printed within the last minute. Next time I'd watch for that same combination -- multiple independent against-fires plus an efficiency-ratio collapse -- as the earliest reliable exhaustion tell, rather than waiting for price to fully round-trip back to breakeven or negative."
+}

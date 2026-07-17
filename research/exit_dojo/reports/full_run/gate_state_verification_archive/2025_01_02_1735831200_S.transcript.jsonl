@@ -1,0 +1,69 @@
+{"ts": 1784304621.2208118, "event": "serve", "frame": 0, "nonce": "282a8ababac3c7b7"}
+{"ts": 1784304621.6722395, "event": "commit", "frame": 0, "nonce": "282a8ababac3c7b7", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304622.1332595, "event": "serve", "frame": 1, "nonce": "6542688b521c3bfc"}
+{"ts": 1784304622.596129, "event": "commit", "frame": 1, "nonce": "6542688b521c3bfc", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304623.0513964, "event": "serve", "frame": 2, "nonce": "765cbdab68857861"}
+{"ts": 1784304623.506261, "event": "commit", "frame": 2, "nonce": "765cbdab68857861", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304623.957849, "event": "serve", "frame": 3, "nonce": "0116bd59e41ec6c0"}
+{"ts": 1784304624.4070446, "event": "commit", "frame": 3, "nonce": "0116bd59e41ec6c0", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304624.857617, "event": "serve", "frame": 4, "nonce": "bef8bb565e886d89"}
+{"ts": 1784304625.3116062, "event": "commit", "frame": 4, "nonce": "bef8bb565e886d89", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304625.7665105, "event": "serve", "frame": 5, "nonce": "9a0eb7b9b5574026"}
+{"ts": 1784304626.215589, "event": "commit", "frame": 5, "nonce": "9a0eb7b9b5574026", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304626.6703815, "event": "serve", "frame": 6, "nonce": "5c2ecaa03bda36b8"}
+{"ts": 1784304627.1175723, "event": "commit", "frame": 6, "nonce": "5c2ecaa03bda36b8", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304627.5731046, "event": "serve", "frame": 7, "nonce": "40fc17ac657e73c9"}
+{"ts": 1784304628.031367, "event": "commit", "frame": 7, "nonce": "40fc17ac657e73c9", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304628.4822779, "event": "serve", "frame": 8, "nonce": "e46c8728639f79c9"}
+{"ts": 1784304628.9410355, "event": "commit", "frame": 8, "nonce": "e46c8728639f79c9", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304629.3890624, "event": "serve", "frame": 9, "nonce": "805a1fdfba290c87"}
+{"ts": 1784304629.833842, "event": "commit", "frame": 9, "nonce": "805a1fdfba290c87", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304630.3150146, "event": "serve", "frame": 10, "nonce": "cfdfdf709f8c06be"}
+{"ts": 1784304630.7952049, "event": "commit", "frame": 10, "nonce": "cfdfdf709f8c06be", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304631.279762, "event": "serve", "frame": 11, "nonce": "9ae9ea380e30c210"}
+{"ts": 1784304631.776449, "event": "commit", "frame": 11, "nonce": "9ae9ea380e30c210", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304632.2423563, "event": "serve", "frame": 12, "nonce": "4d09ef10b1989556"}
+{"ts": 1784304632.6959982, "event": "commit", "frame": 12, "nonce": "4d09ef10b1989556", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304633.1564507, "event": "serve", "frame": 13, "nonce": "5e93a37e5ea86d61"}
+{"ts": 1784304633.606168, "event": "commit", "frame": 13, "nonce": "5e93a37e5ea86d61", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304634.061315, "event": "serve", "frame": 14, "nonce": "baab61baedf5f23c"}
+{"ts": 1784304634.5306604, "event": "commit", "frame": 14, "nonce": "baab61baedf5f23c", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304634.9866946, "event": "serve", "frame": 15, "nonce": "36e7084acac743a2"}
+{"ts": 1784304635.442236, "event": "commit", "frame": 15, "nonce": "36e7084acac743a2", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304635.9062328, "event": "serve", "frame": 16, "nonce": "18e5a3ea0a9fa9ec"}
+{"ts": 1784304636.3629477, "event": "commit", "frame": 16, "nonce": "18e5a3ea0a9fa9ec", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304636.8152735, "event": "serve", "frame": 17, "nonce": "f00b87f459b69ec2"}
+{"ts": 1784304637.2786667, "event": "commit", "frame": 17, "nonce": "f00b87f459b69ec2", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304637.73611, "event": "serve", "frame": 18, "nonce": "e09c4205e2eaf7ec"}
+{"ts": 1784304638.1975186, "event": "commit", "frame": 18, "nonce": "e09c4205e2eaf7ec", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304638.654171, "event": "serve", "frame": 19, "nonce": "c7d8c2ba94d2c8e2"}
+{"ts": 1784304639.1183484, "event": "commit", "frame": 19, "nonce": "c7d8c2ba94d2c8e2", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304639.5706918, "event": "serve", "frame": 20, "nonce": "0e127bce1b9ec240"}
+{"ts": 1784304640.023617, "event": "commit", "frame": 20, "nonce": "0e127bce1b9ec240", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304640.4992635, "event": "serve", "frame": 21, "nonce": "b26bb959c9b0e259"}
+{"ts": 1784304640.9734101, "event": "commit", "frame": 21, "nonce": "b26bb959c9b0e259", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304641.4603317, "event": "serve", "frame": 22, "nonce": "10b60f888d127ba2"}
+{"ts": 1784304641.924434, "event": "commit", "frame": 22, "nonce": "10b60f888d127ba2", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304642.3753488, "event": "serve", "frame": 23, "nonce": "3ab96118b6728a0f"}
+{"ts": 1784304642.8452942, "event": "commit", "frame": 23, "nonce": "3ab96118b6728a0f", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304643.3155067, "event": "serve", "frame": 24, "nonce": "d4e1761a65959bfc"}
+{"ts": 1784304643.7656245, "event": "commit", "frame": 24, "nonce": "d4e1761a65959bfc", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304644.2219632, "event": "serve", "frame": 25, "nonce": "098857194cd131eb"}
+{"ts": 1784304644.6852765, "event": "commit", "frame": 25, "nonce": "098857194cd131eb", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304645.1385136, "event": "serve", "frame": 26, "nonce": "443e886b41d27391"}
+{"ts": 1784304645.6043386, "event": "commit", "frame": 26, "nonce": "443e886b41d27391", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304646.0593271, "event": "serve", "frame": 27, "nonce": "16faa70ad83b604c"}
+{"ts": 1784304646.5190916, "event": "commit", "frame": 27, "nonce": "16faa70ad83b604c", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304646.9954555, "event": "serve", "frame": 28, "nonce": "5e46859edb700b92"}
+{"ts": 1784304647.504515, "event": "commit", "frame": 28, "nonce": "5e46859edb700b92", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304648.0542598, "event": "serve", "frame": 29, "nonce": "bf844519b935c157"}
+{"ts": 1784304648.638763, "event": "commit", "frame": 29, "nonce": "bf844519b935c157", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304649.1283228, "event": "serve", "frame": 30, "nonce": "c7bf8ed941436295"}
+{"ts": 1784304649.6063302, "event": "commit", "frame": 30, "nonce": "c7bf8ed941436295", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304650.1075528, "event": "serve", "frame": 31, "nonce": "39a2fa1dc7786b8c"}
+{"ts": 1784304650.5735075, "event": "commit", "frame": 31, "nonce": "39a2fa1dc7786b8c", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304651.0473523, "event": "serve", "frame": 32, "nonce": "4835c078fabfc5f2"}
+{"ts": 1784304651.5126574, "event": "commit", "frame": 32, "nonce": "4835c078fabfc5f2", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304651.9707608, "event": "serve", "frame": 33, "nonce": "8b96fda04a6ba95c"}
+{"ts": 1784304652.4375312, "event": "commit", "frame": 33, "nonce": "8b96fda04a6ba95c", "decision": "HOLD", "reason": "scripted-hold (dummy policy hold)"}
+{"ts": 1784304653.3507266, "event": "finish", "summary": "dummy agent, policy=hold; scripted verification run.", "exit_frame": null, "n_commits": 34}

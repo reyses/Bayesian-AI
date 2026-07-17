@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_11_04_1762266770_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7642c63dc8900c0f",
+      "ts": 1784315643.1629581
+    },
+    {
+      "frame": 1,
+      "nonce": "c361d3a9f9e3605f",
+      "ts": 1784315652.1342897
+    },
+    {
+      "frame": 2,
+      "nonce": "71e6c995db791a6f",
+      "ts": 1784315661.7870216
+    },
+    {
+      "frame": 3,
+      "nonce": "fb9ef0e8b6511d59",
+      "ts": 1784315670.712707
+    },
+    {
+      "frame": 4,
+      "nonce": "e17ae00bc7911762",
+      "ts": 1784315687.238343
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7642c63dc8900c0f",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, leg still forming, no clear reversal signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "c361d3a9f9e3605f",
+      "decision": "HOLD",
+      "reason": "px +36.75, giveback only 2%, momentum fires with position, 1m reversion_prob low(0.09) = trend continuing"
+    },
+    {
+      "frame": 2,
+      "nonce": "71e6c995db791a6f",
+      "decision": "HOLD",
+      "reason": "px +38, giveback 15% still moderate, reversion_prob(1m)=0.00 says trend not reverting, KMDR-against is lone dissenter vs 2 with-fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "fb9ef0e8b6511d59",
+      "decision": "HOLD",
+      "reason": "px +46.5 new high, giveback improved to 12%; CLIMAX+KMDR against fired but price still making highs, watching closely next frame"
+    },
+    {
+      "frame": 4,
+      "nonce": "e17ae00bc7911762",
+      "decision": "EXIT",
+      "reason": "hard reversal: px flipped +46.5->-5.75, giveback 44%, all 3 fires (KMDR/CLIMAX/PROPP) now against, trend confirmed broken"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through a strong favorable run (px 0 -> +46.5 pts) despite an early CLIMAX/KMDR-against pair while price kept making new highs. Exited at the next frame when the leg violently whipsawed (+46.5 -> -5.75), giveback jumped to 44%, and PROPP flipped to join KMDR+CLIMAX all-against -- three concordant against-fires plus price crossing back to unfavorable was the confirmed-reversal signature. Next time I'd weight the first CLIMAX-against fire more heavily as an early trim/tighten trigger rather than waiting for full confirmation, since by confirmation ~52pts of favorable excursion had already been given back."
+}

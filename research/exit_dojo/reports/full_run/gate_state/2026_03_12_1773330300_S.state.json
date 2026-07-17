@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_03_12_1773330300_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "59d3a3c400870f17",
+      "ts": 1784310377.6101189
+    },
+    {
+      "frame": 1,
+      "nonce": "12151444fe12bb03",
+      "ts": 1784310395.4285111
+    },
+    {
+      "frame": 2,
+      "nonce": "859f4588cb2a8c48",
+      "ts": 1784310411.518832
+    },
+    {
+      "frame": 3,
+      "nonce": "8b7caf23edda0f78",
+      "ts": 1784310423.5763822
+    },
+    {
+      "frame": 4,
+      "nonce": "647189e375560b30",
+      "ts": 1784310430.8242
+    },
+    {
+      "frame": 5,
+      "nonce": "3ae635db5fb2320f",
+      "ts": 1784310446.191236
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "59d3a3c400870f17",
+      "decision": "HOLD",
+      "reason": "frame 0 baseline: at breakeven after 127pt leg w/ only 15% giveback, no confirmed reversal signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "12151444fe12bb03",
+      "decision": "HOLD",
+      "reason": "px slipped to -11.75, one PROPP-against fire but no confirming cluster yet; watching for follow-through"
+    },
+    {
+      "frame": 2,
+      "nonce": "859f4588cb2a8c48",
+      "decision": "HOLD",
+      "reason": "px swung to +41.5, fresh 1m leg 0% giveback, all fires still with-direction; high reversion_prob is a flag but no against signal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "8b7caf23edda0f78",
+      "decision": "HOLD",
+      "reason": "px extending to +43.5, giveback only 6%, fires still with-direction; holding through the run"
+    },
+    {
+      "frame": 4,
+      "nonce": "647189e375560b30",
+      "decision": "HOLD",
+      "reason": "sharp giveback to +2.75 (54% of leg) but still net positive, fires still with-direction not against; holding through the pullback rather than pre-emptively cutting"
+    },
+    {
+      "frame": 5,
+      "nonce": "3ae635db5fb2320f",
+      "decision": "EXIT",
+      "reason": "HA+PROPP both fired against simultaneously at bounce-top (+16) after a prior 54% giveback; choppy whipsaw price action + high reversion_prob = locking in gain rather than risking another leg down"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Exited at +16pts when HA and PROPP against-signals fired jointly for the first time, right after price bounced off a low that had already erased 54% of the leg's 79.8pt amplitude. The whipsaw pattern (+43.5 -> +2.75 -> +16 within 5 minutes), persistently high reversion_prob (0.95-0.99) across TFs, and weak/flipping lambda persistence signaled a choppy, mean-reverting regime rather than a clean trend I could ride. Next time I'd want to see whether a single joint against-fire is enough or whether waiting for a second confirming bar reduces whipsaw-driven early exits, since the graveyard notes generally penalize cutting winners early."
+}

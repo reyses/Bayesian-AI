@@ -1,0 +1,8 @@
+# exit_code=0 dt=217s
+## STDOUT
+Episode closed: exited at frame 3 (t=3m) at px -14.75. Drove the call off the consistent adverse trajectory (0 â†’ -8.25 â†’ -11.25 â†’ -14.75), leg giveback climbing to 76%, and lambda_hat flipping positive+significant on 15s/1m â€” read as trend continuation against the short rather than noise, so I got out before further erosion.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

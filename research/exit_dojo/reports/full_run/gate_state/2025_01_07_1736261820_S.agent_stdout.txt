@@ -1,0 +1,8 @@
+# exit_code=0 dt=612s
+## STDOUT
+Episode closed. Held from entry through 15 frames of favorable expansion (px ran from 0 to a peak of +167.5, amp growing to 234.5), then exited at +123.75 on frame 16 when three independent against-signals (KMDR, HA, PROPP) clustered fresh together, ER10 broke down from 0.47â†’0.32, and giveback accelerated sharply (3%â†’6%â†’21%) after three frames of stalled amplitude â€” a stronger, multi-confirmed reversal signature than the earlier single/dual-signal false alarms I held through.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

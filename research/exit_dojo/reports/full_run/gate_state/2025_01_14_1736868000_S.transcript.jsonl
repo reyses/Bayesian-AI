@@ -1,0 +1,17 @@
+{"ts": 1784305930.1489224, "event": "serve", "frame": 0, "nonce": "58d2c3789342a50d"}
+{"ts": 1784305935.2588112, "event": "commit", "frame": 0, "nonce": "58d2c3789342a50d", "decision": "HOLD", "reason": "frame 0, at entry, no signal yet to act on"}
+{"ts": 1784305938.5965827, "event": "serve", "frame": 1, "nonce": "7a251794e6a3c359"}
+{"ts": 1784305942.213576, "event": "commit", "frame": 1, "nonce": "7a251794e6a3c359", "decision": "HOLD", "reason": "small -10pt drawdown, new leg just started, giveback only 9%, no strong against-signal"}
+{"ts": 1784305944.5939345, "event": "serve", "frame": 2, "nonce": "d0202a16bfa852e0"}
+{"ts": 1784305947.9167438, "event": "commit", "frame": 2, "nonce": "d0202a16bfa852e0", "decision": "HOLD", "reason": "recovered to +2.5pts, drawdown resolved, no exit signal"}
+{"ts": 1784305950.189444, "event": "serve", "frame": 3, "nonce": "e8cd86337b62578e"}
+{"ts": 1784305954.2755678, "event": "commit", "frame": 3, "nonce": "e8cd86337b62578e", "decision": "HOLD", "reason": "strong move to +34pts, giveback 0%, PROPP firing with position, let it run"}
+{"ts": 1784305956.5224426, "event": "serve", "frame": 4, "nonce": "229bdb0182ef28c0"}
+{"ts": 1784305965.9275875, "event": "commit", "frame": 4, "nonce": "229bdb0182ef28c0", "decision": "HOLD", "reason": "pulled back from +34 to +14.5, giveback 26% and PROPP now against, but still solidly profitable - watching for further giveback escalation"}
+{"ts": 1784305968.1529617, "event": "serve", "frame": 5, "nonce": "7278cfc575a623c7"}
+{"ts": 1784305971.6433575, "event": "commit", "frame": 5, "nonce": "7278cfc575a623c7", "decision": "HOLD", "reason": "recovered to +22.25pts, giveback back down to 9%, holding"}
+{"ts": 1784305974.5069897, "event": "serve", "frame": 6, "nonce": "314ee96eff219e9a"}
+{"ts": 1784305986.9125843, "event": "commit", "frame": 6, "nonce": "314ee96eff219e9a", "decision": "HOLD", "reason": "px+9.5, giveback climbed to 28% off the 75pt leg, PROPP against again - watching closely but still net profitable, no confirmed reversal yet"}
+{"ts": 1784305989.664014, "event": "serve", "frame": 7, "nonce": "5430bb9e1eb71b0f"}
+{"ts": 1784305998.820995, "event": "commit", "frame": 7, "nonce": "5430bb9e1eb71b0f", "decision": "EXIT", "reason": "px+24.5, HA and PROPP both firing against simultaneously, giveback spiked to 56% on current leg - consensus reversal signal, locking in profit"}
+{"ts": 1784306004.801876, "event": "finish", "summary": "Exited on the first frame where two independent turn detectors (HA and PROPP) fired against the position simultaneously while giveback on the active leg spiked to 56%, after price had already round-tripped from a +34pt peak down to +9.5 and back up to +24.5 - a choppy, fading-momentum signature. Locked in +24.5pts. Next time I'd watch for that dual-detector-against + high-giveback combo earlier rather than tolerating single-detector-against oscillations, since the repeated give-and-recover pattern in frames 3-6 was already a hint the leg was losing conviction before the consensus signal confirmed it.", "exit_frame": 7, "n_commits": 8}

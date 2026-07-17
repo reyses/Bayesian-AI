@@ -1,0 +1,19 @@
+{"ts": 1784306107.2687092, "event": "serve", "frame": 0, "nonce": "3d48c331c5f3da5f"}
+{"ts": 1784306111.0842474, "event": "commit", "frame": 0, "nonce": "3d48c331c5f3da5f", "decision": "HOLD", "reason": "entry frame, px flat at 0, no signal yet to exit"}
+{"ts": 1784306113.2949853, "event": "serve", "frame": 1, "nonce": "bb9fa34baab5b6c0"}
+{"ts": 1784306117.2496207, "event": "commit", "frame": 1, "nonce": "bb9fa34baab5b6c0", "decision": "HOLD", "reason": "+3.5pts favorable, 0% giveback, leg still young, no reversal signature yet"}
+{"ts": 1784306119.905314, "event": "serve", "frame": 2, "nonce": "d693e6c85a327254"}
+{"ts": 1784306124.0932875, "event": "commit", "frame": 2, "nonce": "d693e6c85a327254", "decision": "HOLD", "reason": "+8.75pts, amp growing to 28.2, 0% giveback, trend still favorable"}
+{"ts": 1784306126.3348477, "event": "serve", "frame": 3, "nonce": "65b114d6202899dd"}
+{"ts": 1784306132.4124002, "event": "commit", "frame": 3, "nonce": "65b114d6202899dd", "decision": "HOLD", "reason": "big favorable extension to +24.75pts, amp 46, 0% giveback, momentum still with us"}
+{"ts": 1784306135.2151349, "event": "serve", "frame": 4, "nonce": "af7543725f5a6bb3"}
+{"ts": 1784306143.4526432, "event": "commit", "frame": 4, "nonce": "af7543725f5a6bb3", "decision": "HOLD", "reason": "35% giveback off 46pt amp but still +5.75 favorable; watching KMDR/PROPP against fires closely next frame"}
+{"ts": 1784306145.9121845, "event": "serve", "frame": 5, "nonce": "a5cf5d9788742b5f"}
+{"ts": 1784306151.5637043, "event": "commit", "frame": 5, "nonce": "a5cf5d9788742b5f", "decision": "HOLD", "reason": "recovering to +12pts from +5.75, still favorable, no clean reversal confirmation"}
+{"ts": 1784306154.1624477, "event": "serve", "frame": 6, "nonce": "92b7c80479ddc05f"}
+{"ts": 1784306158.5527565, "event": "commit", "frame": 6, "nonce": "92b7c80479ddc05f", "decision": "HOLD", "reason": "new leg started (age reset 0m, amp 19.5, giveback 0%), overall px still +10 favorable"}
+{"ts": 1784306161.6757174, "event": "serve", "frame": 7, "nonce": "0a173d123c253738"}
+{"ts": 1784306168.2274597, "event": "commit", "frame": 7, "nonce": "0a173d123c253738", "decision": "HOLD", "reason": "pulled back to +4.75 but still favorable, mixed with/against fires, no clean reversal confirmation"}
+{"ts": 1784306170.5929706, "event": "serve", "frame": 8, "nonce": "cee75270a11a5763"}
+{"ts": 1784306184.4674802, "event": "commit", "frame": 8, "nonce": "cee75270a11a5763", "decision": "EXIT", "reason": "full round-trip: peak +24.75 fully given back to -5.75, HA+PROPP both against simultaneously for first time, ER10 collapsed to 0.18 (choppy/reversed), cutting the reversal"}
+{"ts": 1784306190.1451077, "event": "finish", "summary": "Exited on the full round-trip reversal signature: the trade ran to a +24.75pt peak (leg amp 46pts) by t=3m, then bled that gain back through a fresh leg to -5.75pts at t=8m, with the HA and PROPP fire families flipping from mixed to unanimously against for the first time and ER10 collapsing to 0.18 (trend efficiency gone, pure chop). Next time I'd watch for that same alignment moment earlier -- both independent signal families agreeing 'against' plus a falling ER10 while giveback% is still climbing is the composite tell that a favorable leg has flipped into an adverse one, rather than waiting for price to actually cross zero.", "exit_frame": 8, "n_commits": 9}

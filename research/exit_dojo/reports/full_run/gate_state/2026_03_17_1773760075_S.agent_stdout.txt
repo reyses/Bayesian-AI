@@ -1,0 +1,8 @@
+# exit_code=0 dt=435s
+## STDOUT
+Episode closed: held from entry through a choppy 15-minute window (px swung between roughly -14.5 and +25.25), then exited at **+5.00 pts** when price rolled off a fresh high with KMDR-against and PROPP-against firing together â€” the first double-stacked reversal signal at a peak in the whole episode, in a regime where ER10 stayed near zero throughout (no real trend edge to lean on).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

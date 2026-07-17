@@ -1,0 +1,8 @@
+# exit_code=0 dt=377s
+## STDOUT
+Episode closed. Rode the trade from entry to a peak of +142.5pts (t=19m), then exited at +96pts (t=25m) once the price action showed a clear post-peak decay pattern â€” successive lower highs across three consecutive legs, ER10 stuck below 0.5, and the PROPP signal flipping against-trend on the final frame.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

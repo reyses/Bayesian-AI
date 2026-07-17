@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_06_09_1749492780_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "303c721c4bf51305",
+      "ts": 1784316801.0638397
+    },
+    {
+      "frame": 1,
+      "nonce": "731d5f57c49a24e8",
+      "ts": 1784316808.1188645
+    },
+    {
+      "frame": 2,
+      "nonce": "30cb39ee371c422c",
+      "ts": 1784316816.3007681
+    },
+    {
+      "frame": 3,
+      "nonce": "8ebd1a8f84ab795d",
+      "ts": 1784316822.228974
+    },
+    {
+      "frame": 4,
+      "nonce": "16d0f041c55e7d07",
+      "ts": 1784316832.3926914
+    },
+    {
+      "frame": 5,
+      "nonce": "c9c2c527c1714e0c",
+      "ts": 1784316851.2031538
+    },
+    {
+      "frame": 6,
+      "nonce": "eb190a22eb1e8d0f",
+      "ts": 1784316859.683062
+    },
+    {
+      "frame": 7,
+      "nonce": "551feaa9033fb4a2",
+      "ts": 1784316867.1083407
+    },
+    {
+      "frame": 8,
+      "nonce": "3a51d7db37e73749",
+      "ts": 1784316872.9253922
+    },
+    {
+      "frame": 9,
+      "nonce": "02a527af3ef9fa66",
+      "ts": 1784316879.8509264
+    },
+    {
+      "frame": 10,
+      "nonce": "21bededa1a12d0de",
+      "ts": 1784316887.4269526
+    },
+    {
+      "frame": 11,
+      "nonce": "a7a9c75f21923f01",
+      "ts": 1784316895.503235
+    },
+    {
+      "frame": 12,
+      "nonce": "925c62a3fd8f5c9c",
+      "ts": 1784316916.1550744
+    },
+    {
+      "frame": 13,
+      "nonce": "a6b2c43b33802f07",
+      "ts": 1784316930.7090244
+    },
+    {
+      "frame": 14,
+      "nonce": "f1f4ef73893477a3",
+      "ts": 1784316938.1834931
+    },
+    {
+      "frame": 15,
+      "nonce": "151b84c3ca92941b",
+      "ts": 1784316944.6152494
+    },
+    {
+      "frame": 16,
+      "nonce": "263e5c3d30842f01",
+      "ts": 1784316955.4075162
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "303c721c4bf51305",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0.00, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "731d5f57c49a24e8",
+      "decision": "HOLD",
+      "reason": "down 2.5pts, small noise-level giveback, no strong lambda/trend signature yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "30cb39ee371c422c",
+      "decision": "HOLD",
+      "reason": "recovered to +0.25, HA-with fire, giveback down to 6%"
+    },
+    {
+      "frame": 3,
+      "nonce": "8ebd1a8f84ab795d",
+      "decision": "HOLD",
+      "reason": "still chopping around entry, -1.5pts, no directional break"
+    },
+    {
+      "frame": 4,
+      "nonce": "16d0f041c55e7d07",
+      "decision": "HOLD",
+      "reason": "down -5.25, 72% giveback is a warning but 15s z_21 oversold (-1.64) suggests possible bounce; watching next frame closely"
+    },
+    {
+      "frame": 5,
+      "nonce": "c9c2c527c1714e0c",
+      "decision": "HOLD",
+      "reason": "bounced back to -1.5, ER10 near zero confirms pure chop not a trend break, no clean exit trigger"
+    },
+    {
+      "frame": 6,
+      "nonce": "eb190a22eb1e8d0f",
+      "decision": "HOLD",
+      "reason": "still range-bound near -1.25, ER10 low, HA-with fire favorable, no decisive break"
+    },
+    {
+      "frame": 7,
+      "nonce": "551feaa9033fb4a2",
+      "decision": "HOLD",
+      "reason": "stable around -1.0, ER10 still near zero, no new info to act on"
+    },
+    {
+      "frame": 8,
+      "nonce": "3a51d7db37e73749",
+      "decision": "HOLD",
+      "reason": "px back to +1.75, giveback down to 26%, still chop but drifting favorable"
+    },
+    {
+      "frame": 9,
+      "nonce": "02a527af3ef9fa66",
+      "decision": "HOLD",
+      "reason": "px +4.25, new leg high, giveback only 12%, momentum favorable"
+    },
+    {
+      "frame": 10,
+      "nonce": "21bededa1a12d0de",
+      "decision": "HOLD",
+      "reason": "px +3.25, giveback 0%, leg extending favorably despite PROPP-against fire; z getting extended, watching for reversal"
+    },
+    {
+      "frame": 11,
+      "nonce": "a7a9c75f21923f01",
+      "decision": "HOLD",
+      "reason": "1m z_se extended to +2.0 (>Z*) but lambda_hat_12=+0.150 t=3.47 is positive/significant -> ride signature not fade, hold through the extension"
+    },
+    {
+      "frame": 12,
+      "nonce": "925c62a3fd8f5c9c",
+      "decision": "HOLD",
+      "reason": "pulled back to +1.25, giveback 30%, two against-fires but 1m lambda_hat_12 still positive (ride); watching for confirmation next frame"
+    },
+    {
+      "frame": 13,
+      "nonce": "a6b2c43b33802f07",
+      "decision": "HOLD",
+      "reason": "px +4.75, new leg high region, giveback back down to 19%, chop continues in our favor"
+    },
+    {
+      "frame": 14,
+      "nonce": "f1f4ef73893477a3",
+      "decision": "HOLD",
+      "reason": "new leg amp high 13.0pts, giveback 15%, HA-with fire favorable"
+    },
+    {
+      "frame": 15,
+      "nonce": "151b84c3ca92941b",
+      "decision": "HOLD",
+      "reason": "1m touched +7.00 new high, ER10 jumped to 0.57 (best trend efficiency of episode), pullback to +4.00 looks like normal leg pullback not reversal"
+    },
+    {
+      "frame": 16,
+      "nonce": "263e5c3d30842f01",
+      "decision": "EXIT",
+      "reason": "climax-against fire after spike to +8.00 then crash to +1.50 (48% giveback of 15.8pt leg), 5s reversion_prob cratered to 0.27 (vs 0.86-0.99 all episode) signaling a real break not chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 16,
+  "finished": true,
+  "summary": "Exited at +1.50pts after a climax-against fire following a spike to +8.00 that crashed back to +1.50 (48% giveback of a 15.8pt leg), with 5s reversion_prob collapsing to 0.27 vs the 0.86-0.99 range seen all episode -- the first frame where the statistics said this was a real break, not the repeated whipsaw chop (30-70% givebacks that all recovered) seen at frames 4-13. Next time I'd watch reversion_prob_30 more systematically as the discriminator between chop-giveback and real-turn-giveback, since price giveback % alone was noisy and fired false alarms early (frame 4, 72% giveback that fully recovered)."
+}

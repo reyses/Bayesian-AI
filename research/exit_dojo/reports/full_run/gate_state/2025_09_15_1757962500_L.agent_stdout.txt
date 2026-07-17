@@ -1,0 +1,8 @@
+# exit_code=0 dt=339s
+## STDOUT
+Episode closed. Exited at t=10m (px -6.50pts) on the NMP fade signature: 1m `|z_21|` crossed the 1.8481 extremity threshold while Î» turned strongly negative (t=-4.59) and ER10 collapsed to 0.07 â€” extremity + confirmed negative Î» + dead trend efficiency, the exact `|Z|>Z* âˆ§ Î»<0 â†’ fade` condition. Held through nine minutes of prior chop (-4.5 to +3.5) where Î» kept flipping sign, since none of those swings combined extremity with a decisive Î» break.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

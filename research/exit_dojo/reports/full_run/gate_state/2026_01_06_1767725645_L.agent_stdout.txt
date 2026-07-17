@@ -1,0 +1,8 @@
+# exit_code=0 dt=453s
+## STDOUT
+Episode closed. Exited LONG at **+2.25 pts** on frame 21 (of a 59-frame max), after 21 minutes of holding through a repeated chop between roughly -10.5 and +3.25 pts. The exit trigger was two against-signals (KMDR + PROPP) firing simultaneously right at the range's upper extreme with no offsetting HA-with bounce signal â€” a different signature than the many single-signal fires earlier in the trade that kept getting reversed.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

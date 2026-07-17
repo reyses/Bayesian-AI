@@ -1,0 +1,15 @@
+{"ts": 1784315781.1079054, "event": "serve", "frame": 0, "nonce": "634a0b5c9a7ffd91"}
+{"ts": 1784315794.2213106, "event": "commit", "frame": 0, "nonce": "634a0b5c9a7ffd91", "decision": "HOLD", "reason": "just entered, px flat at 0.00, no adverse move yet"}
+{"ts": 1784315796.6080918, "event": "serve", "frame": 1, "nonce": "9c808030bd2ccfd1"}
+{"ts": 1784315800.4056334, "event": "commit", "frame": 1, "nonce": "9c808030bd2ccfd1", "decision": "HOLD", "reason": "px only -1.0, minor noise, PROPP fired with position"}
+{"ts": 1784315802.7469792, "event": "serve", "frame": 2, "nonce": "42dd6701efc05d70"}
+{"ts": 1784315807.1022341, "event": "commit", "frame": 2, "nonce": "42dd6701efc05d70", "decision": "HOLD", "reason": "px -7.25, giveback 26% but PROPP still with position, early in leg"}
+{"ts": 1784315810.3498235, "event": "serve", "frame": 3, "nonce": "ed15717565ba322c"}
+{"ts": 1784315814.0007906, "event": "commit", "frame": 3, "nonce": "ed15717565ba322c", "decision": "HOLD", "reason": "px +10.5, moved favorable, giveback down to 2%, PROPP with"}
+{"ts": 1784315816.381057, "event": "serve", "frame": 4, "nonce": "c0a29c80a86ba3d0"}
+{"ts": 1784315821.5841222, "event": "commit", "frame": 4, "nonce": "c0a29c80a86ba3d0", "decision": "HOLD", "reason": "px +7.0 still favorable, amp grew to 113.8, PROPP with, lambda_21 sig positive on 1m"}
+{"ts": 1784315823.9563508, "event": "serve", "frame": 5, "nonce": "5c8766140c36efc7"}
+{"ts": 1784315834.3806067, "event": "commit", "frame": 5, "nonce": "5c8766140c36efc7", "decision": "HOLD", "reason": "px -16.75, giveback jumped to 43%, HA/KMDR against but PROPP still with - watching for confirmation"}
+{"ts": 1784315836.84467, "event": "serve", "frame": 6, "nonce": "2f6a32f0688da68c"}
+{"ts": 1784315851.3930607, "event": "commit", "frame": 6, "nonce": "2f6a32f0688da68c", "decision": "EXIT", "reason": "px swung -16.75 to -41.25 in 1min, giveback 63%, HA+KMDR against confirming, now underwater vs entry - cutting"}
+{"ts": 1784315858.0781765, "event": "finish", "summary": "Exited on a sharp, confirmed adverse swing: px moved from +7.0 to -16.75 to -41.25 across two frames (63% giveback of the 113.8pt peak amplitude), with HA-against and KMDR-against both firing while ER10 stayed weak (~0.35-0.45), signaling the favorable leg had broken down rather than just noise. Next time I'd watch for the giveback rate-of-change (not just level) plus two consecutive against-fires as the trigger, and be quicker to distrust a single still-with signal (PROPP) once price itself decisively crosses back through entry.", "exit_frame": 6, "n_commits": 7}

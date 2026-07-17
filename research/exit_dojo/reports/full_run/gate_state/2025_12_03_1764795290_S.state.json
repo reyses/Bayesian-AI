@@ -1,0 +1,243 @@
+{
+  "episode_id": "2025_12_03_1764795290_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0f3acfb98648543d",
+      "ts": 1784309484.858805
+    },
+    {
+      "frame": 1,
+      "nonce": "497de852ac43918a",
+      "ts": 1784309491.9654045
+    },
+    {
+      "frame": 2,
+      "nonce": "d7703ae59c2b4917",
+      "ts": 1784309502.4619153
+    },
+    {
+      "frame": 3,
+      "nonce": "26e125268bda69d7",
+      "ts": 1784309509.8556328
+    },
+    {
+      "frame": 4,
+      "nonce": "8e9241ae866d3f8f",
+      "ts": 1784309516.257512
+    },
+    {
+      "frame": 5,
+      "nonce": "7d3ebe12dda78fad",
+      "ts": 1784309524.387055
+    },
+    {
+      "frame": 6,
+      "nonce": "8845f9722b187786",
+      "ts": 1784309531.2094643
+    },
+    {
+      "frame": 7,
+      "nonce": "b4f6be303e2b4b07",
+      "ts": 1784309543.1145327
+    },
+    {
+      "frame": 8,
+      "nonce": "f73a81eba6ff1642",
+      "ts": 1784309549.1525936
+    },
+    {
+      "frame": 9,
+      "nonce": "b6d8e10e7f98b092",
+      "ts": 1784309557.616061
+    },
+    {
+      "frame": 10,
+      "nonce": "e6bc6c1a22a1ae8d",
+      "ts": 1784309563.7992842
+    },
+    {
+      "frame": 11,
+      "nonce": "6f85248d5c48e256",
+      "ts": 1784309578.0213835
+    },
+    {
+      "frame": 12,
+      "nonce": "90fa93275bd2bf59",
+      "ts": 1784309584.1802886
+    },
+    {
+      "frame": 13,
+      "nonce": "9ce00c0d7905985d",
+      "ts": 1784309590.046825
+    },
+    {
+      "frame": 14,
+      "nonce": "80309e161b3e3957",
+      "ts": 1784309595.973627
+    },
+    {
+      "frame": 15,
+      "nonce": "4f5e6535e4c072ef",
+      "ts": 1784309601.8129857
+    },
+    {
+      "frame": 16,
+      "nonce": "f906f4f0fc3aa083",
+      "ts": 1784309609.5522058
+    },
+    {
+      "frame": 17,
+      "nonce": "d7b34de6be5b1103",
+      "ts": 1784309615.6280303
+    },
+    {
+      "frame": 18,
+      "nonce": "7ff5458f096720ba",
+      "ts": 1784309621.9747255
+    },
+    {
+      "frame": 19,
+      "nonce": "05a5b03ba7f684cd",
+      "ts": 1784309629.4495287
+    },
+    {
+      "frame": 20,
+      "nonce": "b600c6e112f8ca7d",
+      "ts": 1784309637.1650746
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0f3acfb98648543d",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "497de852ac43918a",
+      "decision": "HOLD",
+      "reason": "small -5.5pt giveback (19%), 2 of 3 fires still with-position"
+    },
+    {
+      "frame": 2,
+      "nonce": "d7703ae59c2b4917",
+      "decision": "HOLD",
+      "reason": "px unchanged at -5.5, giveback rising to 34% but fires split evenly, no clean break signal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "26e125268bda69d7",
+      "decision": "HOLD",
+      "reason": "px improved to -3.75, giveback down to 20%, 15s lambda strongly negative (fade-consistent, favorable)"
+    },
+    {
+      "frame": 4,
+      "nonce": "8e9241ae866d3f8f",
+      "decision": "HOLD",
+      "reason": "new leg just started (age 1m), giveback only 7%, px -6.5 still shallow"
+    },
+    {
+      "frame": 5,
+      "nonce": "7d3ebe12dda78fad",
+      "decision": "HOLD",
+      "reason": "px -7.25, giveback 17%, still within normal noise band, no consensus against"
+    },
+    {
+      "frame": 6,
+      "nonce": "8845f9722b187786",
+      "decision": "HOLD",
+      "reason": "px -7.5 still shallow but giveback climbing to 43%, watching closely next frame"
+    },
+    {
+      "frame": 7,
+      "nonce": "b4f6be303e2b4b07",
+      "decision": "HOLD",
+      "reason": "px improved to -3.00, still near breakeven, no strong against-signal cluster"
+    },
+    {
+      "frame": 8,
+      "nonce": "f73a81eba6ff1642",
+      "decision": "HOLD",
+      "reason": "px near flat -1.00, new leg just started, fires mixed"
+    },
+    {
+      "frame": 9,
+      "nonce": "b6d8e10e7f98b092",
+      "decision": "HOLD",
+      "reason": "px turned favorable +1.50, giveback low 8%, no reason to exit into strength"
+    },
+    {
+      "frame": 10,
+      "nonce": "e6bc6c1a22a1ae8d",
+      "decision": "HOLD",
+      "reason": "px -7.00, giveback spiked to 68% but still within the noise band seen all trade, no durable breakout"
+    },
+    {
+      "frame": 11,
+      "nonce": "6f85248d5c48e256",
+      "decision": "HOLD",
+      "reason": "px -5.00, within established chop range, no persistent breakout against"
+    },
+    {
+      "frame": 12,
+      "nonce": "90fa93275bd2bf59",
+      "decision": "HOLD",
+      "reason": "px -3.75, ER10 near zero = pure chop not a trend against us, staying in"
+    },
+    {
+      "frame": 13,
+      "nonce": "9ce00c0d7905985d",
+      "decision": "HOLD",
+      "reason": "px -1.00, vol compressing, chop regime persists, no fresh against-signal"
+    },
+    {
+      "frame": 14,
+      "nonce": "80309e161b3e3957",
+      "decision": "HOLD",
+      "reason": "px best-yet +4.25, giveback 0%, both recent fires with-position"
+    },
+    {
+      "frame": 15,
+      "nonce": "4f5e6535e4c072ef",
+      "decision": "HOLD",
+      "reason": "px still favorable +1.25 despite giveback from peak, mixed fires, staying in"
+    },
+    {
+      "frame": 16,
+      "nonce": "f906f4f0fc3aa083",
+      "decision": "HOLD",
+      "reason": "px +4.25, giveback low 14%, leg building favorably over last few frames"
+    },
+    {
+      "frame": 17,
+      "nonce": "d7b34de6be5b1103",
+      "decision": "HOLD",
+      "reason": "px steady +4.25, giveback 8%, leg still intact"
+    },
+    {
+      "frame": 18,
+      "nonce": "7ff5458f096720ba",
+      "decision": "HOLD",
+      "reason": "px new high +5.75, giveback% is noise on a tiny 1.5pt leg, vol compressing = low risk to stay"
+    },
+    {
+      "frame": 19,
+      "nonce": "05a5b03ba7f684cd",
+      "decision": "HOLD",
+      "reason": "px +1.00, still net favorable, vol compressing tighter, approaching frame cap"
+    },
+    {
+      "frame": 20,
+      "nonce": "b600c6e112f8ca7d",
+      "decision": "HOLD",
+      "reason": "px near flat -1.00, chop continues, no clean signal to exit"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Never exited: the trade whipsawed in a shallow -8 to +6 pt band with giveback% swinging wildly (7% to 68%) on tiny legs, but ER10 stayed low most of the frames (pure chop, not a persistent trend against the position), and drawdowns never exceeded the noise band established in the first few minutes. By the end px was hovering near flat/slightly negative with no clean directional break. Next time I'd watch for a sustained ER10 rise above ~0.5 combined with 3+ consecutive against-fires and a giveback% that keeps climbing across multiple legs (not just one) as the actual exit trigger, rather than reacting to single-frame giveback spikes on small-amplitude legs."
+}

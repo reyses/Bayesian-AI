@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_04_29_1745936485_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3dcaaa1658428ffb",
+      "ts": 1784311427.6403031
+    },
+    {
+      "frame": 1,
+      "nonce": "0a956ace2320ed2f",
+      "ts": 1784311437.319313
+    },
+    {
+      "frame": 2,
+      "nonce": "800b020b3b88f10f",
+      "ts": 1784311446.7784548
+    },
+    {
+      "frame": 3,
+      "nonce": "907f2d72209fea16",
+      "ts": 1784311452.8084936
+    },
+    {
+      "frame": 4,
+      "nonce": "87677aa730b3a8d5",
+      "ts": 1784311464.7048914
+    },
+    {
+      "frame": 5,
+      "nonce": "45c5fc22f4f6e13b",
+      "ts": 1784311473.0802703
+    },
+    {
+      "frame": 6,
+      "nonce": "48cec9e2bcc3d2f9",
+      "ts": 1784311479.0216606
+    },
+    {
+      "frame": 7,
+      "nonce": "6234a964e43ff346",
+      "ts": 1784311489.2761323
+    },
+    {
+      "frame": 8,
+      "nonce": "2f2b887867622fb6",
+      "ts": 1784311500.25539
+    },
+    {
+      "frame": 9,
+      "nonce": "18aea8dd16de7b5f",
+      "ts": 1784311507.0715141
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3dcaaa1658428ffb",
+      "decision": "HOLD",
+      "reason": "frame0, flat at entry, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "0a956ace2320ed2f",
+      "decision": "HOLD",
+      "reason": "early, giveback only 12%, still within noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "800b020b3b88f10f",
+      "decision": "HOLD",
+      "reason": "back in profit +5.25, giveback still low 12%"
+    },
+    {
+      "frame": 3,
+      "nonce": "907f2d72209fea16",
+      "decision": "HOLD",
+      "reason": "chopping near flat, giveback still low, no reversal signature"
+    },
+    {
+      "frame": 4,
+      "nonce": "87677aa730b3a8d5",
+      "decision": "HOLD",
+      "reason": "profit growing to +11.5, giveback still low despite PROPP-against fire"
+    },
+    {
+      "frame": 5,
+      "nonce": "45c5fc22f4f6e13b",
+      "decision": "HOLD",
+      "reason": "still profitable +4, giveback low 7%, vol compressing"
+    },
+    {
+      "frame": 6,
+      "nonce": "48cec9e2bcc3d2f9",
+      "decision": "HOLD",
+      "reason": "new high +23, giveback 0%, but noting KMDR-against as early turn warning to watch"
+    },
+    {
+      "frame": 7,
+      "nonce": "6234a964e43ff346",
+      "decision": "HOLD",
+      "reason": "small pullback to +21.5 giveback 4%, but KMDR+PROPP both against now - watching closely next frame"
+    },
+    {
+      "frame": 8,
+      "nonce": "2f2b887867622fb6",
+      "decision": "HOLD",
+      "reason": "holding steady +22, giveback still only 4%, no real breakdown yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "18aea8dd16de7b5f",
+      "decision": "EXIT",
+      "reason": "peak +22-30 erased, now -7.75 (net loss), giveback 38%, HA+PROPP both against = confluence turn signature, locking out before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited at t=9m after the position round-tripped from a +22-30pt peak down to -7.75 (net loss), a 38% giveback of the leg's realized amplitude. The trigger was confluence: HA-against and PROPP-against both fired in the same frame, coinciding with the price crossing back through breakeven into a loss. Next time I'd watch for this same pattern earlier - a single against-fire near the peak (frame 6-8, KMDR/PROPP-against) was an early warning that giveback was accelerating; a tighter partial-exit or trail once giveback crossed ~15-20% of amp, rather than waiting for full breakeven-cross, would have preserved more of the peak profit."
+}

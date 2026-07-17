@@ -1,0 +1,15 @@
+{"ts": 1784315304.1570754, "event": "serve", "frame": 0, "nonce": "f5dea00ec1549015"}
+{"ts": 1784315310.8526628, "event": "commit", "frame": 0, "nonce": "f5dea00ec1549015", "decision": "HOLD", "reason": "frame 0, flat at entry, no edge yet to exit"}
+{"ts": 1784315314.019162, "event": "serve", "frame": 1, "nonce": "fe10bc5a6314d7dc"}
+{"ts": 1784315321.1283367, "event": "commit", "frame": 1, "nonce": "fe10bc5a6314d7dc", "decision": "HOLD", "reason": "small -4.25pt giveback, lambda_1m still weak/mixed, too early to call reversal"}
+{"ts": 1784315324.2189858, "event": "serve", "frame": 2, "nonce": "07290ddf7511713f"}
+{"ts": 1784315334.5556805, "event": "commit", "frame": 2, "nonce": "07290ddf7511713f", "decision": "HOLD", "reason": "drawdown to -14.75pts but only 32% giveback of new leg; watching HA/PROPP-against flip closely"}
+{"ts": 1784315338.108007, "event": "serve", "frame": 3, "nonce": "14419128c689b23e"}
+{"ts": 1784315343.0786843, "event": "commit", "frame": 3, "nonce": "14419128c689b23e", "decision": "HOLD", "reason": "recovered to +3pts, giveback only 1% of 45.8pt leg, mixed fires - let it run"}
+{"ts": 1784315345.349765, "event": "serve", "frame": 4, "nonce": "d2f651e529985ea0"}
+{"ts": 1784315350.8048644, "event": "commit", "frame": 4, "nonce": "d2f651e529985ea0", "decision": "HOLD", "reason": "px +5.50, giveback still low at 12%, HA/PROPP-with confirm favorable leg continuing"}
+{"ts": 1784315353.108817, "event": "serve", "frame": 5, "nonce": "cdf5c70a83a18f3e"}
+{"ts": 1784315361.8154655, "event": "commit", "frame": 5, "nonce": "cdf5c70a83a18f3e", "decision": "HOLD", "reason": "whipped back to -13, but giveback only 28% of leg, PROPP still with-position; chop not a structural break yet"}
+{"ts": 1784315364.4802017, "event": "serve", "frame": 6, "nonce": "7159d8d3d62abcb5"}
+{"ts": 1784315381.7740555, "event": "commit", "frame": 6, "nonce": "7159d8d3d62abcb5", "decision": "EXIT", "reason": "px -32, deepest yet; KMDR/HA/PROPP all flipped against simultaneously; lambda_hat_12 significant positive (t=3.4) on 5s = momentum continuation adverse; fresh 0%-giveback leg suggests move still extending, not exhausted"}
+{"ts": 1784315386.720027, "event": "finish", "summary": "Exited on a unanimous-against signature: KMDR, HA, and PROPP all flipped against the position within the same 3-minute window, coinciding with a significant positive lambda_hat_12 (t=3.4) on the 5s TF indicating momentum continuation rather than mean-reversion, and a freshly-started adverse leg at 0% giveback (extending, not exhausted). Earlier drawdowns (-14.75, -13.00) were tolerated because signals stayed mixed/with-position and giveback stayed under ~30%; next time I'd watch for the same three-way fire alignment plus a significant same-direction lambda_t as the primary trigger rather than raw point drawdown alone.", "exit_frame": 6, "n_commits": 7}

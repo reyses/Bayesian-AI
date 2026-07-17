@@ -1,0 +1,25 @@
+{"ts": 1784309484.876447, "event": "serve", "frame": 0, "nonce": "29d64f2403213f4f"}
+{"ts": 1784309489.5442324, "event": "commit", "frame": 0, "nonce": "29d64f2403213f4f", "decision": "HOLD", "reason": "at entry, no adverse move yet, leg still young"}
+{"ts": 1784309491.6695836, "event": "serve", "frame": 1, "nonce": "02c850b05b2ca7d5"}
+{"ts": 1784309496.1013587, "event": "commit", "frame": 1, "nonce": "02c850b05b2ca7d5", "decision": "HOLD", "reason": "px +28pts favorable, HA/PROPP firing with trade, momentum intact"}
+{"ts": 1784309498.6499417, "event": "serve", "frame": 2, "nonce": "f6ac1aee38183646"}
+{"ts": 1784309502.3906054, "event": "commit", "frame": 2, "nonce": "f6ac1aee38183646", "decision": "HOLD", "reason": "px +56pts, new leg giveback 0%, fires still with trade"}
+{"ts": 1784309504.4164848, "event": "serve", "frame": 3, "nonce": "f372712de11c7e5a"}
+{"ts": 1784309509.2079442, "event": "commit", "frame": 3, "nonce": "f372712de11c7e5a", "decision": "HOLD", "reason": "px +76.5pts, giveback only 6%, 1m lambda strong positive continuation despite one against-fire"}
+{"ts": 1784309512.5041718, "event": "serve", "frame": 4, "nonce": "de6869459a0db81a"}
+{"ts": 1784309516.9495046, "event": "commit", "frame": 4, "nonce": "de6869459a0db81a", "decision": "HOLD", "reason": "px +81.25pts, giveback 13% still modest, PROPP-with and 1m lambda positive, amp growing"}
+{"ts": 1784309519.2743955, "event": "serve", "frame": 5, "nonce": "48ad05b8f9bd1b35"}
+{"ts": 1784309526.492016, "event": "commit", "frame": 5, "nonce": "48ad05b8f9bd1b35", "decision": "HOLD", "reason": "giveback jumped to 32% off peak, watching closely, but PROPP-with + 1m lambda still positive continuation"}
+{"ts": 1784309529.0562797, "event": "serve", "frame": 6, "nonce": "08f9fcbe23368fea"}
+{"ts": 1784309533.537146, "event": "commit", "frame": 6, "nonce": "08f9fcbe23368fea", "decision": "HOLD", "reason": "px recovered to +75.5, giveback back down to 24%, 1m lambda still positive despite HA-against blip"}
+{"ts": 1784309535.9969487, "event": "serve", "frame": 7, "nonce": "fca5e56811888f4b"}
+{"ts": 1784309541.804316, "event": "commit", "frame": 7, "nonce": "fca5e56811888f4b", "decision": "HOLD", "reason": "px +60, consolidating in 50-80 band, HA/PROPP with, 1m lambda still positive"}
+{"ts": 1784309546.657823, "event": "serve", "frame": 8, "nonce": "cd82726d96630953"}
+{"ts": 1784309551.3471785, "event": "commit", "frame": 8, "nonce": "cd82726d96630953", "decision": "HOLD", "reason": "px +67, giveback 30% within recent range, 1m lambda t=3.3 strong positive, ER10 improving"}
+{"ts": 1784309554.5606184, "event": "serve", "frame": 9, "nonce": "7b696cb90c3f3188"}
+{"ts": 1784309561.4563403, "event": "commit", "frame": 9, "nonce": "7b696cb90c3f3188", "decision": "HOLD", "reason": "px +67.5 still well favorable, 1m lambda t=4.2 strongest continuation signal yet despite leg giveback tick up"}
+{"ts": 1784309564.0986273, "event": "serve", "frame": 10, "nonce": "84a667f10775c978"}
+{"ts": 1784309582.1046286, "event": "commit", "frame": 10, "nonce": "84a667f10775c978", "decision": "HOLD", "reason": "px pulled back to +40.75 (down sharply from peak 81), but local leg giveback only 3% and PROPP-with fires; watching for confirmed reversal"}
+{"ts": 1784309584.586971, "event": "serve", "frame": 11, "nonce": "319f2d51cb8eb343"}
+{"ts": 1784309591.599517, "event": "commit", "frame": 11, "nonce": "319f2d51cb8eb343", "decision": "EXIT", "reason": "px collapsed from peak +81 to +20.5 in ~4min (75% giveback), HA-against fired twice, adverse leg amp 73pts vs favorable move - locking remaining profit before it turns negative"}
+{"ts": 1784309596.873472, "event": "finish", "summary": "Exited at +20.5pts after price collapsed from a +81.25pt peak (frame 4) to +20.5pts by frame 11, a ~75% giveback, with two HA-against fires and a 73pt adverse leg amplitude confirming the reversal was structural, not noise. Held through several earlier pullbacks (giveback 24-45%) because with-trade fires (PROPP/HA) and positive 1m lambda kept dominating, but the accelerating two-frame drop (67.5->40.75->20.5) broke that pattern. Next time I'd watch cumulative giveback-from-peak (not just the per-leg reset metric) more closely and treat two consecutive HA-against fires plus rising ER10 (trendiness) as an earlier exit trigger rather than waiting for the move to nearly round-trip.", "exit_frame": 11, "n_commits": 12}

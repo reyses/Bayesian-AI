@@ -1,0 +1,21 @@
+{"ts": 1784309927.98732, "event": "serve", "frame": 0, "nonce": "06122ea85d6254cc"}
+{"ts": 1784309932.6509147, "event": "commit", "frame": 0, "nonce": "06122ea85d6254cc", "decision": "HOLD", "reason": "just entered, px flat, no signal yet"}
+{"ts": 1784309935.4409444, "event": "serve", "frame": 1, "nonce": "0bef7937dd875027"}
+{"ts": 1784309940.280583, "event": "commit", "frame": 1, "nonce": "0bef7937dd875027", "decision": "HOLD", "reason": "px -0.25, noise-level, no clear against-trend signal"}
+{"ts": 1784309943.1667838, "event": "serve", "frame": 2, "nonce": "99a8ff3de26131ca"}
+{"ts": 1784309947.9859374, "event": "commit", "frame": 2, "nonce": "99a8ff3de26131ca", "decision": "HOLD", "reason": "px -4.75, giveback 12%, still small vs 45pt leg amp, watching KMDR/PROPP-against persistence"}
+{"ts": 1784309951.2399795, "event": "serve", "frame": 3, "nonce": "5ff614b9a6787f26"}
+{"ts": 1784309957.2124498, "event": "commit", "frame": 3, "nonce": "5ff614b9a6787f26", "decision": "HOLD", "reason": "px recovered slightly to -3.75, ER10 fading to 0.70 but no fresh against-fires, giveback still <20%"}
+{"ts": 1784309959.758645, "event": "serve", "frame": 4, "nonce": "aaae36a73a374c58"}
+{"ts": 1784309966.1343741, "event": "commit", "frame": 4, "nonce": "aaae36a73a374c58", "decision": "HOLD", "reason": "px -6.25, new leg formed, ER10 dropping to 0.57 (chop), HA-against fired; still small dollar risk, watching for continuation"}
+{"ts": 1784309968.6101277, "event": "serve", "frame": 5, "nonce": "db7b2b1c9dd4d517"}
+{"ts": 1784309979.0774648, "event": "commit", "frame": 5, "nonce": "db7b2b1c9dd4d517", "decision": "HOLD", "reason": "px -9.25, steady grind against but ER10 0.39=choppy not trending hard, legs staying small; watching for acceleration"}
+{"ts": 1784309982.5568435, "event": "serve", "frame": 6, "nonce": "327666bf5641e655"}
+{"ts": 1784310000.296671, "event": "commit", "frame": 6, "nonce": "327666bf5641e655", "decision": "HOLD", "reason": "px flipped to +1.50 from -9.25, PROPP-with just fired (favorable), give it room to see if bounce continues"}
+{"ts": 1784310002.9930673, "event": "serve", "frame": 7, "nonce": "70d2bdb0d3d738d6"}
+{"ts": 1784310007.502635, "event": "commit", "frame": 7, "nonce": "70d2bdb0d3d738d6", "decision": "HOLD", "reason": "px -0.25, near flat, mixed with/against fires, still choppy ER10 0.36"}
+{"ts": 1784310010.3251007, "event": "serve", "frame": 8, "nonce": "1d704c38ba1b6da1"}
+{"ts": 1784310014.358665, "event": "commit", "frame": 8, "nonce": "1d704c38ba1b6da1", "decision": "HOLD", "reason": "px +2.00, range-bound chop continues, no decisive signal"}
+{"ts": 1784310017.111684, "event": "serve", "frame": 9, "nonce": "6c23a434074381f4"}
+{"ts": 1784310029.7370038, "event": "commit", "frame": 9, "nonce": "6c23a434074381f4", "decision": "EXIT", "reason": "px +4.25 after recovering from -9.25 trough, KMDR-against+PROPP-against both just fired with rising vol and 21% giveback already - lock in the win before it round-trips"}
+{"ts": 1784310036.9039934, "event": "finish", "summary": "Held through an initial grind against the position (0 to -9.25pts over 5m, choppy ER10 dropping to 0.32-0.39) since no persistent against-fire cluster or acceleration ever confirmed a real trend. Exited at +4.25 once price recovered off the -9.25 trough and extended to a local high (+6.75/+7.50 on 5s/15s), because KMDR-against and PROPP-against fired together right at that extension with rising vol(5m) and 21% giveback already on the local leg - treated that as the reversal-risk signature rather than waiting for confirmation. Next time I'd want to watch whether lambda_hat/z_se on the fast TFs are also rolling over at the same moment the against-signals cluster, to distinguish a real reversal from noise before locking in early.", "exit_frame": 9, "n_commits": 10}

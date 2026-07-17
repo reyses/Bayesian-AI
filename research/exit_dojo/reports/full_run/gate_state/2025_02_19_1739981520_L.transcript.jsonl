@@ -1,0 +1,21 @@
+{"ts": 1784316439.5711942, "event": "serve", "frame": 0, "nonce": "eadd7acad1c331cb"}
+{"ts": 1784316447.7883718, "event": "commit", "frame": 0, "nonce": "eadd7acad1c331cb", "decision": "HOLD", "reason": "frame0, px flat at entry, no adverse move yet"}
+{"ts": 1784316450.124583, "event": "serve", "frame": 1, "nonce": "066cdb652eff9b8c"}
+{"ts": 1784316453.8079662, "event": "commit", "frame": 1, "nonce": "066cdb652eff9b8c", "decision": "HOLD", "reason": "small pullback -4pts, 1m bar shows strong bounce, giveback only 19%"}
+{"ts": 1784316455.98052, "event": "serve", "frame": 2, "nonce": "d2574c2101322653"}
+{"ts": 1784316460.2857277, "event": "commit", "frame": 2, "nonce": "d2574c2101322653", "decision": "HOLD", "reason": "still consolidating near entry, giveback 18%, no strong against signal"}
+{"ts": 1784316462.9106724, "event": "serve", "frame": 3, "nonce": "1552dde8575e9497"}
+{"ts": 1784316466.5417552, "event": "commit", "frame": 3, "nonce": "1552dde8575e9497", "decision": "HOLD", "reason": "px back to +2.00, new leg started, giveback 0%"}
+{"ts": 1784316468.9470332, "event": "serve", "frame": 4, "nonce": "60540d8618838c0f"}
+{"ts": 1784316474.1037621, "event": "commit", "frame": 4, "nonce": "60540d8618838c0f", "decision": "HOLD", "reason": "px extended to +4.75, momentum still favorable despite against-fires"}
+{"ts": 1784316477.2662926, "event": "serve", "frame": 5, "nonce": "02236c7a5fbf142f"}
+{"ts": 1784316481.6516168, "event": "commit", "frame": 5, "nonce": "02236c7a5fbf142f", "decision": "HOLD", "reason": "minor pullback to -1.50, 1m trend still strongly up (+8.25 close), PROPP with"}
+{"ts": 1784316486.1351876, "event": "serve", "frame": 6, "nonce": "7ede754241237d6c"}
+{"ts": 1784316490.8620918, "event": "commit", "frame": 6, "nonce": "7ede754241237d6c", "decision": "HOLD", "reason": "px flat -1.50, choppy but no decisive break, still within noise band"}
+{"ts": 1784316493.5439465, "event": "serve", "frame": 7, "nonce": "94af93443696935e"}
+{"ts": 1784316498.3170915, "event": "commit", "frame": 7, "nonce": "94af93443696935e", "decision": "HOLD", "reason": "px +0.75, chop continues but still non-negative, watching for decisive break"}
+{"ts": 1784316501.8174932, "event": "serve", "frame": 8, "nonce": "b3d661c0b4e5b8b0"}
+{"ts": 1784316506.7784696, "event": "commit", "frame": 8, "nonce": "b3d661c0b4e5b8b0", "decision": "HOLD", "reason": "px -4.25, matching prior range low, still inside established noise band, vol compressing"}
+{"ts": 1784316509.067349, "event": "serve", "frame": 9, "nonce": "ce811f905770304c"}
+{"ts": 1784316519.0685427, "event": "commit", "frame": 9, "nonce": "ce811f905770304c", "decision": "EXIT", "reason": "new leg low -5.75 breaking below prior -4.25 range floor, 1m lambda_t_30=-3.10 sig negative drift, repeated KMDR/HA against fires"}
+{"ts": 1784316525.5611928, "event": "finish", "summary": "Exited at -5.75pts after the trade spent 6+ minutes chopping in a roughly \u00b15pt band with no follow-through, then broke to a new leg low below the prior -4.25 floor while the 1m lambda_hat_30 showed a significant negative drift (t=-3.10) and KMDR/HA against-signals kept recurring. Treated the fresh low + significant negative momentum as a regime change from range-noise to real breakdown rather than another bounce-back leg. Next time I'd want a clearer read on whether the 5m/15m context was also turning (I only had partial higher-TF re-emits) before confirming the break, since the range itself never showed much edge either direction.", "exit_frame": 9, "n_commits": 10}

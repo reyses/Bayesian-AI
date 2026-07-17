@@ -1,0 +1,188 @@
+{
+  "episode_id": "2026_03_16_1773676380_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "98ea212ebb1a2982",
+      "ts": 1784310718.3181632
+    },
+    {
+      "frame": 1,
+      "nonce": "e302bf225c1980c9",
+      "ts": 1784310725.106751
+    },
+    {
+      "frame": 2,
+      "nonce": "197847e054499a37",
+      "ts": 1784310731.6149545
+    },
+    {
+      "frame": 3,
+      "nonce": "afaeef93b0b2ab15",
+      "ts": 1784310737.5262034
+    },
+    {
+      "frame": 4,
+      "nonce": "723fe8592b1982ab",
+      "ts": 1784310744.3161533
+    },
+    {
+      "frame": 5,
+      "nonce": "8ad70746a18190a8",
+      "ts": 1784310754.8209558
+    },
+    {
+      "frame": 6,
+      "nonce": "b4ae74e1239c33d0",
+      "ts": 1784310760.96906
+    },
+    {
+      "frame": 7,
+      "nonce": "4b994ed7a69a6e0b",
+      "ts": 1784310767.569132
+    },
+    {
+      "frame": 8,
+      "nonce": "8ceee49b624ca4c0",
+      "ts": 1784310773.6077847
+    },
+    {
+      "frame": 9,
+      "nonce": "39b0643b50c35890",
+      "ts": 1784310787.3319113
+    },
+    {
+      "frame": 10,
+      "nonce": "68fac0898cfbf75c",
+      "ts": 1784310799.52046
+    },
+    {
+      "frame": 11,
+      "nonce": "3785270eb3d9cb1c",
+      "ts": 1784310807.5102715
+    },
+    {
+      "frame": 12,
+      "nonce": "84b0937996669aa6",
+      "ts": 1784310813.3479116
+    },
+    {
+      "frame": 13,
+      "nonce": "b0fc60febc185af8",
+      "ts": 1784310819.6131825
+    },
+    {
+      "frame": 14,
+      "nonce": "b6756c709e016c1f",
+      "ts": 1784310832.5363636
+    },
+    {
+      "frame": 15,
+      "nonce": "cfa6ac5cea7e2874",
+      "ts": 1784310840.0895555
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "98ea212ebb1a2982",
+      "decision": "HOLD",
+      "reason": "frame0, px flat at entry, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "e302bf225c1980c9",
+      "decision": "HOLD",
+      "reason": "px -5pts, giveback only 16%, PROPP-against weak, no strong lambda signal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "197847e054499a37",
+      "decision": "HOLD",
+      "reason": "px recovered to -1.5, PROPP-with fired, no adverse lambda"
+    },
+    {
+      "frame": 3,
+      "nonce": "afaeef93b0b2ab15",
+      "decision": "HOLD",
+      "reason": "px back to flat/0, giveback 0%, despite against-fires price held ground"
+    },
+    {
+      "frame": 4,
+      "nonce": "723fe8592b1982ab",
+      "decision": "HOLD",
+      "reason": "giveback 39% but PROPP-with just fired, still within normal chop range"
+    },
+    {
+      "frame": 5,
+      "nonce": "8ad70746a18190a8",
+      "decision": "HOLD",
+      "reason": "px +10, giveback 0%, leg amplitude growing to 51.5pts, trade working"
+    },
+    {
+      "frame": 6,
+      "nonce": "b4ae74e1239c33d0",
+      "decision": "HOLD",
+      "reason": "px +20.75, giveback still 0%, strong favorable run continuing"
+    },
+    {
+      "frame": 7,
+      "nonce": "4b994ed7a69a6e0b",
+      "decision": "HOLD",
+      "reason": "px +24, giveback only 3%, trend still intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "8ceee49b624ca4c0",
+      "decision": "HOLD",
+      "reason": "px pulled back to +14.25 from peak +24, giveback 26% but PROPP-with just fired and still well positive"
+    },
+    {
+      "frame": 9,
+      "nonce": "39b0643b50c35890",
+      "decision": "HOLD",
+      "reason": "px back up to +24.25 near session high despite KMDR+HA against fires; watching for confirmed reversal"
+    },
+    {
+      "frame": 10,
+      "nonce": "68fac0898cfbf75c",
+      "decision": "HOLD",
+      "reason": "px steady +24.25, mixed fires but no net erosion of position"
+    },
+    {
+      "frame": 11,
+      "nonce": "3785270eb3d9cb1c",
+      "decision": "HOLD",
+      "reason": "px +21.25, still well positive, minor pullback within noise band"
+    },
+    {
+      "frame": 12,
+      "nonce": "84b0937996669aa6",
+      "decision": "HOLD",
+      "reason": "px +33.5, new high, giveback 0%, PROPP-with confirms"
+    },
+    {
+      "frame": 13,
+      "nonce": "b0fc60febc185af8",
+      "decision": "HOLD",
+      "reason": "px +24.5, giveback 42% off recent high, lambda_5s strongly negative (t=-4.8) - watching closely but still well positive"
+    },
+    {
+      "frame": 14,
+      "nonce": "b6756c709e016c1f",
+      "decision": "HOLD",
+      "reason": "px +23.5, holding steady in 23-24 band, 5s lambda flipped positive again, PROPP-with confirms"
+    },
+    {
+      "frame": 15,
+      "nonce": "cfa6ac5cea7e2874",
+      "decision": "EXIT",
+      "reason": "px collapsed +23.5->+2.5, fresh 32pt adverse leg at 0% recovery, triple against-fires (KMDR+HA+PROPP) - exiting before breakeven/negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 15,
+  "finished": true,
+  "summary": "Held through a healthy run to a +33.5pt peak, tolerating normal chop and giveback along the way since PROPP-with kept confirming and giveback never exceeded ~40% of the live leg. Exited at +2.5pts when price violently round-tripped almost the entire favorable move in one frame (32pt adverse leg, 0% recovered) with all three fire signals (KMDR, HA, PROPP) simultaneously against for the first time in the episode - that triple-against confluence on a fresh full-amplitude adverse leg was the exit trigger. Next time I'd watch for that same triple-against + fresh-leg-zero-recovery combo earlier as a hard trailing-stop signal rather than waiting for confirmation, since by the time it fired here more than 2/3 of peak profit was already gone."
+}

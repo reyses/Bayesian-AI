@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_11_10_1762792500_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4e07c6377e36edc1",
+      "ts": 1784313068.9491205
+    },
+    {
+      "frame": 1,
+      "nonce": "607119d826423626",
+      "ts": 1784313078.3384056
+    },
+    {
+      "frame": 2,
+      "nonce": "b37d6bfedd09af7f",
+      "ts": 1784313091.1326997
+    },
+    {
+      "frame": 3,
+      "nonce": "52cbbf54a31f3c2d",
+      "ts": 1784313097.4054947
+    },
+    {
+      "frame": 4,
+      "nonce": "23132a3061899ce9",
+      "ts": 1784313107.8630507
+    },
+    {
+      "frame": 5,
+      "nonce": "2872a3425ac3c526",
+      "ts": 1784313115.0477424
+    },
+    {
+      "frame": 6,
+      "nonce": "365bdb300496b360",
+      "ts": 1784313121.5418525
+    },
+    {
+      "frame": 7,
+      "nonce": "f8785bb499977637",
+      "ts": 1784313128.0764742
+    },
+    {
+      "frame": 8,
+      "nonce": "979251a469eff7ec",
+      "ts": 1784313135.6841471
+    },
+    {
+      "frame": 9,
+      "nonce": "b6c8657d4f3c5353",
+      "ts": 1784313144.607544
+    },
+    {
+      "frame": 10,
+      "nonce": "1d5abf566a5d0f51",
+      "ts": 1784313161.0843012
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4e07c6377e36edc1",
+      "decision": "HOLD",
+      "reason": "early frame, px flat at entry, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "607119d826423626",
+      "decision": "HOLD",
+      "reason": "px +8 still favorable despite 81% giveback from 36pt peak; mixed lambda/z signals, want more data before cutting a winner"
+    },
+    {
+      "frame": 2,
+      "nonce": "b37d6bfedd09af7f",
+      "decision": "HOLD",
+      "reason": "new leg registered, giveback reset to 4%, px still +8 favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "52cbbf54a31f3c2d",
+      "decision": "HOLD",
+      "reason": "px extending to +9.5, both HA and PROPP firing with position, giveback moderate 19%"
+    },
+    {
+      "frame": 4,
+      "nonce": "23132a3061899ce9",
+      "decision": "HOLD",
+      "reason": "px pulled back to +3.5 from +9.5, giveback rising to 26%, still favorable but watching for continued fade"
+    },
+    {
+      "frame": 5,
+      "nonce": "2872a3425ac3c526",
+      "decision": "HOLD",
+      "reason": "px recovered to +7, amp extended to 38.8, giveback back down to 11%"
+    },
+    {
+      "frame": 6,
+      "nonce": "365bdb300496b360",
+      "decision": "HOLD",
+      "reason": "strong extension to +17.5, amp grew to 55.5, giveback still moderate at 19%, momentum with position"
+    },
+    {
+      "frame": 7,
+      "nonce": "f8785bb499977637",
+      "decision": "HOLD",
+      "reason": "px extended further to +18.75, ER10 jumped to 0.45 (trending), PROPP with position"
+    },
+    {
+      "frame": 8,
+      "nonce": "979251a469eff7ec",
+      "decision": "HOLD",
+      "reason": "pullback to +9.25 from +18.75 peak, giveback rising to 36%, PROPP now against; still net favorable, watching for continuation of fade"
+    },
+    {
+      "frame": 9,
+      "nonce": "b6c8657d4f3c5353",
+      "decision": "HOLD",
+      "reason": "new high +25.5, KMDR+PROPP both against but new leg tiny (7.5pt) and giveback stat likely noisy this early; want confirmation before cutting the best excursion yet"
+    },
+    {
+      "frame": 10,
+      "nonce": "1d5abf566a5d0f51",
+      "decision": "EXIT",
+      "reason": "peak +25.5 -> +10.0, sharp 15.5pt one-bar giveback with KMDR+PROPP both against 2 frames running; locking in gain before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Exited at +10.00pts after the position gave back 15.5pts from a fresh +25.50 peak in a single bar, with KMDR and PROPP exit signals both firing against the position for two consecutive frames. The signature that drove the exit was confluence of a large one-bar retracement off a new high plus two independent against-fires, rather than any single small giveback earlier in the trade (which I held through since PF-based backtests show cutting winners early is generally a loser). Next time I'd want to watch whether the leg-level giveback stat (which stayed low, ~8%, even as raw px cratered) is a lagging/noisy signal at fast timeframes, and weight KMDR's known lead-time more heavily than raw giveback percentage alone."
+}

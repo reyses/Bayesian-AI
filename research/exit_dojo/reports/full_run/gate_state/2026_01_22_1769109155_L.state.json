@@ -1,0 +1,243 @@
+{
+  "episode_id": "2026_01_22_1769109155_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1a63b0b782cfedd9",
+      "ts": 1784319175.6852334
+    },
+    {
+      "frame": 1,
+      "nonce": "3fb13206c5a417a6",
+      "ts": 1784319187.860341
+    },
+    {
+      "frame": 2,
+      "nonce": "4be7894d82b1ff6b",
+      "ts": 1784319194.6346807
+    },
+    {
+      "frame": 3,
+      "nonce": "641795bb3a14665c",
+      "ts": 1784319204.0294173
+    },
+    {
+      "frame": 4,
+      "nonce": "a789fdbe3675ab82",
+      "ts": 1784319227.8112354
+    },
+    {
+      "frame": 5,
+      "nonce": "53a7dd7068d17c9a",
+      "ts": 1784319243.1816616
+    },
+    {
+      "frame": 6,
+      "nonce": "59b99f3c083b093d",
+      "ts": 1784319253.3002255
+    },
+    {
+      "frame": 7,
+      "nonce": "34e0c3ef55347963",
+      "ts": 1784319259.8054748
+    },
+    {
+      "frame": 8,
+      "nonce": "12f652c11a22afe5",
+      "ts": 1784319266.8433998
+    },
+    {
+      "frame": 9,
+      "nonce": "5ce897dc416cc998",
+      "ts": 1784319276.1697984
+    },
+    {
+      "frame": 10,
+      "nonce": "4814426d637e9b2a",
+      "ts": 1784319285.5976262
+    },
+    {
+      "frame": 11,
+      "nonce": "ece8c5e1d383ef73",
+      "ts": 1784319300.1155655
+    },
+    {
+      "frame": 12,
+      "nonce": "18d47fc424eccbcf",
+      "ts": 1784319311.9554956
+    },
+    {
+      "frame": 13,
+      "nonce": "ccb5c0606cadf60e",
+      "ts": 1784319320.4061637
+    },
+    {
+      "frame": 14,
+      "nonce": "fa9c8a4b3e531642",
+      "ts": 1784319331.1115942
+    },
+    {
+      "frame": 15,
+      "nonce": "bab5a3f5185f5414",
+      "ts": 1784319342.9414837
+    },
+    {
+      "frame": 16,
+      "nonce": "4578c42b05df7162",
+      "ts": 1784319349.6611078
+    },
+    {
+      "frame": 17,
+      "nonce": "332e8e19aa0804da",
+      "ts": 1784319355.5735617
+    },
+    {
+      "frame": 18,
+      "nonce": "8e46bb6be4692d21",
+      "ts": 1784319362.9449208
+    },
+    {
+      "frame": 19,
+      "nonce": "af1cfb93946793a3",
+      "ts": 1784319372.071067
+    },
+    {
+      "frame": 20,
+      "nonce": "33a6951f5cd19633",
+      "ts": 1784319381.7475414
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1a63b0b782cfedd9",
+      "decision": "HOLD",
+      "reason": "frame 0, price at entry, no clear adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "3fb13206c5a417a6",
+      "decision": "HOLD",
+      "reason": "px +3.25, moved favorable, 1m z_se positive momentum, no reversal signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "4be7894d82b1ff6b",
+      "decision": "HOLD",
+      "reason": "px +2.00, still favorable, giveback low at 9%, watching PROPP-against fire"
+    },
+    {
+      "frame": 3,
+      "nonce": "641795bb3a14665c",
+      "decision": "HOLD",
+      "reason": "px -6.75, leg reversed with 44% giveback and ER10 dropping to 0.15, watching but not yet a confirmed reversal"
+    },
+    {
+      "frame": 4,
+      "nonce": "a789fdbe3675ab82",
+      "decision": "HOLD",
+      "reason": "px -10.25, giveback 60% and growing, ER10 very low 0.08, lambda significantly negative (t=-2.6) - watching closely, one more frame before deciding"
+    },
+    {
+      "frame": 5,
+      "nonce": "53a7dd7068d17c9a",
+      "decision": "HOLD",
+      "reason": "px -8.25, bounced off leg low -14.5, new leg giveback only 26%, ER10 near-zero (chop not clean trend) - no confirmed breakdown"
+    },
+    {
+      "frame": 6,
+      "nonce": "59b99f3c083b093d",
+      "decision": "HOLD",
+      "reason": "px recovered to -1.25, strong bounce off -14.5 low, near flat now"
+    },
+    {
+      "frame": 7,
+      "nonce": "34e0c3ef55347963",
+      "decision": "HOLD",
+      "reason": "px -3.25, still range-bound near flat, ER10 improving to 0.44, HA-with fired favorable"
+    },
+    {
+      "frame": 8,
+      "nonce": "12f652c11a22afe5",
+      "decision": "HOLD",
+      "reason": "px -5.00, still chopping in -1 to -14 range, 1m lambda persistently negative but no new low breakdown"
+    },
+    {
+      "frame": 9,
+      "nonce": "5ce897dc416cc998",
+      "decision": "HOLD",
+      "reason": "px -3.50, but 1m lambda_t now -5.2/-4.75, strongest and most persistent negative momentum yet across 6 frames - flagging for close watch"
+    },
+    {
+      "frame": 10,
+      "nonce": "4814426d637e9b2a",
+      "decision": "HOLD",
+      "reason": "px -1.25 near flat, but 1m lambda now extreme across all windows (t=-5.75/-5.2/-5.5), vol contracting - watching for confirmed breakdown"
+    },
+    {
+      "frame": 11,
+      "nonce": "ece8c5e1d383ef73",
+      "decision": "HOLD",
+      "reason": "px +0.50, vol contracting to 1.9pts, lambda still deeply negative on 1m - coiling, watching for breakout direction"
+    },
+    {
+      "frame": 12,
+      "nonce": "18d47fc424eccbcf",
+      "decision": "HOLD",
+      "reason": "px +4.50, new high of the trade, giveback only 3%, breakout up despite negative lambda reading"
+    },
+    {
+      "frame": 13,
+      "nonce": "ccb5c0606cadf60e",
+      "decision": "HOLD",
+      "reason": "px +4.25, holding near leg high, giveback 14%, lambda extreme negative but price keeps making higher highs - trusting price action over lagging lambda"
+    },
+    {
+      "frame": 14,
+      "nonce": "fa9c8a4b3e531642",
+      "decision": "HOLD",
+      "reason": "px +2.00, pulled back from +4.25 high but still positive, giveback 21%, normal pullback within uptrend"
+    },
+    {
+      "frame": 15,
+      "nonce": "bab5a3f5185f5414",
+      "decision": "HOLD",
+      "reason": "px +6.00, new trade high, giveback only 10%, uptrend continuing"
+    },
+    {
+      "frame": 16,
+      "nonce": "4578c42b05df7162",
+      "decision": "HOLD",
+      "reason": "px +5.50, giveback only 3%, strong uptrend intact"
+    },
+    {
+      "frame": 17,
+      "nonce": "332e8e19aa0804da",
+      "decision": "HOLD",
+      "reason": "px +4.50, pullback from leg peak but giveback 26% still moderate, 1m hurst 0.84 strong trend persistence"
+    },
+    {
+      "frame": 18,
+      "nonce": "8e46bb6be4692d21",
+      "decision": "HOLD",
+      "reason": "px +1.25, pulled back further from +6 peak but still positive, giveback 16%, watching for trend continuation vs breakdown"
+    },
+    {
+      "frame": 19,
+      "nonce": "af1cfb93946793a3",
+      "decision": "HOLD",
+      "reason": "px -1.50, deeper pullback with giveback 32%, HA-against fired, but still shallow vs prior swing lows near -14; watching for confirmed breakdown"
+    },
+    {
+      "frame": 20,
+      "nonce": "33a6951f5cd19633",
+      "decision": "EXIT",
+      "reason": "1m z_se -2.67 (extended) AND reversion_prob_30 crashed to 0.54 from ~0.98 baseline - regime-change signal distinct from prior chop where reversion_prob stayed high; sharp -8.75 1m bar; exiting at px -3.25 to protect against confirmed breakdown"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 20,
+  "finished": true,
+  "summary": "Exited on the regime-change signature: 1m z_se dropped to -2.67 (statistically extended against the position) while reversion_prob_30 simultaneously crashed from its ~0.97-0.99 baseline (seen through 8+ prior chop cycles that all recovered) down to 0.54, plus a sharp -8.75pt single 1m bar. That combination -- extension without the usual mean-reversion expectation -- read as structurally different from the earlier -10 to -14pt giveback swings that repeatedly bounced back, where reversion_prob stayed high throughout. Next time I'd want to watch whether reversion_prob crash is a reliable discriminator versus just noise in a thin sample, and pay closer attention to whether price makes a genuine lower-low breakdown versus staying within the established chop range before pulling the trigger."
+}

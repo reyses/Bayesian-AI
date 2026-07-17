@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_07_14_1752518865_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "cb6e57d18b3d855e",
+      "ts": 1784317273.299533
+    },
+    {
+      "frame": 1,
+      "nonce": "4438e35fd2ea26c4",
+      "ts": 1784317286.8176467
+    },
+    {
+      "frame": 2,
+      "nonce": "8d24319bde144361",
+      "ts": 1784317295.8560088
+    },
+    {
+      "frame": 3,
+      "nonce": "24d173cab7dd10a8",
+      "ts": 1784317306.0214787
+    },
+    {
+      "frame": 4,
+      "nonce": "82de1cbdf3d47aa9",
+      "ts": 1784317318.502924
+    },
+    {
+      "frame": 5,
+      "nonce": "5607d2b1a5b95e5e",
+      "ts": 1784317327.6027203
+    },
+    {
+      "frame": 6,
+      "nonce": "270c6325e0999dd1",
+      "ts": 1784317336.9144862
+    },
+    {
+      "frame": 7,
+      "nonce": "878f699423d16142",
+      "ts": 1784317344.3087475
+    },
+    {
+      "frame": 8,
+      "nonce": "6b8de378a0258b8c",
+      "ts": 1784317352.4688134
+    },
+    {
+      "frame": 9,
+      "nonce": "cbda47b855f42e0f",
+      "ts": 1784317367.4892964
+    },
+    {
+      "frame": 10,
+      "nonce": "db3100694d540879",
+      "ts": 1784317377.45164
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "cb6e57d18b3d855e",
+      "decision": "HOLD",
+      "reason": "frame0: flat at entry, early in leg, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "4438e35fd2ea26c4",
+      "decision": "HOLD",
+      "reason": "small -1pt dip, new leg only 1m old with 15.5pt amp, lambda still positive on 1m"
+    },
+    {
+      "frame": 2,
+      "nonce": "8d24319bde144361",
+      "decision": "HOLD",
+      "reason": "drawdown building to -2.75 but giveback only 23% of amp, lambda_30 still weakly positive"
+    },
+    {
+      "frame": 3,
+      "nonce": "24d173cab7dd10a8",
+      "decision": "HOLD",
+      "reason": "drawdown deepening to -4.75 with two against-fires, but giveback still only 29% of amp, watching next bar closely"
+    },
+    {
+      "frame": 4,
+      "nonce": "82de1cbdf3d47aa9",
+      "decision": "HOLD",
+      "reason": "bounced to -2.25 from -4.75, no fresh against-fires, 1m lambda_21 positive t=2.37"
+    },
+    {
+      "frame": 5,
+      "nonce": "5607d2b1a5b95e5e",
+      "decision": "HOLD",
+      "reason": "recovering further to -0.75, 1m body positive, no fresh against-fires"
+    },
+    {
+      "frame": 6,
+      "nonce": "270c6325e0999dd1",
+      "decision": "HOLD",
+      "reason": "back to +1.25pts favorable, HA-with fired, lambda_21 positive on 1m"
+    },
+    {
+      "frame": 7,
+      "nonce": "878f699423d16142",
+      "decision": "HOLD",
+      "reason": "strong move to +3.25pts, lambda positive across TFs with strong t-stats, trend building"
+    },
+    {
+      "frame": 8,
+      "nonce": "6b8de378a0258b8c",
+      "decision": "HOLD",
+      "reason": "px +4.50, up move continues on 1m/5m despite short-term KMDR-against/5s deceleration, letting winner run"
+    },
+    {
+      "frame": 9,
+      "nonce": "cbda47b855f42e0f",
+      "decision": "HOLD",
+      "reason": "pulled back from +4.50 peak to +1.75 but still favorable, 1m trend intact, watching for confirmation of reversal"
+    },
+    {
+      "frame": 10,
+      "nonce": "db3100694d540879",
+      "decision": "EXIT",
+      "reason": "full round-trip from +4.50 peak to -2.00, 1m bar closed at low with -5.5pt body, 3 independent against-fires (KMDR/HA/PROPP) confluence, ER10 collapsed to 0.05"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Exited at px -2.00 after the trade round-tripped from a +4.50pt peak (t=8m) through breakeven to negative within 2 minutes: the 1m bar closed at its low with a -5.5pt body (clsInRng 0.00), and three independent against-fires (KMDR, HA, PROPP) all lit up within the prior 3 minutes while ER10 collapsed to 0.05, signaling the trend had gone from directional to choppy/reversing. Next time I'd watch for this same confluence pattern (multi-detector against-fire + trend-efficiency collapse) earlier relative to the peak, since by the time all three fired the giveback was already ~6.5pts off the high -- an earlier partial signal (e.g. first against-fire post-peak) might bank more of the favorable excursion."
+}

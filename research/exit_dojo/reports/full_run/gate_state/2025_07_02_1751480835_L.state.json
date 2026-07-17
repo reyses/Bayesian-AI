@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_07_02_1751480835_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "b89ed2c9f481d388",
+      "ts": 1784317116.690117
+    },
+    {
+      "frame": 1,
+      "nonce": "bbac501b82571bae",
+      "ts": 1784317129.7354743
+    },
+    {
+      "frame": 2,
+      "nonce": "fec8b50a699653e8",
+      "ts": 1784317142.1646824
+    },
+    {
+      "frame": 3,
+      "nonce": "8e64fd90519c641c",
+      "ts": 1784317168.7590048
+    },
+    {
+      "frame": 4,
+      "nonce": "34355c9e37b6d403",
+      "ts": 1784317180.8198633
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "b89ed2c9f481d388",
+      "decision": "HOLD",
+      "reason": "Only 4m in, giveback 74% of small 8.5pt swing but amplitude tiny; lambda_t_21 near zero, no strong trend signal yet; wait for more data"
+    },
+    {
+      "frame": 1,
+      "nonce": "bbac501b82571bae",
+      "decision": "HOLD",
+      "reason": "Px improved to +2.75, 15s lambda_hat_21 positive t=1.86 mild trend continuation, hurst>0.5 on 15s/1m; no exit signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "fec8b50a699653e8",
+      "decision": "HOLD",
+      "reason": "Px dipped to -2.25, PROPP-against fired 1m ago and 15s lambda positive (continuation risk) but drawdown still small and 1m lambda near neutral/reverting; hold one more frame to confirm direction"
+    },
+    {
+      "frame": 3,
+      "nonce": "8e64fd90519c641c",
+      "decision": "HOLD",
+      "reason": "Px recovered to -0.25 near breakeven despite HA-against(fresh)+PROPP-against(2m ago); 15m lambda strongly negative (reverting back to mean), giveback improving to 62%; hold near flat"
+    },
+    {
+      "frame": 4,
+      "nonce": "34355c9e37b6d403",
+      "decision": "EXIT",
+      "reason": "New leg low -5.25 (worse than prior -2.25 dip), HA-against+PROPP-against fired 3 consecutive frames running, giveback reset to 15% signaling fresh breakdown not recovery; cutting loss rather than let adverse move compound"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Exited on a fresh leg low (-5.25pts, breaking the prior -2.25 dip) after HA-against and PROPP-against fired three consecutive frames while the fast-TF (5s/15s) deviation stayed stretched with rising trend-continuation lambda_t, and giveback resetting to 15% signaled a new breakdown rather than the mean-reverting bounce seen in the prior frame. Next time I'd weight the repeated-against-fire count more heavily earlier and distinguish '15m lambda reverting' (slow, low relevance to a <10min trade) from fast-TF (5s/15s) lambda/z signals, which were the ones actually moving against the position."
+}

@@ -1,0 +1,100 @@
+{
+  "episode_id": "2026_03_11_1773238960_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9e34b3efdb996983",
+      "ts": 1784314602.7677598
+    },
+    {
+      "frame": 1,
+      "nonce": "368973ab0261eea5",
+      "ts": 1784314610.4642875
+    },
+    {
+      "frame": 2,
+      "nonce": "3c5e92c6dab7defb",
+      "ts": 1784314617.383841
+    },
+    {
+      "frame": 3,
+      "nonce": "055fd8f0528d7c76",
+      "ts": 1784314626.881705
+    },
+    {
+      "frame": 4,
+      "nonce": "f231cb5ab0d05d58",
+      "ts": 1784314633.9151049
+    },
+    {
+      "frame": 5,
+      "nonce": "80586e2908ae7497",
+      "ts": 1784314641.4121046
+    },
+    {
+      "frame": 6,
+      "nonce": "983bbb41681a37be",
+      "ts": 1784314648.5972602
+    },
+    {
+      "frame": 7,
+      "nonce": "3df54e03716f47bb",
+      "ts": 1784314655.820218
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9e34b3efdb996983",
+      "decision": "HOLD",
+      "reason": "Just entered, px at 0, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "368973ab0261eea5",
+      "decision": "HOLD",
+      "reason": "px +21.75, 0% giveback, PROPP-with fire, z_se still negative (price below mean, favorable for short)"
+    },
+    {
+      "frame": 2,
+      "nonce": "3c5e92c6dab7defb",
+      "decision": "HOLD",
+      "reason": "px +38.25, giveback only 8%, ER10 rising (0.46) = trending not chopping, PROPP-with confirms"
+    },
+    {
+      "frame": 3,
+      "nonce": "055fd8f0528d7c76",
+      "decision": "HOLD",
+      "reason": "px +45.75, amp expanding to 105, ER10 climbing to 0.58 (efficient trend), giveback 15% still modest"
+    },
+    {
+      "frame": 4,
+      "nonce": "f231cb5ab0d05d58",
+      "decision": "HOLD",
+      "reason": "new favorable high px +57.75, giveback back to 2%, trend still efficient (ER10 0.53), PROPP-with"
+    },
+    {
+      "frame": 5,
+      "nonce": "80586e2908ae7497",
+      "decision": "HOLD",
+      "reason": "new high px +69.75, giveback only 4%, still trending (ER10 0.52); noting PROPP-against as first caution flag"
+    },
+    {
+      "frame": 6,
+      "nonce": "983bbb41681a37be",
+      "decision": "HOLD",
+      "reason": "new high px +75.25, ER10 up to 0.63 (strong trend), giveback still just 7% despite two against-fires; watching closely"
+    },
+    {
+      "frame": 7,
+      "nonce": "3df54e03716f47bb",
+      "decision": "EXIT",
+      "reason": "Giveback spiked 7%->40% of amp in one bar (peak +75.25 -> +35.75), reversion_prob_30(15s) collapsed to 0.064 (momentum now favors continuation against us), KMDR+PROPP both against for 2m straight -- locking in profit before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Exited at +35.75pts after a sharp reversal signature: giveback jumped from 7% to 40% of the max favorable excursion in a single bar (peak +75.25 -> +35.75), 15s reversion_prob_30 collapsed to 0.064 (momentum now favors continuation against the position rather than mean-reversion back in our favor), and KMDR-against + PROPP-against fires had persisted for 2 consecutive minutes. Held through the first against-fire and a modest 7-15% giveback since ER10 was still climbing and new highs kept forming, but the compounding of a large giveback spike plus a collapsed reversion probability plus sustained dual against-fires was treated as the reversal confirmation. Next time I'd watch giveback-rate-of-change more than giveback level itself -- the jump size (33 percentage points in one bar) was the real tell, and I'd want to see if an earlier partial-scale-out on the first against-fire (frame 5-6) captures more of the peak without giving up the whole thesis."
+}

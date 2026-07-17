@@ -1,0 +1,17 @@
+{"ts": 1784318351.80686, "event": "serve", "frame": 0, "nonce": "9000709d4d5970be"}
+{"ts": 1784318360.5850961, "event": "commit", "frame": 0, "nonce": "9000709d4d5970be", "decision": "HOLD", "reason": "early frame, px flat at entry, no reversal signal yet, let trade develop"}
+{"ts": 1784318363.3521707, "event": "serve", "frame": 1, "nonce": "03ca774150866736"}
+{"ts": 1784318369.8832924, "event": "commit", "frame": 1, "nonce": "03ca774150866736", "decision": "HOLD", "reason": "small drawdown -2.25pts, giveback only 13%, still within normal leg noise"}
+{"ts": 1784318372.3579428, "event": "serve", "frame": 2, "nonce": "3fe6ced28e30df8a"}
+{"ts": 1784318376.1355166, "event": "commit", "frame": 2, "nonce": "3fe6ced28e30df8a", "decision": "HOLD", "reason": "px recovered to +0.50, giveback back to 0%, trend intact"}
+{"ts": 1784318379.2329257, "event": "serve", "frame": 3, "nonce": "3e7a0d342a09c0b0"}
+{"ts": 1784318383.394816, "event": "commit", "frame": 3, "nonce": "3e7a0d342a09c0b0", "decision": "HOLD", "reason": "px oscillating -0.50, still in noise band, no structural break"}
+{"ts": 1784318385.691478, "event": "serve", "frame": 4, "nonce": "b14a25a384ae6240"}
+{"ts": 1784318388.7574632, "event": "commit", "frame": 4, "nonce": "b14a25a384ae6240", "decision": "HOLD", "reason": "px +1.00, giveback 0%, favorable progress, no fires against"}
+{"ts": 1784318396.0615144, "event": "serve", "frame": 5, "nonce": "6c4457b65b2f095c"}
+{"ts": 1784318399.705832, "event": "commit", "frame": 5, "nonce": "6c4457b65b2f095c", "decision": "HOLD", "reason": "px -1.00, giveback 17% still within chop range, no fires against"}
+{"ts": 1784318402.2951138, "event": "serve", "frame": 6, "nonce": "fccd48daccf654fa"}
+{"ts": 1784318413.665905, "event": "commit", "frame": 6, "nonce": "fccd48daccf654fa", "decision": "HOLD", "reason": "px -4.00 new low, giveback 38%, HA-against fire is a warning but one bar - watching for confirmation before exiting"}
+{"ts": 1784318416.2657974, "event": "serve", "frame": 7, "nonce": "5c73d701d85ae95e"}
+{"ts": 1784318425.6969886, "event": "commit", "frame": 7, "nonce": "5c73d701d85ae95e", "decision": "EXIT", "reason": "confirmed adverse move: 2 consecutive bars below -3.5pts, giveback climbed 38%->42%, HA-against fired twice, 15s lambda_t +2.26 confirms persistent trend against position"}
+{"ts": 1784318435.016422, "event": "finish", "summary": "Exited on confirmed adverse momentum: after 6 minutes of noisy oscillation between -2.25 and +1.00pts, price broke to a new adverse extreme (-4.00, then -3.50) that held for two consecutive frames rather than reverting like prior dips. Giveback climbed from 38% to 42% of leg amplitude, HA-against fired twice in a row, and 15s lambda_t (+2.26) confirmed a statistically persistent trend against the position rather than transient noise. Next time I'd want to watch for the first fire+giveback-acceleration combo earlier and weight the SECOND confirming bar more heavily than the first, since single-bar HA fires reverted twice earlier in this same episode.", "exit_frame": 7, "n_commits": 8}

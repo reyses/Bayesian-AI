@@ -1,0 +1,13 @@
+{"ts": 1784314284.7267773, "event": "serve", "frame": 0, "nonce": "baa950033ea10fd5"}
+{"ts": 1784314290.0266514, "event": "commit", "frame": 0, "nonce": "baa950033ea10fd5", "decision": "HOLD", "reason": "px flat at entry, leg still developing, no clear reversion signal yet"}
+{"ts": 1784314292.2715054, "event": "serve", "frame": 1, "nonce": "f822e6cb3f74b95b"}
+{"ts": 1784314308.8520663, "event": "commit", "frame": 1, "nonce": "f822e6cb3f74b95b", "decision": "HOLD", "reason": "px -27 against, but CLIMAX+PROPP against fired together on high-vol wide-range bar = possible exhaustion/climax, watching for reversion"}
+{"ts": 1784314311.352231, "event": "serve", "frame": 2, "nonce": "5c4d0f425f04477f"}
+{"ts": 1784314317.808026, "event": "commit", "frame": 2, "nonce": "5c4d0f425f04477f", "decision": "HOLD", "reason": "px recovered -27->-18, giveback reset to 0%, bounce thesis holding despite KMDR/CLIMAX/PROPP against fires"}
+{"ts": 1784314319.9553823, "event": "serve", "frame": 3, "nonce": "a57fe1a01dec38cf"}
+{"ts": 1784314324.731004, "event": "commit", "frame": 3, "nonce": "a57fe1a01dec38cf", "decision": "HOLD", "reason": "px continues recovering -18->-12.5, reversion_prob high on 1m/5m, staying with the leg"}
+{"ts": 1784314327.3131382, "event": "serve", "frame": 4, "nonce": "7ab9d94a147a27e5"}
+{"ts": 1784314331.8142292, "event": "commit", "frame": 4, "nonce": "7ab9d94a147a27e5", "decision": "HOLD", "reason": "px stable ~-12, PROPP flipped to with-side, mixed signals but no acceleration against us"}
+{"ts": 1784314337.2726753, "event": "serve", "frame": 5, "nonce": "412e36415e0d6d0e"}
+{"ts": 1784314350.9114666, "event": "commit", "frame": 5, "nonce": "412e36415e0d6d0e", "decision": "EXIT", "reason": "px spiked +29 (40pt swing in 1min), KMDR-against+PROPP-against fired together right at the peak = reversal risk, banking the profit"}
+{"ts": 1784314356.8337479, "event": "finish", "summary": "Held through an initial adverse excursion to -27pts, trusting the CLIMAX/PROPP-against wicky high-volume bars as exhaustion rather than trend continuation, and price mean-reverted back toward entry over the next 3-4 minutes. Exited on a sharp +40pt favorable spike to +29pts when KMDR-against and PROPP-against both fired simultaneously right at the local peak, reading that as a reversal-risk signature rather than continuation. Next time I'd want to watch ER10 (efficiency ratio) alongside KMDR at the spike \u2014 low ER10 with a fast against-fire is the combo that most reliably marks a climax top worth exiting into, versus holding through noise on the way down.", "exit_frame": 5, "n_commits": 6}

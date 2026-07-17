@@ -1,0 +1,210 @@
+{
+  "episode_id": "2025_10_31_1761917460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1eb81db76f5fe4a0",
+      "ts": 1784308943.1139553
+    },
+    {
+      "frame": 1,
+      "nonce": "53d4fc1d27084f8f",
+      "ts": 1784308953.9722333
+    },
+    {
+      "frame": 2,
+      "nonce": "c3020a801c683d85",
+      "ts": 1784308960.4806228
+    },
+    {
+      "frame": 3,
+      "nonce": "7906f132f9aa7131",
+      "ts": 1784308967.8352616
+    },
+    {
+      "frame": 4,
+      "nonce": "4a73852d0fc0dbd2",
+      "ts": 1784308973.6361403
+    },
+    {
+      "frame": 5,
+      "nonce": "e64e0fab04ecccdf",
+      "ts": 1784308981.5116882
+    },
+    {
+      "frame": 6,
+      "nonce": "a05c508559c5ac80",
+      "ts": 1784308987.3847263
+    },
+    {
+      "frame": 7,
+      "nonce": "1252c2ade2ab7494",
+      "ts": 1784308994.9149632
+    },
+    {
+      "frame": 8,
+      "nonce": "73d732c7193581ad",
+      "ts": 1784309001.2178738
+    },
+    {
+      "frame": 9,
+      "nonce": "a302cfad21a7dca0",
+      "ts": 1784309018.1690056
+    },
+    {
+      "frame": 10,
+      "nonce": "830a39695fa0bf04",
+      "ts": 1784309024.3758564
+    },
+    {
+      "frame": 11,
+      "nonce": "4dc5aaa836c81682",
+      "ts": 1784309038.4630957
+    },
+    {
+      "frame": 12,
+      "nonce": "1c57e4e6295c0b92",
+      "ts": 1784309044.9620266
+    },
+    {
+      "frame": 13,
+      "nonce": "bb881845faae4496",
+      "ts": 1784309051.8710027
+    },
+    {
+      "frame": 14,
+      "nonce": "5dbfcd3e9ff45614",
+      "ts": 1784309060.3944862
+    },
+    {
+      "frame": 15,
+      "nonce": "b8d32bca1ef3fec0",
+      "ts": 1784309068.2234676
+    },
+    {
+      "frame": 16,
+      "nonce": "b6be357a7faaecc7",
+      "ts": 1784309075.4282665
+    },
+    {
+      "frame": 17,
+      "nonce": "4698ead9e0ddf5ea",
+      "ts": 1784309083.1768975
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1eb81db76f5fe4a0",
+      "decision": "HOLD",
+      "reason": "frame 0, at entry, no adverse signature yet, giving trade room"
+    },
+    {
+      "frame": 1,
+      "nonce": "53d4fc1d27084f8f",
+      "decision": "HOLD",
+      "reason": "px +25.75, giveback 0%, trend running favorably, no reversal signature"
+    },
+    {
+      "frame": 2,
+      "nonce": "c3020a801c683d85",
+      "decision": "HOLD",
+      "reason": "px +21.75, pullback but giveback only 30%, ER10 0.73 still efficient, PROPP flipped with-trend"
+    },
+    {
+      "frame": 3,
+      "nonce": "7906f132f9aa7131",
+      "decision": "HOLD",
+      "reason": "new leg high px +38, giveback reset to 0%, momentum with-trend"
+    },
+    {
+      "frame": 4,
+      "nonce": "4a73852d0fc0dbd2",
+      "decision": "HOLD",
+      "reason": "px +29, giveback 20% off 60pt amp, CLIMAX/KMDR/PROPP all against now but not yet a hard reversal, watching closely"
+    },
+    {
+      "frame": 5,
+      "nonce": "e64e0fab04ecccdf",
+      "decision": "HOLD",
+      "reason": "px +22.25, giveback stable ~19-20%, PROPP back with-trend, no acceleration of drawdown"
+    },
+    {
+      "frame": 6,
+      "nonce": "a05c508559c5ac80",
+      "decision": "HOLD",
+      "reason": "px +24.50 ticked back up, giveback 25%, but now ALL fires (KMDR/CLIMAX/HA/PROPP) against-trend -- elevated caution"
+    },
+    {
+      "frame": 7,
+      "nonce": "1252c2ade2ab7494",
+      "decision": "HOLD",
+      "reason": "px +20.75, new leg giveback only 12%, still favorable overall"
+    },
+    {
+      "frame": 8,
+      "nonce": "73d732c7193581ad",
+      "decision": "HOLD",
+      "reason": "px +39.25 is a new session high in absolute terms despite local 90% giveback on a small 24pt leg; HA/PROPP still with-trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "a302cfad21a7dca0",
+      "decision": "HOLD",
+      "reason": "px +44.50, new absolute high, trend still expanding favorably"
+    },
+    {
+      "frame": 10,
+      "nonce": "830a39695fa0bf04",
+      "decision": "HOLD",
+      "reason": "px +39.50 still strongly favorable; CLIMAX+KMDR fresh against but PROPP/HA still with, watching for confirmation next frame"
+    },
+    {
+      "frame": 11,
+      "nonce": "4dc5aaa836c81682",
+      "decision": "HOLD",
+      "reason": "px +57.50, big new leg high, giveback 0%, strong continuation"
+    },
+    {
+      "frame": 12,
+      "nonce": "1c57e4e6295c0b92",
+      "decision": "HOLD",
+      "reason": "px +72.25, giveback 0%, trend strongly accelerating in favor"
+    },
+    {
+      "frame": 13,
+      "nonce": "bb881845faae4496",
+      "decision": "HOLD",
+      "reason": "px +75.75, new high, giveback only 7%, trend intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "5dbfcd3e9ff45614",
+      "decision": "HOLD",
+      "reason": "px +60.00, giveback 18%, fires clean (only PROPP-with), still a strong trade"
+    },
+    {
+      "frame": 15,
+      "nonce": "b8d32bca1ef3fec0",
+      "decision": "HOLD",
+      "reason": "px +90.50, new high, giveback 0%, ER10 0.65 strong efficiency, PROPP with-trend"
+    },
+    {
+      "frame": 16,
+      "nonce": "b6be357a7faaecc7",
+      "decision": "HOLD",
+      "reason": "px +72.00, giveback 24% off 81.5pt amp, still deep in profit, normal pullback within a highly efficient trend (ER10 0.74)"
+    },
+    {
+      "frame": 17,
+      "nonce": "4698ead9e0ddf5ea",
+      "decision": "EXIT",
+      "reason": "giveback accelerated 24%->47% of 81.5pt leg in 1min, HA flipped against joining KMDR-against, 1m wick rejected from +99.25 high back to +77.50 close -- locking in +59.50pts before further reversal"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 17,
+  "finished": true,
+  "summary": "Rode a strong favorable trend from entry through a series of new highs (+25 to +90.5pts) with mostly clean giveback resets near 0-20%, treating isolated against-fires as noise given deep profit cushion. Exited at +59.50pts when giveback on the current 81.5pt leg accelerated sharply from 24% to 47% in one minute, coinciding with HA flipping against to join KMDR-against right after a 1m wick rejection from a +99.25 high back to a +77.50 close -- a compounding reversal signature rather than a single isolated fire. Next time I'd watch giveback-velocity (rate of change, not just level) plus fire-cluster count together as the primary reversal trigger, since single against-fires occurred repeatedly earlier without leading anywhere."
+}

@@ -1,0 +1,287 @@
+{
+  "episode_id": "2025_07_03_1751560200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0bf18537e174144d",
+      "ts": 1784308317.994018
+    },
+    {
+      "frame": 1,
+      "nonce": "85f684b879292c43",
+      "ts": 1784308326.1582522
+    },
+    {
+      "frame": 2,
+      "nonce": "8527cfa068649a3f",
+      "ts": 1784308335.1940458
+    },
+    {
+      "frame": 3,
+      "nonce": "b29602725c30e287",
+      "ts": 1784308346.8471491
+    },
+    {
+      "frame": 4,
+      "nonce": "511a8b42a2ec13d1",
+      "ts": 1784308354.8925683
+    },
+    {
+      "frame": 5,
+      "nonce": "cd196f8f486f25d5",
+      "ts": 1784308362.0186076
+    },
+    {
+      "frame": 6,
+      "nonce": "66385470194c9f6e",
+      "ts": 1784308370.8221755
+    },
+    {
+      "frame": 7,
+      "nonce": "5e18f75329c4fc49",
+      "ts": 1784308380.6380172
+    },
+    {
+      "frame": 8,
+      "nonce": "5060c989c7c7c93c",
+      "ts": 1784308387.281702
+    },
+    {
+      "frame": 9,
+      "nonce": "3a7ad494167ab28e",
+      "ts": 1784308393.485639
+    },
+    {
+      "frame": 10,
+      "nonce": "7c6d84e9eb122454",
+      "ts": 1784308403.484121
+    },
+    {
+      "frame": 11,
+      "nonce": "13d0c69800ef401c",
+      "ts": 1784308413.4095693
+    },
+    {
+      "frame": 12,
+      "nonce": "2969edc045f589ec",
+      "ts": 1784308434.1546874
+    },
+    {
+      "frame": 13,
+      "nonce": "6fb142e81e684e1f",
+      "ts": 1784308450.1552658
+    },
+    {
+      "frame": 14,
+      "nonce": "c94f1dd04ed1e7a2",
+      "ts": 1784308458.4586613
+    },
+    {
+      "frame": 15,
+      "nonce": "abfab783582f9744",
+      "ts": 1784308465.4689682
+    },
+    {
+      "frame": 16,
+      "nonce": "0d3048790e36c35c",
+      "ts": 1784308473.0057006
+    },
+    {
+      "frame": 17,
+      "nonce": "5908bd517dbcbe30",
+      "ts": 1784308482.5626168
+    },
+    {
+      "frame": 18,
+      "nonce": "d3df1cfc60d2d426",
+      "ts": 1784308492.783785
+    },
+    {
+      "frame": 19,
+      "nonce": "b9e0b3c45ca3e5e3",
+      "ts": 1784308502.9111013
+    },
+    {
+      "frame": 20,
+      "nonce": "08f0538872d74b85",
+      "ts": 1784308513.435702
+    },
+    {
+      "frame": 21,
+      "nonce": "d4385b919460dad4",
+      "ts": 1784308532.6906476
+    },
+    {
+      "frame": 22,
+      "nonce": "c3bd236bc888a919",
+      "ts": 1784308540.2184274
+    },
+    {
+      "frame": 23,
+      "nonce": "ffc3a48250eda1e2",
+      "ts": 1784308549.2372794
+    },
+    {
+      "frame": 24,
+      "nonce": "5a4c467688f4a751",
+      "ts": 1784308557.8856359
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0bf18537e174144d",
+      "decision": "HOLD",
+      "reason": "flat at entry, no edge yet, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "85f684b879292c43",
+      "decision": "HOLD",
+      "reason": "px +7 favorable, fresh leg just started, no giveback yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "8527cfa068649a3f",
+      "decision": "HOLD",
+      "reason": "34% giveback but still near flat, multiple against-fires stacking but amp small, watch next frame"
+    },
+    {
+      "frame": 3,
+      "nonce": "b29602725c30e287",
+      "decision": "HOLD",
+      "reason": "px recovered to +1.25, giveback easing to 29%, against-fires aging out"
+    },
+    {
+      "frame": 4,
+      "nonce": "511a8b42a2ec13d1",
+      "decision": "HOLD",
+      "reason": "chopping near +1, vol declining, no new against-fires, still small sample"
+    },
+    {
+      "frame": 5,
+      "nonce": "cd196f8f486f25d5",
+      "decision": "HOLD",
+      "reason": "px steady +1, vol contracting, chop but no giveback on fresh leg"
+    },
+    {
+      "frame": 6,
+      "nonce": "66385470194c9f6e",
+      "decision": "HOLD",
+      "reason": "flat chop, vol compressed, ER10 dead 0.13, no giveback"
+    },
+    {
+      "frame": 7,
+      "nonce": "5e18f75329c4fc49",
+      "decision": "HOLD",
+      "reason": "new high +2.5, HA-with confirms, low vol chop continues"
+    },
+    {
+      "frame": 8,
+      "nonce": "5060c989c7c7c93c",
+      "decision": "HOLD",
+      "reason": "steady +2.5, low vol range, no reversal signature"
+    },
+    {
+      "frame": 9,
+      "nonce": "3a7ad494167ab28e",
+      "decision": "HOLD",
+      "reason": "px +1.25, ER10 ticking up to 0.52, still net favorable"
+    },
+    {
+      "frame": 10,
+      "nonce": "7c6d84e9eb122454",
+      "decision": "HOLD",
+      "reason": "near flat +0.25, tight range persists, no strong directional signal"
+    },
+    {
+      "frame": 11,
+      "nonce": "13d0c69800ef401c",
+      "decision": "HOLD",
+      "reason": "sharp adverse move to -5.5 but only one bar old, z extended (possible exhaustion), not yet a confirmed trend reversal"
+    },
+    {
+      "frame": 12,
+      "nonce": "2969edc045f589ec",
+      "decision": "HOLD",
+      "reason": "adverse move continues to -5.75, vol expanding, ER10 rising to 0.56 - watching closely but PROPP-with just fired, giving one more frame"
+    },
+    {
+      "frame": 13,
+      "nonce": "6fb142e81e684e1f",
+      "decision": "HOLD",
+      "reason": "slight recovery to -4.5 from -5.75, PROPP-with still supportive, not accelerating against us"
+    },
+    {
+      "frame": 14,
+      "nonce": "c94f1dd04ed1e7a2",
+      "decision": "HOLD",
+      "reason": "px stabilizing -4.25, adverse leg giving back 24%, vol easing"
+    },
+    {
+      "frame": 15,
+      "nonce": "abfab783582f9744",
+      "decision": "HOLD",
+      "reason": "recovered to +0.5, adverse leg giving back 50%, HA-with confirms recovery"
+    },
+    {
+      "frame": 16,
+      "nonce": "0d3048790e36c35c",
+      "decision": "HOLD",
+      "reason": "px +4.75, best level yet, vol expanding both ways but favorable side leading"
+    },
+    {
+      "frame": 17,
+      "nonce": "5908bd517dbcbe30",
+      "decision": "HOLD",
+      "reason": "new best +11.00, giveback only 4%, KMDR-against just fired at the high - watching for confirmed turn next frame"
+    },
+    {
+      "frame": 18,
+      "nonce": "d3df1cfc60d2d426",
+      "decision": "HOLD",
+      "reason": "pulled back to +9.75 from +11 peak, 31% giveback but still near best level, KMDR/PROPP against stacking - watching"
+    },
+    {
+      "frame": 19,
+      "nonce": "b9e0b3c45ca3e5e3",
+      "decision": "HOLD",
+      "reason": "new high +16.25, giveback only 8%, trend accelerating favorably"
+    },
+    {
+      "frame": 20,
+      "nonce": "08f0538872d74b85",
+      "decision": "HOLD",
+      "reason": "pulled back from +16.25 peak to +8.50, still solidly profitable, KMDR/PROPP against stacking - watching for confirmed breakdown"
+    },
+    {
+      "frame": 21,
+      "nonce": "d4385b919460dad4",
+      "decision": "HOLD",
+      "reason": "new high +17.25, recovered fully from pullback, trend intact"
+    },
+    {
+      "frame": 22,
+      "nonce": "c3bd236bc888a919",
+      "decision": "HOLD",
+      "reason": "px +26.00, giveback 0%, ER10 0.83 strongly trending in our favor - riding it"
+    },
+    {
+      "frame": 23,
+      "nonce": "ffc3a48250eda1e2",
+      "decision": "HOLD",
+      "reason": "px +34.25, ER10 0.87 near-max trend efficiency, giveback only 4%, riding the trend"
+    },
+    {
+      "frame": 24,
+      "nonce": "5a4c467688f4a751",
+      "decision": "EXIT",
+      "reason": "CLIMAX+KMDR+PROPP all against simultaneously after a 52pt run, 26% giveback already - strongest reversal confluence of the episode, locking in +28.25"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 24,
+  "finished": true,
+  "summary": "Held through an early adverse dip (-5.75) and a mid-trend pullback (+16 to +8.5) because R-trigger-style holding through chop/drawdown has historically outperformed cutting; the position then ran to a huge peak near +38. Exited at +28.25 when the three keeper turn-detectors (TURN-CLIMAX, EXIT-KMDR, PROPP) all fired against the position simultaneously for the first time in the episode, coinciding with a 26% giveback of the 52pt leg. Next time I'd watch for this same triple-confluence earlier as the primary exit trigger rather than single against-fires, which appeared repeatedly during the run without marking real turns."
+}

@@ -1,0 +1,166 @@
+{
+  "episode_id": "2025_05_08_1746711010_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a83b96bd2fca446e",
+      "ts": 1784307619.3416889
+    },
+    {
+      "frame": 1,
+      "nonce": "9a1afd4253107d61",
+      "ts": 1784307628.1937068
+    },
+    {
+      "frame": 2,
+      "nonce": "77ef149867bea581",
+      "ts": 1784307639.1044102
+    },
+    {
+      "frame": 3,
+      "nonce": "604a4abc92b43566",
+      "ts": 1784307646.7386365
+    },
+    {
+      "frame": 4,
+      "nonce": "7b007b9f7bd9f336",
+      "ts": 1784307655.9936123
+    },
+    {
+      "frame": 5,
+      "nonce": "87a7ec83d5118ba8",
+      "ts": 1784307665.6211894
+    },
+    {
+      "frame": 6,
+      "nonce": "4a04a8994416702e",
+      "ts": 1784307672.9211125
+    },
+    {
+      "frame": 7,
+      "nonce": "4ec26801260c2e1f",
+      "ts": 1784307680.7498584
+    },
+    {
+      "frame": 8,
+      "nonce": "7ae47a98f86d3a4f",
+      "ts": 1784307695.0075471
+    },
+    {
+      "frame": 9,
+      "nonce": "db8eddba844434cf",
+      "ts": 1784307706.935278
+    },
+    {
+      "frame": 10,
+      "nonce": "2cd19b7628e82c49",
+      "ts": 1784307719.121654
+    },
+    {
+      "frame": 11,
+      "nonce": "d15d4150673c5518",
+      "ts": 1784307734.0832074
+    },
+    {
+      "frame": 12,
+      "nonce": "346f8955c3015727",
+      "ts": 1784307740.6510313
+    },
+    {
+      "frame": 13,
+      "nonce": "fb4f999bce463fc5",
+      "ts": 1784307754.9957929
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a83b96bd2fca446e",
+      "decision": "HOLD",
+      "reason": "Price at entry level, early in leg (age 6m), mixed lambda signals; no clear adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9a1afd4253107d61",
+      "decision": "HOLD",
+      "reason": "Adverse move to -11.75pts but 1m lambda negative (fade signal, t=-2.24) suggests reversion; giveback high but leg still young"
+    },
+    {
+      "frame": 2,
+      "nonce": "77ef149867bea581",
+      "decision": "HOLD",
+      "reason": "Price swung favorable to +12.25pts, giveback reset to 0%, lambda turned positive (trend continuation) on 15s/1m, ER10 rising to 0.63"
+    },
+    {
+      "frame": 3,
+      "nonce": "604a4abc92b43566",
+      "decision": "HOLD",
+      "reason": "Strong favorable move to +32pts, giveback only 6%, ER10 0.72 shows efficient trend, PROPP-with confirms continuation"
+    },
+    {
+      "frame": 4,
+      "nonce": "7b007b9f7bd9f336",
+      "decision": "HOLD",
+      "reason": "Pullback from +32 to +24, giveback 17%, PROPP-against just fired but 1m lambda still positive (t=2.3) and ER10 0.70; watching for confirmation"
+    },
+    {
+      "frame": 5,
+      "nonce": "87a7ec83d5118ba8",
+      "decision": "HOLD",
+      "reason": "Recovered to +28.75pts (giveback down to 8%), 1m lambda strongly positive t=4.95, ER10 0.75 - trend intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "4a04a8994416702e",
+      "decision": "HOLD",
+      "reason": "Price holding near +29pts but ER10 dropping to 0.49 (choppier), PROPP-against recurring; still within range, 1m lambda still positive"
+    },
+    {
+      "frame": 7,
+      "nonce": "4ec26801260c2e1f",
+      "decision": "HOLD",
+      "reason": "Giveback rising to 25%, ER10 down to 0.36, HA/PROPP against fired, but still +21.75pts profit; validated prior research shows cutting winners on giveback loses EV (heavy right tail), so holding through the pullback"
+    },
+    {
+      "frame": 8,
+      "nonce": "7ae47a98f86d3a4f",
+      "decision": "HOLD",
+      "reason": "Price recovered to +27.75pts, giveback back down to 15%, new leg registered - trend still favorable overall"
+    },
+    {
+      "frame": 9,
+      "nonce": "db8eddba844434cf",
+      "decision": "HOLD",
+      "reason": "New trade high +38.75pts (above prior +32 peak) despite mixed against/with fires; overall favorable trend intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "2cd19b7628e82c49",
+      "decision": "HOLD",
+      "reason": "Trade extended further, intrabar touched +55pts, still +38.25pts current; local leg giveback noisy on small subswing but overall trend remains strongly favorable"
+    },
+    {
+      "frame": 11,
+      "nonce": "d15d4150673c5518",
+      "decision": "HOLD",
+      "reason": "Price stable at +37.50pts, PROPP-with confirms trend, giveback low at 14% on fresh leg"
+    },
+    {
+      "frame": 12,
+      "nonce": "346f8955c3015727",
+      "decision": "HOLD",
+      "reason": "Pulled back hard from ~+55 peak to +25.75, ER10 collapsed to 0.12 (choppy/reversal risk), HA-against fired; still net favorable, watching closely for further deterioration"
+    },
+    {
+      "frame": 13,
+      "nonce": "fb4f999bce463fc5",
+      "decision": "EXIT",
+      "reason": "ER10 collapsed from 0.75 to 0.09 over last 6 frames (trend efficiency dead), repeated PROPP/HA-against fires, price now round-tripping in a range rather than making new highs after peak ~+55; locking in +29.75pts before further chop erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 13,
+  "finished": true,
+  "summary": "Exited at +29.75pts after the trend efficiency ratio (ER10) collapsed from ~0.75 down to 0.09 over six consecutive frames, coinciding with repeated PROPP/HA/KMDR-against fires and price failing to make new highs after an intrabar peak near +55 - a clear signature of trend exhaustion into chop rather than continuation. Next time I'd watch ER10 decay trajectory more mechanically as a primary exit trigger (e.g. threshold below ~0.2 sustained 2+ frames) rather than waiting for it to bottom out, and weight the giveback-from-peak metric alongside it instead of anchoring on the leg-local giveback number which reset misleadingly several times."
+}

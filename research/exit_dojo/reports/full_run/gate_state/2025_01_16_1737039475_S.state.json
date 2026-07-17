@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_01_16_1737039475_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "878458a38665b3ad",
+      "ts": 1784314723.6636484
+    },
+    {
+      "frame": 1,
+      "nonce": "8f0f59796cd301b2",
+      "ts": 1784314734.8269732
+    },
+    {
+      "frame": 2,
+      "nonce": "ffcb3f2c2962a740",
+      "ts": 1784314747.8710752
+    },
+    {
+      "frame": 3,
+      "nonce": "71d2eb09f2396643",
+      "ts": 1784314758.5703285
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "878458a38665b3ad",
+      "decision": "HOLD",
+      "reason": "t=0m too early, giveback noted but leg only 2m old, watch next frame"
+    },
+    {
+      "frame": 1,
+      "nonce": "8f0f59796cd301b2",
+      "decision": "HOLD",
+      "reason": "px recovered to +15.5, giveback down to 4%, lambda positive/sig on 5s-15s = momentum continuing favorably"
+    },
+    {
+      "frame": 2,
+      "nonce": "ffcb3f2c2962a740",
+      "decision": "HOLD",
+      "reason": "px +25.25, giveback still low at 12%, but vol rising and ER10 dropped to 0.03 -- watching closely for reversal"
+    },
+    {
+      "frame": 3,
+      "nonce": "71d2eb09f2396643",
+      "decision": "EXIT",
+      "reason": "px +55.75 new high w/ 0% giveback, but vol expanding sharply (+8.3), 5s lambda strongly negative (t=-4.23, fastest TF flags reversion), PROPP-against fired twice in 3m, ER10 low=choppy -- taking the gain before overextension snaps back"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited at +55.75pts (t=3m) after a clean run-up with 0% giveback. The trigger was a convergence of overextension signals: volatility expanding sharply (+8.3 delta), the fastest-TF (5s) lambda_hat flipping strongly negative (t=-4.23, a mean-reversion flag) even while 15s lambda stayed positive, and PROPP-against firing twice in the prior 3 minutes while price kept making new highs -- a classic blow-off signature. Next time I'd watch whether the 5s/15s lambda disagreement resolves before the peak (it may be an earlier, cheaper exit cue) and whether two consecutive against-fires during a new high is a reliable enough pattern on its own to trigger without waiting for the vol spike confirmation."
+}

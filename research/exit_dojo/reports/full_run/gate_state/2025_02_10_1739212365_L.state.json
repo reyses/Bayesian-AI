@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_02_10_1739212365_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3476818d7938e3be",
+      "ts": 1784316252.3965335
+    },
+    {
+      "frame": 1,
+      "nonce": "999590fce6bdfa2e",
+      "ts": 1784316260.7899494
+    },
+    {
+      "frame": 2,
+      "nonce": "8749f7f32f55604f",
+      "ts": 1784316271.5735254
+    },
+    {
+      "frame": 3,
+      "nonce": "65c444c7daf94e23",
+      "ts": 1784316284.0263283
+    },
+    {
+      "frame": 4,
+      "nonce": "8bb790f30f26e3f3",
+      "ts": 1784316292.1300118
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3476818d7938e3be",
+      "decision": "HOLD",
+      "reason": "Only 4m in, still near breakeven with recent 5m/15m highs near +10; giveback 26% of a 16.5pt leg is not extreme yet, no reversal fires printed"
+    },
+    {
+      "frame": 1,
+      "nonce": "999590fce6bdfa2e",
+      "decision": "HOLD",
+      "reason": "Giveback 61% is elevated but price ticked back to +1.5, no reversal fires, 1m lambda_hat_30 still positive (t=1.88) suggesting some continuation left"
+    },
+    {
+      "frame": 2,
+      "nonce": "8749f7f32f55604f",
+      "decision": "HOLD",
+      "reason": "Price dipped to -1.0 and ER10 is very low (0.07, choppy) but no clear reversal fire beyond an ambiguous HA-with 1m ago; still within noise of a 16.5pt leg"
+    },
+    {
+      "frame": 3,
+      "nonce": "65c444c7daf94e23",
+      "decision": "HOLD",
+      "reason": "New leg (age 0m) at -1.75, chop continues but no strong reversal fire; 1m/5m lambda still near zero/slightly positive"
+    },
+    {
+      "frame": 4,
+      "nonce": "8bb790f30f26e3f3",
+      "decision": "EXIT",
+      "reason": "First adverse fire (HA-against) plus rising ER10 (0.32, trend strengthening) in the adverse direction and strongly negative 15s lambda (t=-5.66) signal the leg turning against us at -2.25; cutting before it compounds"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Exited at frame 4 (t=4m, px -2.25) when the first adverse fire (HA-against) coincided with rising ER10 (0.07->0.32, chop giving way to a real trend) and a strongly negative 15s lambda (t=-5.66), after two prior frames of unresolved chop and elevated giveback (35-61%) with no favorable fires. Next time I'd watch for the ER10 inflection earlier and treat repeated high-giveback readings on a stalled leg as pre-warning rather than waiting for the named fire to confirm."
+}

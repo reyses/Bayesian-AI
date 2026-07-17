@@ -1,0 +1,8 @@
+# exit_code=0 dt=175s
+## STDOUT
+Episode complete. Rode the trend from entry to +77.00 (peak intrabar was ~+95), exiting when the 1m Î»Ì‚ turned significantly negative across all three lookback windows for two consecutive frames â€” the first persistent multi-window mean-reversion signature in the episode â€” paired with giveback spiking to its worst reading yet (16%). 19 total commits, exit at frame 18.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

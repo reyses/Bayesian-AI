@@ -1,0 +1,8 @@
+# exit_code=0 dt=190s
+## STDOUT
+Episode closed. Exited at **+35.75pts** (frame 7/22) after a sharp reversal signature: giveback spiked from 7% to 40% of max favorable excursion in one bar (peak +75.25 â†’ +35.75), 15s reversion probability collapsed to 0.064, and both KMDR/PROPP fired against the position for two straight minutes. Held through the first single against-fire and modest early giveback since the trend efficiency (ER10) kept climbing and new highs kept forming â€” exited once the pullback magnitude and momentum signals confirmed together rather than on the first warning alone.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

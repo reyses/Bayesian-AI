@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_08_11_1754919000_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7bd752a80b500524",
+      "ts": 1784312279.3312042
+    },
+    {
+      "frame": 1,
+      "nonce": "9e90c2023561a652",
+      "ts": 1784312292.9957383
+    },
+    {
+      "frame": 2,
+      "nonce": "72d5888658d26266",
+      "ts": 1784312305.8395994
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7bd752a80b500524",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, mixed multi-TF signal, no clear exit trigger yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9e90c2023561a652",
+      "decision": "HOLD",
+      "reason": "px +7.5, but giveback 75% of amp and ER10 low(0.19)=choppy; want one more frame to confirm fade vs noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "72d5888658d26266",
+      "decision": "EXIT",
+      "reason": "px spiked to +27.5pts fast, ER10 near 0 (choppy/exhaustion), CLIMAX-with fired = blow-off risk of snapback; lock in the gain"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Exited at +27.5pts after price spiked sharply favorable in one bar with ER10 collapsing to ~0.04 (choppy/exhaustion) and a CLIMAX-with fire, signaling a blow-off move likely to mean-revert rather than continue. Held through frame 0-1 despite high local-leg giveback readings since px was still near flat/modest; the trigger was the combination of rapid favorable acceleration plus low efficiency ratio, not the giveback stat alone. Next time I'd also want to watch whether lambda_hat flips sign across TFs right at the spike to distinguish a real breakout continuation from a climax reversal before exiting so early."
+}

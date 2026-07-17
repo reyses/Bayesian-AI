@@ -1,0 +1,8 @@
+# exit_code=0 dt=313s
+## STDOUT
+Episode closed. Exited at **+54.75pts** on frame 17 (t=17m) after price dropped from a +72.25 high with giveback hitting 67% on the active leg and all three turn detectors (KMDR/HA/PROPP) converging against the position simultaneously â€” the first time in the episode all three agreed at 0m lag. Held through numerous earlier chop cycles where price kept reclaiming new highs (up to +73 at t=7-8m), so the exit trigger was specifically the combination of a fresh drop off a new high plus full detector convergence, not any single earlier warning.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

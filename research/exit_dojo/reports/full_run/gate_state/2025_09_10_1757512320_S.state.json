@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_09_10_1757512320_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f50499b7d2ca8697",
+      "ts": 1784315508.3743567
+    },
+    {
+      "frame": 1,
+      "nonce": "c613bdc98cebf8ad",
+      "ts": 1784315517.7648714
+    },
+    {
+      "frame": 2,
+      "nonce": "afebb346ee983bc0",
+      "ts": 1784315525.610244
+    },
+    {
+      "frame": 3,
+      "nonce": "7b6437ea4f2ca565",
+      "ts": 1784315542.2416942
+    },
+    {
+      "frame": 4,
+      "nonce": "78ca72815ea1daea",
+      "ts": 1784315551.6448615
+    },
+    {
+      "frame": 5,
+      "nonce": "aa8b5177b6162e09",
+      "ts": 1784315558.2694716
+    },
+    {
+      "frame": 6,
+      "nonce": "4796f96cb185e66b",
+      "ts": 1784315567.7331526
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f50499b7d2ca8697",
+      "decision": "HOLD",
+      "reason": "frame0 at entry, no edge yet, gathering info"
+    },
+    {
+      "frame": 1,
+      "nonce": "c613bdc98cebf8ad",
+      "decision": "HOLD",
+      "reason": "px -3.75, only 1m in, giveback improving 98->69%, still early"
+    },
+    {
+      "frame": 2,
+      "nonce": "afebb346ee983bc0",
+      "decision": "HOLD",
+      "reason": "px -24.25 adverse but z/lambda not extreme yet; watching 3 against-fires closely next frame"
+    },
+    {
+      "frame": 3,
+      "nonce": "7b6437ea4f2ca565",
+      "decision": "HOLD",
+      "reason": "sharp reversal to px +6.00, giveback only 1%, PROPP now with \u2014 let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "78ca72815ea1daea",
+      "decision": "HOLD",
+      "reason": "px -3.75, choppy/near flat, mixed fires, no clear exit trigger"
+    },
+    {
+      "frame": 5,
+      "nonce": "aa8b5177b6162e09",
+      "decision": "HOLD",
+      "reason": "px -11.00, both fires against but magnitude still modest vs prior -24 swing; watching"
+    },
+    {
+      "frame": 6,
+      "nonce": "4796f96cb185e66b",
+      "decision": "EXIT",
+      "reason": "px -14.25 and worsening 3 straight frames, HA+PROPP against for 3 consecutive frames, giveback 63% of the 43.5pt favorable leg, lambda highly sig negative (t=-7.0 5s, t=-2.5 1m) -- close before it revisits the -24 low"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Exited on a sustained multi-frame deterioration signature: HA and PROPP detectors flipped against the position for 3 consecutive frames (t=4,5,6m), price eroded steadily from near-flat to -14.25pts, and the leg tracker showed 63% giveback of a 43.5pt favorable swing. The single strongest tell was the highly significant negative lambda_hat (t=-7.0 at 5s, t=-2.53 at 1m/30), signaling the deviation was actively collapsing rather than just noisy chop -- earlier single-frame adverse moves (the -24.25 spike at t=2m) had reversed within one bar, but this one had multi-frame persistence across two independent fire detectors, which is what made it different. Next time I'd watch for that same combo -- 2+ consecutive against-fires from different detectors plus a significant lambda_t -- as the discriminator between noise and a real reversal, rather than reacting to any single adverse frame."
+}

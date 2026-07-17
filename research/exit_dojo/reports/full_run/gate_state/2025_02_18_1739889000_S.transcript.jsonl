@@ -1,0 +1,11 @@
+{"ts": 1784306453.628093, "event": "serve", "frame": 0, "nonce": "eb3ccb7972ca5a49"}
+{"ts": 1784306461.4517837, "event": "commit", "frame": 0, "nonce": "eb3ccb7972ca5a49", "decision": "HOLD", "reason": "Entry frame, px flat, leg only 27m old with low giveback; no exit signal yet"}
+{"ts": 1784306464.4589806, "event": "serve", "frame": 1, "nonce": "e624b6189ab085a9"}
+{"ts": 1784306486.1117003, "event": "commit", "frame": 1, "nonce": "e624b6189ab085a9", "decision": "HOLD", "reason": "Px extended favorably to +9.5, amp growing to 74.8pts, giveback only 16pct; one against-fire but no confirmed reversal yet"}
+{"ts": 1784306489.0888517, "event": "serve", "frame": 2, "nonce": "3d68134844db2a70"}
+{"ts": 1784306493.8446434, "event": "commit", "frame": 2, "nonce": "3d68134844db2a70", "decision": "HOLD", "reason": "Px surged to +31.75, giveback shrank to 7pct, ER10 0.94 strong efficient trend continuing in our favor"}
+{"ts": 1784306497.3929193, "event": "serve", "frame": 3, "nonce": "a73aba7e7871ddc7"}
+{"ts": 1784306506.1652021, "event": "commit", "frame": 3, "nonce": "a73aba7e7871ddc7", "decision": "HOLD", "reason": "Giveback rose to 22pct (largest yet) but PROPP-with fire and ER10 0.95 still support continuation; watching closely"}
+{"ts": 1784306509.4029634, "event": "serve", "frame": 4, "nonce": "2cefc9e4cd9f9748"}
+{"ts": 1784306518.1340027, "event": "commit", "frame": 4, "nonce": "2cefc9e4cd9f9748", "decision": "EXIT", "reason": "Giveback accelerated 4->16->7->22->38pct while ER10 fell 0.95->0.67 and HA-against fired; amp stalled at peak 88.8 for 2 frames - reversal signature, locking in +4.75pts before further erosion"}
+{"ts": 1784306524.6656106, "event": "finish", "summary": "Exited at +4.75pts (frame 4/t=4m) on a giveback-acceleration + efficiency-collapse signature: giveback rose 4->16->7->22->38pct while ER10 fell from 0.95 to 0.67 and amplitude stalled at its 88.8pt peak for two consecutive frames, with an HA-against fire confirming the turn. Next time I'd watch for the giveback-rate second-derivative and ER10 breaking below ~0.7 as the earliest joint signal, rather than waiting for a single big red bar - the leg had already given back nearly 40% of its peak amplitude by the time both fired together.", "exit_frame": 4, "n_commits": 5}

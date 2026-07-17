@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_01_24_1737731100_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d456a67a7ceb0507",
+      "ts": 1784306107.7062695
+    },
+    {
+      "frame": 1,
+      "nonce": "7e73a56ea37f4134",
+      "ts": 1784306114.7997606
+    },
+    {
+      "frame": 2,
+      "nonce": "fb475b33e278d07b",
+      "ts": 1784306123.6285875
+    },
+    {
+      "frame": 3,
+      "nonce": "bfa6272e2e71acb5",
+      "ts": 1784306137.039556
+    },
+    {
+      "frame": 4,
+      "nonce": "2e01012728cf8c41",
+      "ts": 1784306146.9605343
+    },
+    {
+      "frame": 5,
+      "nonce": "bd538c87e9a82b8b",
+      "ts": 1784306155.7520666
+    },
+    {
+      "frame": 6,
+      "nonce": "d957e3fd7b93b90a",
+      "ts": 1784306166.270925
+    },
+    {
+      "frame": 7,
+      "nonce": "463223d639e80740",
+      "ts": 1784306176.4535599
+    },
+    {
+      "frame": 8,
+      "nonce": "b34f1389216bb99c",
+      "ts": 1784306186.6940792
+    },
+    {
+      "frame": 9,
+      "nonce": "fed7aefb117a0530",
+      "ts": 1784306197.0085728
+    },
+    {
+      "frame": 10,
+      "nonce": "5f0daf01433dd846",
+      "ts": 1784306206.244814
+    },
+    {
+      "frame": 11,
+      "nonce": "042ebdfaf1c8800c",
+      "ts": 1784306214.5250854
+    },
+    {
+      "frame": 12,
+      "nonce": "d757faf3a2cfd147",
+      "ts": 1784306225.3805444
+    },
+    {
+      "frame": 13,
+      "nonce": "7084e16282f56435",
+      "ts": 1784306233.944877
+    },
+    {
+      "frame": 14,
+      "nonce": "12cc48a71f960b16",
+      "ts": 1784306241.845168
+    },
+    {
+      "frame": 15,
+      "nonce": "7a2487cce3f14c37",
+      "ts": 1784306250.0345976
+    },
+    {
+      "frame": 16,
+      "nonce": "5f32d81c22f90586",
+      "ts": 1784306257.7199326
+    },
+    {
+      "frame": 17,
+      "nonce": "74f8b955f77a32dd",
+      "ts": 1784306266.581613
+    },
+    {
+      "frame": 18,
+      "nonce": "ac93eab9b60f165a",
+      "ts": 1784306283.1025116
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d456a67a7ceb0507",
+      "decision": "HOLD",
+      "reason": "frame0: at entry, no adverse move yet, lambda mixed, wait for signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "7e73a56ea37f4134",
+      "decision": "HOLD",
+      "reason": "px +5.75 favorable, giveback only 1%, trend still working"
+    },
+    {
+      "frame": 2,
+      "nonce": "fb475b33e278d07b",
+      "decision": "HOLD",
+      "reason": "px reversed to -8.50, giveback 38%, but high hurst on fast TFs suggests trend not yet broken; watching closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "bfa6272e2e71acb5",
+      "decision": "HOLD",
+      "reason": "px recovered slightly to -6.75, giveback down to 30%, ER10 dropped (chop, not trend against us)"
+    },
+    {
+      "frame": 4,
+      "nonce": "2e01012728cf8c41",
+      "decision": "HOLD",
+      "reason": "px -5.25 stabilizing, new leg low giveback 13%, chop regime not a clean trend against us"
+    },
+    {
+      "frame": 5,
+      "nonce": "bd538c87e9a82b8b",
+      "decision": "HOLD",
+      "reason": "px -6.00, oscillating chop range -5 to -8, reversion_prob still high 0.95-0.99, no clean adverse trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "d957e3fd7b93b90a",
+      "decision": "HOLD",
+      "reason": "px improving to -4.25, giveback down to 26%, vol contracting further, chop range holding"
+    },
+    {
+      "frame": 7,
+      "nonce": "463223d639e80740",
+      "decision": "HOLD",
+      "reason": "px near flat -0.75, essentially breakeven, giveback% high but on tiny leg amplitude, no real damage"
+    },
+    {
+      "frame": 8,
+      "nonce": "b34f1389216bb99c",
+      "decision": "HOLD",
+      "reason": "px -3.75, still in the same -0 to -8 chop band; both fires against is a caution flag but no breakdown yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "fed7aefb117a0530",
+      "decision": "HOLD",
+      "reason": "px +9.00, new high favorable, chop resolved upward for us, let it run"
+    },
+    {
+      "frame": 10,
+      "nonce": "5f0daf01433dd846",
+      "decision": "HOLD",
+      "reason": "px +9.25 holding gains, still favorable, no reversal signal yet"
+    },
+    {
+      "frame": 11,
+      "nonce": "042ebdfaf1c8800c",
+      "decision": "HOLD",
+      "reason": "px +20.25, big favorable breakout, new leg giveback only 7%, let winner run"
+    },
+    {
+      "frame": 12,
+      "nonce": "d757faf3a2cfd147",
+      "decision": "HOLD",
+      "reason": "px +16.00, minor pullback from +20.25 peak, giveback only 12%, trend intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "7084e16282f56435",
+      "decision": "HOLD",
+      "reason": "px +19.50 near peak, giveback 10%, ER10 rising to 0.60, trend strengthening"
+    },
+    {
+      "frame": 14,
+      "nonce": "12cc48a71f960b16",
+      "decision": "HOLD",
+      "reason": "px +14.25, giveback 23% off peak but still strongly favorable, no reversal confirmed"
+    },
+    {
+      "frame": 15,
+      "nonce": "7a2487cce3f14c37",
+      "decision": "HOLD",
+      "reason": "px +12.50, new leg giveback only 3%, position stabilizing well in profit"
+    },
+    {
+      "frame": 16,
+      "nonce": "5f32d81c22f90586",
+      "decision": "HOLD",
+      "reason": "px +33.00 new high, lambda strongly positive (t=4.8) on fast TF, HA and PROPP both fire with-trend, ride it"
+    },
+    {
+      "frame": 17,
+      "nonce": "74f8b955f77a32dd",
+      "decision": "HOLD",
+      "reason": "px +23.75, pulled back from +33 peak but still deep in profit; HA/PROPP still with-trend, watching 1m lambda mean-reversion warning closely"
+    },
+    {
+      "frame": 18,
+      "nonce": "ac93eab9b60f165a",
+      "decision": "EXIT",
+      "reason": "px +29.50 near recent extended high; lambda_hat significantly negative on both 5s (t=-5.54) and 1m (t=-3.66), a third straight frame of significant reversion signal after a big whipsaw (33->23.75->29.5) -- lock in the gain before it reverts"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Exited at +29.50pts after the position round-tripped through a large favorable swing (peak +33, pullback to +23.75, rebound to +29.5) while lambda_hat turned significantly negative (t=-5.5 on 5s, t=-3.7 on 1m) for three consecutive frames -- a persistent mean-reversion signal on top of an already-extended favorable move. Next time I'd watch for lambda flipping sign with rising t-stat magnitude sooner, and weight cumulative giveback-of-peak alongside the raw favorable point count rather than continuing to hold purely because the position is still net profitable."
+}

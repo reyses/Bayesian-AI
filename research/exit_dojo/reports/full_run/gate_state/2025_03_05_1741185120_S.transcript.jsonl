@@ -1,0 +1,21 @@
+{"ts": 1784311096.294025, "event": "serve", "frame": 0, "nonce": "70dfb4cd0364f7e4"}
+{"ts": 1784311101.6863787, "event": "commit", "frame": 0, "nonce": "70dfb4cd0364f7e4", "decision": "HOLD", "reason": "Just entered, px flat, no adverse signature yet"}
+{"ts": 1784311104.0980432, "event": "serve", "frame": 1, "nonce": "5984709dc0806228"}
+{"ts": 1784311107.9410641, "event": "commit", "frame": 1, "nonce": "5984709dc0806228", "decision": "HOLD", "reason": "px +14.75, giveback only 4%, both fires with trend"}
+{"ts": 1784311111.07683, "event": "serve", "frame": 2, "nonce": "22d3972dc6f988ea"}
+{"ts": 1784311117.2554486, "event": "commit", "frame": 2, "nonce": "22d3972dc6f988ea", "decision": "HOLD", "reason": "px +11.75 still favorable, fires still with-trend despite giveback rising to 30%"}
+{"ts": 1784311119.5091515, "event": "serve", "frame": 3, "nonce": "0a9473411f6e94bc"}
+{"ts": 1784311126.881374, "event": "commit", "frame": 3, "nonce": "0a9473411f6e94bc", "decision": "HOLD", "reason": "px still +4 favorable but giveback climbing fast to 43%, watching closely next frame"}
+{"ts": 1784311129.456102, "event": "serve", "frame": 4, "nonce": "95f0624de90a7042"}
+{"ts": 1784311136.684448, "event": "commit", "frame": 4, "nonce": "95f0624de90a7042", "decision": "HOLD", "reason": "px improved to +13.75, giveback eased to 31%, but noting both fires flipped against this frame"}
+{"ts": 1784311139.4925766, "event": "serve", "frame": 5, "nonce": "06a7ed96778d7ad2"}
+{"ts": 1784311146.6230297, "event": "commit", "frame": 5, "nonce": "06a7ed96778d7ad2", "decision": "HOLD", "reason": "big favorable move to +56, giveback only 14%, majority fires still with-trend despite KMDR against"}
+{"ts": 1784311149.3244553, "event": "serve", "frame": 6, "nonce": "29c1b418bf99cfae"}
+{"ts": 1784311154.8166878, "event": "commit", "frame": 6, "nonce": "29c1b418bf99cfae", "decision": "HOLD", "reason": "new peak px +69, giveback 0%, ER10 rising to 0.45, reversion_prob dropped -- trending regime, ride"}
+{"ts": 1784311157.380159, "event": "serve", "frame": 7, "nonce": "fee5a6b670bfa2c6"}
+{"ts": 1784311163.0254788, "event": "commit", "frame": 7, "nonce": "fee5a6b670bfa2c6", "decision": "HOLD", "reason": "px +78 new highs, reversion_prob 1m at 0.00 (pure trend regime), lambda strongly positive, ride"}
+{"ts": 1784311168.705942, "event": "serve", "frame": 8, "nonce": "153c599d28c3fdd9"}
+{"ts": 1784311183.921549, "event": "commit", "frame": 8, "nonce": "153c599d28c3fdd9", "decision": "HOLD", "reason": "sharp giveback to 45% but still +21.25 favorable, watching if this stabilizes or continues eroding"}
+{"ts": 1784311186.186339, "event": "serve", "frame": 9, "nonce": "4e932577a138cdc6"}
+{"ts": 1784311193.0149043, "event": "commit", "frame": 9, "nonce": "4e932577a138cdc6", "decision": "EXIT", "reason": "Round-tripped from +78 peak to -5.25, giveback 80%, lambda_hat_12/21 5s strongly negative (t=-5.3), HA now against -- reversal confirmed"}
+{"ts": 1784311198.3147202, "event": "finish", "summary": "Rode a strong favorable run from +14 to a +78 peak while giveback stayed low and reversion_prob/ER10 signaled a trending regime, but exited once price fully round-tripped to -5.25 (80% giveback) with 5s lambda_hat sharply negative (t=-5.3) and HA flipping against -- the reversal was no longer noise but a confirmed regime flip. Next time I'd weight the KMDR-against fire more heavily once it persists 3+ minutes (it led this reversal by several minutes) rather than waiting for the full round-trip, to bank more of the peak.", "exit_frame": 9, "n_commits": 10}

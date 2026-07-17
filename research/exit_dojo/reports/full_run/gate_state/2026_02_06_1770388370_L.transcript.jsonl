@@ -1,0 +1,23 @@
+{"ts": 1784309790.9406645, "event": "serve", "frame": 0, "nonce": "acd10a59a0457319"}
+{"ts": 1784309803.151038, "event": "commit", "frame": 0, "nonce": "acd10a59a0457319", "decision": "HOLD", "reason": "px flat at 0, big prior leg gave back 77%; but 1h/4h still net positive z_se, too early to judge trend, wait for next frame"}
+{"ts": 1784309805.4182, "event": "serve", "frame": 1, "nonce": "4e17a41e2690b4fc"}
+{"ts": 1784309812.616703, "event": "commit", "frame": 1, "nonce": "4e17a41e2690b4fc", "decision": "HOLD", "reason": "px surged to +52.5, strong bullish 1m/5s bars, z_se and lambda positive+significant across TFs, momentum favors ride"}
+{"ts": 1784309814.9470086, "event": "serve", "frame": 2, "nonce": "813083ecb0557451"}
+{"ts": 1784309821.304225, "event": "commit", "frame": 2, "nonce": "813083ecb0557451", "decision": "HOLD", "reason": "px pulled back to +31.5 from +52.5 but 1m lambda_t_21 +4.2 and z_se +3.5 still strongly trend-confirming; 5s pullback looks like noise not reversal"}
+{"ts": 1784309823.6648097, "event": "serve", "frame": 3, "nonce": "e5338dbdd93e2fdf"}
+{"ts": 1784309830.2271926, "event": "commit", "frame": 3, "nonce": "e5338dbdd93e2fdf", "decision": "HOLD", "reason": "new leg amp 159.8pts giveback only 9%, px +40, 1m lambda_t_21 +4.4 still strongly trending; 5m lambda_30 decel is a watch-item but not yet a reversal"}
+{"ts": 1784309832.4678512, "event": "serve", "frame": 4, "nonce": "d0e1e644106d5bc5"}
+{"ts": 1784309836.5581107, "event": "commit", "frame": 4, "nonce": "d0e1e644106d5bc5", "decision": "HOLD", "reason": "px +35.5, giveback only 11% of 159.8pt leg, 1m lambda_t_21 +3.85 still trend-confirming"}
+{"ts": 1784309839.0857422, "event": "serve", "frame": 5, "nonce": "e61fe9401dcead04"}
+{"ts": 1784309843.582659, "event": "commit", "frame": 5, "nonce": "e61fe9401dcead04", "decision": "HOLD", "reason": "px +49.5 near leg high, giveback just 1%, 1m lambda_t_21 +3.79 still confirms trend"}
+{"ts": 1784309846.1195743, "event": "serve", "frame": 6, "nonce": "1b6669e1b8e9e4ad"}
+{"ts": 1784309850.7622216, "event": "commit", "frame": 6, "nonce": "1b6669e1b8e9e4ad", "decision": "HOLD", "reason": "px +99, new leg high amp 201.5pts giveback 1%, ER10 rose to 0.63, 1m lambda_t_21 +3.73 still trending"}
+{"ts": 1784309853.172621, "event": "serve", "frame": 7, "nonce": "f24c5006d8c1af27"}
+{"ts": 1784309857.3402133, "event": "commit", "frame": 7, "nonce": "f24c5006d8c1af27", "decision": "HOLD", "reason": "px +95.25, ER10 up to 0.68 (best yet, trend efficient), 1m lambda_t_21 +3.46 still positive, giveback only 6%"}
+{"ts": 1784309859.5863326, "event": "serve", "frame": 8, "nonce": "30808a732209f0e6"}
+{"ts": 1784309866.7924104, "event": "commit", "frame": 8, "nonce": "30808a732209f0e6", "decision": "HOLD", "reason": "new high px +107, giveback 0%, ER10 0.71 best yet, 5m reversion_prob 0.0 (trending regime), 1m lambda_t_30 +4.44"}
+{"ts": 1784309869.4849725, "event": "serve", "frame": 9, "nonce": "53023509545348df"}
+{"ts": 1784309889.192051, "event": "commit", "frame": 9, "nonce": "53023509545348df", "decision": "HOLD", "reason": "sharp pullback 107->43.5, giveback 26% (largest yet), 5s/15s z_se -2.3/-2.4 and 2 against-fires are a warning, but 1m/5m still bullish (lambda_t_30 +4.48) and every prior pullback in this leg recovered to new highs; watching closely next frame"}
+{"ts": 1784309891.6406655, "event": "serve", "frame": 10, "nonce": "44ca580b421b9d0f"}
+{"ts": 1784309908.6101415, "event": "commit", "frame": 10, "nonce": "44ca580b421b9d0f", "decision": "EXIT", "reason": "3 signal families now against (KMDR, HA, PROPP) within last 2m, 1m bar closed near its low (clsInRng 0.10) after a -63.5pt reversal candle, giveback stuck at 25-26% for 2 straight frames (not recovering like prior smaller pullbacks), ER10 collapsed 0.90->0.41; locking in +45.5pts"}
+{"ts": 1784309916.6338954, "event": "finish", "summary": "Rode a strong 1m/5m trend from +52 to +107 while ER10 climbed toward 0.9 and giveback stayed near 0%, holding through several shallow (0-11%) pullbacks that each recovered to new highs. Exited at +45.5 when the character changed: a -63.5pt 1m reversal candle closed near its low, giveback held at 25-26% across two consecutive frames instead of recovering, and three independent signal families (KMDR, HA, PROPP) all flipped against the position within 2 minutes -- the first time multiple families agreed on direction. Next time I'd watch for that same combo (candle closing near its range low + giveback plateauing above ~20% + multi-family fire agreement) as the earliest reliable turn signature, versus single-family fires or shallow single-digit giveback which this trade showed were just noise within the trend.", "exit_frame": 10, "n_commits": 11}

@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_11_17_1763391940_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "b5327598d949f63f",
+      "ts": 1784313326.6976578
+    },
+    {
+      "frame": 1,
+      "nonce": "e616a8bec8322de2",
+      "ts": 1784313354.798928
+    },
+    {
+      "frame": 2,
+      "nonce": "d47f0864aa40980a",
+      "ts": 1784313366.4511127
+    },
+    {
+      "frame": 3,
+      "nonce": "ee57a27e0b47fe78",
+      "ts": 1784313374.941484
+    },
+    {
+      "frame": 4,
+      "nonce": "4b872e8f8a7b3322",
+      "ts": 1784313385.8945746
+    },
+    {
+      "frame": 5,
+      "nonce": "40e4b5563cb4db89",
+      "ts": 1784313397.4999182
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "b5327598d949f63f",
+      "decision": "HOLD",
+      "reason": "px flat vs entry after 142.8pt favorable leg, only 26% given back; PROPP-with just fired, KMDR-against 1m stale; multi-TF lambda mostly positive (trending) except 15m; too early to bail"
+    },
+    {
+      "frame": 1,
+      "nonce": "e616a8bec8322de2",
+      "decision": "HOLD",
+      "reason": "giveback barely moved 26->27%, PROPP-with still firing fresh, 1m lambda strongly positive (trend continuation); ER10 dropping (0.90->0.61) is a caution flag but not yet a reversal signature"
+    },
+    {
+      "frame": 2,
+      "nonce": "d47f0864aa40980a",
+      "decision": "HOLD",
+      "reason": "px recovered to +24.75, giveback collapsed to 4%, PROPP-with fresh again, 1m lambda still strongly positive; HA-against is new but single fire against a fresh favorable push"
+    },
+    {
+      "frame": 3,
+      "nonce": "ee57a27e0b47fe78",
+      "decision": "HOLD",
+      "reason": "px extended sharply to +60.75, HA flipped to with-position, PROPP-with fresh again; strong favorable continuation, no reversal signature yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "4b872e8f8a7b3322",
+      "decision": "HOLD",
+      "reason": "px new high +72.00, 1m lambda still strongly trending; PROPP flipped to against (first this episode) and vol(5m) jumped +10.6 -- watching closely next frame for confirmation but one fresh against-fire isn't enough to bail on a new high"
+    },
+    {
+      "frame": 5,
+      "nonce": "40e4b5563cb4db89",
+      "decision": "EXIT",
+      "reason": "PROPP-against confirmed 2 consecutive frames (only repeat-fire all episode) right as px dropped from peak +72.00 to +44.50, a ~28pt giveback off the high -- taking the confirmed reversal signature over the still-positive 1m lambda"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through the first 4 minutes as the leg ran from breakeven to a new high of +72.00pts, backed by consistently positive 1m lambda (trend continuation) and a repeatedly-firing PROPP-with signal. Exited at +44.50pts once PROPP flipped and fired against the position on two consecutive frames while price gave back ~28pts off the peak -- that repeat-confirmation was the only signal in the episode that fired twice in a row against the trade, and I weighted it over the still-positive lambda. Next time I'd also watch ER10 (efficiency ratio) trend and vol(5m) expansion together with the against-fire, since both ticked up right before the reversal and could serve as an earlier corroborating cue."
+}

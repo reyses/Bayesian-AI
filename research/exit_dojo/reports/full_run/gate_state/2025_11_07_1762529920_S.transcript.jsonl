@@ -1,0 +1,27 @@
+{"ts": 1784309301.4119039, "event": "serve", "frame": 0, "nonce": "03b0a7c5d1866bb1"}
+{"ts": 1784309307.4062843, "event": "commit", "frame": 0, "nonce": "03b0a7c5d1866bb1", "decision": "HOLD", "reason": "entry frame, px flat at 0, no signal yet to act on"}
+{"ts": 1784309314.765612, "event": "serve", "frame": 1, "nonce": "bd2b464e80040347"}
+{"ts": 1784309328.962869, "event": "commit", "frame": 1, "nonce": "bd2b464e80040347", "decision": "HOLD", "reason": "px +13.5 favorable, fires HA/PROPP both with position, mixed lambda across TFs but early leg age 2m"}
+{"ts": 1784309331.3815224, "event": "serve", "frame": 2, "nonce": "f58c0da8ea2ea3a6"}
+{"ts": 1784309335.7227452, "event": "commit", "frame": 2, "nonce": "f58c0da8ea2ea3a6", "decision": "HOLD", "reason": "px steady +12.25, 1m lambda still positive/ride sig, fires with position"}
+{"ts": 1784309338.9833946, "event": "serve", "frame": 3, "nonce": "f598faaf2a1b5b2d"}
+{"ts": 1784309344.370069, "event": "commit", "frame": 3, "nonce": "f598faaf2a1b5b2d", "decision": "HOLD", "reason": "px jumped to +35.5, fresh leg giveback 0%, 1m lambda still ride-positive sig"}
+{"ts": 1784309346.94071, "event": "serve", "frame": 4, "nonce": "04cab8e923125a71"}
+{"ts": 1784309354.92964, "event": "commit", "frame": 4, "nonce": "04cab8e923125a71", "decision": "HOLD", "reason": "px +32, giveback only 9% off new peak 51.5; first against-fires (KMDR/PROPP) but 1m lambda still ride-positive sig, 5s noise not trusted alone"}
+{"ts": 1784309357.2388358, "event": "serve", "frame": 5, "nonce": "d2430786fbeb295e"}
+{"ts": 1784309362.528757, "event": "commit", "frame": 5, "nonce": "d2430786fbeb295e", "decision": "HOLD", "reason": "px steady +32.5, giveback only 14%, 1m lambda still ride-positive sig, vol cooling not spiking"}
+{"ts": 1784309370.0221596, "event": "serve", "frame": 6, "nonce": "5805580b6571d19c"}
+{"ts": 1784309374.573057, "event": "commit", "frame": 6, "nonce": "5805580b6571d19c", "decision": "HOLD", "reason": "new high px +42.5, giveback 0%, PROPP flipped back with, 1m lambda still ride-positive"}
+{"ts": 1784309377.5048757, "event": "serve", "frame": 7, "nonce": "95f6fcf8cc496d62"}
+{"ts": 1784309384.9042788, "event": "commit", "frame": 7, "nonce": "95f6fcf8cc496d62", "decision": "HOLD", "reason": "new peak amp70.5 px+45.75, giveback 17% acceptable, 1m lambda still ride-positive sig, 15m reversion_prob dropped (trending continuation)"}
+{"ts": 1784309389.527376, "event": "serve", "frame": 8, "nonce": "504ac3afc32a7231"}
+{"ts": 1784309393.6047566, "event": "commit", "frame": 8, "nonce": "504ac3afc32a7231", "decision": "HOLD", "reason": "px +58, giveback only 9%, 1m lambda ride-positive sig still holds, trend intact"}
+{"ts": 1784309396.7954812, "event": "serve", "frame": 9, "nonce": "033f80181c1600e3"}
+{"ts": 1784309411.082143, "event": "commit", "frame": 9, "nonce": "033f80181c1600e3", "decision": "HOLD", "reason": "pullback to +33.75, giveback 26% off peak amp76.2 - notable but not extreme; 1m lambda_30 still ride-positive, known graveyard pattern is cutting winners on pullback loses"}
+{"ts": 1784309414.169735, "event": "serve", "frame": 10, "nonce": "4e60e9c66d10e5d4"}
+{"ts": 1784309419.2543375, "event": "commit", "frame": 10, "nonce": "4e60e9c66d10e5d4", "decision": "HOLD", "reason": "px recovered to +55.75, giveback back down to 13%, 1m lambda_30 still ride-positive despite against-fires"}
+{"ts": 1784309422.7514105, "event": "serve", "frame": 11, "nonce": "3a1b5f49bef339a8"}
+{"ts": 1784309446.4423103, "event": "commit", "frame": 11, "nonce": "3a1b5f49bef339a8", "decision": "HOLD", "reason": "1m lambda flipped strongly negative both windows (t=-2.9,-3.2) - real reversion signal at anchor TF, watching for price confirmation next frame before acting"}
+{"ts": 1784309449.9299138, "event": "serve", "frame": 12, "nonce": "c0251a7209493e03"}
+{"ts": 1784309461.113249, "event": "commit", "frame": 12, "nonce": "c0251a7209493e03", "decision": "EXIT", "reason": "1m anchor-TF lambda confirmed negative 2 frames running (t=-2.5,-3.6), price retraced +58->+36 confirming reversion, giveback 33% - exiting to lock +36.25"}
+{"ts": 1784309472.6763082, "event": "finish", "summary": "Held through the initial run-up (13 to 58 pts favorable) while the 1m anchor-TF lambda stayed ride-positive and giveback stayed under about 20 percent, ignoring noisy 5s-only reversion blips per the known 5s-is-noise trap. Exited at 36.25 pts once the 1m lambda flipped decisively negative on both the 12- and 21-bar windows for two consecutive frames AND price actually retraced about 22 points from the 58 peak, so signal plus realized price action confirmed together. Next time watch for that anchor-TF lambda-sign-flip plus price-confirmation pattern as the primary exit trigger, and avoid reacting to single-frame reversion signals on 5s alone.", "exit_frame": 12, "n_commits": 13}

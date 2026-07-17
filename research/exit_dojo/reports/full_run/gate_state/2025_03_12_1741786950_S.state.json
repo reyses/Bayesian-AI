@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_03_12_1741786950_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "48626d94377b4e47",
+      "ts": 1784311094.7693777
+    },
+    {
+      "frame": 1,
+      "nonce": "ed925927f57ca180",
+      "ts": 1784311102.7132642
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "48626d94377b4e47",
+      "decision": "HOLD",
+      "reason": "Early frame, strong favorable move already banked, no reversal signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "ed925927f57ca180",
+      "decision": "EXIT",
+      "reason": "Giveback jumped 21%->76% of peak amp with no new highs, ER10 collapsed to 0.04, short-window lambda/velocity turned unfavorable, and CLIMAX/HA/PROPP turn-fires clustered together -- locking in +34.25pts before further reversion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Held frame 0 since the favorable move was fresh and no reversal signature was present. Exited at frame 1 (t=1m) at +34.25pts because the giveback ratio jumped from 21% to 76% of the peak 59.2pt amplitude with no new favorable extreme, ER10 collapsed to 0.04 (trend efficiency gone / pure chop), short-window price velocity and lambda flipped unfavorable, and CLIMAX/HA/PROPP turn-detectors had all fired within the last 0-2 minutes -- a clustered turn signature on top of a fast giveback. Next time I'd watch giveback% crossing ~50-70% of peak amplitude combined with ER10 dropping toward zero as the earliest combined warning, rather than waiting for price to round-trip further."
+}

@@ -1,0 +1,210 @@
+{
+  "episode_id": "2025_09_05_1757080330_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ad5d931196e7f65e",
+      "ts": 1784309111.0596635
+    },
+    {
+      "frame": 1,
+      "nonce": "2f665dc2ba672ef7",
+      "ts": 1784309120.8259366
+    },
+    {
+      "frame": 2,
+      "nonce": "235c4fb0c5a8a002",
+      "ts": 1784309135.6304138
+    },
+    {
+      "frame": 3,
+      "nonce": "114fd9cee6e51b34",
+      "ts": 1784309146.6074
+    },
+    {
+      "frame": 4,
+      "nonce": "0162e35ff1866f23",
+      "ts": 1784309153.3524365
+    },
+    {
+      "frame": 5,
+      "nonce": "9243af27e5370892",
+      "ts": 1784309160.4177878
+    },
+    {
+      "frame": 6,
+      "nonce": "9b2b9416df8d2466",
+      "ts": 1784309170.611207
+    },
+    {
+      "frame": 7,
+      "nonce": "b15669b974697d68",
+      "ts": 1784309177.9331293
+    },
+    {
+      "frame": 8,
+      "nonce": "2dd15ede6ba37a71",
+      "ts": 1784309188.6172225
+    },
+    {
+      "frame": 9,
+      "nonce": "e41ace1f6982210a",
+      "ts": 1784309195.9544723
+    },
+    {
+      "frame": 10,
+      "nonce": "8faeb454fce2ee4e",
+      "ts": 1784309204.6854618
+    },
+    {
+      "frame": 11,
+      "nonce": "aeb16b0d30de89d8",
+      "ts": 1784309211.6643968
+    },
+    {
+      "frame": 12,
+      "nonce": "c84faf21ed38e488",
+      "ts": 1784309218.9218698
+    },
+    {
+      "frame": 13,
+      "nonce": "a974725230d3d876",
+      "ts": 1784309225.6036196
+    },
+    {
+      "frame": 14,
+      "nonce": "d19f0952d4dcb53d",
+      "ts": 1784309232.2829306
+    },
+    {
+      "frame": 15,
+      "nonce": "c7050f23f1846a59",
+      "ts": 1784309239.355723
+    },
+    {
+      "frame": 16,
+      "nonce": "52481d43725de346",
+      "ts": 1784309245.737633
+    },
+    {
+      "frame": 17,
+      "nonce": "c977164490dfe180",
+      "ts": 1784309262.0608506
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ad5d931196e7f65e",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse signal yet, wait for development"
+    },
+    {
+      "frame": 1,
+      "nonce": "2f665dc2ba672ef7",
+      "decision": "HOLD",
+      "reason": "still favorable +9.5pts though giveback 100% of the 50.5pt leg amp; too early to call, watching for further erosion"
+    },
+    {
+      "frame": 2,
+      "nonce": "235c4fb0c5a8a002",
+      "decision": "HOLD",
+      "reason": "px only -2pts, choppy (ER10=0), both HA and PROPP fire with the position; small noise not a reversal signal"
+    },
+    {
+      "frame": 3,
+      "nonce": "114fd9cee6e51b34",
+      "decision": "HOLD",
+      "reason": "px +12.25pts, fresh leg giveback 0%, both HA/PROPP still with position"
+    },
+    {
+      "frame": 4,
+      "nonce": "0162e35ff1866f23",
+      "decision": "HOLD",
+      "reason": "px +11.75pts, leg amp grew to 59.5 giveback only 24%, still favorable trend"
+    },
+    {
+      "frame": 5,
+      "nonce": "9243af27e5370892",
+      "decision": "HOLD",
+      "reason": "px +7pts, giveback modest 19%, choppy but still net favorable, no reversal fire"
+    },
+    {
+      "frame": 6,
+      "nonce": "9b2b9416df8d2466",
+      "decision": "HOLD",
+      "reason": "px +18.75pts strong, giveback low 10%, one PROPP-against fire but no confirmation yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "b15669b974697d68",
+      "decision": "HOLD",
+      "reason": "px slid from +18.75 to +2.75, giveback jumped to 30%, PROPP-against fired 2 in a row - watching closely for confirmation next frame"
+    },
+    {
+      "frame": 8,
+      "nonce": "2dd15ede6ba37a71",
+      "decision": "HOLD",
+      "reason": "px recovered to +19.50pts, giveback down to 14%, prior against-fires didn't confirm"
+    },
+    {
+      "frame": 9,
+      "nonce": "e41ace1f6982210a",
+      "decision": "HOLD",
+      "reason": "px +41pts, giveback near zero (1%), both HA/PROPP with, strong momentum continuing"
+    },
+    {
+      "frame": 10,
+      "nonce": "8faeb454fce2ee4e",
+      "decision": "HOLD",
+      "reason": "px +26.5pts, giveback modest 10%, ER10 up to 0.43 (trend efficient), holding through the pullback"
+    },
+    {
+      "frame": 11,
+      "nonce": "aeb16b0d30de89d8",
+      "decision": "HOLD",
+      "reason": "px +29.5pts, stable giveback 10%, both HA/PROPP with"
+    },
+    {
+      "frame": 12,
+      "nonce": "c84faf21ed38e488",
+      "decision": "HOLD",
+      "reason": "px +28.25pts, giveback stable ~11%, ER10 0.36 still trending"
+    },
+    {
+      "frame": 13,
+      "nonce": "a974725230d3d876",
+      "decision": "HOLD",
+      "reason": "px +24.75pts still solidly favorable, new leg giveback 25% within normal noise"
+    },
+    {
+      "frame": 14,
+      "nonce": "d19f0952d4dcb53d",
+      "decision": "HOLD",
+      "reason": "px new high +44.75pts, strong favorable move continuing"
+    },
+    {
+      "frame": 15,
+      "nonce": "c7050f23f1846a59",
+      "decision": "HOLD",
+      "reason": "px new high +47.75pts, HA/PROPP both with, momentum intact"
+    },
+    {
+      "frame": 16,
+      "nonce": "52481d43725de346",
+      "decision": "HOLD",
+      "reason": "px new high +59, but KMDR-against and PROPP-against both fired this bar - a leading-turn confluence I want to confirm before acting"
+    },
+    {
+      "frame": 17,
+      "nonce": "c977164490dfe180",
+      "decision": "EXIT",
+      "reason": "px slipping 59->56, giveback climbed 11%->22%, PROPP-against fired 2 bars running with KMDR-against still active - turn confluence at a fresh high, banking +56pts"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 17,
+  "finished": true,
+  "summary": "Exited at +56pts when a genuine turn signature appeared: PROPP-against fired two consecutive bars, KMDR-against (a known leading-turn signal) stayed active, and giveback jumped 11%->22% in one bar right after a fresh local high (+59pts). Earlier isolated against-fires (frames 6-7, 16) recovered and didn't warrant action, so the decision rule was confluence + persistence across bars, not any single fire. Next time I'd also watch whether ER10 drops sharply alongside the against-fires (efficiency collapsing = trend genuinely breaking) versus staying elevated (likely just noise/pullback within trend)."
+}

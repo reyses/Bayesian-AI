@@ -1,0 +1,210 @@
+{
+  "episode_id": "2025_11_12_1762958520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "27bc17c8d6b34f0f",
+      "ts": 1784313326.7330444
+    },
+    {
+      "frame": 1,
+      "nonce": "b4a3804ab509eeab",
+      "ts": 1784313335.9027762
+    },
+    {
+      "frame": 2,
+      "nonce": "c3329fa3a5106986",
+      "ts": 1784313341.6861935
+    },
+    {
+      "frame": 3,
+      "nonce": "2d73daf339df562b",
+      "ts": 1784313347.884772
+    },
+    {
+      "frame": 4,
+      "nonce": "23f5a4b13d3f81f2",
+      "ts": 1784313353.8730104
+    },
+    {
+      "frame": 5,
+      "nonce": "4f3c211cbeb75dd3",
+      "ts": 1784313360.654133
+    },
+    {
+      "frame": 6,
+      "nonce": "61f8cfc8b2cc7432",
+      "ts": 1784313369.9925704
+    },
+    {
+      "frame": 7,
+      "nonce": "a9a79096e80b29e6",
+      "ts": 1784313379.9628015
+    },
+    {
+      "frame": 8,
+      "nonce": "53fb84de0843fd88",
+      "ts": 1784313385.6701021
+    },
+    {
+      "frame": 9,
+      "nonce": "a684184be01ede67",
+      "ts": 1784313391.9742372
+    },
+    {
+      "frame": 10,
+      "nonce": "aaf0a2c0397ea137",
+      "ts": 1784313402.4681597
+    },
+    {
+      "frame": 11,
+      "nonce": "b36f85930a3ff4d6",
+      "ts": 1784313418.4984314
+    },
+    {
+      "frame": 12,
+      "nonce": "5d22f604aad5d917",
+      "ts": 1784313426.5946407
+    },
+    {
+      "frame": 13,
+      "nonce": "cb36e9b37125174c",
+      "ts": 1784313440.0394323
+    },
+    {
+      "frame": 14,
+      "nonce": "2713970d475b599a",
+      "ts": 1784313453.5475247
+    },
+    {
+      "frame": 15,
+      "nonce": "2967a2d8a2dce19b",
+      "ts": 1784313465.1233418
+    },
+    {
+      "frame": 16,
+      "nonce": "6f43795db7a3f406",
+      "ts": 1784313471.9385605
+    },
+    {
+      "frame": 17,
+      "nonce": "b2ff9d2de926fc06",
+      "ts": 1784313478.150655
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "27bc17c8d6b34f0f",
+      "decision": "HOLD",
+      "reason": "just entered, px flat, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "b4a3804ab509eeab",
+      "decision": "HOLD",
+      "reason": "px+3, small favorable drift, no reversal signature yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "c3329fa3a5106986",
+      "decision": "HOLD",
+      "reason": "px -3, minor chop within noise, giveback only 6%"
+    },
+    {
+      "frame": 3,
+      "nonce": "2d73daf339df562b",
+      "decision": "HOLD",
+      "reason": "px+7 improving, giveback low, KMDR/PROPP against but no confirmed turn"
+    },
+    {
+      "frame": 4,
+      "nonce": "23f5a4b13d3f81f2",
+      "decision": "HOLD",
+      "reason": "px+1.5, chop continues, giveback 4%, no strong reversal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "4f3c211cbeb75dd3",
+      "decision": "HOLD",
+      "reason": "px+47 strong favorable thrust, giveback 0%, ER10 0.67 trending, ride it"
+    },
+    {
+      "frame": 6,
+      "nonce": "61f8cfc8b2cc7432",
+      "decision": "HOLD",
+      "reason": "px+53.5, ER10 0.81 strongly trending, giveback still just 3%"
+    },
+    {
+      "frame": 7,
+      "nonce": "a9a79096e80b29e6",
+      "decision": "HOLD",
+      "reason": "px+70.5, ER10 0.76, giveback still 3%, trend intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "53fb84de0843fd88",
+      "decision": "HOLD",
+      "reason": "px+73, ER10 0.82, giveback 2%, still riding a clean trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "a684184be01ede67",
+      "decision": "HOLD",
+      "reason": "px+50.75, pulled back from +73 peak, giveback rose to 14% - watching closely but still well in profit"
+    },
+    {
+      "frame": 10,
+      "nonce": "aaf0a2c0397ea137",
+      "decision": "HOLD",
+      "reason": "px+58.75 recovered off local low, but ER10 dropped to 0.50 and 3 detectors (KMDR/HA/PROPP) now fire against together - watching next frame closely"
+    },
+    {
+      "frame": 11,
+      "nonce": "b36f85930a3ff4d6",
+      "decision": "HOLD",
+      "reason": "px+52, range-bound 50-73 for several bars, vol contracting, giveback stable ~13% not accelerating"
+    },
+    {
+      "frame": 12,
+      "nonce": "5d22f604aad5d917",
+      "decision": "HOLD",
+      "reason": "px+42.25, new pivot leg just started (age 0m), too early to read direction; still solidly profitable"
+    },
+    {
+      "frame": 13,
+      "nonce": "cb36e9b37125174c",
+      "decision": "HOLD",
+      "reason": "px+59.25 recovered again, choppy (ER10 0.31) but still in the 40-73 profitable band, PROPP flipped with"
+    },
+    {
+      "frame": 14,
+      "nonce": "2713970d475b599a",
+      "decision": "HOLD",
+      "reason": "px+68 new episode high, overall trend still favorable despite choppy ER10"
+    },
+    {
+      "frame": 15,
+      "nonce": "2967a2d8a2dce19b",
+      "decision": "HOLD",
+      "reason": "px+68.5, holding near highs, new leg fresh, giveback moderate 17%"
+    },
+    {
+      "frame": 16,
+      "nonce": "6f43795db7a3f406",
+      "decision": "HOLD",
+      "reason": "px+72.25 near highs, ER10 very low (0.13, choppy grind) but no directional breakdown"
+    },
+    {
+      "frame": 17,
+      "nonce": "b2ff9d2de926fc06",
+      "decision": "EXIT",
+      "reason": "px+54.75, dropped from +72 high, giveback 67% on current leg, all 3 detectors (KMDR/HA/PROPP) now fire against at 0m - locking in profit before further round-trip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 17,
+  "finished": true,
+  "summary": "Exited at +54.75pts after the trade round-tripped down from a +72.25 local high with giveback hitting 67% on the active leg and all three turn detectors (KMDR, HA, PROPP) converging against the position simultaneously at 0m lag. Held through several earlier chop/pullback cycles (ER10 swinging 0.13-0.85, giveback spiking to 46-95% on small sub-legs) since price kept reclaiming new highs each time, but this frame was the first where signal convergence plus a fresh drop off a new high occurred together. Next time I'd want a tighter read on whether the giveback% is measured against the full trade MFE vs. the local micro-leg amplitude - the metric was noisy/reset-prone early on and made it hard to distinguish real deterioration from normal chop until multiple detectors agreed."
+}

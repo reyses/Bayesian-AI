@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_07_09_1752074040_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "eb34c87029f29bec",
+      "ts": 1784315305.3663402
+    },
+    {
+      "frame": 1,
+      "nonce": "06221346c6c4dee0",
+      "ts": 1784315314.582989
+    },
+    {
+      "frame": 2,
+      "nonce": "64b37584e2c7f141",
+      "ts": 1784315321.2303464
+    },
+    {
+      "frame": 3,
+      "nonce": "5c765fd5629a9f37",
+      "ts": 1784315328.0367386
+    },
+    {
+      "frame": 4,
+      "nonce": "f758bdd1a7668416",
+      "ts": 1784315348.4435172
+    },
+    {
+      "frame": 5,
+      "nonce": "c5d450a0f983fb14",
+      "ts": 1784315362.8483367
+    },
+    {
+      "frame": 6,
+      "nonce": "b001eae4374e1e64",
+      "ts": 1784315379.061248
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "eb34c87029f29bec",
+      "decision": "HOLD",
+      "reason": "frame 0: px flat at entry, mixed lambda signs across TFs, no clear reversal signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "06221346c6c4dee0",
+      "decision": "HOLD",
+      "reason": "px barely positive, giveback still ~54%, no fresh reversal fire against position"
+    },
+    {
+      "frame": 2,
+      "nonce": "64b37584e2c7f141",
+      "decision": "HOLD",
+      "reason": "px ticking up to +0.50, new leg giveback improved to 23%, still early to call a turn"
+    },
+    {
+      "frame": 3,
+      "nonce": "5c765fd5629a9f37",
+      "decision": "HOLD",
+      "reason": "px jumped to +14.75, leg at fresh high (giveback 0%); KMDR-against just fired but no actual reversal confirmed yet, want to see next bar"
+    },
+    {
+      "frame": 4,
+      "nonce": "f758bdd1a7668416",
+      "decision": "HOLD",
+      "reason": "pulled back to +3.50 from +14.75 peak, giveback 50%; KMDR-against fire already played out as expected but px still positive, not yet a confirmed full reversal"
+    },
+    {
+      "frame": 5,
+      "nonce": "c5d450a0f983fb14",
+      "decision": "HOLD",
+      "reason": "px +1.50, giveback improved to 40% but ER10 collapsed to 0.02 (pure chop) and HA-against just fired; watching closely, not yet a clean reversal"
+    },
+    {
+      "frame": 6,
+      "nonce": "b001eae4374e1e64",
+      "decision": "EXIT",
+      "reason": "px flipped to -14.75, giveback 91% of the 30.2pt leg, all three fires (KMDR/HA/PROPP) against \u2014 confirmed reversal, cutting here"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Held through an initial favorable run to +14.75pts (leg amp 27.5-30.2pts) despite an early KMDR-against fire, since prior graveyard evidence shows cutting winners early loses EV. Once giveback crossed ~90% and price flipped negative to -14.75 with KMDR, HA, and PROPP all firing against simultaneously and ER10 having already collapsed to near-zero (pure chop), that was the confirmed multi-signal reversal signature I exited on. Next time I'd watch ER10 collapse combined with a single against-fire as an earlier warning to tighten rather than waiting for all three to align after most of the leg was already given back."
+}

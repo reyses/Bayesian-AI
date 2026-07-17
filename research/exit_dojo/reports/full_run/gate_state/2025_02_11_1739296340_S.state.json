@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_02_11_1739296340_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6df8dd46842adb03",
+      "ts": 1784316252.8910267
+    },
+    {
+      "frame": 1,
+      "nonce": "b2eb4c2ac1c1c6ef",
+      "ts": 1784316263.73446
+    },
+    {
+      "frame": 2,
+      "nonce": "df22a04385b3159f",
+      "ts": 1784316274.423637
+    },
+    {
+      "frame": 3,
+      "nonce": "6d9b83131e99fa89",
+      "ts": 1784316283.7416365
+    },
+    {
+      "frame": 4,
+      "nonce": "9eaea297bff81918",
+      "ts": 1784316291.0785801
+    },
+    {
+      "frame": 5,
+      "nonce": "7cd56d5cd67ec666",
+      "ts": 1784316298.6544585
+    },
+    {
+      "frame": 6,
+      "nonce": "6c1292b5b980497d",
+      "ts": 1784316306.3384137
+    },
+    {
+      "frame": 7,
+      "nonce": "73b0d9e50ddf26c9",
+      "ts": 1784316318.4169953
+    },
+    {
+      "frame": 8,
+      "nonce": "a9b8cfa1a7cc9428",
+      "ts": 1784316325.4063203
+    },
+    {
+      "frame": 9,
+      "nonce": "703738c2f45fcb5c",
+      "ts": 1784316332.0215375
+    },
+    {
+      "frame": 10,
+      "nonce": "b18722261b0f0036",
+      "ts": 1784316341.5717812
+    },
+    {
+      "frame": 11,
+      "nonce": "5b363dc9d4b598e2",
+      "ts": 1784316350.1483214
+    },
+    {
+      "frame": 12,
+      "nonce": "e28adffd6f383683",
+      "ts": 1784316360.845977
+    },
+    {
+      "frame": 13,
+      "nonce": "3b690fa67d2e0e00",
+      "ts": 1784316367.835704
+    },
+    {
+      "frame": 14,
+      "nonce": "2a27d9c38aa3ed29",
+      "ts": 1784316376.990916
+    },
+    {
+      "frame": 15,
+      "nonce": "b92c97c0d536fb17",
+      "ts": 1784316383.3569245
+    },
+    {
+      "frame": 16,
+      "nonce": "06c0a20a31bb83ef",
+      "ts": 1784316389.0693977
+    },
+    {
+      "frame": 17,
+      "nonce": "83970d193523d38a",
+      "ts": 1784316394.7642317
+    },
+    {
+      "frame": 18,
+      "nonce": "5312aeda197c8146",
+      "ts": 1784316401.7071762
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6df8dd46842adb03",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "b2eb4c2ac1c1c6ef",
+      "decision": "HOLD",
+      "reason": "only -2pts adverse, mixed fires, lambda still negative (mean-reverting) on short TFs"
+    },
+    {
+      "frame": 2,
+      "nonce": "df22a04385b3159f",
+      "decision": "HOLD",
+      "reason": "px -3.75, but 1m lambda strongly negative (t=-3.2) = mean-reverting, expect reversion toward entry"
+    },
+    {
+      "frame": 3,
+      "nonce": "6d9b83131e99fa89",
+      "decision": "HOLD",
+      "reason": "px improving to -2.75, giveback ratio declining 141->131%, lambda still strongly negative on 1m/5m"
+    },
+    {
+      "frame": 4,
+      "nonce": "9eaea297bff81918",
+      "decision": "HOLD",
+      "reason": "px -2.00, still improving, vol contracting, 1m lambda still negative"
+    },
+    {
+      "frame": 5,
+      "nonce": "7cd56d5cd67ec666",
+      "decision": "HOLD",
+      "reason": "px -3.00, range-bound -2 to -4, both HA and PROPP fires now with-position, 1m lambda still negative"
+    },
+    {
+      "frame": 6,
+      "nonce": "6c1292b5b980497d",
+      "decision": "HOLD",
+      "reason": "px -4.00, still in prior range, vol contracting, 1m lambda still negative t=-2.48"
+    },
+    {
+      "frame": 7,
+      "nonce": "73b0d9e50ddf26c9",
+      "decision": "HOLD",
+      "reason": "px -2.75, still chopping in -2/-4 band, ER10 low (0.06) = no directional breakdown yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "a9b8cfa1a7cc9428",
+      "decision": "HOLD",
+      "reason": "px improved to -1.50 (best yet), 5m lambda strongly negative t=-4.38, HA-with"
+    },
+    {
+      "frame": 9,
+      "nonce": "703738c2f45fcb5c",
+      "decision": "HOLD",
+      "reason": "px flipped positive +3.75, new leg started amp16 giveback only 2%, let it run"
+    },
+    {
+      "frame": 10,
+      "nonce": "b18722261b0f0036",
+      "decision": "HOLD",
+      "reason": "px whipsawed back to -4.25, but within prior range, HA+PROPP both with-position, 1m lambda still negative"
+    },
+    {
+      "frame": 11,
+      "nonce": "5b363dc9d4b598e2",
+      "decision": "HOLD",
+      "reason": "px +2.00, fresh leg giveback only 14%, though HA/PROPP flipped against - watching closely, market is choppy"
+    },
+    {
+      "frame": 12,
+      "nonce": "e28adffd6f383683",
+      "decision": "HOLD",
+      "reason": "px -2.25, still noise-band, 1m lambda_30 t=-3.77 strongly mean-reverting"
+    },
+    {
+      "frame": 13,
+      "nonce": "3b690fa67d2e0e00",
+      "decision": "HOLD",
+      "reason": "px -6.00 new low, but 5m/1m lambda both strongly negative (t=-3.75/-2.85) still calling for reversion, watching closely"
+    },
+    {
+      "frame": 14,
+      "nonce": "2a27d9c38aa3ed29",
+      "decision": "HOLD",
+      "reason": "px recovered to -2.50 from -6.00, reversion playing out as expected"
+    },
+    {
+      "frame": 15,
+      "nonce": "b92c97c0d536fb17",
+      "decision": "HOLD",
+      "reason": "px near flat +1.00, continued recovery trend"
+    },
+    {
+      "frame": 16,
+      "nonce": "06c0a20a31bb83ef",
+      "decision": "HOLD",
+      "reason": "px near flat -0.50, no clear breakdown signal"
+    },
+    {
+      "frame": 17,
+      "nonce": "83970d193523d38a",
+      "decision": "HOLD",
+      "reason": "px -2.50, continued chop within established range, vol contracting"
+    },
+    {
+      "frame": 18,
+      "nonce": "5312aeda197c8146",
+      "decision": "EXIT",
+      "reason": "new extreme drawdown -9.50 (prior worst was -6.00), momentum accelerating against position across 5s/15s/1m bars, cutting loss rather than betting on further reversion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Exited short at px -9.50 after 18 minutes of chop where price repeatedly whipsawed within a -6 to +4 band but had never broken past -6.00 until this frame; the new extreme drawdown combined with accelerating adverse momentum (large bar ranges, negative velocity across 5s/15s/1m) signaled the mean-reversion thesis (persistently negative lambda_hat on 1m/5m) was being overrun by real momentum. Next time I'd watch for the giveback/amplitude ratio resetting low on a fresh adverse leg (a sign the move has more room) combined with a new extreme beyond the prior worst excursion as the key trigger to cut, rather than continuing to lean on lambda sign alone."
+}

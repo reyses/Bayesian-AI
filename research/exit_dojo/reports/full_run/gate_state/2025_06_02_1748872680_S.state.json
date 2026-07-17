@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_06_02_1748872680_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8ae3d8cb6a849f20",
+      "ts": 1784315172.2057612
+    },
+    {
+      "frame": 1,
+      "nonce": "c1b98fa1761e0d42",
+      "ts": 1784315192.8608453
+    },
+    {
+      "frame": 2,
+      "nonce": "9021693cd8208fdb",
+      "ts": 1784315200.0953372
+    },
+    {
+      "frame": 3,
+      "nonce": "cbcc91c18976e526",
+      "ts": 1784315207.943246
+    },
+    {
+      "frame": 4,
+      "nonce": "c6d9cc2419016855",
+      "ts": 1784315217.7674572
+    },
+    {
+      "frame": 5,
+      "nonce": "eb0e20684c55d270",
+      "ts": 1784315226.1182334
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8ae3d8cb6a849f20",
+      "decision": "HOLD",
+      "reason": "Leg only 9m old, amp 108pts favorable, giveback just 6%; mixed fires (KMDR against, HA/PROPP with); no strong erosion signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "c1b98fa1761e0d42",
+      "decision": "HOLD",
+      "reason": "px improved to +12.25, giveback shrank to 3%, amp growing to 111pts; trend still favorable"
+    },
+    {
+      "frame": 2,
+      "nonce": "9021693cd8208fdb",
+      "decision": "HOLD",
+      "reason": "px pulled back to +9.75 (giveback 15%) but amp still growing, PROPP fresh fire with; not a clean reversal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "cbcc91c18976e526",
+      "decision": "HOLD",
+      "reason": "Big favorable breakout to +72.5pts, amp 172pts, giveback 0%, strong trend (lambda_hat_30 5s t=4.6); let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "c6d9cc2419016855",
+      "decision": "HOLD",
+      "reason": "px pulled back to +61.75 (giveback 9%) but amp still expanding to 176.5, ER10 0.64 still trending; small pullback not a reversal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "eb0e20684c55d270",
+      "decision": "EXIT",
+      "reason": "Reversal signature: amp stalled at 176.5 (no new high), giveback jumped 9%->23%, ER10 fell 0.64->0.49, vol(5m) declining, PROPP flipped against; locking +24pts before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through a strong favorable run (amp grew 108->176.5pts, giveback near 0% at the peak) but exited once the leg stalled: no new amplitude high for two frames, giveback accelerated 9%->23%, ER10 dropped 0.64->0.49 (trend efficiency decaying), 5m vol turned down, and PROPP flipped from with to against. Next time I'd watch the amp-stall + rising-giveback + ER10-decline combo earlier as the primary reversal trigger rather than waiting for a second confirming signal, since by frame 5 roughly a third of the peak favorable move had already been given back."
+}

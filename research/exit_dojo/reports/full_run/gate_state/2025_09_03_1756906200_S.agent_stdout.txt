@@ -1,0 +1,8 @@
+# exit_code=0 dt=261s
+## STDOUT
+Episode closed: HOLD Ã—4, then EXIT at frame 4 (t=4m) locking in **+12.0pts**. The exit was driven by a sharp giveback spike (6%â†’14%â†’38% across three frames) plus falling ER10 (0.86â†’0.71) and an HA-against fire â€” read together as trend-efficiency breakdown after peaking at +27.25pts.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

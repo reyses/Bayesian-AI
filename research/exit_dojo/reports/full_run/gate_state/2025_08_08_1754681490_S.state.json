@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_08_08_1754681490_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0fe886d4151ae983",
+      "ts": 1784308587.3379283
+    },
+    {
+      "frame": 1,
+      "nonce": "9d32b5b484729a0b",
+      "ts": 1784308598.2594788
+    },
+    {
+      "frame": 2,
+      "nonce": "2de67b12405c2f7d",
+      "ts": 1784308607.3756185
+    },
+    {
+      "frame": 3,
+      "nonce": "ced35ba351a7d1a0",
+      "ts": 1784308614.1945286
+    },
+    {
+      "frame": 4,
+      "nonce": "5c609167afd3fceb",
+      "ts": 1784308623.3192868
+    },
+    {
+      "frame": 5,
+      "nonce": "71bf229b4edc4936",
+      "ts": 1784308631.1604068
+    },
+    {
+      "frame": 6,
+      "nonce": "b2d11b8f8517f36a",
+      "ts": 1784308637.8482556
+    },
+    {
+      "frame": 7,
+      "nonce": "c6ba3f580b511fdf",
+      "ts": 1784308644.6803038
+    },
+    {
+      "frame": 8,
+      "nonce": "ad70e9352659781f",
+      "ts": 1784308651.596804
+    },
+    {
+      "frame": 9,
+      "nonce": "60b25a456900adb7",
+      "ts": 1784308657.921017
+    },
+    {
+      "frame": 10,
+      "nonce": "1bc6642835835cfa",
+      "ts": 1784308664.3245087
+    },
+    {
+      "frame": 11,
+      "nonce": "e55c9509a07d2cd7",
+      "ts": 1784308670.8471663
+    },
+    {
+      "frame": 12,
+      "nonce": "f8ea4d0c2b1a772a",
+      "ts": 1784308676.868203
+    },
+    {
+      "frame": 13,
+      "nonce": "2eb0b4ee53ba82ec",
+      "ts": 1784308687.485198
+    },
+    {
+      "frame": 14,
+      "nonce": "4bffe17ba5baca66",
+      "ts": 1784308696.4869983
+    },
+    {
+      "frame": 15,
+      "nonce": "05d399eb94bc389d",
+      "ts": 1784308704.294379
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0fe886d4151ae983",
+      "decision": "HOLD",
+      "reason": "early frame, price back near entry, no clear adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9d32b5b484729a0b",
+      "decision": "HOLD",
+      "reason": "giveback 24% but still early leg age, watching KMDR/PROPP-against fires"
+    },
+    {
+      "frame": 2,
+      "nonce": "2de67b12405c2f7d",
+      "decision": "HOLD",
+      "reason": "drawdown stabilizing (giveback 24%->21%), reversion_prob back high, ER10 low=chop not trend"
+    },
+    {
+      "frame": 3,
+      "nonce": "ced35ba351a7d1a0",
+      "decision": "HOLD",
+      "reason": "giveback shrinking further (21%->18%), vol contracting, no fresh breakdown"
+    },
+    {
+      "frame": 4,
+      "nonce": "5c609167afd3fceb",
+      "decision": "HOLD",
+      "reason": "price back to +1.25 favorable, HA fire now with us, momentum turning our way"
+    },
+    {
+      "frame": 5,
+      "nonce": "71bf229b4edc4936",
+      "decision": "HOLD",
+      "reason": "small chop back to -2, within recent range, no strong directional break"
+    },
+    {
+      "frame": 6,
+      "nonce": "b2d11b8f8517f36a",
+      "decision": "HOLD",
+      "reason": "still range-bound chop -2 to -5, ER10 low, no trend break"
+    },
+    {
+      "frame": 7,
+      "nonce": "c6ba3f580b511fdf",
+      "decision": "HOLD",
+      "reason": "back to +1 favorable, tight chop, ER10 still low so no committed trend"
+    },
+    {
+      "frame": 8,
+      "nonce": "ad70e9352659781f",
+      "decision": "HOLD",
+      "reason": "flat at -0.25, vol contracting further, HA fire with us"
+    },
+    {
+      "frame": 9,
+      "nonce": "60b25a456900adb7",
+      "decision": "HOLD",
+      "reason": "tight range continues, vol contracting to 1.5, no directional break"
+    },
+    {
+      "frame": 10,
+      "nonce": "1bc6642835835cfa",
+      "decision": "HOLD",
+      "reason": "vol compressing to 1.1pts, ER10 very low=dead chop, holding through compression"
+    },
+    {
+      "frame": 11,
+      "nonce": "e55c9509a07d2cd7",
+      "decision": "HOLD",
+      "reason": "best favorable print so far +2.75, still in chop, letting it develop"
+    },
+    {
+      "frame": 12,
+      "nonce": "f8ea4d0c2b1a772a",
+      "decision": "HOLD",
+      "reason": "strong favorable break to +6.00, HA-with fire, letting winner run one more frame"
+    },
+    {
+      "frame": 13,
+      "nonce": "2eb0b4ee53ba82ec",
+      "decision": "HOLD",
+      "reason": "trend extending, +9.25 favorable, giveback only 12%, strong positive lambda on 15s, riding it"
+    },
+    {
+      "frame": 14,
+      "nonce": "4bffe17ba5baca66",
+      "decision": "HOLD",
+      "reason": "strong trend continuation to +15.50, giveback only 5%, momentum still clean across TFs"
+    },
+    {
+      "frame": 15,
+      "nonce": "05d399eb94bc389d",
+      "decision": "EXIT",
+      "reason": "peak +18 pulled back to +8, giveback 34%, lambda flipped negative on 15s/1m (t=-5.0/-2.4), ER10 collapsed to 0.14 = trend efficiency gone, locking in the gain before further giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 15,
+  "finished": true,
+  "summary": "Held through 12 minutes of tight chop (giveback oscillating 18-93% of small amplitude legs, ER10 mostly <0.4) since neither PF nor lambda gave a clean deterioration signal. Trade broke decisively favorable from t=12m to t=14m (+2.75 to +15.50, giveback down to 5%), then exited at t=15m when price pulled back to +8.00 off an +18 peak (giveback jumped to 34%) with lambda_hat flipping negative on 15s (t=-5.0) and 1m (t=-2.4) and ER10 collapsing to 0.14 -- the combination of rising giveback-from-peak plus a sign-flip in the lambda trend term is the signature I'd watch for first at future exits, rather than waiting for price to round-trip further."
+}

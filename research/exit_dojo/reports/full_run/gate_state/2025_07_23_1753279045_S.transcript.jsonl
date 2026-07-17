@@ -1,0 +1,27 @@
+{"ts": 1784312122.9826062, "event": "serve", "frame": 0, "nonce": "1a16380043859305"}
+{"ts": 1784312128.9615624, "event": "commit", "frame": 0, "nonce": "1a16380043859305", "decision": "HOLD", "reason": "entry frame, no adverse move yet, lambda mixed"}
+{"ts": 1784312131.283638, "event": "serve", "frame": 1, "nonce": "1bc101a9a15abf4f"}
+{"ts": 1784312135.2238717, "event": "commit", "frame": 1, "nonce": "1bc101a9a15abf4f", "decision": "HOLD", "reason": "small giveback 28%, no strong against-lambda signal, still within noise"}
+{"ts": 1784312143.3807402, "event": "serve", "frame": 2, "nonce": "0b0239fd32b4ff65"}
+{"ts": 1784312147.148095, "event": "commit", "frame": 2, "nonce": "0b0239fd32b4ff65", "decision": "HOLD", "reason": "px +9.25, 0% giveback, trade running favorably"}
+{"ts": 1784312150.2096832, "event": "serve", "frame": 3, "nonce": "05ee4b2189a3a7fb"}
+{"ts": 1784312155.0650733, "event": "commit", "frame": 3, "nonce": "05ee4b2189a3a7fb", "decision": "HOLD", "reason": "px +24.25, giveback only 5%, strong favorable momentum continuing"}
+{"ts": 1784312158.180754, "event": "serve", "frame": 4, "nonce": "e070dd62e4ee5f7b"}
+{"ts": 1784312168.9403696, "event": "commit", "frame": 4, "nonce": "e070dd62e4ee5f7b", "decision": "HOLD", "reason": "sharp giveback 28% but still net +7, watching for continued reversal next frame"}
+{"ts": 1784312172.2438242, "event": "serve", "frame": 5, "nonce": "5041ed5ead75c99c"}
+{"ts": 1784312176.70705, "event": "commit", "frame": 5, "nonce": "5041ed5ead75c99c", "decision": "HOLD", "reason": "stabilizing +9.5, giveback plateauing not accelerating"}
+{"ts": 1784312179.6001203, "event": "serve", "frame": 6, "nonce": "63028a25771e4de2"}
+{"ts": 1784312183.9836502, "event": "commit", "frame": 6, "nonce": "63028a25771e4de2", "decision": "HOLD", "reason": "recovering, px +13.25, giveback down to 20%"}
+{"ts": 1784312186.687524, "event": "serve", "frame": 7, "nonce": "8578d3323e922959"}
+{"ts": 1784312190.9777577, "event": "commit", "frame": 7, "nonce": "8578d3323e922959", "decision": "HOLD", "reason": "px +14.75, new leg forming favorably, giveback low at 14%"}
+{"ts": 1784312193.5070517, "event": "serve", "frame": 8, "nonce": "76ffb302459b7532"}
+{"ts": 1784312199.8726087, "event": "commit", "frame": 8, "nonce": "76ffb302459b7532", "decision": "HOLD", "reason": "overall px +17.75 still improving despite noisy micro-leg giveback"}
+{"ts": 1784312202.4543567, "event": "serve", "frame": 9, "nonce": "ea63f2ef0caec540"}
+{"ts": 1784312206.5142608, "event": "commit", "frame": 9, "nonce": "ea63f2ef0caec540", "decision": "HOLD", "reason": "px +11.25, giveback reset to 0%, new leg high, PROPP now with"}
+{"ts": 1784312208.9936872, "event": "serve", "frame": 10, "nonce": "034295f4e63d7dce"}
+{"ts": 1784312216.0846539, "event": "commit", "frame": 10, "nonce": "034295f4e63d7dce", "decision": "HOLD", "reason": "px +16.75, still trending up overall despite noisy giveback ratio"}
+{"ts": 1784312218.6100492, "event": "serve", "frame": 11, "nonce": "d36e2a4a96398f47"}
+{"ts": 1784312223.3369157, "event": "commit", "frame": 11, "nonce": "d36e2a4a96398f47", "decision": "HOLD", "reason": "px +24.00, new swing high matching prior peak, momentum intact"}
+{"ts": 1784312225.8053992, "event": "serve", "frame": 12, "nonce": "e9948c2eed7e148d"}
+{"ts": 1784312261.3821726, "event": "commit", "frame": 12, "nonce": "e9948c2eed7e148d", "decision": "EXIT", "reason": "violent full reversal +24->-1.25 in ~1min, HA+KMDR both against, ER10 collapsed to 0.11 (trend efficiency gone), largest/fastest adverse move of the episode - locking near-breakeven before it turns to a loss"}
+{"ts": 1784312267.6936617, "event": "finish", "summary": "Held through repeated normal-looking giveback/recovery cycles (peaks near +24 at frames 3 and 11, giveback oscillating 0-89% but always recovering) since the trade kept making higher favorable highs. Exited at frame 12 when price violently erased the entire gain (+24 to -1.25) in about a minute, with HA and KMDR both flipping against, and ER10 collapsing to 0.11 - a qualitatively different, faster and larger reversal than any prior giveback in the episode, signaling trend efficiency had broken down. Next time I'd watch for ER10 dropping sharply in tandem with a same-direction multi-signal flip (not just one detector) as the earlier warning, rather than waiting for price itself to erase the whole move before reacting.", "exit_frame": 12, "n_commits": 13}

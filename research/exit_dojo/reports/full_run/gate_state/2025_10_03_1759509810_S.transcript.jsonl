@@ -1,0 +1,19 @@
+{"ts": 1784318673.6814368, "event": "serve", "frame": 0, "nonce": "744f435803479c03"}
+{"ts": 1784318678.4458802, "event": "commit", "frame": 0, "nonce": "744f435803479c03", "decision": "HOLD", "reason": "frame0, at entry, no adverse signal yet, giving trade room"}
+{"ts": 1784318682.0479548, "event": "serve", "frame": 1, "nonce": "0d20207c79e5e634"}
+{"ts": 1784318687.7654846, "event": "commit", "frame": 1, "nonce": "0d20207c79e5e634", "decision": "HOLD", "reason": "small +2pt profit, 0% giveback, watching KMDR/PROPP-against fires but too early to act"}
+{"ts": 1784318693.4615338, "event": "serve", "frame": 2, "nonce": "ec89e93e95ae6313"}
+{"ts": 1784318705.534276, "event": "commit", "frame": 2, "nonce": "ec89e93e95ae6313", "decision": "HOLD", "reason": "gave back to -4pts (33% giveback), KMDR/PROPP-against persisting but still early leg, watching for continuation"}
+{"ts": 1784318709.1887553, "event": "serve", "frame": 3, "nonce": "13f2bf72082977ca"}
+{"ts": 1784318715.186661, "event": "commit", "frame": 3, "nonce": "13f2bf72082977ca", "decision": "HOLD", "reason": "price recovered -4 to -2.25, PROPP flipped to with-trade, giveback eased to 30%, mixed signals so staying in"}
+{"ts": 1784318718.5709102, "event": "serve", "frame": 4, "nonce": "9f668ca82ea06bd7"}
+{"ts": 1784318723.8614955, "event": "commit", "frame": 4, "nonce": "9f668ca82ea06bd7", "decision": "HOLD", "reason": "new leg formed, px near flat at -1pt, chop around entry, no clear directional break yet"}
+{"ts": 1784318726.4711585, "event": "serve", "frame": 5, "nonce": "16603ab2171e5dee"}
+{"ts": 1784318730.668, "event": "commit", "frame": 5, "nonce": "16603ab2171e5dee", "decision": "HOLD", "reason": "still chopping near entry at -2pts, no decisive break, HA flipped with-trade"}
+{"ts": 1784318736.1835086, "event": "serve", "frame": 6, "nonce": "636ce08a4bec26ef"}
+{"ts": 1784318740.8894563, "event": "commit", "frame": 6, "nonce": "636ce08a4bec26ef", "decision": "HOLD", "reason": "back to +1pt, low ER10=0.31 confirms choppy non-trending action, no edge to exit into"}
+{"ts": 1784318743.8935733, "event": "serve", "frame": 7, "nonce": "625613676885466e"}
+{"ts": 1784318758.7987328, "event": "commit", "frame": 7, "nonce": "625613676885466e", "decision": "HOLD", "reason": "new best px +5pts, HA-with aligned, no against fires in last 3m, letting it run"}
+{"ts": 1784318761.5417426, "event": "serve", "frame": 8, "nonce": "35cb09ed08afdac3"}
+{"ts": 1784318776.7886462, "event": "commit", "frame": 8, "nonce": "35cb09ed08afdac3", "decision": "EXIT", "reason": "px retraced +5 to +2, KMDR+PROPP both against again - same signature that preceded the -4 giveback earlier; locking in +2 in a non-trending (ER10<0.4) choppy tape rather than risk another round-trip to negative"}
+{"ts": 1784318784.8588378, "event": "finish", "summary": "Exited at +2.00pts (frame 8, t=8m) on a repeated double-against signature: KMDR-against + PROPP-against firing together, the same combo that preceded the earlier -4pt giveback from +2. The trade never established directional persistence (ER10 stayed 0.2-0.7, mostly choppy/mean-reverting) and oscillated between roughly -4 and +5 with no clean trend leg, so I treated the recurrence of that specific against-signature as the actionable exit trigger rather than waiting through another full round-trip. Next time I'd want to watch whether HA and PROPP agree in the same direction for 2+ consecutive frames before trusting a hold through a pullback, since single-frame against fires alone were noisy early on.", "exit_frame": 8, "n_commits": 9}

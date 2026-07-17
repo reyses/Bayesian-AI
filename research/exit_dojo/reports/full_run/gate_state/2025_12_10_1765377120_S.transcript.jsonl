@@ -1,0 +1,13 @@
+{"ts": 1784313714.0319762, "event": "serve", "frame": 0, "nonce": "da120203d3ddf5a1"}
+{"ts": 1784313735.2719185, "event": "commit", "frame": 0, "nonce": "da120203d3ddf5a1", "decision": "HOLD", "reason": "just entered short, giveback only 14%, against-fires present but early, wait for more data"}
+{"ts": 1784313737.337693, "event": "serve", "frame": 1, "nonce": "b87c4af98f1006dc"}
+{"ts": 1784313750.4354556, "event": "commit", "frame": 1, "nonce": "b87c4af98f1006dc", "decision": "HOLD", "reason": "px only -3pts, against-fires repeating but small loss so far, want one more frame to confirm trend"}
+{"ts": 1784313752.9260745, "event": "serve", "frame": 2, "nonce": "5720b600c1feaa8e"}
+{"ts": 1784313758.7493684, "event": "commit", "frame": 2, "nonce": "5720b600c1feaa8e", "decision": "HOLD", "reason": "px recovered to -0.25, giveback back down to 14%, CLIMAX-against dropped off, trade stabilizing"}
+{"ts": 1784313760.744547, "event": "serve", "frame": 3, "nonce": "002d946c00fc50c9"}
+{"ts": 1784313766.878275, "event": "commit", "frame": 3, "nonce": "002d946c00fc50c9", "decision": "HOLD", "reason": "px jumped to +21.75, giveback down to 4%, PROPP now firing with us, strong favorable move - ride it"}
+{"ts": 1784313769.507305, "event": "serve", "frame": 4, "nonce": "124d5f1c7b0679c0"}
+{"ts": 1784313782.7329013, "event": "commit", "frame": 4, "nonce": "124d5f1c7b0679c0", "decision": "HOLD", "reason": "px +46.25, giveback 0%, still trending favorably (ER10 0.74, PROPP-with), but KMDR-against just fired at the peak - watching closely next frame"}
+{"ts": 1784313785.131537, "event": "serve", "frame": 5, "nonce": "d7efef7baab425c7"}
+{"ts": 1784313794.7706885, "event": "commit", "frame": 5, "nonce": "d7efef7baab425c7", "decision": "EXIT", "reason": "px pulled back from +46.25 to +26.00, giveback jumped to 15%, vol spiking (+7.3), and all three turn detectors (KMDR/CLIMAX/PROPP) now firing against simultaneously - confluence reversal signal, lock in profit"}
+{"ts": 1784313800.5731597, "event": "finish", "summary": "Exited at +26.00pts after the leg ran to a peak near +46-60pts and began giving back sharply. The exit signature was a confluence, not a single trigger: giveback jumped from 0% to 15% in one bar, 5m volatility spiked (+7.3), ER10 hit 1.00, and KMDR/CLIMAX/PROPP all flipped to firing against the position simultaneously after PROPP had been firing with us on the way up. Next time I'd watch for the FIRST against-fire (KMDR, which leads the turn) right at a giveback-0% peak as the early warning, then treat a second/third detector joining plus a vol-spike as the actual confirmation to act on, rather than waiting through a full pullback bar.", "exit_frame": 5, "n_commits": 6}

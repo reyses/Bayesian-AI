@@ -1,0 +1,254 @@
+{
+  "episode_id": "2025_11_05_1762374000_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4473f1b6f4bc7922",
+      "ts": 1784309111.3561974
+    },
+    {
+      "frame": 1,
+      "nonce": "ce4f4caf91a9ebc7",
+      "ts": 1784309118.0546284
+    },
+    {
+      "frame": 2,
+      "nonce": "04c8237007c4c1bc",
+      "ts": 1784309123.8396802
+    },
+    {
+      "frame": 3,
+      "nonce": "ceb08b1f0cb00cd2",
+      "ts": 1784309137.951617
+    },
+    {
+      "frame": 4,
+      "nonce": "c311cfee1ca7aefd",
+      "ts": 1784309143.9263544
+    },
+    {
+      "frame": 5,
+      "nonce": "194807013d29cb45",
+      "ts": 1784309150.532992
+    },
+    {
+      "frame": 6,
+      "nonce": "1352b8678797d72c",
+      "ts": 1784309158.2892969
+    },
+    {
+      "frame": 7,
+      "nonce": "e87f2620795bfb93",
+      "ts": 1784309164.9358058
+    },
+    {
+      "frame": 8,
+      "nonce": "6e76280b5674ae89",
+      "ts": 1784309171.1286833
+    },
+    {
+      "frame": 9,
+      "nonce": "a5e074015f72a697",
+      "ts": 1784309177.4161334
+    },
+    {
+      "frame": 10,
+      "nonce": "d9ccb06cbd619780",
+      "ts": 1784309189.398853
+    },
+    {
+      "frame": 11,
+      "nonce": "4ba1f205ef0262a0",
+      "ts": 1784309196.5358903
+    },
+    {
+      "frame": 12,
+      "nonce": "b3cc30b84372bca6",
+      "ts": 1784309203.958474
+    },
+    {
+      "frame": 13,
+      "nonce": "713250c0df8d578d",
+      "ts": 1784309209.8274446
+    },
+    {
+      "frame": 14,
+      "nonce": "6a084ce9781020d8",
+      "ts": 1784309217.3077173
+    },
+    {
+      "frame": 15,
+      "nonce": "0ed375cfd41675a5",
+      "ts": 1784309224.4400103
+    },
+    {
+      "frame": 16,
+      "nonce": "475f424a55569c99",
+      "ts": 1784309231.0587587
+    },
+    {
+      "frame": 17,
+      "nonce": "789cda81de253bcb",
+      "ts": 1784309237.1136737
+    },
+    {
+      "frame": 18,
+      "nonce": "808d3a48531316ae",
+      "ts": 1784309243.901446
+    },
+    {
+      "frame": 19,
+      "nonce": "2cb31e9836570c3c",
+      "ts": 1784309250.9279075
+    },
+    {
+      "frame": 20,
+      "nonce": "d0e309e10a4f8db9",
+      "ts": 1784309260.6373394
+    },
+    {
+      "frame": 21,
+      "nonce": "16d324d3e20a3195",
+      "ts": 1784309267.043961
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4473f1b6f4bc7922",
+      "decision": "HOLD",
+      "reason": "frame 0, just entered, px flat at 0, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "ce4f4caf91a9ebc7",
+      "decision": "HOLD",
+      "reason": "px -1.75, minor giveback 20%, no strong lambda flip, within noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "04c8237007c4c1bc",
+      "decision": "HOLD",
+      "reason": "giveback jumped to 42% and HA fired against, but amplitude still intact, watching for confirmation before bailing"
+    },
+    {
+      "frame": 3,
+      "nonce": "ceb08b1f0cb00cd2",
+      "decision": "HOLD",
+      "reason": "recovered from -5.75 to -3.75, giveback eased to 34%, pressure abating"
+    },
+    {
+      "frame": 4,
+      "nonce": "c311cfee1ca7aefd",
+      "decision": "HOLD",
+      "reason": "px turned positive +4.25, amp expanded to 20, giveback down to 6%, both HA and PROPP firing with us"
+    },
+    {
+      "frame": 5,
+      "nonce": "194807013d29cb45",
+      "decision": "HOLD",
+      "reason": "px +7.25 new high, amp 26.8, giveback only 7%; KMDR/PROPP against are early warnings but no confirmed reversal yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "1352b8678797d72c",
+      "decision": "HOLD",
+      "reason": "px +8.25, amp expanding to 27.5, giveback low at 9%, ER10 rising to 0.48 = trending in our favor"
+    },
+    {
+      "frame": 7,
+      "nonce": "e87f2620795bfb93",
+      "decision": "HOLD",
+      "reason": "px +13.25 new high, amp 30, giveback tight 8%, ER10 strong at 0.68, trend intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "6e76280b5674ae89",
+      "decision": "HOLD",
+      "reason": "px +19 new high, 0% giveback, amp 36, ER10 0.65 sustained trend, no reversal signature yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "a5e074015f72a697",
+      "decision": "HOLD",
+      "reason": "pulled back from +19 to +10, giveback 34% but still solidly positive; ER10 still 0.66, holding through the pullback"
+    },
+    {
+      "frame": 10,
+      "nonce": "d9ccb06cbd619780",
+      "decision": "HOLD",
+      "reason": "px back to +19, giveback down to 11%, but ER10 dropped to 0.19 and both KMDR+HA now against -- watching closely for confirmed turn"
+    },
+    {
+      "frame": 11,
+      "nonce": "4ba1f205ef0262a0",
+      "decision": "HOLD",
+      "reason": "px +20.5 new high, amp expanded to 45.2, giveback tight at 10%, trend still expanding"
+    },
+    {
+      "frame": 12,
+      "nonce": "b3cc30b84372bca6",
+      "decision": "HOLD",
+      "reason": "px +30 fresh high, 0% giveback, amp 47.8, PROPP+HA both with us, trend accelerating"
+    },
+    {
+      "frame": 13,
+      "nonce": "713250c0df8d578d",
+      "decision": "HOLD",
+      "reason": "minor pullback to +26 from +30, giveback only 10%, ER10 still 0.61, trend intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "6a084ce9781020d8",
+      "decision": "HOLD",
+      "reason": "px +28, giveback 11%, consolidating near the highs, no breakdown signature"
+    },
+    {
+      "frame": 15,
+      "nonce": "0ed375cfd41675a5",
+      "decision": "HOLD",
+      "reason": "amp new high 50.0, giveback tight at 4%, still trending favorably"
+    },
+    {
+      "frame": 16,
+      "nonce": "475f424a55569c99",
+      "decision": "HOLD",
+      "reason": "px +27.75, giveback 11%, still consolidating near the 50pt amplitude high"
+    },
+    {
+      "frame": 17,
+      "nonce": "789cda81de253bcb",
+      "decision": "HOLD",
+      "reason": "px +36.25 new high, 0% giveback, PROPP with us, momentum still strong"
+    },
+    {
+      "frame": 18,
+      "nonce": "808d3a48531316ae",
+      "decision": "HOLD",
+      "reason": "amp new high 55.2, giveback 9%, still a controlled pullback within an intact trend"
+    },
+    {
+      "frame": 19,
+      "nonce": "2cb31e9836570c3c",
+      "decision": "HOLD",
+      "reason": "giveback up to 15%, first time all 3 (KMDR/HA/PROPP) fire against together, ER10 down to 0.25 -- watching for confirmation, still in profit at +29"
+    },
+    {
+      "frame": 20,
+      "nonce": "d0e309e10a4f8db9",
+      "decision": "HOLD",
+      "reason": "recovered to +33.25, giveback back down to 8%, HA+PROPP now with us again, prior confluence was a false alarm"
+    },
+    {
+      "frame": 21,
+      "nonce": "16d324d3e20a3195",
+      "decision": "EXIT",
+      "reason": "px dropped from +33.25 peak to +19.50, a fresh adverse leg registered (age 1m, amp 19.8pts already), and all 3 signals (KMDR/HA/PROPP) fire against simultaneously -- strongest reversal confluence of the episode, locking in profit"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 21,
+  "finished": true,
+  "summary": "Held through a strong favorable run (px 0 -> +36.25 peak, amp growing to 55.2pts) with several minor pullbacks (giveback 30-40%) that all recovered, consistent with the graveyard finding that cutting winners early loses EV. Exited at +19.50 when the position gave back ~17pts from peak, a fresh adverse leg registered (age 1m, amp already 19.8pts), and all three fire signals (KMDR, HA, PROPP) aligned against the position simultaneously for the first time in the episode -- the strongest reversal confluence seen. Next time I'd watch for that specific triple-confluence + fresh-leg-formation pattern earlier as the primary exit trigger, rather than reacting to single-signal noise which fired against many times earlier without a real turn."
+}

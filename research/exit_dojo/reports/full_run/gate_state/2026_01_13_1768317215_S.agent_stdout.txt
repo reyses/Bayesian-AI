@@ -1,0 +1,12 @@
+# exit_code=0 dt=365s
+## STDOUT
+Episode complete â€” exited at **+71.25pts** on frame 18 (t=18m).
+
+**Signature that drove the exit:** the trend had been giving back 0â€“22% repeatedly through 17 frames without ever reversing, so giveback% alone was a noisy signal. What changed at frame 18 was a **3-detector against-confluence** (KMDR + HA + PROPP all firing against, sustained across 2 consecutive frames) combined with ER10 stuck low (~0.26â€“0.32, signaling chop rather than trend) and a freshly-formed micro-leg that had already given back 49% of its own small amplitude. That convergence â€” not any single signal â€” was the trigger.
+
+**For next time:** weight multi-detector convergence much more heavily than any single against-fire (single fires happened constantly during the hold and were false alarms), and treat ER10 decay as the confirming context for a giveback reading rather than acting on giveback% in isolation.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

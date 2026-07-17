@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_07_08_1751981520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f359411044c7dc32",
+      "ts": 1784308316.879769
+    },
+    {
+      "frame": 1,
+      "nonce": "b98f73a33af3a929",
+      "ts": 1784308328.7825797
+    },
+    {
+      "frame": 2,
+      "nonce": "dfc945bdfca2d83a",
+      "ts": 1784308338.0957901
+    },
+    {
+      "frame": 3,
+      "nonce": "dbda0d938e1de579",
+      "ts": 1784308349.9205055
+    },
+    {
+      "frame": 4,
+      "nonce": "04669243f6af4d3e",
+      "ts": 1784308357.6856213
+    },
+    {
+      "frame": 5,
+      "nonce": "7933a3af6a517e32",
+      "ts": 1784308369.5047896
+    },
+    {
+      "frame": 6,
+      "nonce": "12dde3f5f7c64948",
+      "ts": 1784308380.2408338
+    },
+    {
+      "frame": 7,
+      "nonce": "7eb44ed3d4e5e5d9",
+      "ts": 1784308387.8284965
+    },
+    {
+      "frame": 8,
+      "nonce": "71ed3244d0b213be",
+      "ts": 1784308407.1660404
+    },
+    {
+      "frame": 9,
+      "nonce": "dd2badb35b743736",
+      "ts": 1784308415.5252008
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f359411044c7dc32",
+      "decision": "HOLD",
+      "reason": "just entered, no move yet, wait for signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "b98f73a33af3a929",
+      "decision": "HOLD",
+      "reason": "px +5.75 favorable, giveback only 2%, still early"
+    },
+    {
+      "frame": 2,
+      "nonce": "dfc945bdfca2d83a",
+      "decision": "HOLD",
+      "reason": "px +4.00, giveback only 5% of growing amp, still favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "dbda0d938e1de579",
+      "decision": "HOLD",
+      "reason": "px +15.50 running well, amp growing to 44.8, giveback still low at 8%"
+    },
+    {
+      "frame": 4,
+      "nonce": "04669243f6af4d3e",
+      "decision": "HOLD",
+      "reason": "pullback to +9.50, giveback 25% but PROPP flipped with-trend, amp still 44.8"
+    },
+    {
+      "frame": 5,
+      "nonce": "7933a3af6a517e32",
+      "decision": "HOLD",
+      "reason": "px stable +9.50, giveback recovered to 9%, still favorable"
+    },
+    {
+      "frame": 6,
+      "nonce": "12dde3f5f7c64948",
+      "decision": "HOLD",
+      "reason": "new leg high +12.50, giveback reset to 0%, momentum favorable"
+    },
+    {
+      "frame": 7,
+      "nonce": "7eb44ed3d4e5e5d9",
+      "decision": "HOLD",
+      "reason": "px new high +20.00 despite 67% leg giveback; watching closely, ER10 weakening"
+    },
+    {
+      "frame": 8,
+      "nonce": "71ed3244d0b213be",
+      "decision": "HOLD",
+      "reason": "px new high +27.50, momentum still favorable, ride the trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "dd2badb35b743736",
+      "decision": "EXIT",
+      "reason": "px collapsed from +27.50 peak to +3.25; CLIMAX+KMDR+PROPP all fired against simultaneously - real reversal signature, locking in remaining profit before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Held through a favorable run from +5.75 up to a peak of +27.50 as momentum and amplitude kept expanding with only modest, recoverable giveback along the way. Exited at +3.25 when price round-tripped almost the entire gain in one frame and three independent against-signals (CLIMAX, KMDR, PROPP) fired together at the same moment - that simultaneous cluster read as a genuine turn rather than routine noise. Next time I'd want to watch for that same multi-signal clustering earlier and consider scaling out partial size on the way up past +20 so a single reversal frame can't erase most of the open profit."
+}

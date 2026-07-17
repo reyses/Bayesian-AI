@@ -1,0 +1,17 @@
+{"ts": 1784315871.9333696, "event": "serve", "frame": 0, "nonce": "55e91192ab8ca82a"}
+{"ts": 1784315879.3184638, "event": "commit", "frame": 0, "nonce": "55e91192ab8ca82a", "decision": "HOLD", "reason": "early frame, price at entry, no adverse signal yet, giving trade room"}
+{"ts": 1784315882.1280372, "event": "serve", "frame": 1, "nonce": "cb6836e98f1c16a5"}
+{"ts": 1784315900.6604476, "event": "commit", "frame": 1, "nonce": "cb6836e98f1c16a5", "decision": "HOLD", "reason": "down -13.75pts but giveback only 9%, 15m lambda_t -2.37 favors reversion back down, PROPP firing with position"}
+{"ts": 1784315903.636355, "event": "serve", "frame": 2, "nonce": "e914c77d560cb888"}
+{"ts": 1784315923.5929654, "event": "commit", "frame": 2, "nonce": "e914c77d560cb888", "decision": "HOLD", "reason": "px +20 favorable, HA+PROPP both firing with position, giveback high but still net positive - avoid cutting a winner early"}
+{"ts": 1784315926.5104215, "event": "serve", "frame": 3, "nonce": "9891a4ea58670b18"}
+{"ts": 1784315953.1739624, "event": "commit", "frame": 3, "nonce": "9891a4ea58670b18", "decision": "HOLD", "reason": "px still +27 favorable despite 71% giveback; PROPP flipped against but R-trigger doctrine favors holding through pullback for tail recovery"}
+{"ts": 1784315957.9442003, "event": "serve", "frame": 4, "nonce": "6b883e984bbf1c4b"}
+{"ts": 1784315962.4862068, "event": "commit", "frame": 4, "nonce": "6b883e984bbf1c4b", "decision": "HOLD", "reason": "px ticked up to +28, giveback improved 71%->66%, PROPP back with position"}
+{"ts": 1784315965.0879548, "event": "serve", "frame": 5, "nonce": "1ef54f45d9285fc3"}
+{"ts": 1784315970.0926077, "event": "commit", "frame": 5, "nonce": "1ef54f45d9285fc3", "decision": "HOLD", "reason": "px +23.75 still solid, new leg formed with low giveback 23%, PROPP with position"}
+{"ts": 1784315972.406677, "event": "serve", "frame": 6, "nonce": "72d5e961aca8d182"}
+{"ts": 1784315977.070946, "event": "commit", "frame": 6, "nonce": "72d5e961aca8d182", "decision": "HOLD", "reason": "px +19 still healthy, giveback creeping to 32%, HA flipped against but PROPP still with 1m ago - not decisive yet"}
+{"ts": 1784315979.7411528, "event": "serve", "frame": 7, "nonce": "84239abfc48e4a02"}
+{"ts": 1784315988.0619764, "event": "commit", "frame": 7, "nonce": "84239abfc48e4a02", "decision": "EXIT", "reason": "full reversal: px flipped from +19 to -4, giveback 84% of leg amp, HA+PROPP both against, 15s lambda_t +7.5 strong adverse momentum - trade thesis broken"}
+{"ts": 1784315996.0117934, "event": "finish", "summary": "Exited on the full-reversal signature: after building to +28pts favorable with giveback in the 20-30% range, price whipped back through breakeven to -4pts with giveback hitting 84% of the leg amplitude, and both HA and PROPP flipped from with-position to against-position simultaneously while 15s momentum (lambda_t~+7.5) showed strong adverse acceleration. Held through earlier 50-70% giveback spikes because those still left the trade net favorable and matched the doctrine that cutting winners early on partial giveback tends to lose EV; exited only once price actually crossed back negative with confirming signal flips, not on giveback percentage alone. Next time I'd watch for the combination of (giveback>80% AND sign flip to negative AND multi-signal agreement against) as the actual trigger, rather than reacting to giveback percentage in isolation, since giveback alone was noisy and reversed itself twice earlier in the episode.", "exit_frame": 7, "n_commits": 8}

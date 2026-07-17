@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_02_27_1740667620_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "621cab5792afb353",
+      "ts": 1784311094.9118836
+    },
+    {
+      "frame": 1,
+      "nonce": "3f2365d0c5d89e85",
+      "ts": 1784311108.0916915
+    },
+    {
+      "frame": 2,
+      "nonce": "3a951698df484e46",
+      "ts": 1784311118.2129571
+    },
+    {
+      "frame": 3,
+      "nonce": "c90920e5274bb99f",
+      "ts": 1784311128.3462324
+    },
+    {
+      "frame": 4,
+      "nonce": "f749d203c929a2e1",
+      "ts": 1784311138.369811
+    },
+    {
+      "frame": 5,
+      "nonce": "78ef0e80a8dceb24",
+      "ts": 1784311146.62654
+    },
+    {
+      "frame": 6,
+      "nonce": "51ed84721fdc2c88",
+      "ts": 1784311155.4330585
+    },
+    {
+      "frame": 7,
+      "nonce": "392809dac1ca5d09",
+      "ts": 1784311166.2409682
+    },
+    {
+      "frame": 8,
+      "nonce": "6a71f5d2d2a6f9a9",
+      "ts": 1784311172.4962535
+    },
+    {
+      "frame": 9,
+      "nonce": "41b1d108bc022b7e",
+      "ts": 1784311179.3181376
+    },
+    {
+      "frame": 10,
+      "nonce": "0c3a30b554722331",
+      "ts": 1784311185.2869751
+    },
+    {
+      "frame": 11,
+      "nonce": "d0eb59c1a19f6832",
+      "ts": 1784311194.4956787
+    },
+    {
+      "frame": 12,
+      "nonce": "7ed461ec81267431",
+      "ts": 1784311200.9516397
+    },
+    {
+      "frame": 13,
+      "nonce": "3f603aa71285ccb0",
+      "ts": 1784311210.0964549
+    },
+    {
+      "frame": 14,
+      "nonce": "d50e6c6085079f7c",
+      "ts": 1784311215.8743317
+    },
+    {
+      "frame": 15,
+      "nonce": "0de815ec768f49fe",
+      "ts": 1784311224.6330233
+    },
+    {
+      "frame": 16,
+      "nonce": "fa7b48c71cacd6ed",
+      "ts": 1784311231.857488
+    },
+    {
+      "frame": 17,
+      "nonce": "d138e26c43c3a2fd",
+      "ts": 1784311240.100213
+    },
+    {
+      "frame": 18,
+      "nonce": "4d1187db57288046",
+      "ts": 1784311249.3597405
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "621cab5792afb353",
+      "decision": "HOLD",
+      "reason": "leg still young (7m), only 18% giveback of 203pt amp, against-fires are recent but not compounding yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "3f2365d0c5d89e85",
+      "decision": "HOLD",
+      "reason": "px improved to +22pts, HA now with position; against-fires not compounding into price action yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "3a951698df484e46",
+      "decision": "HOLD",
+      "reason": "px still climbing favorably (+39.75, up from +22), trend intact despite against-fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "c90920e5274bb99f",
+      "decision": "HOLD",
+      "reason": "minor pullback +39.75->+36.25, still well favorable, no confirmed reversal yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "f749d203c929a2e1",
+      "decision": "HOLD",
+      "reason": "strong new push to +72.5pts, fresh leg only 1% giveback, PROPP now with position"
+    },
+    {
+      "frame": 5,
+      "nonce": "78ef0e80a8dceb24",
+      "decision": "HOLD",
+      "reason": "pullback to +61 (27% giveback) but still strongly favorable; PROPP still with position, watching lambda_hat_12 deceleration closely"
+    },
+    {
+      "frame": 6,
+      "nonce": "51ed84721fdc2c88",
+      "decision": "HOLD",
+      "reason": "new leg high +80.5pts, giveback only 2%, trend still working despite negative lambda on 1m"
+    },
+    {
+      "frame": 7,
+      "nonce": "392809dac1ca5d09",
+      "decision": "HOLD",
+      "reason": "new high +116.75, giveback only 4%, PROPP with position, strong continuation"
+    },
+    {
+      "frame": 8,
+      "nonce": "6a71f5d2d2a6f9a9",
+      "decision": "HOLD",
+      "reason": "new high +162.5, 0% giveback, no against-fires, PROPP with position"
+    },
+    {
+      "frame": 9,
+      "nonce": "41b1d108bc022b7e",
+      "decision": "HOLD",
+      "reason": "new high +175.25, giveback only 6%, PROPP still with, trend intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "0c3a30b554722331",
+      "decision": "HOLD",
+      "reason": "px +185.5 near leg highs (201 amp), giveback ~0%, single PROPP-against fire not yet a confirmed reversal"
+    },
+    {
+      "frame": 11,
+      "nonce": "d0eb59c1a19f6832",
+      "decision": "HOLD",
+      "reason": "new high +220.75, 0% giveback, PROPP with, ER10 0.85 strong trend efficiency"
+    },
+    {
+      "frame": 12,
+      "nonce": "7ed461ec81267431",
+      "decision": "HOLD",
+      "reason": "pullback from peak +220.75 to +186.75 (15% giveback), still strongly favorable, first real against-pressure after big run \u2014 watching for further giveback"
+    },
+    {
+      "frame": 13,
+      "nonce": "3f603aa71285ccb0",
+      "decision": "HOLD",
+      "reason": "recovered and made new high +233.5, giveback back down to 4%, PROPP with"
+    },
+    {
+      "frame": 14,
+      "nonce": "d50e6c6085079f7c",
+      "decision": "HOLD",
+      "reason": "new high +277.75, giveback only 3%, but KMDR+PROPP both against simultaneously for first time plus vol surge \u2014 elevated risk, watching next frame closely"
+    },
+    {
+      "frame": 15,
+      "nonce": "0de815ec768f49fe",
+      "decision": "HOLD",
+      "reason": "new leg high 317.8, giveback only 7%, ER10 0.87 and hurst=1.0 show strong trend still intact despite against-fires"
+    },
+    {
+      "frame": 16,
+      "nonce": "fa7b48c71cacd6ed",
+      "decision": "HOLD",
+      "reason": "17% giveback off peak but still +268.5, PROPP flipped back with, ER10 0.91 still very trending"
+    },
+    {
+      "frame": 17,
+      "nonce": "d138e26c43c3a2fd",
+      "decision": "HOLD",
+      "reason": "giveback climbing 7%->17%->22%, ER10 falling 0.91->0.67, HA now against too \u2014 trend momentum fading but still deep in profit +257.75, one more frame to confirm"
+    },
+    {
+      "frame": 18,
+      "nonce": "4d1187db57288046",
+      "decision": "EXIT",
+      "reason": "first 3-way alignment against (KMDR+HA+PROPP), ER10 collapsed 0.91->0.53, price stair-stepping down from peak +317.8 to +241.5 over 4 consecutive frames \u2014 locking in the large gain before further giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Exited on the first simultaneous 3-way against-alignment (KMDR+HA+PROPP all firing against the short) combined with ER10 trend-efficiency collapsing from 0.91 to 0.53 and price stair-stepping down from the leg peak (+317.8) through four consecutive frames to +241.5. Prior single-signal against-fires and giveback spikes (up to 22%) were tolerated since price kept making new favorable highs and ER10/hurst stayed elevated; the exit trigger was the conjunction of all three fire families plus a clear multi-timeframe deceleration (negative, significant lambda_hat on 15s/1m) rather than any one signal alone. Next time I'd watch for this same triple-alignment + ER10 breakdown pattern earlier as the primary reversal signature, and treat isolated single against-fires as noise unless giveback also compounds across consecutive frames."
+}

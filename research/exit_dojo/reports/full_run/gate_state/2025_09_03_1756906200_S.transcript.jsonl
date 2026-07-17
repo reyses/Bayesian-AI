@@ -1,0 +1,11 @@
+{"ts": 1784312666.01217, "event": "serve", "frame": 0, "nonce": "6c692f82c2c606e8"}
+{"ts": 1784312671.664142, "event": "commit", "frame": 0, "nonce": "6c692f82c2c606e8", "decision": "HOLD", "reason": "frame0 at breakeven, too early, no adverse signal yet"}
+{"ts": 1784312674.354788, "event": "serve", "frame": 1, "nonce": "e994c88b7870fd09"}
+{"ts": 1784312680.022547, "event": "commit", "frame": 1, "nonce": "e994c88b7870fd09", "decision": "HOLD", "reason": "px +9.0, giveback 0%, PROPP-with just fired, favorable momentum building"}
+{"ts": 1784312682.6238563, "event": "serve", "frame": 2, "nonce": "4062364c6e51811c"}
+{"ts": 1784312688.0680535, "event": "commit", "frame": 2, "nonce": "4062364c6e51811c", "decision": "HOLD", "reason": "px +27.25, ER10 0.80 strong trend, giveback only 6%, let it run"}
+{"ts": 1784312690.8617601, "event": "serve", "frame": 3, "nonce": "3ff99ab5a16f69a8"}
+{"ts": 1784312696.1866107, "event": "commit", "frame": 3, "nonce": "3ff99ab5a16f69a8", "decision": "HOLD", "reason": "px +23.0 off high of +27.25, giveback 14% but ER10 0.86 still strongly trending, PROPP-with fired"}
+{"ts": 1784312698.9000266, "event": "serve", "frame": 4, "nonce": "f3380936388e7b68"}
+{"ts": 1784312712.8921993, "event": "commit", "frame": 4, "nonce": "f3380936388e7b68", "decision": "EXIT", "reason": "giveback jumped 14%->38% in one frame, ER10 falling 0.86->0.71, HA-against fired, 3-frame pullback pattern (27.25->23->12) signals trend reversal, lock in +12"}
+{"ts": 1784312719.6877763, "event": "finish", "summary": "Exited at +12.0pts favorable after a 3-frame pullback (peak +27.25 -> +23.0 -> +12.0) drove giveback from 6% to 38% in a single frame while ER10 fell from 0.86 to 0.71 and an HA-against fire hit; that combination read as trend efficiency breaking down, not just noise. Next time I'd want to see whether giveback has a calibrated threshold (e.g. exit past 30-35% of leg amplitude) rather than eyeballing it, and would watch lambda_hat sign flips across TFs as a corroborating decay signal alongside ER10.", "exit_frame": 4, "n_commits": 5}

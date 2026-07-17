@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_09_04_1757011290_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "b4e4f728f3e2c22c",
+      "ts": 1784317925.59298
+    },
+    {
+      "frame": 1,
+      "nonce": "23064cf8c863cf1a",
+      "ts": 1784317936.7409763
+    },
+    {
+      "frame": 2,
+      "nonce": "4de4f10edef57a34",
+      "ts": 1784317950.5402694
+    },
+    {
+      "frame": 3,
+      "nonce": "15ae28bb3fe57d78",
+      "ts": 1784317964.2912726
+    },
+    {
+      "frame": 4,
+      "nonce": "189d66795484787a",
+      "ts": 1784317992.53454
+    },
+    {
+      "frame": 5,
+      "nonce": "005130fb066a5cbe",
+      "ts": 1784318008.4885569
+    },
+    {
+      "frame": 6,
+      "nonce": "bc23645a3e626fe3",
+      "ts": 1784318029.6234295
+    },
+    {
+      "frame": 7,
+      "nonce": "f57f6843de98b2d1",
+      "ts": 1784318037.8814929
+    },
+    {
+      "frame": 8,
+      "nonce": "dcc8894c7ef52b7e",
+      "ts": 1784318045.8454423
+    },
+    {
+      "frame": 9,
+      "nonce": "fa4e37ff8fa6e7e3",
+      "ts": 1784318053.1311378
+    },
+    {
+      "frame": 10,
+      "nonce": "2dc41b3ba3cabd80",
+      "ts": 1784318067.5271623
+    },
+    {
+      "frame": 11,
+      "nonce": "ec6362e7fc559019",
+      "ts": 1784318083.0729785
+    },
+    {
+      "frame": 12,
+      "nonce": "b094f4b919d73033",
+      "ts": 1784318093.6536376
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "b4e4f728f3e2c22c",
+      "decision": "HOLD",
+      "reason": "just entered, flat px, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "23064cf8c863cf1a",
+      "decision": "HOLD",
+      "reason": "small -1.5pt dip, still early, no strong reversal signature"
+    },
+    {
+      "frame": 2,
+      "nonce": "4de4f10edef57a34",
+      "decision": "HOLD",
+      "reason": "drawdown to -3.5pts but no fresh against-fire, 1m lambda still mildly positive"
+    },
+    {
+      "frame": 3,
+      "nonce": "15ae28bb3fe57d78",
+      "decision": "HOLD",
+      "reason": "sharp drop to -10.5 but z extremely stretched neg + reversion_prob ~0.97-0.99 across TFs, mean-reverting hurst<0.5, betting on snap-back"
+    },
+    {
+      "frame": 4,
+      "nonce": "189d66795484787a",
+      "decision": "HOLD",
+      "reason": "already bounced off -13.25 low to -11.5, giveback improved to 21%, reversion_prob still high on 1m/15m"
+    },
+    {
+      "frame": 5,
+      "nonce": "005130fb066a5cbe",
+      "decision": "HOLD",
+      "reason": "new marginal low -13.75, but reversion_prob still 0.95-0.99 across TFs, no fresh against-fire, watching for confirmation of real trend vs noise"
+    },
+    {
+      "frame": 6,
+      "nonce": "bc23645a3e626fe3",
+      "decision": "HOLD",
+      "reason": "recovering, px improved from -13.75 to -10.00, no against-fires in last 3m, giveback down to 18%"
+    },
+    {
+      "frame": 7,
+      "nonce": "f57f6843de98b2d1",
+      "decision": "HOLD",
+      "reason": "continued recovery to -8.75, HA-with fired confirming favorable momentum, strong up 1m bar"
+    },
+    {
+      "frame": 8,
+      "nonce": "dcc8894c7ef52b7e",
+      "decision": "HOLD",
+      "reason": "strong recovery to -1.75, near breakeven, PROPP-with + HA-with fires confirming favorable momentum"
+    },
+    {
+      "frame": 9,
+      "nonce": "fa4e37ff8fa6e7e3",
+      "decision": "HOLD",
+      "reason": "back to +1.00 after strong rally, KMDR-against fresh but single fire, letting winner run per giveback-toll logic rather than banking early"
+    },
+    {
+      "frame": 10,
+      "nonce": "2dc41b3ba3cabd80",
+      "decision": "HOLD",
+      "reason": "new high +3.75, PROPP-against+KMDR-against both fired recently (watch for confluence) but price still climbing, giveback only 6%"
+    },
+    {
+      "frame": 11,
+      "nonce": "ec6362e7fc559019",
+      "decision": "HOLD",
+      "reason": "pulled back to +1.50 from +3.75 high, giveback 16%, against-fires not fresh this frame, still net positive"
+    },
+    {
+      "frame": 12,
+      "nonce": "b094f4b919d73033",
+      "decision": "EXIT",
+      "reason": "round-tripped from +3.75 back to flat, giveback climbing to 26%, 1m lambda significantly negative (active reversion), ER10 persistently low = choppy no-edge regime, exiting flat rather than risking a repeat 13pt drawdown"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Exited flat after a full ~17pt round trip (0 -> -13.75 -> +3.75 -> 0) at t=12m. The exit signature was accelerating giveback (16%->26%) off the local high combined with a significant negative 1m lambda_hat_21 (t=-3.16), indicating active mean-reversion working against the position, layered on top of persistently low ER10 (0.05-0.28) marking a choppy, low-edge regime rather than a clean trend. Next time I'd watch for the giveback-rate-of-change and lambda sign flip earlier rather than waiting for price to fully erase the gain, and treat repeated against-fires (KMDR/PROPP) at a swing high as an earlier warning than I did this run."
+}

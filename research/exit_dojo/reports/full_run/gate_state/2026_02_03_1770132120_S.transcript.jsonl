@@ -1,0 +1,15 @@
+{"ts": 1784314284.0825639, "event": "serve", "frame": 0, "nonce": "0878a3e5d7f9ce44"}
+{"ts": 1784314289.8109229, "event": "commit", "frame": 0, "nonce": "0878a3e5d7f9ce44", "decision": "HOLD", "reason": "just entered, px flat, no adverse signature yet"}
+{"ts": 1784314292.7457883, "event": "serve", "frame": 1, "nonce": "fbeec6ba87d42e35"}
+{"ts": 1784314302.7290742, "event": "commit", "frame": 1, "nonce": "fbeec6ba87d42e35", "decision": "HOLD", "reason": "profitable +19.25pts, but noting KMDR-against fired; watching for confirmation before acting"}
+{"ts": 1784314305.425272, "event": "serve", "frame": 2, "nonce": "8bc21c0ed6ee0ec3"}
+{"ts": 1784314311.6333416, "event": "commit", "frame": 2, "nonce": "8bc21c0ed6ee0ec3", "decision": "HOLD", "reason": "profit accelerating to +54pts, HA/PROPP still with, momentum strong despite KMDR-against"}
+{"ts": 1784314314.0736983, "event": "serve", "frame": 3, "nonce": "41633c2088f54586"}
+{"ts": 1784314318.8189824, "event": "commit", "frame": 3, "nonce": "41633c2088f54586", "decision": "HOLD", "reason": "profit +87pts, fresh leg only 1% given back, momentum strongly in favor"}
+{"ts": 1784314321.8818474, "event": "serve", "frame": 4, "nonce": "a4f0b13f32144b15"}
+{"ts": 1784314340.5423977, "event": "commit", "frame": 4, "nonce": "a4f0b13f32144b15", "decision": "HOLD", "reason": "profit retraced 87->34 (giveback 36%), PROPP just flipped against alongside persistent KMDR-against; still net +34, want confirm next bar before cutting"}
+{"ts": 1784314343.428452, "event": "serve", "frame": 5, "nonce": "ecafdd1908fec8a9"}
+{"ts": 1784314353.1979835, "event": "commit", "frame": 5, "nonce": "ecafdd1908fec8a9", "decision": "HOLD", "reason": "continued erosion 34->22.5 (giveback 58%) but signals mixed (HA-against, PROPP-with), still net positive, waiting for clearer confirmation"}
+{"ts": 1784314361.105727, "event": "serve", "frame": 6, "nonce": "86d406464d36c2b2"}
+{"ts": 1784314366.3739002, "event": "commit", "frame": 6, "nonce": "86d406464d36c2b2", "decision": "EXIT", "reason": "4 straight frames of profit decay (88->34->22.5->9.25), giveback now 66% of leg amp, locking remaining gain before it turns negative"}
+{"ts": 1784314371.9839027, "event": "finish", "summary": "Exited at +9.25pts after a clean fast run-up to +88pts reversed and eroded profit for 4 consecutive frames (88->34->22.5->9.25, giveback climbing 36%->58%->66%). Individual fire signals (KMDR/HA/PROPP) flipped inconsistently frame to frame, so the exit was driven by the monotonic multi-frame decay trend rather than any single signal. Next time I'd watch for the giveback stat crossing ~50% combined with 2+ consecutive down-frames as the earlier trigger, since waiting to frame 6 gave back most of the peak gain.", "exit_frame": 6, "n_commits": 7}

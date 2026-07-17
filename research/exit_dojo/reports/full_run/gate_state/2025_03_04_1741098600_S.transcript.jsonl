@@ -1,0 +1,11 @@
+{"ts": 1784314946.8064778, "event": "serve", "frame": 0, "nonce": "0564fa8a5861be67"}
+{"ts": 1784314951.1716974, "event": "commit", "frame": 0, "nonce": "0564fa8a5861be67", "decision": "HOLD", "reason": "just entered, px flat at entry, no signal yet to exit"}
+{"ts": 1784314953.9603405, "event": "serve", "frame": 1, "nonce": "dff17b47437022cc"}
+{"ts": 1784314969.042651, "event": "commit", "frame": 1, "nonce": "dff17b47437022cc", "decision": "HOLD", "reason": "down -34pts early but 1m lambda_hat sig negative (t=-2.1), reversion bias toward favorable; too early to bail"}
+{"ts": 1784314972.0507386, "event": "serve", "frame": 2, "nonce": "6909d4193080a727"}
+{"ts": 1784314977.757128, "event": "commit", "frame": 2, "nonce": "6909d4193080a727", "decision": "HOLD", "reason": "px recovered to -0.5 from -34, strong bounce toward entry; hold to see if momentum continues favorable"}
+{"ts": 1784314980.2120318, "event": "serve", "frame": 3, "nonce": "3ba8fd0cae775ed3"}
+{"ts": 1784314987.893387, "event": "commit", "frame": 3, "nonce": "3ba8fd0cae775ed3", "decision": "HOLD", "reason": "px flipped favorable to +14.5, amp expanding to 121.8pts, low giveback; let it run but watch PROPP-against"}
+{"ts": 1784314990.0164657, "event": "serve", "frame": 4, "nonce": "58d2c8051a7ce0e9"}
+{"ts": 1784314999.137282, "event": "commit", "frame": 4, "nonce": "58d2c8051a7ce0e9", "decision": "EXIT", "reason": "giveback jumped 9%->30% off the amp peak, vol rising, PROPP-against persistent 3 frames running; lock the +6.5pt profit before it flips negative again"}
+{"ts": 1784315004.995457, "event": "finish", "summary": "Trade whipsawed hard early (-34pts to +37 to +14.5 within 3 min) before I exited at +6.5pts on frame 4. The exit signature was giveback accelerating off the amplitude peak (9%->30% in one minute) with 5m vol rising (+4.0 delta) and PROPP-against firing three frames running -- read as the favorable excursion fading rather than consolidating. Next time I'd want to watch whether giveback stabilizes vs keeps accelerating before bailing, since amp was still flat (121.8) and the move could have re-expanded; also want a clearer read on whether KMDR/PROPP-against firing together is a reliable reversal tell or just chop noise given how violent the 5s/1m swings were throughout this episode.", "exit_frame": 4, "n_commits": 5}

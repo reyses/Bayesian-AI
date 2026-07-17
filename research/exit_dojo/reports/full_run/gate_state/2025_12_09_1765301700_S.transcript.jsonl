@@ -1,0 +1,11 @@
+{"ts": 1784313714.3473222, "event": "serve", "frame": 0, "nonce": "9b3617625fcd537c"}
+{"ts": 1784313719.6573896, "event": "commit", "frame": 0, "nonce": "9b3617625fcd537c", "decision": "HOLD", "reason": "frame0, flat at entry, no edge yet to exit"}
+{"ts": 1784313722.1017718, "event": "serve", "frame": 1, "nonce": "e5c822505f12c312"}
+{"ts": 1784313727.6774607, "event": "commit", "frame": 1, "nonce": "e5c822505f12c312", "decision": "HOLD", "reason": "only +2pt, amplitude/giveback modest, no reversal signature yet"}
+{"ts": 1784313730.0637038, "event": "serve", "frame": 2, "nonce": "998404f6981196d8"}
+{"ts": 1784313736.7887633, "event": "commit", "frame": 2, "nonce": "998404f6981196d8", "decision": "HOLD", "reason": "px +8, giveback only 4%, PROPP fired with the move, trend still intact"}
+{"ts": 1784313739.3190985, "event": "serve", "frame": 3, "nonce": "bc0a18847b53b394"}
+{"ts": 1784313754.2542684, "event": "commit", "frame": 3, "nonce": "bc0a18847b53b394", "decision": "HOLD", "reason": "giveback 47% is a pullback but leg still young (4m), PROPP fired with move, waiting for confirmation"}
+{"ts": 1784313756.9146721, "event": "serve", "frame": 4, "nonce": "94e735aa4ce78002"}
+{"ts": 1784313765.8992755, "event": "commit", "frame": 4, "nonce": "94e735aa4ce78002", "decision": "EXIT", "reason": "HA-against fired, giveback 67% of peak amp, now negative px -5, taking the exit on turn signature"}
+{"ts": 1784313771.3595712, "event": "finish", "summary": "Exited at t=4m on px -5.00 after the leg gave back 67% of its 21.8pt peak amplitude and flipped negative, coinciding with an HA-against fire and a significant negative lambda_hat_21 (t=-2.1 to -2.5 across 5s/1m) signaling momentum decay/mean-reversion against the position. What I'd watch next time: giveback velocity (47%->67% in one minute was the real tell, not the absolute px level) plus turn-detector fires against the position as the primary confirmation, rather than waiting for px to go deeply negative before acting.", "exit_frame": 4, "n_commits": 5}

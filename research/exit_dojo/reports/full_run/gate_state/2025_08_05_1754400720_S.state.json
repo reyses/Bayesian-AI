@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_08_05_1754400720_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f5dea00ec1549015",
+      "ts": 1784315304.144345
+    },
+    {
+      "frame": 1,
+      "nonce": "fe10bc5a6314d7dc",
+      "ts": 1784315314.019162
+    },
+    {
+      "frame": 2,
+      "nonce": "07290ddf7511713f",
+      "ts": 1784315324.2189858
+    },
+    {
+      "frame": 3,
+      "nonce": "14419128c689b23e",
+      "ts": 1784315338.104417
+    },
+    {
+      "frame": 4,
+      "nonce": "d2f651e529985ea0",
+      "ts": 1784315345.345679
+    },
+    {
+      "frame": 5,
+      "nonce": "cdf5c70a83a18f3e",
+      "ts": 1784315353.0999753
+    },
+    {
+      "frame": 6,
+      "nonce": "7159d8d3d62abcb5",
+      "ts": 1784315364.4802017
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f5dea00ec1549015",
+      "decision": "HOLD",
+      "reason": "frame 0, flat at entry, no edge yet to exit"
+    },
+    {
+      "frame": 1,
+      "nonce": "fe10bc5a6314d7dc",
+      "decision": "HOLD",
+      "reason": "small -4.25pt giveback, lambda_1m still weak/mixed, too early to call reversal"
+    },
+    {
+      "frame": 2,
+      "nonce": "07290ddf7511713f",
+      "decision": "HOLD",
+      "reason": "drawdown to -14.75pts but only 32% giveback of new leg; watching HA/PROPP-against flip closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "14419128c689b23e",
+      "decision": "HOLD",
+      "reason": "recovered to +3pts, giveback only 1% of 45.8pt leg, mixed fires - let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "d2f651e529985ea0",
+      "decision": "HOLD",
+      "reason": "px +5.50, giveback still low at 12%, HA/PROPP-with confirm favorable leg continuing"
+    },
+    {
+      "frame": 5,
+      "nonce": "cdf5c70a83a18f3e",
+      "decision": "HOLD",
+      "reason": "whipped back to -13, but giveback only 28% of leg, PROPP still with-position; chop not a structural break yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "7159d8d3d62abcb5",
+      "decision": "EXIT",
+      "reason": "px -32, deepest yet; KMDR/HA/PROPP all flipped against simultaneously; lambda_hat_12 significant positive (t=3.4) on 5s = momentum continuation adverse; fresh 0%-giveback leg suggests move still extending, not exhausted"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Exited on a unanimous-against signature: KMDR, HA, and PROPP all flipped against the position within the same 3-minute window, coinciding with a significant positive lambda_hat_12 (t=3.4) on the 5s TF indicating momentum continuation rather than mean-reversion, and a freshly-started adverse leg at 0% giveback (extending, not exhausted). Earlier drawdowns (-14.75, -13.00) were tolerated because signals stayed mixed/with-position and giveback stayed under ~30%; next time I'd watch for the same three-way fire alignment plus a significant same-direction lambda_t as the primary trigger rather than raw point drawdown alone."
+}

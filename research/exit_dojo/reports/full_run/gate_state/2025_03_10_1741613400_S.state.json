@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_03_10_1741613400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d23f6486326bdc5f",
+      "ts": 1784314947.3532424
+    },
+    {
+      "frame": 1,
+      "nonce": "1db018a707ede9c1",
+      "ts": 1784314955.2869725
+    },
+    {
+      "frame": 2,
+      "nonce": "b5fd8ee049df3a21",
+      "ts": 1784314964.6502912
+    },
+    {
+      "frame": 3,
+      "nonce": "e4a25dac5f19e790",
+      "ts": 1784314974.4382293
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d23f6486326bdc5f",
+      "decision": "HOLD",
+      "reason": "frame 0, just entered, px flat, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "1db018a707ede9c1",
+      "decision": "HOLD",
+      "reason": "px still flat at entry, early frame, watching CLIMAX-against fire but no adverse PnL yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "b5fd8ee049df3a21",
+      "decision": "HOLD",
+      "reason": "px still marginally positive +1.25, watching high giveback 71% and repeated CLIMAX-against fires closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "e4a25dac5f19e790",
+      "decision": "EXIT",
+      "reason": "px spiked to +53.5pts (from ~+1.25), giveback still low (10%) near peak, but KMDR-against + CLIMAX-against fired together this bar with ER10 collapsing to 0.14 -- classic exhaustion/reversal signature at a favorable extreme, banking the gain before giveback accelerates"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited on a stacked exhaustion signature: after price flatlined for the first ~2m, it snapped to +53.5pts favorable in one bar with amp 80pts and giveback still only 10% (near the local peak). KMDR-against and CLIMAX-against both fired on/just before that bar while ER10 collapsed from 0.36 to 0.14, indicating the move was losing trend efficiency right as two independent against-direction detectors triggered together -- took that confluence as a climax/reversal signature rather than risk letting giveback run. Next time I'd want to see whether KMDR-against alone (without CLIMAX confirmation) is enough to act on, and whether waiting one more frame to confirm giveback actually accelerating would have captured more of the move without giving back materially more."
+}

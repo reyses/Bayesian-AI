@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_05_29_1748525420_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2d66ff00cf6e5d94",
+      "ts": 1784307871.3014908
+    },
+    {
+      "frame": 1,
+      "nonce": "3cd666ae29dbb65e",
+      "ts": 1784307879.1337688
+    },
+    {
+      "frame": 2,
+      "nonce": "ab6bd0ceb341de35",
+      "ts": 1784307887.5854278
+    },
+    {
+      "frame": 3,
+      "nonce": "9089e3cfd56b8aed",
+      "ts": 1784307903.9184086
+    },
+    {
+      "frame": 4,
+      "nonce": "0cdc06f36bd7c4e1",
+      "ts": 1784307913.3507273
+    },
+    {
+      "frame": 5,
+      "nonce": "24a4b9d1180a3e3a",
+      "ts": 1784307925.4320204
+    },
+    {
+      "frame": 6,
+      "nonce": "7d0a4c0a9df93a45",
+      "ts": 1784307936.3714628
+    },
+    {
+      "frame": 7,
+      "nonce": "92c1524e5b81c3ea",
+      "ts": 1784307947.5555928
+    },
+    {
+      "frame": 8,
+      "nonce": "814143aee98a24cd",
+      "ts": 1784307954.4737446
+    },
+    {
+      "frame": 9,
+      "nonce": "48a468eaf92745ee",
+      "ts": 1784307962.6213655
+    },
+    {
+      "frame": 10,
+      "nonce": "4a88fc2d8d956c77",
+      "ts": 1784307969.790681
+    },
+    {
+      "frame": 11,
+      "nonce": "0955219fc37cc4c1",
+      "ts": 1784307980.0431633
+    },
+    {
+      "frame": 12,
+      "nonce": "dfa047fa6a188b63",
+      "ts": 1784308001.2841103
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2d66ff00cf6e5d94",
+      "decision": "HOLD",
+      "reason": "frame0 entry just triggered, price flat at 0, z_21 1m -1.18 mild fade signal, no reason to exit yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "3cd666ae29dbb65e",
+      "decision": "HOLD",
+      "reason": "px +7.25 favorable, mixed fire signals (HA-with vs KMDR/PROPP-against), too early to judge, staying in"
+    },
+    {
+      "frame": 2,
+      "nonce": "ab6bd0ceb341de35",
+      "decision": "HOLD",
+      "reason": "px +54.75 big favorable move, lambda_hat still positive on 1m (momentum continuing), 2 of 3 fires are with-trade; extreme z_se(-3.8) noted as risk but not fading yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "9089e3cfd56b8aed",
+      "decision": "HOLD",
+      "reason": "px +47.75, slight pullback from +54.75 peak but lambda_hat 1m strongly positive (0.17 t=3.97), momentum intact, giveback only 16% off new leg amp"
+    },
+    {
+      "frame": 4,
+      "nonce": "0cdc06f36bd7c4e1",
+      "decision": "HOLD",
+      "reason": "px +45.75, giveback 30% but lambda_hat 1m still positive (0.044 t=3.68), PROPP-with fire, momentum not broken yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "24a4b9d1180a3e3a",
+      "decision": "HOLD",
+      "reason": "px +42.00, consolidating in 39-47 range, lambda still positive across 1m/5m (momentum intact), giveback stable at 26%"
+    },
+    {
+      "frame": 6,
+      "nonce": "7d0a4c0a9df93a45",
+      "decision": "HOLD",
+      "reason": "px +55.00 new high, fresh leg giveback 0%, lambda_hat 1m positive (0.035 t=2.99), PROPP-with fire, momentum continuing"
+    },
+    {
+      "frame": 7,
+      "nonce": "92c1524e5b81c3ea",
+      "decision": "HOLD",
+      "reason": "px +53.00, near recent high, lambda_hat 1m still positive (0.037 t=3.13), PROPP-with fire continues, no reversal confirmed"
+    },
+    {
+      "frame": 8,
+      "nonce": "814143aee98a24cd",
+      "decision": "HOLD",
+      "reason": "px +78.50 new extreme, lambda_hat 1m positive (0.037 t=3.21), PROPP-with fire, no against-signal firing, momentum still driving"
+    },
+    {
+      "frame": 9,
+      "nonce": "48a468eaf92745ee",
+      "decision": "HOLD",
+      "reason": "px +81.00 new high, fresh leg 0% giveback, lambda_hat 1m still positive (0.030 t=2.67), one PROPP-against fire but no confirmation yet"
+    },
+    {
+      "frame": 10,
+      "nonce": "4a88fc2d8d956c77",
+      "decision": "HOLD",
+      "reason": "px +74.50, pulled back from +85.75 intra-bar high; first double against-fire (KMDR+PROPP) but lambda still positive across 1m/5m so momentum not broken; watching closely"
+    },
+    {
+      "frame": 11,
+      "nonce": "0955219fc37cc4c1",
+      "decision": "HOLD",
+      "reason": "px +91.50 new extreme; CLIMAX-against+KMDR-against fired together (first) and lambda_hat_12 flipped negative t=-3.27, but 21/30 lambda still positive t~1.2-1.4 -- one-bar fast-lambda flip alone isn't enough to cut, watching next frame for confirmation"
+    },
+    {
+      "frame": 12,
+      "nonce": "dfa047fa6a188b63",
+      "decision": "EXIT",
+      "reason": "px +105.25 near-max; all 3 detectors now against (KMDR+CLIMAX+PROPP) for first time simultaneously, and fast lambda_hat_12 1m strongly negative t=-5.15 (vs prior single-signal noise) -- taking the win before reversal confirms further"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Rode the short through a large favorable extension (0 -> +105pts) as long as lambda_hat stayed positive across 1m/5m windows and against-fires (KMDR/CLIMAX/PROPP) came one at a time -- treating single-detector disagreement as noise given the R-trigger graveyard lesson that cutting winners early on first reversal signal loses money. Exited at +105.25 when all three detectors flipped against simultaneously for the first time AND the fastest lambda window (12-bar) turned sharply negative (t=-5.15), the clearest convergent turn signal in the whole episode. Next time I'd watch for that specific triple-convergence (multi-detector agreement + fast-lambda sign flip with strong t-stat) as the primary trigger rather than reacting to any single against-fire, since several earlier single/double against-fires were false alarms that would have cut the trade far too early."
+}

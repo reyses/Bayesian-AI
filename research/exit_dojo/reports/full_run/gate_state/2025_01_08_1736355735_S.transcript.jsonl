@@ -1,0 +1,39 @@
+{"ts": 1784305495.3848238, "event": "serve", "frame": 0, "nonce": "6ea32c66ed11bade"}
+{"ts": 1784305499.345507, "event": "commit", "frame": 0, "nonce": "6ea32c66ed11bade", "decision": "HOLD", "reason": "entry frame, px flat at 0, no signal yet"}
+{"ts": 1784305503.0312674, "event": "serve", "frame": 1, "nonce": "ad5209fdfda90260"}
+{"ts": 1784305507.199811, "event": "commit", "frame": 1, "nonce": "ad5209fdfda90260", "decision": "HOLD", "reason": "px +11.25 favorable, no reversal signal, leg still young"}
+{"ts": 1784305509.6918883, "event": "serve", "frame": 2, "nonce": "549625b4b319249a"}
+{"ts": 1784305516.125018, "event": "commit", "frame": 2, "nonce": "549625b4b319249a", "decision": "HOLD", "reason": "amp growing to 40pts, giveback only 15%, ER10 0.67 still trending; watching against-fires"}
+{"ts": 1784305519.64984, "event": "serve", "frame": 3, "nonce": "5df57b8504cfbdf7"}
+{"ts": 1784305524.719571, "event": "commit", "frame": 3, "nonce": "5df57b8504cfbdf7", "decision": "HOLD", "reason": "px extended to +22.25, giveback shrank to 6%, trend still running despite against-fires"}
+{"ts": 1784305526.9571311, "event": "serve", "frame": 4, "nonce": "f99739442c572281"}
+{"ts": 1784305530.7840657, "event": "commit", "frame": 4, "nonce": "f99739442c572281", "decision": "HOLD", "reason": "px +28.50, giveback only 3%, ER10 0.68, trend intact"}
+{"ts": 1784305536.1527193, "event": "serve", "frame": 5, "nonce": "41e5be82bb741e40"}
+{"ts": 1784305541.032741, "event": "commit", "frame": 5, "nonce": "41e5be82bb741e40", "decision": "HOLD", "reason": "px +37.75, ER10 spiked to 0.94, PROPP now with-trend, giveback low"}
+{"ts": 1784305543.516571, "event": "serve", "frame": 6, "nonce": "b5e5b9c02ccc3937"}
+{"ts": 1784305547.2378573, "event": "commit", "frame": 6, "nonce": "b5e5b9c02ccc3937", "decision": "HOLD", "reason": "px +50.75, giveback 0%, ER10 0.94, strong clean trend, no against signal"}
+{"ts": 1784305550.416846, "event": "serve", "frame": 7, "nonce": "23b817f7c5eab5da"}
+{"ts": 1784305555.1993334, "event": "commit", "frame": 7, "nonce": "23b817f7c5eab5da", "decision": "HOLD", "reason": "px +50.00 near highs, giveback 0%, ER10 0.99; PROPP flipped against, watching closely"}
+{"ts": 1784305557.7073245, "event": "serve", "frame": 8, "nonce": "65a3f44e7f2d4368"}
+{"ts": 1784305568.1799822, "event": "commit", "frame": 8, "nonce": "65a3f44e7f2d4368", "decision": "HOLD", "reason": "pulled back to +40.25 from +50 highs, giveback 18%, ER10 cooling to 0.77 but still trend-positive, no hard reversal yet"}
+{"ts": 1784305570.6783404, "event": "serve", "frame": 9, "nonce": "73dff1efe3b4b2da"}
+{"ts": 1784305574.896227, "event": "commit", "frame": 9, "nonce": "73dff1efe3b4b2da", "decision": "HOLD", "reason": "new high +56.50, giveback back to 1%, amp 84.2, trend resumed after pullback"}
+{"ts": 1784305577.7128, "event": "serve", "frame": 10, "nonce": "9f5e5113decc9059"}
+{"ts": 1784305581.54064, "event": "commit", "frame": 10, "nonce": "9f5e5113decc9059", "decision": "HOLD", "reason": "new high +58.50, giveback 0%, trend still making progress"}
+{"ts": 1784305583.7368157, "event": "serve", "frame": 11, "nonce": "05e651990bf1e543"}
+{"ts": 1784305587.1953466, "event": "commit", "frame": 11, "nonce": "05e651990bf1e543", "decision": "HOLD", "reason": "new high +65.00, giveback low at 3%, trend continues"}
+{"ts": 1784305589.537708, "event": "serve", "frame": 12, "nonce": "48d5cbcbeeff9f41"}
+{"ts": 1784305593.0646567, "event": "commit", "frame": 12, "nonce": "48d5cbcbeeff9f41", "decision": "HOLD", "reason": "new high +80.50, giveback 0%, amp 96.8, PROPP back with-trend"}
+{"ts": 1784305595.4827425, "event": "serve", "frame": 13, "nonce": "ad2fb1fe254adf06"}
+{"ts": 1784305600.9807115, "event": "commit", "frame": 13, "nonce": "ad2fb1fe254adf06", "decision": "HOLD", "reason": "pullback to +69.75 off 83.25 high, giveback 10% still modest relative to 103pt amp, ER10 0.75 holding"}
+{"ts": 1784305603.6320229, "event": "serve", "frame": 14, "nonce": "36d175b914855ac4"}
+{"ts": 1784305608.541425, "event": "commit", "frame": 14, "nonce": "36d175b914855ac4", "decision": "HOLD", "reason": "px flat at +70.00, giveback steady 10%, ER10 cooling to 0.65 but no breakdown, still against-fires only"}
+{"ts": 1784305611.0221188, "event": "serve", "frame": 15, "nonce": "99ff44bdc9bd68ce"}
+{"ts": 1784305614.800761, "event": "commit", "frame": 15, "nonce": "99ff44bdc9bd68ce", "decision": "HOLD", "reason": "px recovered to +78.25, giveback shrank to 4%, still near highs"}
+{"ts": 1784305617.1193118, "event": "serve", "frame": 16, "nonce": "fc1471a9b20fddd8"}
+{"ts": 1784305620.7436843, "event": "commit", "frame": 16, "nonce": "fc1471a9b20fddd8", "decision": "HOLD", "reason": "new high +84.75, amp 116.0, giveback low 5%, trend still expanding"}
+{"ts": 1784305623.4063585, "event": "serve", "frame": 17, "nonce": "e4ecfc5b2634673d"}
+{"ts": 1784305639.1441123, "event": "commit", "frame": 17, "nonce": "e4ecfc5b2634673d", "decision": "HOLD", "reason": "px +85.25 near highs giveback 2%, but amp stalled (no fresh extension) and 1m lambda turned significantly negative (t=-2.66,-3.07) for first time -- watching for confirmation"}
+{"ts": 1784305641.7356253, "event": "serve", "frame": 18, "nonce": "f58431de13e896a5"}
+{"ts": 1784305651.8240707, "event": "commit", "frame": 18, "nonce": "f58431de13e896a5", "decision": "EXIT", "reason": "1m lambda strongly negative across all windows two frames running (t=-3.3,-3.1,-3.4), giveback climbed to 16% (largest yet) off the 95.0 high -- taking the reversal signal at +77.00"}
+{"ts": 1784305657.7741072, "event": "finish", "summary": "Rode a clean, strong short-favorable trend from 0 to a peak near +95pts with mostly low giveback (0-10%) and PROPP/ER10 confirming momentum for 17 minutes. Exited at +77.00 when the 1m lambda_hat turned significantly negative across all three windows (12/21/30) for two consecutive frames -- the first persistent, multi-window mean-reversion signal of the episode -- combined with giveback jumping to its highest reading yet (16%) off the 95.0 high. Next time I'd weight the lambda-sign persistence more heavily/earlier as the primary exit trigger rather than waiting for giveback confirmation, since the lambda flip preceded the bigger giveback by one frame.", "exit_frame": 18, "n_commits": 19}

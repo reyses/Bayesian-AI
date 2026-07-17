@@ -1,0 +1,17 @@
+{"ts": 1784314724.1005778, "event": "serve", "frame": 0, "nonce": "3eb80fc260ed62c7"}
+{"ts": 1784314730.9785044, "event": "commit", "frame": 0, "nonce": "3eb80fc260ed62c7", "decision": "HOLD", "reason": "frame0 fresh entry, px flat, no adverse signature yet"}
+{"ts": 1784314733.60362, "event": "serve", "frame": 1, "nonce": "b28d5b9eabdf735a"}
+{"ts": 1784314748.1408179, "event": "commit", "frame": 1, "nonce": "b28d5b9eabdf735a", "decision": "HOLD", "reason": "big favorable move to +50pts, lambda strongly positive (t~4.7) = trending/ride signature, KMDR-against is lone dissent"}
+{"ts": 1784314750.7909248, "event": "serve", "frame": 2, "nonce": "0d9953f97c7ec4a3"}
+{"ts": 1784314760.2917132, "event": "commit", "frame": 2, "nonce": "0d9953f97c7ec4a3", "decision": "HOLD", "reason": "pulled back from +50 to +35.5 but lambda_12 still strong positive (t=5.15), reversion_prob near 0, still net huge winner"}
+{"ts": 1784314762.7670796, "event": "serve", "frame": 3, "nonce": "44ef2157f536c8d9"}
+{"ts": 1784314773.0317113, "event": "commit", "frame": 3, "nonce": "44ef2157f536c8d9", "decision": "HOLD", "reason": "still +30pts; PROPP flipped against and CLIMAX-against fired, watching closely, but 1m lambda still positive t=4.4"}
+{"ts": 1784314775.5029798, "event": "serve", "frame": 4, "nonce": "f1dd30a8ab1d824e"}
+{"ts": 1784314781.1862473, "event": "commit", "frame": 4, "nonce": "f1dd30a8ab1d824e", "decision": "HOLD", "reason": "px recovered to +34.5, PROPP back with us, giveback only 6%, 1m lambda still positive t=3.9"}
+{"ts": 1784314783.4822397, "event": "serve", "frame": 5, "nonce": "0d0dc6dfa9fab48e"}
+{"ts": 1784314787.7061899, "event": "commit", "frame": 5, "nonce": "0d0dc6dfa9fab48e", "decision": "HOLD", "reason": "px new local high +37.75, giveback still low 7%, 1m lambda_21 t=4.85 strong, vol contracting"}
+{"ts": 1784314789.9146965, "event": "serve", "frame": 6, "nonce": "fa6145b445359031"}
+{"ts": 1784314807.4281826, "event": "commit", "frame": 6, "nonce": "fa6145b445359031", "decision": "HOLD", "reason": "giveback jumped 7%->35%, KMDR-against re-fired, 15m lambda strongly negative t=-4.66 - caution rising but still +27.5pts, 1m/5m lambda still net positive, no full reversal confirmation yet"}
+{"ts": 1784314810.844641, "event": "serve", "frame": 7, "nonce": "ac8e59ef33bb36c4"}
+{"ts": 1784314825.751638, "event": "commit", "frame": 7, "nonce": "ac8e59ef33bb36c4", "decision": "EXIT", "reason": "giveback accelerating 7%->35%->63% of the 55.8pt amp in 2 frames, HA flipped against, KMDR-against persists, 1m lambda_12 turned negative - reversal confirmed, locking +13.5pts before further erosion"}
+{"ts": 1784314831.2865844, "event": "finish", "summary": "Exited on a clear reversal signature: after the trade ran to a +50pt peak on strong multi-TF positive lambda (t~4-5, trending/ride regime), the favorable excursion eroded fast - giveback jumped from 7% to 35% to 63% of the 55.8pt amplitude across three consecutive frames, HA flipped from with to against, KMDR-against persisted, and 1m lambda_12 turned negative. Locked +13.5pts rather than let an accelerating giveback run into breakeven. Next time I'd watch the giveback-% acceleration itself (not just its level) as the earliest confirming signal, and treat two consecutive against-flips (HA + KMDR together) as the trigger rather than waiting for a third frame of decay.", "exit_frame": 7, "n_commits": 8}

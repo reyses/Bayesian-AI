@@ -1,0 +1,133 @@
+{
+  "episode_id": "2026_01_26_1769452860_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "784d2242dc691ab0",
+      "ts": 1784314112.7929604
+    },
+    {
+      "frame": 1,
+      "nonce": "722f16a6b75ab4af",
+      "ts": 1784314134.4800348
+    },
+    {
+      "frame": 2,
+      "nonce": "fd3a5e6365b6d46d",
+      "ts": 1784314149.7436013
+    },
+    {
+      "frame": 3,
+      "nonce": "b172d4952350fb2c",
+      "ts": 1784314159.311044
+    },
+    {
+      "frame": 4,
+      "nonce": "2efe5eacf0ae404b",
+      "ts": 1784314164.6121526
+    },
+    {
+      "frame": 5,
+      "nonce": "cefe8b60e62bdf24",
+      "ts": 1784314172.5964484
+    },
+    {
+      "frame": 6,
+      "nonce": "a62070bdd652ef19",
+      "ts": 1784314178.5609164
+    },
+    {
+      "frame": 7,
+      "nonce": "a70cdd3566e21dac",
+      "ts": 1784314187.0382407
+    },
+    {
+      "frame": 8,
+      "nonce": "3975633f0e959515",
+      "ts": 1784314193.3161268
+    },
+    {
+      "frame": 9,
+      "nonce": "29e5c70bd61f05ef",
+      "ts": 1784314201.1605823
+    },
+    {
+      "frame": 10,
+      "nonce": "e158cd199dd72380",
+      "ts": 1784314214.5136907
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "784d2242dc691ab0",
+      "decision": "HOLD",
+      "reason": "px at breakeven, no adverse signal yet, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "722f16a6b75ab4af",
+      "decision": "HOLD",
+      "reason": "down 6.75pts, z stretched but lambda mixed/insig on 21-30 windows, giving room"
+    },
+    {
+      "frame": 2,
+      "nonce": "fd3a5e6365b6d46d",
+      "decision": "HOLD",
+      "reason": "px improved to -5.25, giveback dropped 32%->13%, recovering"
+    },
+    {
+      "frame": 3,
+      "nonce": "b172d4952350fb2c",
+      "decision": "HOLD",
+      "reason": "px stable ~-5.5, giveback 15%, no deterioration"
+    },
+    {
+      "frame": 4,
+      "nonce": "2efe5eacf0ae404b",
+      "decision": "HOLD",
+      "reason": "px recovered to -1.5, near breakeven; noting PROPP-against fire but trend improving"
+    },
+    {
+      "frame": 5,
+      "nonce": "cefe8b60e62bdf24",
+      "decision": "HOLD",
+      "reason": "px flipped positive +3.75, position now in profit, momentum favorable"
+    },
+    {
+      "frame": 6,
+      "nonce": "a62070bdd652ef19",
+      "decision": "HOLD",
+      "reason": "px still positive +1.5 though pulled back from +3.75, choppy but no clear reversal signal"
+    },
+    {
+      "frame": 7,
+      "nonce": "a70cdd3566e21dac",
+      "decision": "HOLD",
+      "reason": "px +2.75, choppy range +1.5/+3.75, no fires against, staying in"
+    },
+    {
+      "frame": 8,
+      "nonce": "3975633f0e959515",
+      "decision": "HOLD",
+      "reason": "px new high +6.0, PROPP-with fire confirms momentum, letting it run"
+    },
+    {
+      "frame": 9,
+      "nonce": "29e5c70bd61f05ef",
+      "decision": "HOLD",
+      "reason": "sharp giveback to -0.5 w/ 3 against-fires, but still near breakeven not a new low; avoiding premature cut-a-winner"
+    },
+    {
+      "frame": 10,
+      "nonce": "e158cd199dd72380",
+      "decision": "EXIT",
+      "reason": "px new low -8.25; 15s z_21=2.86/z_se=3.31 extreme stretch w/ lambda_t_21=+4.7 sig trend-continuation AGAINST us, reversion_prob=0 at 15s; strongest adverse signal seen, cutting"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Exited on the t=10m frame when px hit a new drawdown low (-8.25) coinciding with an extreme 15s stretch (z_21=2.86, z_se_30=3.31) and a strongly significant positive lambda_t_21=+4.7 with reversion_prob_30=0.0 at 15s -- i.e. a confidently-continuing trend running against the position, not just noise. Prior giveback episodes (32%, then recovery to +6pts) were tolerated because lambda/z signals were weak or mixed; this one had unusually high statistical confidence of continuation against us plus a fresh price low, which is why I broke from the hold-through-chop pattern. Next time I'd watch for this same combo (new adverse price extreme + |z|>~2.5 + |lambda_t|>3-4 in the same direction) as the actual trigger, rather than reacting to single against-fires or giveback percentage alone."
+}

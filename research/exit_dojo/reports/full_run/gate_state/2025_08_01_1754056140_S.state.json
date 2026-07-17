@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_08_01_1754056140_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a33f8ffa7449aeb9",
+      "ts": 1784312282.9120333
+    },
+    {
+      "frame": 1,
+      "nonce": "7b7b58ba3b081348",
+      "ts": 1784312294.6756942
+    },
+    {
+      "frame": 2,
+      "nonce": "5555365dc2787d5c",
+      "ts": 1784312301.4751334
+    },
+    {
+      "frame": 3,
+      "nonce": "1bc267a5400cdb41",
+      "ts": 1784312307.9046593
+    },
+    {
+      "frame": 4,
+      "nonce": "3d048d6889a13d60",
+      "ts": 1784312325.7343805
+    },
+    {
+      "frame": 5,
+      "nonce": "5accac8855cd494b",
+      "ts": 1784312332.6452854
+    },
+    {
+      "frame": 6,
+      "nonce": "c2b0f47ddf2dd5ea",
+      "ts": 1784312339.7615478
+    },
+    {
+      "frame": 7,
+      "nonce": "69d04fd747a88dcb",
+      "ts": 1784312347.2539797
+    },
+    {
+      "frame": 8,
+      "nonce": "0c46f86afe3e6a1f",
+      "ts": 1784312356.7758482
+    },
+    {
+      "frame": 9,
+      "nonce": "5eed92d2d12031d2",
+      "ts": 1784312366.091489
+    },
+    {
+      "frame": 10,
+      "nonce": "feccbce0acde6641",
+      "ts": 1784312373.994506
+    },
+    {
+      "frame": 11,
+      "nonce": "947c118744005d45",
+      "ts": 1784312380.737747
+    },
+    {
+      "frame": 12,
+      "nonce": "10fb9340dd38b52c",
+      "ts": 1784312388.1313207
+    },
+    {
+      "frame": 13,
+      "nonce": "6df6f9c922f816ab",
+      "ts": 1784312395.0862837
+    },
+    {
+      "frame": 14,
+      "nonce": "e46e6f0ba069df71",
+      "ts": 1784312402.307104
+    },
+    {
+      "frame": 15,
+      "nonce": "c4ea9d637febda78",
+      "ts": 1784312409.804333
+    },
+    {
+      "frame": 16,
+      "nonce": "2a1ccf1b23f90b93",
+      "ts": 1784312422.7935524
+    },
+    {
+      "frame": 17,
+      "nonce": "f40378285dacd65f",
+      "ts": 1784312434.5767317
+    },
+    {
+      "frame": 18,
+      "nonce": "0ad9b8c2a18011da",
+      "ts": 1784312441.3555264
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a33f8ffa7449aeb9",
+      "decision": "HOLD",
+      "reason": "breakeven at frame0, early leg age 6m, wait for more signal despite against-fires"
+    },
+    {
+      "frame": 1,
+      "nonce": "7b7b58ba3b081348",
+      "decision": "HOLD",
+      "reason": "moved favorable to +8pts, 0% giveback, still early leg"
+    },
+    {
+      "frame": 2,
+      "nonce": "5555365dc2787d5c",
+      "decision": "HOLD",
+      "reason": "small pullback to +5.75, giveback only 10%, PROPP flipped with"
+    },
+    {
+      "frame": 3,
+      "nonce": "1bc267a5400cdb41",
+      "decision": "HOLD",
+      "reason": "pullback to -20pts but bars whipsawing (5s/15s/1m disagree), early leg age, holding through drawdown"
+    },
+    {
+      "frame": 4,
+      "nonce": "3d048d6889a13d60",
+      "decision": "HOLD",
+      "reason": "recovered strongly to +21pts, giveback 0%, PROPP-with confirms, riding the bounce"
+    },
+    {
+      "frame": 5,
+      "nonce": "5accac8855cd494b",
+      "decision": "HOLD",
+      "reason": "still favorable +11.25, giveback modest 8%, HA and PROPP both with now"
+    },
+    {
+      "frame": 6,
+      "nonce": "c2b0f47ddf2dd5ea",
+      "decision": "HOLD",
+      "reason": "near breakeven -2.75, choppy mixed fires, ER10 low, not a clean reversal signal yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "69d04fd747a88dcb",
+      "decision": "HOLD",
+      "reason": "px -10.75, all fires now against and ER10 falling, but still shallower than the -20 pullback that recovered at t=3m; give one more frame"
+    },
+    {
+      "frame": 8,
+      "nonce": "0c46f86afe3e6a1f",
+      "decision": "HOLD",
+      "reason": "leg reset (new pivot), px -12.50, ER10 near zero pure noise, mixed fires, waiting for clearer signal"
+    },
+    {
+      "frame": 9,
+      "nonce": "5eed92d2d12031d2",
+      "decision": "HOLD",
+      "reason": "back near breakeven -0.50, ER10 near zero pure chop, no directional edge yet to act on"
+    },
+    {
+      "frame": 10,
+      "nonce": "feccbce0acde6641",
+      "decision": "HOLD",
+      "reason": "px -4.75, still low-ER10 chop, no persistent directional break against us"
+    },
+    {
+      "frame": 11,
+      "nonce": "947c118744005d45",
+      "decision": "HOLD",
+      "reason": "strong jump to +24.50, new leg just started, HA and PROPP both with \u2014 ride it"
+    },
+    {
+      "frame": 12,
+      "nonce": "10fb9340dd38b52c",
+      "decision": "HOLD",
+      "reason": "big favorable move to +58.50, giveback only 4%, HA/PROPP with \u2014 let winner run"
+    },
+    {
+      "frame": 13,
+      "nonce": "6df6f9c922f816ab",
+      "decision": "HOLD",
+      "reason": "extending to +68.75, giveback low 7%, PROPP-with confirms continuation"
+    },
+    {
+      "frame": 14,
+      "nonce": "e46e6f0ba069df71",
+      "decision": "HOLD",
+      "reason": "new high +71.25, giveback still tiny 3%, but PROPP flipped against \u2014 watching closely next frame"
+    },
+    {
+      "frame": 15,
+      "nonce": "c4ea9d637febda78",
+      "decision": "HOLD",
+      "reason": "giveback to +39.50 (38% of leg amp), both fires against now \u2014 still well favorable, holding through the pullback rather than banking early"
+    },
+    {
+      "frame": 16,
+      "nonce": "2a1ccf1b23f90b93",
+      "decision": "HOLD",
+      "reason": "giveback now 58% of leg amp but still +33 favorable, PROPP flipped back with, avoiding premature profit-bank"
+    },
+    {
+      "frame": 17,
+      "nonce": "f40378285dacd65f",
+      "decision": "HOLD",
+      "reason": "bounced back to +43.50 from local low, giveback improved to 41%, still well favorable"
+    },
+    {
+      "frame": 18,
+      "nonce": "0ad9b8c2a18011da",
+      "decision": "EXIT",
+      "reason": "round-tripped from peak +71.25 down to +3.50, all three fires (KMDR/HA/PROPP) aligned against with a fresh leg showing no bounce \u2014 locking in what's left before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Exited after the trade round-tripped from a strong peak of +71.25pts back down to +3.50pts, giving back nearly the entire favorable excursion. The trigger was all three fire signals (KMDR, HA, PROPP) aligning against the position simultaneously for the first time, combined with a freshly-reset leg showing zero bounce-back \u2014 unlike earlier pullbacks (e.g. -20pts at t=3m, 58% giveback at t=16m) which recovered and had mixed/conflicting fires. Next time I'd watch for that specific combination (full 3-way fire alignment + a new leg opening with no reclaim) as the exit trigger earlier, since by the time I exited most of the round-trip had already happened; also worth flagging the low ER10 regime throughout as a caution that trend continuation wasn't reliable."
+}

@@ -1,0 +1,23 @@
+{"ts": 1784311669.2647283, "event": "serve", "frame": 0, "nonce": "516755f02577ca6d"}
+{"ts": 1784311676.0111103, "event": "commit", "frame": 0, "nonce": "516755f02577ca6d", "decision": "HOLD", "reason": "Frame 0, at entry, no adverse signal yet, too early to judge"}
+{"ts": 1784311678.352886, "event": "serve", "frame": 1, "nonce": "403bd4cb4d571b34"}
+{"ts": 1784311685.3608723, "event": "commit", "frame": 1, "nonce": "403bd4cb4d571b34", "decision": "HOLD", "reason": "30% giveback on 25pt amp, but lambda_30 still negative (mean-reverting) and fires are with-position; not a clean break yet"}
+{"ts": 1784311688.3658392, "event": "serve", "frame": 2, "nonce": "5d097ba78b5d3ecf"}
+{"ts": 1784311694.2229397, "event": "commit", "frame": 2, "nonce": "5d097ba78b5d3ecf", "decision": "HOLD", "reason": "Giveback stable ~28-30%, lambda_30 1m strongly negative (t=-2.77) = mean-reverting chop not a trend against us, ER10 low"}
+{"ts": 1784311696.9725673, "event": "serve", "frame": 3, "nonce": "7ea7ebf3f1eaa453"}
+{"ts": 1784311701.5643394, "event": "commit", "frame": 3, "nonce": "7ea7ebf3f1eaa453", "decision": "HOLD", "reason": "Recovered to -0.5pts, giveback down to 2%, lambda_30 1m still strongly mean-reverting (t=-3.05)"}
+{"ts": 1784311703.758697, "event": "serve", "frame": 4, "nonce": "4454500f7ec627b0"}
+{"ts": 1784311708.6160312, "event": "commit", "frame": 4, "nonce": "4454500f7ec627b0", "decision": "HOLD", "reason": "Now +7pts favorable, new amp high 36.2, lambda_30 1m still negative (mean-reverting/choppy not trending against us)"}
+{"ts": 1784311711.5202913, "event": "serve", "frame": 5, "nonce": "e523c316e02fcb45"}
+{"ts": 1784311723.1288762, "event": "commit", "frame": 5, "nonce": "e523c316e02fcb45", "decision": "HOLD", "reason": "Sharp reversal to -7.25, giveback 63%, both HA and PROPP now against -- concerning but single confirmation; watching for continuation before cutting"}
+{"ts": 1784311726.1215801, "event": "serve", "frame": 6, "nonce": "c38d4feab389c948"}
+{"ts": 1784311730.4185617, "event": "commit", "frame": 6, "nonce": "c38d4feab389c948", "decision": "HOLD", "reason": "Recovered to +4.25, giveback back down to 34% from 63% -- prior deterioration reversed, trade still constructive"}
+{"ts": 1784311733.1117074, "event": "serve", "frame": 7, "nonce": "51bfb18566bd12c0"}
+{"ts": 1784311736.9263244, "event": "commit", "frame": 7, "nonce": "51bfb18566bd12c0", "decision": "HOLD", "reason": "New leg started at +7pts, 0% giveback, HA-with fired -- constructive"}
+{"ts": 1784311739.8811398, "event": "serve", "frame": 8, "nonce": "4d99d91571d9b5da"}
+{"ts": 1784311744.1686459, "event": "commit", "frame": 8, "nonce": "4d99d91571d9b5da", "decision": "HOLD", "reason": "Still +6pts favorable, both HA and PROPP with-position; giveback is on a small new leg, not alarming"}
+{"ts": 1784311747.3272426, "event": "serve", "frame": 9, "nonce": "05b622f53da62d20"}
+{"ts": 1784311766.2471244, "event": "commit", "frame": 9, "nonce": "05b622f53da62d20", "decision": "HOLD", "reason": "Huge favorable spike to +36.5pts (extreme z_se -4 on 5s); KMDR-against fired but per validated stats cutting winners early is EV-negative, letting the tail run"}
+{"ts": 1784311769.37972, "event": "serve", "frame": 10, "nonce": "bde3c6105f62bb56"}
+{"ts": 1784311780.4845362, "event": "commit", "frame": 10, "nonce": "bde3c6105f62bb56", "decision": "EXIT", "reason": "Parabolic +40pt spike, vol accelerating (ER10 0.52, vol delta +7.2), and TWO independent leading turn signals (KMDR-against + CLIMAX-against) now converge -- exhaustion signature, locking in the gain"}
+{"ts": 1784311785.5352075, "event": "finish", "summary": "Held through normal chop and two mean-reverting whipsaws (giveback up to 63%) because lambda_30 stayed negative and fires were mixed/with-position. Exited on a parabolic +40pt spike when volatility accelerated sharply (ER10 jumped to 0.52) and two independent leading turn signals, KMDR-against and CLIMAX-against, fired together -- a convergent exhaustion signature distinct from the earlier noise. Next time I'd watch for that KMDR+CLIMAX co-fire specifically as the exit trigger after any rapid multi-sigma extension, rather than reacting to single against-fires during normal chop.", "exit_frame": 10, "n_commits": 11}

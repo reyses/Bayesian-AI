@@ -1,0 +1,43 @@
+{"ts": 1784313068.8215332, "event": "serve", "frame": 0, "nonce": "ea26761740fe2f6b"}
+{"ts": 1784313076.5599704, "event": "commit", "frame": 0, "nonce": "ea26761740fe2f6b", "decision": "HOLD", "reason": "entry frame, px flat, no exit signal yet"}
+{"ts": 1784313079.0000596, "event": "serve", "frame": 1, "nonce": "5cf472e1e2fb4af9"}
+{"ts": 1784313092.2402678, "event": "commit", "frame": 1, "nonce": "5cf472e1e2fb4af9", "decision": "HOLD", "reason": "px +54pts favorable, strong move, only one against-signal (KMDR), no reversal confirmation"}
+{"ts": 1784313094.509495, "event": "serve", "frame": 2, "nonce": "f67884a62a864cb7"}
+{"ts": 1784313099.3602095, "event": "commit", "frame": 2, "nonce": "f67884a62a864cb7", "decision": "HOLD", "reason": "px extended to +64.5pts, new leg forming low giveback 12%, trend still favorable"}
+{"ts": 1784313106.9096482, "event": "serve", "frame": 3, "nonce": "2136a5c99a868e48"}
+{"ts": 1784313113.0064542, "event": "commit", "frame": 3, "nonce": "2136a5c99a868e48", "decision": "HOLD", "reason": "minor pullback +64.5->+61.5, giveback 24% of new leg, still net favorable, no strong reversal confirmation"}
+{"ts": 1784313115.249722, "event": "serve", "frame": 4, "nonce": "ef72e29d5a52c040"}
+{"ts": 1784313122.117517, "event": "commit", "frame": 4, "nonce": "ef72e29d5a52c040", "decision": "HOLD", "reason": "new favorable high +72pts, giveback down to 12%, but both KMDR and PROPP now against - watching closely next frame"}
+{"ts": 1784313128.8033879, "event": "serve", "frame": 5, "nonce": "b48e078393268f03"}
+{"ts": 1784313132.5895975, "event": "commit", "frame": 5, "nonce": "b48e078393268f03", "decision": "HOLD", "reason": "new high +85.5pts, giveback tightened to 8%, PROPP back with, trend intact"}
+{"ts": 1784313135.0065994, "event": "serve", "frame": 6, "nonce": "8dd9446f0a335c65"}
+{"ts": 1784313139.7202523, "event": "commit", "frame": 6, "nonce": "8dd9446f0a335c65", "decision": "HOLD", "reason": "new high +92pts, giveback 0%, ER10 rising to 0.49, strong efficient trend"}
+{"ts": 1784313142.022191, "event": "serve", "frame": 7, "nonce": "59dbaa0af379b107"}
+{"ts": 1784313146.0941095, "event": "commit", "frame": 7, "nonce": "59dbaa0af379b107", "decision": "HOLD", "reason": "px +96.5pts near highs, giveback low 3%, ER10 steady 0.5, only single against-fire"}
+{"ts": 1784313148.6202788, "event": "serve", "frame": 8, "nonce": "c6d38169b9e3bc55"}
+{"ts": 1784313155.2496178, "event": "commit", "frame": 8, "nonce": "c6d38169b9e3bc55", "decision": "HOLD", "reason": "px steady ~+95pts, giveback 8%, ER10 climbing to 0.70, trend efficiency strong"}
+{"ts": 1784313157.5619874, "event": "serve", "frame": 9, "nonce": "a242957fdf976244"}
+{"ts": 1784313160.8490229, "event": "commit", "frame": 9, "nonce": "a242957fdf976244", "decision": "HOLD", "reason": "new high +115pts, giveback 0%, ER10 at 0.82, strongest trend reading yet"}
+{"ts": 1784313163.1380394, "event": "serve", "frame": 10, "nonce": "5c16f5c53ce7a3dd"}
+{"ts": 1784313174.8232877, "event": "commit", "frame": 10, "nonce": "5c16f5c53ce7a3dd", "decision": "HOLD", "reason": "px new extreme high +134.5pts, giveback still 0%, ER10 0.79 - both KMDR/PROPP against but no price confirmation yet, watching for pullback next"}
+{"ts": 1784313177.0387356, "event": "serve", "frame": 11, "nonce": "8059b16a864bfdae"}
+{"ts": 1784313181.191145, "event": "commit", "frame": 11, "nonce": "8059b16a864bfdae", "decision": "HOLD", "reason": "new high +160.25pts, giveback 3%, ER10 steady 0.79, PROPP realigned with"}
+{"ts": 1784313183.4131362, "event": "serve", "frame": 12, "nonce": "c120ac587ba3c8d5"}
+{"ts": 1784313187.5840964, "event": "commit", "frame": 12, "nonce": "c120ac587ba3c8d5", "decision": "HOLD", "reason": "new high +178.75pts, giveback 0%, ER10 0.77, no against-fires this frame"}
+{"ts": 1784313189.8747644, "event": "serve", "frame": 13, "nonce": "43f4e3014504d37b"}
+{"ts": 1784313193.9669268, "event": "commit", "frame": 13, "nonce": "43f4e3014504d37b", "decision": "HOLD", "reason": "new high +198.25pts, giveback 2%, ER10 0.83 highest yet, single against-fire not confirmed"}
+{"ts": 1784313197.2483554, "event": "serve", "frame": 14, "nonce": "f5ec4146c0d5a440"}
+{"ts": 1784313201.0487695, "event": "commit", "frame": 14, "nonce": "f5ec4146c0d5a440", "decision": "HOLD", "reason": "new high +205.5pts, giveback 1%, ER10 0.79 still strong trending"}
+{"ts": 1784313203.4364235, "event": "serve", "frame": 15, "nonce": "7677106e1e171c66"}
+{"ts": 1784313218.5691473, "event": "commit", "frame": 15, "nonce": "7677106e1e171c66", "decision": "HOLD", "reason": "pullback to +187 from +205.5 peak, giveback 15%, first dual against-signal alignment (KMDR+PROPP), but still well in profit and ER10 0.80 intact - watching for confirmation"}
+{"ts": 1784313220.8741724, "event": "serve", "frame": 16, "nonce": "f551f523a1242c27"}
+{"ts": 1784313226.8841798, "event": "commit", "frame": 16, "nonce": "f551f523a1242c27", "decision": "HOLD", "reason": "px +179.75, giveback 18%, ER10 cooling to 0.56 but PROPP realigned with, still well in profit"}
+{"ts": 1784313229.1099832, "event": "serve", "frame": 17, "nonce": "196df5a475b7d308"}
+{"ts": 1784313234.3788667, "event": "commit", "frame": 17, "nonce": "196df5a475b7d308", "decision": "HOLD", "reason": "px recovered to +191.25, giveback tightened to 16%, but ER10 fading to 0.39 - trend losing efficiency, watching closely"}
+{"ts": 1784313236.9069638, "event": "serve", "frame": 18, "nonce": "dae3f62737ca1fba"}
+{"ts": 1784313251.512469, "event": "commit", "frame": 18, "nonce": "dae3f62737ca1fba", "decision": "HOLD", "reason": "px steady ~+189, new leg giveback only 7%, ER10 low (0.38, choppy) but no confirmed breakdown, still well in profit"}
+{"ts": 1784313253.9031384, "event": "serve", "frame": 19, "nonce": "a6935e44e3b5ea4f"}
+{"ts": 1784313257.915449, "event": "commit", "frame": 19, "nonce": "a6935e44e3b5ea4f", "decision": "HOLD", "reason": "px back near peak +203.25, HA and PROPP both realigned with, resuming trend"}
+{"ts": 1784313263.720579, "event": "serve", "frame": 20, "nonce": "7e3ede8d6f214c21"}
+{"ts": 1784313281.4748976, "event": "commit", "frame": 20, "nonce": "7e3ede8d6f214c21", "decision": "EXIT", "reason": "sharp -44pt reversal in 1min from +203 to +159, KMDR+PROPP both against, ER10 weak/choppy for last 4 frames (0.36-0.42) vs 0.7-0.83 during the run - locking in large profit as trend efficiency has broken down"}
+{"ts": 1784313287.1417735, "event": "finish", "summary": "Exited at +159pts after a sharp -44pt one-minute reversal from the +203 local peak, with KMDR and PROPP both firing against simultaneously while ER10 (trend efficiency) had been fading for four straight frames (0.36-0.42 vs 0.70-0.83 during the main run) - the combination of confirmed dual-signal alignment plus visibly decaying trend efficiency read as genuine exhaustion rather than another dip-and-recover cycle like the earlier 15-18% giveback wiggles that resolved back to new highs. Next time I'd weight ER10's multi-frame decay trajectory more heavily and earlier as a leading decay signal rather than waiting for a large single-bar price giveback to confirm it, since the efficiency ratio started rolling over well before the sharp reversal bar printed.", "exit_frame": 20, "n_commits": 21}

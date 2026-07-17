@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_06_05_1749130320_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "87f88ecb08da2cfe",
+      "ts": 1784308160.6268022
+    },
+    {
+      "frame": 1,
+      "nonce": "e73b073e83ea7717",
+      "ts": 1784308168.1397815
+    },
+    {
+      "frame": 2,
+      "nonce": "5308a35d4e84e6da",
+      "ts": 1784308179.0073354
+    },
+    {
+      "frame": 3,
+      "nonce": "ec5ece8ee68d22e2",
+      "ts": 1784308187.3595903
+    },
+    {
+      "frame": 4,
+      "nonce": "18c550166240d5bd",
+      "ts": 1784308195.2840347
+    },
+    {
+      "frame": 5,
+      "nonce": "5690a45261a3b39c",
+      "ts": 1784308208.1153846
+    },
+    {
+      "frame": 6,
+      "nonce": "493664c6cda81ab8",
+      "ts": 1784308218.9581578
+    },
+    {
+      "frame": 7,
+      "nonce": "786800214496c861",
+      "ts": 1784308226.0644996
+    },
+    {
+      "frame": 8,
+      "nonce": "ed14cf81dbc07886",
+      "ts": 1784308232.963226
+    },
+    {
+      "frame": 9,
+      "nonce": "57ce87b23786d228",
+      "ts": 1784308239.9403977
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "87f88ecb08da2cfe",
+      "decision": "HOLD",
+      "reason": "flat at entry, too early, z_se_30 mixed across TFs, no clear against-signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "e73b073e83ea7717",
+      "decision": "HOLD",
+      "reason": "px +19 favorable, 3 of 4 recent fires with-trend (KMDR/HA/PROPP), only CLIMAX against"
+    },
+    {
+      "frame": 2,
+      "nonce": "5308a35d4e84e6da",
+      "decision": "HOLD",
+      "reason": "gave back most of the +19 bounce but still net positive; PROPP/HA still with-trend, watching for further erosion"
+    },
+    {
+      "frame": 3,
+      "nonce": "ec5ece8ee68d22e2",
+      "decision": "HOLD",
+      "reason": "px turned negative -6.5, HA flipped against, but leg is fresh (1m/17% giveback) and ER10 near-zero suggests chop not trend; small size so far"
+    },
+    {
+      "frame": 4,
+      "nonce": "18c550166240d5bd",
+      "decision": "HOLD",
+      "reason": "px back to +6, giveback only 4% of 45.8pt amp, HA back with-trend, choppy but net favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "5690a45261a3b39c",
+      "decision": "HOLD",
+      "reason": "px +5, giveback modest 14%, HA/PROPP both with-trend, amp growing to 50.5pts"
+    },
+    {
+      "frame": 6,
+      "nonce": "493664c6cda81ab8",
+      "decision": "HOLD",
+      "reason": "px +7.5, giveback still low 12%, HA/PROPP consistently with-trend for 3+ frames, vol compressing"
+    },
+    {
+      "frame": 7,
+      "nonce": "786800214496c861",
+      "decision": "HOLD",
+      "reason": "strong move to +29, giveback 0%, amp expanding to 61.5pts, letting the leg run despite single PROPP-against blip"
+    },
+    {
+      "frame": 8,
+      "nonce": "ed14cf81dbc07886",
+      "decision": "HOLD",
+      "reason": "px +61, giveback still just 5% of 92pt amp, lambda_hat strongly positive (trend-riding regime) on 15s/1m, letting winner run"
+    },
+    {
+      "frame": 9,
+      "nonce": "57ce87b23786d228",
+      "decision": "EXIT",
+      "reason": "unanimous reversal signature: KMDR/CLIMAX/PROPP all fired against within the last minute right after a 98pt amp peak, giveback jumped from 5% to 38% in one frame -- locking in +27.75"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited at +27.75pts after riding the leg from flat through a peak amplitude of 98pts with giveback staying under 15% for most of the hold. The exit trigger was the sudden unanimous reversal signature -- KMDR, CLIMAX, and PROPP all flipping against within the same 0-1m window right after the peak, coupled with giveback jumping from 5% to 38% in a single frame. Next time I'd watch for that same combo (multi-detector against-consensus + giveback acceleration) earlier and also track whether it's a one-bar spike vs sustained follow-through before committing, since a single violent retrace can still mean-revert back in my favor."
+}

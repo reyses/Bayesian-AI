@@ -1,0 +1,13 @@
+{"ts": 1784313504.580823, "event": "serve", "frame": 0, "nonce": "a5be1413c691ec28"}
+{"ts": 1784313513.405622, "event": "commit", "frame": 0, "nonce": "a5be1413c691ec28", "decision": "HOLD", "reason": "just entered, px flat at 0, no adverse signal yet"}
+{"ts": 1784313516.5026047, "event": "serve", "frame": 1, "nonce": "7b2dd45334a11e4f"}
+{"ts": 1784313524.5379293, "event": "commit", "frame": 1, "nonce": "7b2dd45334a11e4f", "decision": "HOLD", "reason": "px +11 favorable, 3 of 4 recent fires are with-trend, only PROPP against"}
+{"ts": 1784313526.7967193, "event": "serve", "frame": 2, "nonce": "e00e9d07cd25280a"}
+{"ts": 1784313534.7485359, "event": "commit", "frame": 2, "nonce": "e00e9d07cd25280a", "decision": "HOLD", "reason": "px +40.5 and growing, majority signals still with-trend despite ER10 dropping"}
+{"ts": 1784313537.2942598, "event": "serve", "frame": 3, "nonce": "77a4857b02c8ac0a"}
+{"ts": 1784313543.1964543, "event": "commit", "frame": 3, "nonce": "77a4857b02c8ac0a", "decision": "HOLD", "reason": "px +42, new leg just started with low giveback 21%, fresh momentum"}
+{"ts": 1784313545.4294643, "event": "serve", "frame": 4, "nonce": "3e6c41deb39b81d9"}
+{"ts": 1784313549.9318862, "event": "commit", "frame": 4, "nonce": "3e6c41deb39b81d9", "decision": "HOLD", "reason": "px +49.25 still climbing, giveback low 13%, PROPP-with just fired"}
+{"ts": 1784313552.4045131, "event": "serve", "frame": 5, "nonce": "0f33611584b871be"}
+{"ts": 1784313560.385034, "event": "commit", "frame": 5, "nonce": "0f33611584b871be", "decision": "EXIT", "reason": "px +77 strong profit; KMDR-against just fired (leading turn detector) plus recent CLIMAX-against, taking gains before reversal"}
+{"ts": 1784313565.3804784, "event": "finish", "summary": "Exited SHORT at +77pts after a strong 5-minute run-up with giveback near a local low (4%), triggered by KMDR-against firing (a known leading turn detector) stacked with a recent CLIMAX-against \u2014 two independent against-trend fires close together outweighed the single PROPP-with. Next time I'd watch for KMDR/CLIMAX against-fires clustering within 1-2m of each other as the primary trigger, and treat low giveback with rising against-signal density as the moment amplitude is topping rather than waiting for giveback% to climb.", "exit_frame": 5, "n_commits": 6}

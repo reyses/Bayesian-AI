@@ -1,0 +1,37 @@
+{"ts": 1784316589.6145687, "event": "serve", "frame": 0, "nonce": "e0e0a74022073ac9"}
+{"ts": 1784316600.2938533, "event": "commit", "frame": 0, "nonce": "e0e0a74022073ac9", "decision": "HOLD", "reason": "just entered, px flat at entry, mixed/early signals, no edge to exit yet"}
+{"ts": 1784316602.7696295, "event": "serve", "frame": 1, "nonce": "1cacfb2cc545f874"}
+{"ts": 1784316608.2509313, "event": "commit", "frame": 1, "nonce": "1cacfb2cc545f874", "decision": "HOLD", "reason": "small -2.25pt drawdown, 15s just bounced positive, lambda t-stats weak, no clear reversal signature"}
+{"ts": 1784316610.6628788, "event": "serve", "frame": 2, "nonce": "c4223241cc2af636"}
+{"ts": 1784316615.0152533, "event": "commit", "frame": 2, "nonce": "c4223241cc2af636", "decision": "HOLD", "reason": "px recovered to +2.00, new leg giveback 0%, 5m lambda positive (t=2.5), momentum improving"}
+{"ts": 1784316618.1187036, "event": "serve", "frame": 3, "nonce": "7b8f27c251ce28b0"}
+{"ts": 1784316621.7521133, "event": "commit", "frame": 3, "nonce": "7b8f27c251ce28b0", "decision": "HOLD", "reason": "px holding near flat/+0.25, chop but no breakdown signature, giveback only 17%"}
+{"ts": 1784316625.0734017, "event": "serve", "frame": 4, "nonce": "b434e2bb847e208b"}
+{"ts": 1784316631.896262, "event": "commit", "frame": 4, "nonce": "b434e2bb847e208b", "decision": "HOLD", "reason": "px +5.00 new high, giveback only 4%, but KMDR+PROPP both fired against just now - watching closely next frame"}
+{"ts": 1784316635.7826452, "event": "serve", "frame": 5, "nonce": "bc8f1a58485b8a43"}
+{"ts": 1784316642.960541, "event": "commit", "frame": 5, "nonce": "bc8f1a58485b8a43", "decision": "HOLD", "reason": "pulled back to +1.25 (24% giveback) after both against-fires, but still positive, no structural breakdown yet"}
+{"ts": 1784316645.2322524, "event": "serve", "frame": 6, "nonce": "c8d94f35896929aa"}
+{"ts": 1784316649.187569, "event": "commit", "frame": 6, "nonce": "c8d94f35896929aa", "decision": "HOLD", "reason": "px back to +5.25, giveback down to 5%, 5s lambda t=5.2 strong positive momentum"}
+{"ts": 1784316651.5183754, "event": "serve", "frame": 7, "nonce": "b6eba04829236e7d"}
+{"ts": 1784316660.421641, "event": "commit", "frame": 7, "nonce": "b6eba04829236e7d", "decision": "HOLD", "reason": "fast 5s/15s pullback to -2.50 but 1m/5m still strongly positive (5m lambda t=4.4), looks like chop not structural break"}
+{"ts": 1784316662.8303468, "event": "serve", "frame": 8, "nonce": "9c877b7e57a17d95"}
+{"ts": 1784316669.5963917, "event": "commit", "frame": 8, "nonce": "9c877b7e57a17d95", "decision": "HOLD", "reason": "px -2.00, 1m closed negative after +7.25 high, ER10 dropped to 0.06 (choppy) but drawdown still modest (17% giveback)"}
+{"ts": 1784316672.8198297, "event": "serve", "frame": 9, "nonce": "570a3b9899dbf264"}
+{"ts": 1784316679.1514542, "event": "commit", "frame": 9, "nonce": "570a3b9899dbf264", "decision": "HOLD", "reason": "px recovered to +3.50, 15s rallying hard (z_se +2.07, C+6.75), uptrend resuming"}
+{"ts": 1784316681.6324444, "event": "serve", "frame": 10, "nonce": "e9c1af776158eaad"}
+{"ts": 1784316685.5061815, "event": "commit", "frame": 10, "nonce": "e9c1af776158eaad", "decision": "HOLD", "reason": "px +6.00 new episode high, 1m/5s momentum solid, no reversal confirmation"}
+{"ts": 1784316687.8576827, "event": "serve", "frame": 11, "nonce": "a71944be6df84adf"}
+{"ts": 1784316691.6579506, "event": "commit", "frame": 11, "nonce": "a71944be6df84adf", "decision": "HOLD", "reason": "px +5.75, made intrabar high +10.25, minor pullback within uptrend, still strong"}
+{"ts": 1784316695.3989837, "event": "serve", "frame": 12, "nonce": "a3ccd90209ee808e"}
+{"ts": 1784316704.2606843, "event": "commit", "frame": 12, "nonce": "a3ccd90209ee808e", "decision": "HOLD", "reason": "px +1.50, still positive despite chop; 5m lambda still strongly positive (t=4.3) even as 15m mean-reversion (t=-4.4) grows"}
+{"ts": 1784316706.6974885, "event": "serve", "frame": 13, "nonce": "8748ab7aed519df0"}
+{"ts": 1784316717.1625736, "event": "commit", "frame": 13, "nonce": "8748ab7aed519df0", "decision": "HOLD", "reason": "px -4.75 deepest pullback yet, ER10 near-zero (pure chop) but 1m still closed slightly positive +0.75, no confirmed structural break"}
+{"ts": 1784316721.6906595, "event": "serve", "frame": 14, "nonce": "9fe2c23bac818e9d"}
+{"ts": 1784316737.8521712, "event": "commit", "frame": 14, "nonce": "9fe2c23bac818e9d", "decision": "HOLD", "reason": "px -6.00 new low, 1m closed weak near bar low (z_21=-2.0), but reversion_prob still 0.78 and prior pullbacks (-2.25,-2.50,-4.75) all recovered - watching for confirmation next frame"}
+{"ts": 1784316740.7253473, "event": "serve", "frame": 15, "nonce": "d6b95dbfe2d9a5d0"}
+{"ts": 1784316745.1794236, "event": "commit", "frame": 15, "nonce": "d6b95dbfe2d9a5d0", "decision": "HOLD", "reason": "px bounced from -6.00 low back to +0.75, confirms pullback-recovery pattern, 1m lambda flipped positive t=2.4"}
+{"ts": 1784316747.8409097, "event": "serve", "frame": 16, "nonce": "dbc64172c5298f22"}
+{"ts": 1784316762.9147725, "event": "commit", "frame": 16, "nonce": "dbc64172c5298f22", "decision": "HOLD", "reason": "px -11.50 deepest low yet, but 1m bar shows hammer (wick to -13.5, close -3.5, clsInRng 0.85) - flush+reject pattern matches prior recovery cycles, lambda_hat_21 1m still positive t=2.57"}
+{"ts": 1784316765.5144343, "event": "serve", "frame": 17, "nonce": "adff1f6485c9e618"}
+{"ts": 1784316783.1027496, "event": "commit", "frame": 17, "nonce": "adff1f6485c9e618", "decision": "EXIT", "reason": "1m AND 5m both closed full-bearish at bar low (clsInRng 0.00/0.09) unlike prior hammer-recoveries; z_21=-2.1 with lambda_hat_21 positive t=3.5 = ride-not-fade signature, first continuation read this episode"}
+{"ts": 1784316789.7263424, "event": "finish", "summary": "Held through repeated pullbacks (to -2.25, -4.75, -6.00, -11.50) because each prior deep low showed a hammer/wick-reject signature (close near bar high after a deep wick) that matched the episode's recurring recover-and-new-high pattern. Exited at t=17m when both the 1m and 5m bars closed full-bearish AT their bar lows (clsInRng ~0-0.1) instead of rejecting the low, combined with z_21=-2.1 and lambda_hat_21 turning positive (t=3.5) - per the lambda-completion framework that combination reads as ride-the-move (continuation) rather than fade-back-to-mean, the first such flip in the episode. Next time: watch clsInRng on the close bar as the hammer-vs-breakdown discriminator, and treat sign(lambda_hat) at large |z| as the fade/ride gate rather than raw drawdown depth.", "exit_frame": 17, "n_commits": 18}

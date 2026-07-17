@@ -1,0 +1,8 @@
+# exit_code=0 dt=206s
+## STDOUT
+Episode closed. Exited at frame 10 (t=10m) at +0.50pts, after the leg round-tripped from a +63.25pt peak down through 51%â†’64%â†’81% giveback with both HA and PROPP fire signals flipping to against-trend. Final summary logged â€” key lesson: the dual-signal against-flip combined with giveback crossing ~70-80% was the earliest reliable exit cue, and holding through the earlier giveback stages cost most of the peak profit.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

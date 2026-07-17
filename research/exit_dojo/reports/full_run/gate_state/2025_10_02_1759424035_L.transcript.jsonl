@@ -1,0 +1,21 @@
+{"ts": 1784318672.7850301, "event": "serve", "frame": 0, "nonce": "cba3aba13fae6a6f"}
+{"ts": 1784318677.1390615, "event": "commit", "frame": 0, "nonce": "cba3aba13fae6a6f", "decision": "HOLD", "reason": "entry frame, px flat, no signal yet"}
+{"ts": 1784318679.9271462, "event": "serve", "frame": 1, "nonce": "b7b94ba5f9bbae80"}
+{"ts": 1784318684.1447442, "event": "commit", "frame": 1, "nonce": "b7b94ba5f9bbae80", "decision": "HOLD", "reason": "px +2.5, 1m momentum still positive, early in leg"}
+{"ts": 1784318686.5313525, "event": "serve", "frame": 2, "nonce": "af7db9c397da1e33"}
+{"ts": 1784318697.3870764, "event": "commit", "frame": 2, "nonce": "af7db9c397da1e33", "decision": "HOLD", "reason": "minor pullback to -2.5, only 11% giveback of 26pt amp, watching PROPP-against fires"}
+{"ts": 1784318704.7564712, "event": "serve", "frame": 3, "nonce": "0e844d240518d04a"}
+{"ts": 1784318710.569672, "event": "commit", "frame": 3, "nonce": "0e844d240518d04a", "decision": "HOLD", "reason": "giveback 23%, ER10 dropping to 0.42, pullback deepening but not extreme yet"}
+{"ts": 1784318712.9723482, "event": "serve", "frame": 4, "nonce": "d14a762c8b2d6db4"}
+{"ts": 1784318717.448556, "event": "commit", "frame": 4, "nonce": "d14a762c8b2d6db4", "decision": "HOLD", "reason": "px -2.0, new leg started, small loss stabilizing not accelerating"}
+{"ts": 1784318719.9156613, "event": "serve", "frame": 5, "nonce": "16785c72c3bc28e6"}
+{"ts": 1784318725.276457, "event": "commit", "frame": 5, "nonce": "16785c72c3bc28e6", "decision": "HOLD", "reason": "px recovered to +1.5, HA-with fire, momentum turning back favorable"}
+{"ts": 1784318728.0404649, "event": "serve", "frame": 6, "nonce": "cbc8fa8d0276a461"}
+{"ts": 1784318732.2454288, "event": "commit", "frame": 6, "nonce": "cbc8fa8d0276a461", "decision": "HOLD", "reason": "px +2.0, ER10 up to 0.71, still choppy but net favorable"}
+{"ts": 1784318734.7069318, "event": "serve", "frame": 7, "nonce": "6ad6317108e454dd"}
+{"ts": 1784318748.3438582, "event": "commit", "frame": 7, "nonce": "6ad6317108e454dd", "decision": "HOLD", "reason": "px -4.75 new low but 15s lambda strongly negative (fade/reversion signal), reversion_prob high across TFs"}
+{"ts": 1784318751.712167, "event": "serve", "frame": 8, "nonce": "b6c6666cee9e9d4b"}
+{"ts": 1784318763.749414, "event": "commit", "frame": 8, "nonce": "b6c6666cee9e9d4b", "decision": "HOLD", "reason": "px -7.25 new worst, ER10 dropped to 0.24 (choppy), but reversion_prob still high 0.88-1.0 across TFs, watching for confirmation"}
+{"ts": 1784318766.1568003, "event": "serve", "frame": 9, "nonce": "a3d8cf7f7b7ef333"}
+{"ts": 1784318773.047722, "event": "commit", "frame": 9, "nonce": "a3d8cf7f7b7ef333", "decision": "EXIT", "reason": "px -10.0, 3rd consecutive new low, ER10 collapsed to 0.03 (no reversion efficiency), 1m lambda_hat_12 t=-4.44 strongly trending against position"}
+{"ts": 1784318778.8217413, "event": "finish", "summary": "Exited at -10.0pts after three consecutive new lows (-4.75 -> -7.25 -> -10.0) with ER10 collapsing from 0.71 down to 0.03, signaling the move had stopped being noisy chop and become an efficient (low-friction) trend against the position; 1m lambda_hat_12 also flipped strongly negative and significant (t=-4.44), confirming trend continuation rather than mean-reversion. Next time I'd weight the ER10 collapse more heavily and earlier -- it was the clearest divergence from the prior chop regime (where ER10 hovered 0.4-0.7 and price oscillated -5 to +3 without breaking new ground), and would consider exiting one frame sooner once ER10 crossed below ~0.1 rather than waiting for a third consecutive new low.", "exit_frame": 9, "n_commits": 10}

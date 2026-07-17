@@ -1,0 +1,8 @@
+# exit_code=0 dt=418s
+## STDOUT
+Episode complete. Held through the early 25-minute chop (range roughly -5.5 to +2), rode the breakout to a +19.75 peak, then exited at **+8.25pts** when the 5m Î» flipped strongly negative (t=-3.44) after the extreme stretch â€” the |Z|>Z* âˆ§ Î»<0 fade signature â€” corroborated by two consecutive frames of KMDR+HA against-fires.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

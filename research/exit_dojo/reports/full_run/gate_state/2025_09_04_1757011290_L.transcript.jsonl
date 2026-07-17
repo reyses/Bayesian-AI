@@ -1,0 +1,27 @@
+{"ts": 1784317925.59298, "event": "serve", "frame": 0, "nonce": "b4e4f728f3e2c22c"}
+{"ts": 1784317931.5412958, "event": "commit", "frame": 0, "nonce": "b4e4f728f3e2c22c", "decision": "HOLD", "reason": "just entered, flat px, no adverse signature yet"}
+{"ts": 1784317936.7409763, "event": "serve", "frame": 1, "nonce": "23064cf8c863cf1a"}
+{"ts": 1784317942.4843965, "event": "commit", "frame": 1, "nonce": "23064cf8c863cf1a", "decision": "HOLD", "reason": "small -1.5pt dip, still early, no strong reversal signature"}
+{"ts": 1784317950.5496545, "event": "serve", "frame": 2, "nonce": "4de4f10edef57a34"}
+{"ts": 1784317962.0432348, "event": "commit", "frame": 2, "nonce": "4de4f10edef57a34", "decision": "HOLD", "reason": "drawdown to -3.5pts but no fresh against-fire, 1m lambda still mildly positive"}
+{"ts": 1784317964.2912726, "event": "serve", "frame": 3, "nonce": "15ae28bb3fe57d78"}
+{"ts": 1784317989.975336, "event": "commit", "frame": 3, "nonce": "15ae28bb3fe57d78", "decision": "HOLD", "reason": "sharp drop to -10.5 but z extremely stretched neg + reversion_prob ~0.97-0.99 across TFs, mean-reverting hurst<0.5, betting on snap-back"}
+{"ts": 1784317992.538857, "event": "serve", "frame": 4, "nonce": "189d66795484787a"}
+{"ts": 1784318004.6695287, "event": "commit", "frame": 4, "nonce": "189d66795484787a", "decision": "HOLD", "reason": "already bounced off -13.25 low to -11.5, giveback improved to 21%, reversion_prob still high on 1m/15m"}
+{"ts": 1784318008.496404, "event": "serve", "frame": 5, "nonce": "005130fb066a5cbe"}
+{"ts": 1784318026.85331, "event": "commit", "frame": 5, "nonce": "005130fb066a5cbe", "decision": "HOLD", "reason": "new marginal low -13.75, but reversion_prob still 0.95-0.99 across TFs, no fresh against-fire, watching for confirmation of real trend vs noise"}
+{"ts": 1784318029.628998, "event": "serve", "frame": 6, "nonce": "bc23645a3e626fe3"}
+{"ts": 1784318034.6384299, "event": "commit", "frame": 6, "nonce": "bc23645a3e626fe3", "decision": "HOLD", "reason": "recovering, px improved from -13.75 to -10.00, no against-fires in last 3m, giveback down to 18%"}
+{"ts": 1784318037.884492, "event": "serve", "frame": 7, "nonce": "f57f6843de98b2d1"}
+{"ts": 1784318043.319785, "event": "commit", "frame": 7, "nonce": "f57f6843de98b2d1", "decision": "HOLD", "reason": "continued recovery to -8.75, HA-with fired confirming favorable momentum, strong up 1m bar"}
+{"ts": 1784318045.8484423, "event": "serve", "frame": 8, "nonce": "dcc8894c7ef52b7e"}
+{"ts": 1784318050.1313026, "event": "commit", "frame": 8, "nonce": "dcc8894c7ef52b7e", "decision": "HOLD", "reason": "strong recovery to -1.75, near breakeven, PROPP-with + HA-with fires confirming favorable momentum"}
+{"ts": 1784318053.137315, "event": "serve", "frame": 9, "nonce": "fa4e37ff8fa6e7e3"}
+{"ts": 1784318063.9735696, "event": "commit", "frame": 9, "nonce": "fa4e37ff8fa6e7e3", "decision": "HOLD", "reason": "back to +1.00 after strong rally, KMDR-against fresh but single fire, letting winner run per giveback-toll logic rather than banking early"}
+{"ts": 1784318067.532754, "event": "serve", "frame": 10, "nonce": "2dc41b3ba3cabd80"}
+{"ts": 1784318080.207832, "event": "commit", "frame": 10, "nonce": "2dc41b3ba3cabd80", "decision": "HOLD", "reason": "new high +3.75, PROPP-against+KMDR-against both fired recently (watch for confluence) but price still climbing, giveback only 6%"}
+{"ts": 1784318083.0810993, "event": "serve", "frame": 11, "nonce": "ec6362e7fc559019"}
+{"ts": 1784318091.182532, "event": "commit", "frame": 11, "nonce": "ec6362e7fc559019", "decision": "HOLD", "reason": "pulled back to +1.50 from +3.75 high, giveback 16%, against-fires not fresh this frame, still net positive"}
+{"ts": 1784318093.6573737, "event": "serve", "frame": 12, "nonce": "b094f4b919d73033"}
+{"ts": 1784318113.9162798, "event": "commit", "frame": 12, "nonce": "b094f4b919d73033", "decision": "EXIT", "reason": "round-tripped from +3.75 back to flat, giveback climbing to 26%, 1m lambda significantly negative (active reversion), ER10 persistently low = choppy no-edge regime, exiting flat rather than risking a repeat 13pt drawdown"}
+{"ts": 1784318120.9076636, "event": "finish", "summary": "Exited flat after a full ~17pt round trip (0 -> -13.75 -> +3.75 -> 0) at t=12m. The exit signature was accelerating giveback (16%->26%) off the local high combined with a significant negative 1m lambda_hat_21 (t=-3.16), indicating active mean-reversion working against the position, layered on top of persistently low ER10 (0.05-0.28) marking a choppy, low-edge regime rather than a clean trend. Next time I'd watch for the giveback-rate-of-change and lambda sign flip earlier rather than waiting for price to fully erase the gain, and treat repeated against-fires (KMDR/PROPP) at a swing high as an earlier warning than I did this run.", "exit_frame": 12, "n_commits": 13}

@@ -1,0 +1,254 @@
+{
+  "episode_id": "2026_01_06_1767725645_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4b38e2fea5d14011",
+      "ts": 1784319178.6557674
+    },
+    {
+      "frame": 1,
+      "nonce": "474b364bb8e3df22",
+      "ts": 1784319185.3616974
+    },
+    {
+      "frame": 2,
+      "nonce": "1ca8b4acd848ec22",
+      "ts": 1784319196.2832553
+    },
+    {
+      "frame": 3,
+      "nonce": "be45afec346b3d46",
+      "ts": 1784319213.754017
+    },
+    {
+      "frame": 4,
+      "nonce": "4fd27d2a3384fb18",
+      "ts": 1784319220.8746948
+    },
+    {
+      "frame": 5,
+      "nonce": "315f72c0abb55193",
+      "ts": 1784319227.2355602
+    },
+    {
+      "frame": 6,
+      "nonce": "a4aeebcf258b9c02",
+      "ts": 1784319235.9703474
+    },
+    {
+      "frame": 7,
+      "nonce": "0deedacfa945c692",
+      "ts": 1784319251.884519
+    },
+    {
+      "frame": 8,
+      "nonce": "839b9f6c1b134627",
+      "ts": 1784319259.6579983
+    },
+    {
+      "frame": 9,
+      "nonce": "7322aab0cd9c9b88",
+      "ts": 1784319266.1938827
+    },
+    {
+      "frame": 10,
+      "nonce": "bf0d5f279d664fcf",
+      "ts": 1784319290.9704394
+    },
+    {
+      "frame": 11,
+      "nonce": "34013189129a8ef0",
+      "ts": 1784319298.2622535
+    },
+    {
+      "frame": 12,
+      "nonce": "c288b5134979cae5",
+      "ts": 1784319303.8003151
+    },
+    {
+      "frame": 13,
+      "nonce": "9e7d87c8d474368f",
+      "ts": 1784319309.5713089
+    },
+    {
+      "frame": 14,
+      "nonce": "25e62d656b94ad93",
+      "ts": 1784319316.6748009
+    },
+    {
+      "frame": 15,
+      "nonce": "6b0fc8ad1117dc53",
+      "ts": 1784319322.5052466
+    },
+    {
+      "frame": 16,
+      "nonce": "bcf073394fec0e95",
+      "ts": 1784319329.7501032
+    },
+    {
+      "frame": 17,
+      "nonce": "58d6ed8013093e6a",
+      "ts": 1784319341.0899787
+    },
+    {
+      "frame": 18,
+      "nonce": "d7a5124069ed2cfb",
+      "ts": 1784319348.9450922
+    },
+    {
+      "frame": 19,
+      "nonce": "cf6c13c40fa50420",
+      "ts": 1784319356.265242
+    },
+    {
+      "frame": 20,
+      "nonce": "433068ac29b82b54",
+      "ts": 1784319362.9469254
+    },
+    {
+      "frame": 21,
+      "nonce": "2c352cdf55dd29c1",
+      "ts": 1784319370.9395087
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4b38e2fea5d14011",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "474b364bb8e3df22",
+      "decision": "HOLD",
+      "reason": "small -4pt drawdown, still early (3m), mixed fires, no strong against-signal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "1ca8b4acd848ec22",
+      "decision": "HOLD",
+      "reason": "-8.25pt DD but 1m lambda strongly negative (t=-6.3) = mean-reversion expected, low giveback 9%"
+    },
+    {
+      "frame": 3,
+      "nonce": "be45afec346b3d46",
+      "decision": "HOLD",
+      "reason": "DD stable ~-8 to -10pts, ER10 near 0 (chop not trend), giveback low 5%"
+    },
+    {
+      "frame": 4,
+      "nonce": "4fd27d2a3384fb18",
+      "decision": "HOLD",
+      "reason": "px stable ~-8.25, no acceleration against, giveback still moderate 18%"
+    },
+    {
+      "frame": 5,
+      "nonce": "315f72c0abb55193",
+      "decision": "HOLD",
+      "reason": "px recovering to -4.75, HA-with fired, 5s lambda strongly positive (t=4.2) confirming bounce"
+    },
+    {
+      "frame": 6,
+      "nonce": "a4aeebcf258b9c02",
+      "decision": "HOLD",
+      "reason": "px near breakeven -1.0, strong multi-TF favorable velocity (1m/5m/15m/1h all positive), despite 2 against-fires no turn confirmed yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "0deedacfa945c692",
+      "decision": "HOLD",
+      "reason": "px turned positive +2.50, new leg started, 15s lambda positive t=2.5+, let winner run"
+    },
+    {
+      "frame": 8,
+      "nonce": "839b9f6c1b134627",
+      "decision": "HOLD",
+      "reason": "px steady +2.75, small gains holding, no fresh against fires"
+    },
+    {
+      "frame": 9,
+      "nonce": "7322aab0cd9c9b88",
+      "decision": "HOLD",
+      "reason": "sharp reversal to -6.00, z_se stretched -2.86 but hurst still ~0.5-0.7 (not strong trend), watching next bar closely"
+    },
+    {
+      "frame": 10,
+      "nonce": "bf0d5f279d664fcf",
+      "decision": "HOLD",
+      "reason": "px -5.50, reversion_prob normalized back to 0.93-0.97, consistent with established chop range"
+    },
+    {
+      "frame": 11,
+      "nonce": "34013189129a8ef0",
+      "decision": "HOLD",
+      "reason": "px recovering to -2.25, consistent chop pattern, no trend break"
+    },
+    {
+      "frame": 12,
+      "nonce": "c288b5134979cae5",
+      "decision": "HOLD",
+      "reason": "px -2.00, HA-with fired, near breakeven, still in chop range"
+    },
+    {
+      "frame": 13,
+      "nonce": "9e7d87c8d474368f",
+      "decision": "HOLD",
+      "reason": "px -8.00, at established range low, reversion_prob still normal 0.94-0.99, no regime change"
+    },
+    {
+      "frame": 14,
+      "nonce": "25e62d656b94ad93",
+      "decision": "HOLD",
+      "reason": "px -5.75, still within established chop range, no new signal"
+    },
+    {
+      "frame": 15,
+      "nonce": "6b0fc8ad1117dc53",
+      "decision": "HOLD",
+      "reason": "px -9.25, new leg low near prior range floor -9.5, reversion_prob still normal 0.94-0.99"
+    },
+    {
+      "frame": 16,
+      "nonce": "bcf073394fec0e95",
+      "decision": "HOLD",
+      "reason": "px -10.50 breaks prior floor, ER10 climbing to 0.39 (watch for trend), but PROPP-with fired favorable - hold one more to confirm direction"
+    },
+    {
+      "frame": 17,
+      "nonce": "58d6ed8013093e6a",
+      "decision": "HOLD",
+      "reason": "px recovering to -9.75, ER10 easing back to 0.29, PROPP-with still favorable"
+    },
+    {
+      "frame": 18,
+      "nonce": "d7a5124069ed2cfb",
+      "decision": "HOLD",
+      "reason": "px recovering to -4.00, HA-with + PROPP-with both favorable, momentum in our favor"
+    },
+    {
+      "frame": 19,
+      "nonce": "cf6c13c40fa50420",
+      "decision": "HOLD",
+      "reason": "px -1.50 near breakeven, 15s lambda strongly positive t=5.9, strong favorable momentum building"
+    },
+    {
+      "frame": 20,
+      "nonce": "433068ac29b82b54",
+      "decision": "HOLD",
+      "reason": "px +2.00 positive, fresh leg giveback 0%, 15s lambda t=3.9 sustaining favorable momentum"
+    },
+    {
+      "frame": 21,
+      "nonce": "2c352cdf55dd29c1",
+      "decision": "EXIT",
+      "reason": "px +2.25 near established range top (+3.25), two against-fires (KMDR+PROPP) converge simultaneously, banking positive after repeated whipsaws in this chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 21,
+  "finished": true,
+  "summary": "Exited at +2.25pts near the top of an established -10.5/+3.25 chop range, when two against-fires (KMDR + PROPP) converged simultaneously without an offsetting HA-with signal, after the trade had round-tripped through that range repeatedly for 21 minutes. Next time I'd watch reversion_prob_30 more closely as an early regime-change flag (it collapsed to ~0.17-0.29 once around t=9m during a sharp adverse bar, which briefly signaled a real trend risk before reverting) and weight simultaneous multi-signal against-convergence near a range extreme more heavily than isolated single fires, which fired often but were frequently overridden by a following HA-with bounce."
+}

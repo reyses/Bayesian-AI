@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_10_21_1761054240_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "cbbda6ea93d98a7d",
+      "ts": 1784312956.2668574
+    },
+    {
+      "frame": 1,
+      "nonce": "c1f93caaa373fff6",
+      "ts": 1784312967.9492712
+    },
+    {
+      "frame": 2,
+      "nonce": "dcad19c57adefa60",
+      "ts": 1784312975.8266528
+    },
+    {
+      "frame": 3,
+      "nonce": "bf141eedf9eb1e92",
+      "ts": 1784312982.8937407
+    },
+    {
+      "frame": 4,
+      "nonce": "f690f1137115a754",
+      "ts": 1784313001.648727
+    },
+    {
+      "frame": 5,
+      "nonce": "0ad403813f95c25a",
+      "ts": 1784313009.679741
+    },
+    {
+      "frame": 6,
+      "nonce": "593673c90a7dfb17",
+      "ts": 1784313020.9693277
+    },
+    {
+      "frame": 7,
+      "nonce": "615bd84670f4cbde",
+      "ts": 1784313028.1465929
+    },
+    {
+      "frame": 8,
+      "nonce": "da886dd2ca9e8702",
+      "ts": 1784313045.7002506
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "cbbda6ea93d98a7d",
+      "decision": "HOLD",
+      "reason": "early frame, only 29% giveback off 55pt favorable amp, ER10 low/choppy but no strong against-signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "c1f93caaa373fff6",
+      "decision": "HOLD",
+      "reason": "px still +4.75 favorable, giveback 37% not extreme, mixed with/against fires"
+    },
+    {
+      "frame": 2,
+      "nonce": "dcad19c57adefa60",
+      "decision": "HOLD",
+      "reason": "px surged to +21, giveback dropped to 4%, 2/3 fires now with the position"
+    },
+    {
+      "frame": 3,
+      "nonce": "bf141eedf9eb1e92",
+      "decision": "HOLD",
+      "reason": "sharp reversal to -6.75 but HA-with and PROPP-with still favor reversion continuing our way, only KMDR against"
+    },
+    {
+      "frame": 4,
+      "nonce": "f690f1137115a754",
+      "decision": "HOLD",
+      "reason": "recovered to +11.5, giveback back down to 11%, reversion call from last frame validated"
+    },
+    {
+      "frame": 5,
+      "nonce": "0ad403813f95c25a",
+      "decision": "HOLD",
+      "reason": "new favorable high +22.5, 0% giveback, momentum with us"
+    },
+    {
+      "frame": 6,
+      "nonce": "593673c90a7dfb17",
+      "decision": "HOLD",
+      "reason": "pulled back to +10.25 off new peak amp 69.8, giveback 29% within normal noise band seen before"
+    },
+    {
+      "frame": 7,
+      "nonce": "615bd84670f4cbde",
+      "decision": "HOLD",
+      "reason": "px turned slightly negative, giveback 57% worst yet with 2/3 against, but ER10 dropped to 0.27 (choppy not trending) - watching closely next frame"
+    },
+    {
+      "frame": 8,
+      "nonce": "da886dd2ca9e8702",
+      "decision": "EXIT",
+      "reason": "all 3 fires (KMDR/HA/PROPP) against for first time, px negative, giveback held >=53% two frames running - deterioration confirmed"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through two earlier partial-giveback dips (44%, then 57%) because the against/with fires stayed mixed and price fully recovered each time. Exited at t=8m when KMDR, HA, and PROPP all flipped against simultaneously for the first time while price sat negative and giveback held >=53% across two consecutive frames - that triple-agreement was the deterioration signature I hadn't seen before, distinct from the earlier single-indicator noise. Next time I'd watch for the same triple-against convergence earlier and treat single or dual against-fires as noise, not an exit trigger, given how often 1-2 against fires reverted in this episode."
+}

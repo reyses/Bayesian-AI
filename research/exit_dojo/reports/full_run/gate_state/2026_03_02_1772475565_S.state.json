@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_03_02_1772475565_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c0a9c02918355708",
+      "ts": 1784309928.4732087
+    },
+    {
+      "frame": 1,
+      "nonce": "9b6ef5c311c09240",
+      "ts": 1784309937.6460376
+    },
+    {
+      "frame": 2,
+      "nonce": "ed47273cdd8a2903",
+      "ts": 1784309945.3307378
+    },
+    {
+      "frame": 3,
+      "nonce": "cb92e500657b9963",
+      "ts": 1784309964.7726178
+    },
+    {
+      "frame": 4,
+      "nonce": "04672bb58dcdf401",
+      "ts": 1784309973.567867
+    },
+    {
+      "frame": 5,
+      "nonce": "651120ce8524830e",
+      "ts": 1784309981.412106
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c0a9c02918355708",
+      "decision": "HOLD",
+      "reason": "frame 0, px at breakeven, no clear against-signal yet, need more frames"
+    },
+    {
+      "frame": 1,
+      "nonce": "9b6ef5c311c09240",
+      "decision": "HOLD",
+      "reason": "px moved favorable to +6, no strong reversal signal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "ed47273cdd8a2903",
+      "decision": "HOLD",
+      "reason": "still profitable +2.75, giveback rising but not yet decisive, watching KMDR/PROPP against fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "cb92e500657b9963",
+      "decision": "HOLD",
+      "reason": "new leg, px +12, giveback 0%, ER10 trending up 0.34 - ride it"
+    },
+    {
+      "frame": 4,
+      "nonce": "04672bb58dcdf401",
+      "decision": "HOLD",
+      "reason": "px +10.5, mild giveback 17%, still strong profit, ER10 softening but not reversed"
+    },
+    {
+      "frame": 5,
+      "nonce": "651120ce8524830e",
+      "decision": "EXIT",
+      "reason": "px eroding fast (12->10.5->6.75), giveback accelerating 0->17->35%, ER10 spiked to 0.57 (real trend not noise), KMDR-against fired 3 consecutive frames - locking profit before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Exited at +6.75pts after the leg's giveback ratio accelerated from 0% to 35% within two minutes (px receding 12 -> 10.5 -> 6.75) while ER10 spiked to 0.57, signaling a real directional move rather than noise, corroborated by KMDR-against firing three consecutive frames. Next time I'd watch giveback-velocity (rate of change, not just level) paired with ER10 crossing ~0.4-0.5 as the earliest joint trigger, rather than waiting for price to approach breakeven."
+}

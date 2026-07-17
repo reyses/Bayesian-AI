@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_11_18_1763476620_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1e7eb65ba5f985b6",
+      "ts": 1784309301.8122416
+    },
+    {
+      "frame": 1,
+      "nonce": "092dbf8b1af921ae",
+      "ts": 1784309309.8215268
+    },
+    {
+      "frame": 2,
+      "nonce": "43bca5deaffb1f07",
+      "ts": 1784309320.299189
+    },
+    {
+      "frame": 3,
+      "nonce": "7fc8fc0133621c59",
+      "ts": 1784309326.3211038
+    },
+    {
+      "frame": 4,
+      "nonce": "dc7fce76e1ccfcb4",
+      "ts": 1784309335.473704
+    },
+    {
+      "frame": 5,
+      "nonce": "910a35778f94d5b1",
+      "ts": 1784309353.407329
+    },
+    {
+      "frame": 6,
+      "nonce": "2ca2c8eac449bf51",
+      "ts": 1784309378.6278384
+    },
+    {
+      "frame": 7,
+      "nonce": "5cb86be3c3d72b43",
+      "ts": 1784309385.855091
+    },
+    {
+      "frame": 8,
+      "nonce": "4cf722a0db19ef42",
+      "ts": 1784309401.1145904
+    },
+    {
+      "frame": 9,
+      "nonce": "4831434c24deaf3d",
+      "ts": 1784309408.7469313
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1e7eb65ba5f985b6",
+      "decision": "HOLD",
+      "reason": "flat at entry, leg only 1m old, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "092dbf8b1af921ae",
+      "decision": "HOLD",
+      "reason": "giveback 41% but leg still young 2m, watching for continued reversal"
+    },
+    {
+      "frame": 2,
+      "nonce": "43bca5deaffb1f07",
+      "decision": "HOLD",
+      "reason": "recovered to +7.25, giveback shrank to 18%, HA-with fired"
+    },
+    {
+      "frame": 3,
+      "nonce": "7fc8fc0133621c59",
+      "decision": "HOLD",
+      "reason": "overall +25.75 favorable, HA/PROPP both with-trend despite local small-leg giveback"
+    },
+    {
+      "frame": 4,
+      "nonce": "dc7fce76e1ccfcb4",
+      "decision": "HOLD",
+      "reason": "round-tripped to near-flat but lambda strongly negative (mean-reversion regime) across 5m/15s, favors continued reversion in our direction"
+    },
+    {
+      "frame": 5,
+      "nonce": "910a35778f94d5b1",
+      "decision": "HOLD",
+      "reason": "best favorable print yet +71.25, HA-with and PROPP-with both confirm trend, no against-signal fired"
+    },
+    {
+      "frame": 6,
+      "nonce": "2ca2c8eac449bf51",
+      "decision": "HOLD",
+      "reason": "new high +91.00, 15s lambda strongly positive (t=5.55) = ride regime, PROPP-with confirms"
+    },
+    {
+      "frame": 7,
+      "nonce": "5cb86be3c3d72b43",
+      "decision": "HOLD",
+      "reason": "small pullback from peak 91->86.5, first PROPP-against fired + 1m extreme z (-3.47) signals possible exhaustion, watching closely"
+    },
+    {
+      "frame": 8,
+      "nonce": "4cf722a0db19ef42",
+      "decision": "HOLD",
+      "reason": "new high +108.25, giveback only 2%, ER10 0.60 strong trend, PROPP-with confirms"
+    },
+    {
+      "frame": 9,
+      "nonce": "4831434c24deaf3d",
+      "decision": "EXIT",
+      "reason": "sharp giveback from +108 to +31 (61% of 112pt leg), CLIMAX+HA+PROPP all fired against simultaneously -- first triple confluence reversal signal, exiting to lock gain"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited at +31.25pts after the position ran to a peak of +108.25 and then gave back 61% of the trailing 112pt leg in a single bar. The trigger was a rare triple confluence of against-trend fires (CLIMAX, HA, and PROPP all firing against simultaneously) plus extreme z-scores on the 5m/15m (z_close_vs_high -5.0/-2.98) -- the first time all three signals agreed against the position. Next time I'd watch for this same triple-confluence-against pattern as the primary exit trigger, and treat single isolated against-fires (like the lone PROPP-against at t=7m that didn't pan out into a real reversal) as noise rather than pre-empting on those alone."
+}

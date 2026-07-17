@@ -1,0 +1,19 @@
+{"ts": 1784316800.361086, "event": "serve", "frame": 0, "nonce": "325e574280f49975"}
+{"ts": 1784316804.4998622, "event": "commit", "frame": 0, "nonce": "325e574280f49975", "decision": "HOLD", "reason": "flat at entry, no adverse signature yet, wait for direction"}
+{"ts": 1784316807.4313824, "event": "serve", "frame": 1, "nonce": "78f157236db336cd"}
+{"ts": 1784316814.4375844, "event": "commit", "frame": 1, "nonce": "78f157236db336cd", "decision": "HOLD", "reason": "small giveback 10%, 1m lambda positive (momentum continuing), no fire signal"}
+{"ts": 1784316816.7117403, "event": "serve", "frame": 2, "nonce": "55e2f9e365f0a1da"}
+{"ts": 1784316822.0850618, "event": "commit", "frame": 2, "nonce": "55e2f9e365f0a1da", "decision": "HOLD", "reason": "giveback back down to 4%, lambda still positive on 1m, no fire"}
+{"ts": 1784316824.5334213, "event": "serve", "frame": 3, "nonce": "1749884cd736fe88"}
+{"ts": 1784316830.8860347, "event": "commit", "frame": 3, "nonce": "1749884cd736fe88", "decision": "HOLD", "reason": "dip to -5.75 but new leg just started (age 0m), 1m lambda still positive, z_21 stretched negative on 5s/15s = reversion room up"}
+{"ts": 1784316837.3459692, "event": "serve", "frame": 4, "nonce": "2ed36a841154cc24"}
+{"ts": 1784316844.774643, "event": "commit", "frame": 4, "nonce": "2ed36a841154cc24", "decision": "HOLD", "reason": "small-amp leg, giveback% noisy on tiny base; 15s lambda still positive, no strong fire"}
+{"ts": 1784316848.01102, "event": "serve", "frame": 5, "nonce": "783d3d91146ea33f"}
+{"ts": 1784316851.6315506, "event": "commit", "frame": 5, "nonce": "783d3d91146ea33f", "decision": "HOLD", "reason": "recovering toward flat (-1.0pts), lambda positive across TFs, no fire"}
+{"ts": 1784316853.939426, "event": "serve", "frame": 6, "nonce": "765bb9526b4ef03c"}
+{"ts": 1784316859.2008696, "event": "commit", "frame": 6, "nonce": "765bb9526b4ef03c", "decision": "HOLD", "reason": "now favorable +1.25pts, 15s lambda strongly positive t=3.85, HA-with confirms; PROPP-against noted but minor"}
+{"ts": 1784316861.9008586, "event": "serve", "frame": 7, "nonce": "86514b760058d110"}
+{"ts": 1784316870.181515, "event": "commit", "frame": 7, "nonce": "86514b760058d110", "decision": "HOLD", "reason": "5s stretched oversold (z_21 -1.7) with strong positive lambda (t=4.26) = reversion room up; CLIMAX-against noted but 1m bar still net positive"}
+{"ts": 1784316872.609056, "event": "serve", "frame": 8, "nonce": "ff9c2803cc241c7c"}
+{"ts": 1784316881.218265, "event": "commit", "frame": 8, "nonce": "ff9c2803cc241c7c", "decision": "EXIT", "reason": "1m lambda strongly negative (t=-4.5, first strong signif fade signal seen), ER10 collapsed to 0.01 (no trend efficiency), and 3 independent against-fires (CLIMAX/HA/PROPP) agree at px -4.00 -- first time all signals align against the position"}
+{"ts": 1784316888.1345322, "event": "finish", "summary": "Exited at t=8m, px -4.00pts, after the first frame where multiple independent signals aligned against the long: 1m lambda_hat_12 flipped strongly negative (t=-4.5, the strongest fade slope seen all episode), ER10 collapsed to 0.01 (pure chop, no directional efficiency), and three separate fire detectors (CLIMAX-against, HA-against, PROPP-against) all fired within the prior 2 minutes. Earlier dips (frames 3,4,7) had similar giveback% but were accompanied by positive/mixed lambda and no multi-detector agreement, so I held through those as noise within a 7pt-amplitude leg. Next time I'd watch for this same triple-confirmation (strong negative lambda t-stat + ER10 near zero + multiple against-fires clustering) as the binding exit trigger rather than reacting to giveback% or price alone, since giveback% was noisy on the small-amplitude leg throughout.", "exit_frame": 8, "n_commits": 9}

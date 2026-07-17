@@ -1,0 +1,100 @@
+{
+  "episode_id": "2026_01_07_1767803075_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8e6505d122eabe7e",
+      "ts": 1784313919.75694
+    },
+    {
+      "frame": 1,
+      "nonce": "41e0bb73ccf71e5e",
+      "ts": 1784313929.7152674
+    },
+    {
+      "frame": 2,
+      "nonce": "d79f6d7c76b0a9f9",
+      "ts": 1784313937.744747
+    },
+    {
+      "frame": 3,
+      "nonce": "f5ff53044dd93d5f",
+      "ts": 1784313949.6444125
+    },
+    {
+      "frame": 4,
+      "nonce": "31604be2c2e921df",
+      "ts": 1784313957.1210077
+    },
+    {
+      "frame": 5,
+      "nonce": "bf2339d08d725d5a",
+      "ts": 1784313964.6973436
+    },
+    {
+      "frame": 6,
+      "nonce": "10383344249412d5",
+      "ts": 1784313972.6300452
+    },
+    {
+      "frame": 7,
+      "nonce": "d255d7e43b079e4a",
+      "ts": 1784313985.4738426
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8e6505d122eabe7e",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "41e0bb73ccf71e5e",
+      "decision": "HOLD",
+      "reason": "price +2.5pts favorable, no strong reversal signal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "d79f6d7c76b0a9f9",
+      "decision": "HOLD",
+      "reason": "px +6.75 favorable, ER10 0.84 strong trend continuation despite two against-fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "f5ff53044dd93d5f",
+      "decision": "HOLD",
+      "reason": "small pullback +6.75->+5.50, ER10 still 0.75, no reversal confirmation"
+    },
+    {
+      "frame": 4,
+      "nonce": "31604be2c2e921df",
+      "decision": "HOLD",
+      "reason": "px +18.25, giveback 0%, ER10 0.81, strong favorable move continuing"
+    },
+    {
+      "frame": 5,
+      "nonce": "bf2339d08d725d5a",
+      "decision": "HOLD",
+      "reason": "pullback to +13.50 from +18.25 (giveback 8%), still well favorable, ER10 0.85 high"
+    },
+    {
+      "frame": 6,
+      "nonce": "10383344249412d5",
+      "decision": "HOLD",
+      "reason": "giveback rising to 25%, ER10 fell to 0.39 (trend weakening) but PROPP-with just fired favorable; still +8.00, watching closely"
+    },
+    {
+      "frame": 7,
+      "nonce": "d255d7e43b079e4a",
+      "decision": "EXIT",
+      "reason": "full reversal: px flipped +8.00->-3.25, giveback 47% of 44.8pt amp, ER10 0.34 (trend collapsed), two against-fires (KMDR+HA) confirm reversal - exiting before further deterioration"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Held through a strong favorable run (px peaked near +18.25pts, ER10 ~0.85) despite persistent KMDR/PROPP-against fires, since those alone never coincided with real deterioration earlier. Exited at frame 7 when the move fully round-tripped to -3.25pts (47% giveback of the 44.8pt amplitude) with ER10 collapsing to 0.34 and a second independent against-signal (HA) confirming - that combination of price crossing back through breakeven plus trend-efficiency collapse was the reversal signature, not any single fire. Next time I'd watch for the giveback% crossing ~30-40% combined with ER10 dropping below ~0.4 as the earlier, cheaper exit trigger rather than waiting for price to actually go negative."
+}

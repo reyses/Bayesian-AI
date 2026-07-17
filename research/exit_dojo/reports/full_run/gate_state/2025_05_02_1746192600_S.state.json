@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_05_02_1746192600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "53f084dbc297848d",
+      "ts": 1784307206.3245149
+    },
+    {
+      "frame": 1,
+      "nonce": "65d1c9363dcf84a7",
+      "ts": 1784307216.4177876
+    },
+    {
+      "frame": 2,
+      "nonce": "09addd3ad4c4ac91",
+      "ts": 1784307228.7107003
+    },
+    {
+      "frame": 3,
+      "nonce": "84b833cc56757ec3",
+      "ts": 1784307256.9681265
+    },
+    {
+      "frame": 4,
+      "nonce": "df10775b06d5bce5",
+      "ts": 1784307267.9220579
+    },
+    {
+      "frame": 5,
+      "nonce": "6d2348a784f39f92",
+      "ts": 1784307277.947486
+    },
+    {
+      "frame": 6,
+      "nonce": "2dc26bdfbfb6c769",
+      "ts": 1784307285.0789075
+    },
+    {
+      "frame": 7,
+      "nonce": "b14673099053aa14",
+      "ts": 1784307292.200588
+    },
+    {
+      "frame": 8,
+      "nonce": "fac70d3975c61372",
+      "ts": 1784307308.866478
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "53f084dbc297848d",
+      "decision": "HOLD",
+      "reason": "t=0, px flat at entry, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "65d1c9363dcf84a7",
+      "decision": "HOLD",
+      "reason": "small -9.25pt giveback, single bar against, not yet a trend break"
+    },
+    {
+      "frame": 2,
+      "nonce": "09addd3ad4c4ac91",
+      "decision": "HOLD",
+      "reason": "50% giveback but single-bar spike into extension, mixed lambda/vr signals, not yet a confirmed sustained trend"
+    },
+    {
+      "frame": 3,
+      "nonce": "84b833cc56757ec3",
+      "decision": "HOLD",
+      "reason": "ER10 collapsed to 0.08 (choppy not clean trend), giveback plateaued ~46-50%, waiting for confirmation not panicking on drawdown alone"
+    },
+    {
+      "frame": 4,
+      "nonce": "df10775b06d5bce5",
+      "decision": "HOLD",
+      "reason": "new leg pivot just printed, lambda_t on 1m dropped below significance (1.66), ER near zero = pure chop not trend, px ticking back slightly (-28.75->-26.00)"
+    },
+    {
+      "frame": 5,
+      "nonce": "6d2348a784f39f92",
+      "decision": "HOLD",
+      "reason": "recovered from -28.75 to -12.00, HA now firing with the position, chop resolving favorably"
+    },
+    {
+      "frame": 6,
+      "nonce": "2dc26bdfbfb6c769",
+      "decision": "HOLD",
+      "reason": "px recovered to -5.00, near breakeven, favorable momentum continuing (giveback 92% of adverse leg reclaimed)"
+    },
+    {
+      "frame": 7,
+      "nonce": "b14673099053aa14",
+      "decision": "HOLD",
+      "reason": "px swung to +41.50, fresh favorable leg giveback 0%, KMDR-against just fired as early warning but single fire not yet confirmed reversal"
+    },
+    {
+      "frame": 8,
+      "nonce": "fac70d3975c61372",
+      "decision": "EXIT",
+      "reason": "confluence of KMDR-against + CLIMAX-against + PROPP-against right at leg peak (73.5pt amp, already 13% given back) with px still +31.75; banking profit on turn-signature stack"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Exited on a confluence signature: KMDR-against (leading turn indicator) firing for a second consecutive frame, joined by CLIMAX-against and PROPP flipping against, right as the fresh favorable leg (73.5pt amplitude) had already given back 13% off its peak while px was still solidly +31.75. Earlier in the trade I held through a deep adverse excursion (down to -28.75, 50%+ giveback) because ER10 was near zero (pure chop, not a clean trend) and lambda t-stats on the key window weren't consistently significant \u2014 that read proved correct when price round-tripped to +41.50. Next time I'd watch for the SAME multi-detector stacking (2-3 independent against-fires within 1-3m of each other) as the primary trigger rather than single-signal or drawdown-magnitude alone, and would weight KMDR's leading property more since it fired first, one frame before CLIMAX confirmed."
+}

@@ -1,0 +1,31 @@
+{"ts": 1784305927.3288991, "event": "serve", "frame": 0, "nonce": "91057ba98dad2b9b"}
+{"ts": 1784305932.4953337, "event": "commit", "frame": 0, "nonce": "91057ba98dad2b9b", "decision": "HOLD", "reason": "Frame 0, px at entry, no signal yet"}
+{"ts": 1784305935.9942381, "event": "serve", "frame": 1, "nonce": "29e048c73d0eb528"}
+{"ts": 1784305940.794067, "event": "commit", "frame": 1, "nonce": "29e048c73d0eb528", "decision": "HOLD", "reason": "Small -1pt drawdown, giveback only 8%, no strong lambda/reversion signal"}
+{"ts": 1784305944.1596632, "event": "serve", "frame": 2, "nonce": "7b629eb027a05af9"}
+{"ts": 1784305951.3839154, "event": "commit", "frame": 2, "nonce": "7b629eb027a05af9", "decision": "HOLD", "reason": "px recovered to +1, PROPP fires with position, no reversal signal"}
+{"ts": 1784305954.3395574, "event": "serve", "frame": 3, "nonce": "fe48cb4110a257f4"}
+{"ts": 1784305960.058849, "event": "commit", "frame": 3, "nonce": "fe48cb4110a257f4", "decision": "HOLD", "reason": "px -5.5, giveback 13% still modest relative to 83pt amplitude"}
+{"ts": 1784305963.2648165, "event": "serve", "frame": 4, "nonce": "a4d06cdbc1b383d9"}
+{"ts": 1784305967.612372, "event": "commit", "frame": 4, "nonce": "a4d06cdbc1b383d9", "decision": "HOLD", "reason": "px recovered to -0.75, giveback eased to 10%"}
+{"ts": 1784305971.466861, "event": "serve", "frame": 5, "nonce": "6fee5dea31b2a96e"}
+{"ts": 1784305976.113232, "event": "commit", "frame": 5, "nonce": "6fee5dea31b2a96e", "decision": "HOLD", "reason": "px +7.75 new high, giveback only 4%, PROPP-with confirms"}
+{"ts": 1784305979.1485622, "event": "serve", "frame": 6, "nonce": "b49e65c011ba3a22"}
+{"ts": 1784305987.3564243, "event": "commit", "frame": 6, "nonce": "b49e65c011ba3a22", "decision": "HOLD", "reason": "px +16.25 new high, giveback 2%, trend running well"}
+{"ts": 1784305990.5464454, "event": "serve", "frame": 7, "nonce": "7d1a8be2617c14c2"}
+{"ts": 1784305994.1485832, "event": "commit", "frame": 7, "nonce": "7d1a8be2617c14c2", "decision": "HOLD", "reason": "px +25.50 new high, giveback 5%, PROPP-with confirms continuation"}
+{"ts": 1784305996.685793, "event": "serve", "frame": 8, "nonce": "038bf1b16d8eb6af"}
+{"ts": 1784306003.956152, "event": "commit", "frame": 8, "nonce": "038bf1b16d8eb6af", "decision": "HOLD", "reason": "px +37.25 strong new high, giveback only 4%; KMDR-against noted but no confirmed reversal yet"}
+{"ts": 1784306007.8262842, "event": "serve", "frame": 9, "nonce": "34a935eed7bce761"}
+{"ts": 1784306015.6715615, "event": "commit", "frame": 9, "nonce": "34a935eed7bce761", "decision": "HOLD", "reason": "minor pullback to +35.5, giveback 8% still within normal trend noise"}
+{"ts": 1784306018.8983855, "event": "serve", "frame": 10, "nonce": "30cb348d76a43b82"}
+{"ts": 1784306024.231569, "event": "commit", "frame": 10, "nonce": "30cb348d76a43b82", "decision": "HOLD", "reason": "px +32.25, giveback 9%, ER10 softening to 0.48 but no reversal confirmation yet"}
+{"ts": 1784306027.7580469, "event": "serve", "frame": 11, "nonce": "32f2d71bcd6d9b92"}
+{"ts": 1784306035.5788324, "event": "commit", "frame": 11, "nonce": "32f2d71bcd6d9b92", "decision": "HOLD", "reason": "px +35.75 back near highs, giveback down to 3%"}
+{"ts": 1784306038.7139125, "event": "serve", "frame": 12, "nonce": "5d846c8c7d0e8d26"}
+{"ts": 1784306044.1982787, "event": "commit", "frame": 12, "nonce": "5d846c8c7d0e8d26", "decision": "HOLD", "reason": "px +31, giveback 9% within prior range; amp stalled at 118.8 but PROPP-with still confirms"}
+{"ts": 1784306046.9599228, "event": "serve", "frame": 13, "nonce": "3f5e7da80ec29e08"}
+{"ts": 1784306051.5384483, "event": "commit", "frame": 13, "nonce": "3f5e7da80ec29e08", "decision": "HOLD", "reason": "px +39.75 new high, giveback 3%"}
+{"ts": 1784306053.8342252, "event": "serve", "frame": 14, "nonce": "e476def4125777c7"}
+{"ts": 1784306070.882165, "event": "commit", "frame": 14, "nonce": "e476def4125777c7", "decision": "EXIT", "reason": "New high +43.75 intrabar then hard reversal to +34.25; local leg giveback spiked to 98%, lambda_t -7.46 on 1m, KMDR/PROPP against -- exhaustion/reversal signature, lock in gain"}
+{"ts": 1784306076.81261, "event": "finish", "summary": "Rode a strong favorable run from 0 to a +43.75pt intrabar high over 14 minutes with low giveback throughout (mostly 2-9%). Exited when the local leg tracker spiked to 98% giveback after the bar reversed hard from +43.75 to +34.25 close, coinciding with a very significant negative lambda_t (-7.46 on 1m) and KMDR/PROPP against-fires -- treated as an exhaustion/reversal signature rather than normal trend noise. Next time I'd watch the local-leg giveback% and 1m lambda_t jointly as the primary trigger pair, since amplitude and ER10 alone were noisy and lagged the actual turn.", "exit_frame": 14, "n_commits": 15}

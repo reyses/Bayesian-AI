@@ -1,0 +1,31 @@
+{"ts": 1784312665.5739317, "event": "serve", "frame": 0, "nonce": "23c2023db756eb33"}
+{"ts": 1784312671.1254725, "event": "commit", "frame": 0, "nonce": "23c2023db756eb33", "decision": "HOLD", "reason": "entry frame, px flat, no exit signal yet"}
+{"ts": 1784312673.4220746, "event": "serve", "frame": 1, "nonce": "f8507d1c5ee1a326"}
+{"ts": 1784312684.8300765, "event": "commit", "frame": 1, "nonce": "f8507d1c5ee1a326", "decision": "HOLD", "reason": "small giveback 17%, amp still building, only 1 PROPP-against fire, too early"}
+{"ts": 1784312687.0796654, "event": "serve", "frame": 2, "nonce": "83804f11dbe6ae2f"}
+{"ts": 1784312690.6397212, "event": "commit", "frame": 2, "nonce": "83804f11dbe6ae2f", "decision": "HOLD", "reason": "px recovering (-4.5 to -2.0), giveback stable ~16%, no new against fires"}
+{"ts": 1784312693.0226374, "event": "serve", "frame": 3, "nonce": "6c1b35b546acac7d"}
+{"ts": 1784312697.1019292, "event": "commit", "frame": 3, "nonce": "6c1b35b546acac7d", "decision": "HOLD", "reason": "px now favorable +3.25, amp growing to 37.2, giveback shrinking to 11%"}
+{"ts": 1784312699.7359924, "event": "serve", "frame": 4, "nonce": "d7e2403e2a59e877"}
+{"ts": 1784312704.3865519, "event": "commit", "frame": 4, "nonce": "d7e2403e2a59e877", "decision": "HOLD", "reason": "px stable +3.5, ER10 still high 0.83, vol contracting, no strong against signal"}
+{"ts": 1784312706.6951227, "event": "serve", "frame": 5, "nonce": "4cd9954944b7e3cc"}
+{"ts": 1784312711.5479295, "event": "commit", "frame": 5, "nonce": "4cd9954944b7e3cc", "decision": "HOLD", "reason": "px +7.0 new peak, giveback 0%, amp growing to 42; against fires noted but no retracement yet"}
+{"ts": 1784312714.2641306, "event": "serve", "frame": 6, "nonce": "05944a143dc28655"}
+{"ts": 1784312717.3582408, "event": "commit", "frame": 6, "nonce": "05944a143dc28655", "decision": "HOLD", "reason": "px +7.5 still new peak, giveback 0%, trend intact"}
+{"ts": 1784312720.8222048, "event": "serve", "frame": 7, "nonce": "4dc604dc1c42a96e"}
+{"ts": 1784312727.7071078, "event": "commit", "frame": 7, "nonce": "4dc604dc1c42a96e", "decision": "HOLD", "reason": "px +9.0 new closing high, minor 10% giveback off intrabar peak, trend intact"}
+{"ts": 1784312730.8729377, "event": "serve", "frame": 8, "nonce": "3c258cb59e1f022c"}
+{"ts": 1784312734.6746817, "event": "commit", "frame": 8, "nonce": "3c258cb59e1f022c", "decision": "HOLD", "reason": "amp new high 44.2, giveback only 8%, px still strongly favorable"}
+{"ts": 1784312737.578101, "event": "serve", "frame": 9, "nonce": "a81deb251e0ea7cc"}
+{"ts": 1784312742.373476, "event": "commit", "frame": 9, "nonce": "a81deb251e0ea7cc", "decision": "HOLD", "reason": "px flat ~+8, giveback low 6%, but ER10 declining (0.86->0.71) and vol contracting -- watching for stall"}
+{"ts": 1784312745.2616034, "event": "serve", "frame": 10, "nonce": "d5155779ff35ec7e"}
+{"ts": 1784312749.4571617, "event": "commit", "frame": 10, "nonce": "d5155779ff35ec7e", "decision": "HOLD", "reason": "px jumped to +14.5, new amp high 46.8, giveback only 3% -- strong continuation"}
+{"ts": 1784312752.119528, "event": "serve", "frame": 11, "nonce": "7fe6e099460e7fd0"}
+{"ts": 1784312759.8168929, "event": "commit", "frame": 11, "nonce": "7fe6e099460e7fd0", "decision": "HOLD", "reason": "huge favorable acceleration to +32.25, amp 66, giveback still low 7% -- vol spike could be climax, watching closely next frame"}
+{"ts": 1784312762.6156757, "event": "serve", "frame": 12, "nonce": "87fc5e5a28d8366f"}
+{"ts": 1784312771.2232316, "event": "commit", "frame": 12, "nonce": "87fc5e5a28d8366f", "decision": "HOLD", "reason": "pullback to +21.75 (24% giveback off peak) after climax spike, but still well favorable; PROPP-with just fired; not cutting a winner on first pullback"}
+{"ts": 1784312773.716329, "event": "serve", "frame": 13, "nonce": "72c9064d734e5f65"}
+{"ts": 1784312789.8647163, "event": "commit", "frame": 13, "nonce": "72c9064d734e5f65", "decision": "HOLD", "reason": "giveback accelerating 8%->24%->37%, ER10 collapsed to 0.31, dual against-fires (HA+PROPP) -- concerning but still +8.75 favorable, watching one more frame before cutting"}
+{"ts": 1784312792.2568653, "event": "serve", "frame": 14, "nonce": "3dc39ef7aea56328"}
+{"ts": 1784312802.574398, "event": "commit", "frame": 14, "nonce": "3dc39ef7aea56328", "decision": "EXIT", "reason": "peak +32.25 given back to +0.50 (~98%), ER10 crashed to 0.17, new leg just started (structural pivot) -- momentum dead, taking the exit before it goes negative"}
+{"ts": 1784312808.0617065, "event": "finish", "summary": "Exited after a strong favorable run (peak ~+32.25pts, amp 66) round-tripped almost completely back to +0.50pts, with ER10 collapsing from ~0.7-0.8 down to 0.17 and a fresh leg starting (age reset to 0m), signaling a structural turn had already happened. Next time I'd watch giveback velocity earlier -- it accelerated 8%->24%->37% over three consecutive frames well before the leg reset, and dual against-fires (HA+PROPP) at the 37% giveback mark were the first real warning that momentum had flipped rather than just pulling back.", "exit_frame": 14, "n_commits": 15}

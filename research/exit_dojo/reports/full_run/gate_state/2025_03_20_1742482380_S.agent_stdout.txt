@@ -1,0 +1,8 @@
+# exit_code=0 dt=265s
+## STDOUT
+Exited at frame 6 (t=6m) locking in **+13.0 pts favorable**, the trade's high-water mark. The trigger was the local leg's giveback jumping to 95% of its 14.2pt amplitude â€” a fine-scale exhaustion/fade signature appearing right at a fresh PnL peak â€” even though absolute profit had been climbing every frame since t=3m. Episode closed, 7 commits total (6 HOLD, 1 EXIT).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

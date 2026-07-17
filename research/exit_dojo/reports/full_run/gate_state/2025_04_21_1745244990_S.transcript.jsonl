@@ -1,0 +1,21 @@
+{"ts": 1784315050.3407044, "event": "serve", "frame": 0, "nonce": "1cdefe30bdeefe94"}
+{"ts": 1784315059.5101368, "event": "commit", "frame": 0, "nonce": "1cdefe30bdeefe94", "decision": "HOLD", "reason": "frame0: px flat at entry, leg already gave back 152% of amplitude, but need more data before cutting"}
+{"ts": 1784315062.0843806, "event": "serve", "frame": 1, "nonce": "b9269513e1cfca1b"}
+{"ts": 1784315067.0286372, "event": "commit", "frame": 1, "nonce": "b9269513e1cfca1b", "decision": "HOLD", "reason": "px now +5.25 favorable, mixed fires (KMDR/PROPP against, HA with), still early"}
+{"ts": 1784315069.3774018, "event": "serve", "frame": 2, "nonce": "1d56f00ed528b439"}
+{"ts": 1784315074.5280418, "event": "commit", "frame": 2, "nonce": "1d56f00ed528b439", "decision": "HOLD", "reason": "px +15.50, fresh leg age 0m amp 64.2 giveback only 4%, momentum favorable, let it run"}
+{"ts": 1784315076.820749, "event": "serve", "frame": 3, "nonce": "35d2711d638d86e6"}
+{"ts": 1784315084.9471002, "event": "commit", "frame": 3, "nonce": "35d2711d638d86e6", "decision": "HOLD", "reason": "px pulled back to +2.75 from +15.50, giveback 24%, KMDR/PROPP against repeatedly but still net favorable, watching closely"}
+{"ts": 1784315087.3750377, "event": "serve", "frame": 4, "nonce": "0217abd966734185"}
+{"ts": 1784315094.6130972, "event": "commit", "frame": 4, "nonce": "0217abd966734185", "decision": "HOLD", "reason": "px round-tripped to +0.00, giveback escalating 4%->24%->40%, but PROPP flipped with and still breakeven not negative"}
+{"ts": 1784315097.067546, "event": "serve", "frame": 5, "nonce": "a4c639827cc01618"}
+{"ts": 1784315106.4162736, "event": "commit", "frame": 5, "nonce": "a4c639827cc01618", "decision": "HOLD", "reason": "px recovered to +9.75, giveback improved to 22%, but now all 3 fires (KMDR/HA/PROPP) against - watching for confirmation"}
+{"ts": 1784315108.711484, "event": "serve", "frame": 6, "nonce": "2ca8dc50d7924af2"}
+{"ts": 1784315114.2805526, "event": "commit", "frame": 6, "nonce": "2ca8dc50d7924af2", "decision": "HOLD", "reason": "px +7.25, fresh small leg giveback only 4%, vol compressing (7.3, d-0.2), consolidating favorable"}
+{"ts": 1784315116.5663443, "event": "serve", "frame": 7, "nonce": "22fd9b16f6ca58b7"}
+{"ts": 1784315130.1816356, "event": "commit", "frame": 7, "nonce": "22fd9b16f6ca58b7", "decision": "HOLD", "reason": "px +15.25 near session high, ER10 improved to 0.55, vol compressing - but this level failed before at t2m, watching for repeat rejection"}
+{"ts": 1784315132.4442177, "event": "serve", "frame": 8, "nonce": "cce963e6caae1e38"}
+{"ts": 1784315136.7831562, "event": "commit", "frame": 8, "nonce": "cce963e6caae1e38", "decision": "HOLD", "reason": "px +8.50, giveback low 6%, vol compressing, PROPP flipped with, mixed but net favorable"}
+{"ts": 1784315139.0979214, "event": "serve", "frame": 9, "nonce": "54801e64cc7d9000"}
+{"ts": 1784315155.07577, "event": "commit", "frame": 9, "nonce": "54801e64cc7d9000", "decision": "EXIT", "reason": "first negative print (-4.75) all episode, all 3 fires (KMDR/HA/PROPP) unanimously against for first time, breaking the chop range to the downside - cutting here"}
+{"ts": 1784315160.7069223, "event": "finish", "summary": "Exited at t=9m on px -4.75 after the trade spent 8 minutes chopping in a roughly -5/+18 range with repeated give-backs (peaks near +15 at t=2m and t=7m both fully round-tripped). The trigger was the first-ever negative print combined with all three fire signals (KMDR, HA, PROPP) turning against simultaneously for the first time in the episode - a unanimous break of the prior chop range to the downside. Next time I'd watch for that same unanimous-fires-against + range-break combo earlier, and also weight the repeated failure to hold above +15 as a warning that the leg lacked real trend conviction rather than waiting for full confirmation.", "exit_frame": 9, "n_commits": 10}

@@ -1,0 +1,9 @@
+{"ts": 1784312819.0569575, "event": "serve", "frame": 0, "nonce": "3313ec01d270bdae"}
+{"ts": 1784312824.021723, "event": "commit", "frame": 0, "nonce": "3313ec01d270bdae", "decision": "HOLD", "reason": "just entered, price at entry level, no adverse signal yet"}
+{"ts": 1784312826.6691258, "event": "serve", "frame": 1, "nonce": "7fd62531aeee2fef"}
+{"ts": 1784312839.2403185, "event": "commit", "frame": 1, "nonce": "7fd62531aeee2fef", "decision": "HOLD", "reason": "big favorable move +45pts, ER10=0.82 strong trend, KMDR-against is early warning only, letting it run"}
+{"ts": 1784312842.321814, "event": "serve", "frame": 2, "nonce": "1375df7324e48473"}
+{"ts": 1784312848.2322397, "event": "commit", "frame": 2, "nonce": "1375df7324e48473", "decision": "HOLD", "reason": "px +69.75 still extending, ER10=0.89 very strong trend; PROPP-against is a caution flag but no price stall yet"}
+{"ts": 1784312851.1273396, "event": "serve", "frame": 3, "nonce": "a2fc0c94dfb024c8"}
+{"ts": 1784312864.5174587, "event": "commit", "frame": 3, "nonce": "a2fc0c94dfb024c8", "decision": "EXIT", "reason": "px +156.75, extreme overextension (z_se 5m=-4.23, 15m=-3.60, 1m=-3.21), CLIMAX-against fired 1m ago + negative lambda_t on 1h(-2.23) signals mean-reversion risk; locking in the climax move"}
+{"ts": 1784312870.4645078, "event": "finish", "summary": "Exited on a climax signature: price had already run +156.75pts favorable in 3 minutes with extreme mean-reversion stretch (z_se 5m=-4.23, 15m=-3.60, 1h=-2.57) and a CLIMAX-against fire plus negative, significant lambda_t on the 1h, indicating the move was exhausted and vulnerable to snapback. Chose to bank the climax rather than risk giveback. Next time I'd watch whether ER10 staying above ~0.85 into a CLIMAX-against fire is consistently the highest-value exit trigger, versus waiting for an actual stall/reversal bar to confirm before cutting a still-accelerating leg.", "exit_frame": 3, "n_commits": 4}

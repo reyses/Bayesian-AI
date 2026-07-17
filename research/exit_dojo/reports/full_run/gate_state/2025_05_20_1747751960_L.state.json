@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_05_20_1747751960_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f92ba9c533d692c4",
+      "ts": 1784316589.1394744
+    },
+    {
+      "frame": 1,
+      "nonce": "e8b1e4a2f69b8d7b",
+      "ts": 1784316599.2663584
+    },
+    {
+      "frame": 2,
+      "nonce": "fe5264ae66c00768",
+      "ts": 1784316608.2443187
+    },
+    {
+      "frame": 3,
+      "nonce": "42542f1dc8a68794",
+      "ts": 1784316615.7081163
+    },
+    {
+      "frame": 4,
+      "nonce": "bb207aefb60ea404",
+      "ts": 1784316622.8060927
+    },
+    {
+      "frame": 5,
+      "nonce": "8ac1de6188fe9f65",
+      "ts": 1784316631.4205937
+    },
+    {
+      "frame": 6,
+      "nonce": "f47b0ff6a24dee94",
+      "ts": 1784316639.3848279
+    },
+    {
+      "frame": 7,
+      "nonce": "a7bb518a44ea0fc1",
+      "ts": 1784316646.7520072
+    },
+    {
+      "frame": 8,
+      "nonce": "afc241f1ca254cdc",
+      "ts": 1784316657.7173765
+    },
+    {
+      "frame": 9,
+      "nonce": "0995a97b0b305be0",
+      "ts": 1784316674.7385066
+    },
+    {
+      "frame": 10,
+      "nonce": "d81b99f8dc3a72b3",
+      "ts": 1784316683.2705226
+    },
+    {
+      "frame": 11,
+      "nonce": "085ae83bd0790627",
+      "ts": 1784316691.0575774
+    },
+    {
+      "frame": 12,
+      "nonce": "3f2961c3d043338d",
+      "ts": 1784316699.5398529
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f92ba9c533d692c4",
+      "decision": "HOLD",
+      "reason": "frame0: only -12 to -16pts on 5s/15s/1m, still within 30-bar sigma noise, 4h/1D structure positive; too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "e8b1e4a2f69b8d7b",
+      "decision": "HOLD",
+      "reason": "recovered to +2.75pts, strong up momentum (1m/5m z_se >2.3-2.8, lambda positive t=2.0), reversion_prob dropped to 0.42 on 5m = trending not reverting"
+    },
+    {
+      "frame": 2,
+      "nonce": "fe5264ae66c00768",
+      "decision": "HOLD",
+      "reason": "pullback to -0.25pts local, giveback only 9%; 5s/15s dipped but 1m z_se still +1.98 and lambda positive t~1.4-2.0, uptrend structure intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "42542f1dc8a68794",
+      "decision": "HOLD",
+      "reason": "local -3.75pts but giveback still only 7% of 60.8pt amp; 1m z_se +1.35, lambda_30 t=1.66 still positive, trend structure not broken"
+    },
+    {
+      "frame": 4,
+      "nonce": "bb207aefb60ea404",
+      "decision": "HOLD",
+      "reason": "giveback 12%, still moderate; 1m z_se +1.21 lambda t=2.12 still positive, 15s z_se -1.73 oversold short-term suggests bounce, no structural break yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "8ac1de6188fe9f65",
+      "decision": "HOLD",
+      "reason": "new local leg giveback 67% but tiny 9pt amp (noise-scale); 1m lambda still positive t=1.6-1.8, HA-against is single fire against a persistently positive 1m trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "f47b0ff6a24dee94",
+      "decision": "HOLD",
+      "reason": "price +3.75pts, broad multi-TF alignment bullish: 1m/5m/15m lambda all positive t=2.2-3.1, 5m z_se +2.46, strong sustained uptrend"
+    },
+    {
+      "frame": 7,
+      "nonce": "a7bb518a44ea0fc1",
+      "decision": "HOLD",
+      "reason": "px +4.25, still net profitable; 15s lambda deceleration (t=-3.9) but 1m lambda still +2.8/2.2, broader trend intact, watching for reversal confirmation"
+    },
+    {
+      "frame": 8,
+      "nonce": "afc241f1ca254cdc",
+      "decision": "HOLD",
+      "reason": "5s/15s lambda now clearly negative (t=-2.0,-4.5) and price pulled back to -3.25 on 5s, but 1m lambda still positive t=1.4-1.6 and 1m close still +2.75; mixed regime, watching closely for 1m flip"
+    },
+    {
+      "frame": 9,
+      "nonce": "0995a97b0b305be0",
+      "decision": "HOLD",
+      "reason": "bounced back to +4.50 local, 5s z_se +2.25 strong short-term push, confirms prior dip was noise not reversal"
+    },
+    {
+      "frame": 10,
+      "nonce": "d81b99f8dc3a72b3",
+      "decision": "HOLD",
+      "reason": "1m close now +9.00, new highs, giveback only 18% of fresh 15.2pt leg, trend continuing strongly"
+    },
+    {
+      "frame": 11,
+      "nonce": "085ae83bd0790627",
+      "decision": "HOLD",
+      "reason": "pulled back from +9 to +6.5 on 1m, giveback 41% and ER10 dropped to 0.22 (chop), but 5m z_se +2.07 lambda t=2.05 still strongly bullish on the larger frame"
+    },
+    {
+      "frame": 12,
+      "nonce": "3f2961c3d043338d",
+      "decision": "EXIT",
+      "reason": "1m z_se flipped negative for first time, 1m lambda_12 t=-7.5 (strong deceleration), ER10 collapsed to 0.08 (chop/no edge), giveback 72% on local leg -- momentum breakdown across 5s/15s/1m simultaneously, taking the exit"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Held through several noisy pullbacks (5-15% givebacks) while 1m/5m lambda and z_se stayed positive, riding the position from roughly flat up to a +9pt peak on the 1m close. Exited at frame 12 when the 1m z_se flipped negative for the first time, 1m lambda_hat_12 deceleration hit t=-7.5, and ER10 collapsed to 0.08 -- a simultaneous multi-timeframe momentum breakdown (5s/15s/1m all rolling over together) rather than just another single-TF dip. Next time I'd watch for this same signature earlier -- ER10 crashing alongside a first-time sign flip in the anchor TF's z_se is a stronger tell than any single lambda print, and I'd weight it more than isolated short-TF (5s) noise that reverted multiple times earlier in the episode."
+}

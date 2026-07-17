@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_11_21_1763737020_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1fb5e08fc0701b78",
+      "ts": 1784309301.5581636
+    },
+    {
+      "frame": 1,
+      "nonce": "93872130ed287e9d",
+      "ts": 1784309307.9234707
+    },
+    {
+      "frame": 2,
+      "nonce": "9862970743054d67",
+      "ts": 1784309314.2941034
+    },
+    {
+      "frame": 3,
+      "nonce": "9281fa46e560a94b",
+      "ts": 1784309321.686033
+    },
+    {
+      "frame": 4,
+      "nonce": "23dee61e694ce92e",
+      "ts": 1784309328.960865
+    },
+    {
+      "frame": 5,
+      "nonce": "1c4d9b5b7684c1a2",
+      "ts": 1784309336.4771857
+    },
+    {
+      "frame": 6,
+      "nonce": "6b73fb4ebc1a3b1e",
+      "ts": 1784309347.768448
+    },
+    {
+      "frame": 7,
+      "nonce": "c100954f7dc3de2b",
+      "ts": 1784309354.2781825
+    },
+    {
+      "frame": 8,
+      "nonce": "5515cbe1e9255232",
+      "ts": 1784309364.7026553
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1fb5e08fc0701b78",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat 0.00, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "93872130ed287e9d",
+      "decision": "HOLD",
+      "reason": "px +9, fresh leg, low giveback, hold for more"
+    },
+    {
+      "frame": 2,
+      "nonce": "9862970743054d67",
+      "decision": "HOLD",
+      "reason": "px +13.25, giveback modest 17%, PROPP now with-trend, hold"
+    },
+    {
+      "frame": 3,
+      "nonce": "9281fa46e560a94b",
+      "decision": "HOLD",
+      "reason": "px +9.50, giveback reset to 0%, amp growing, still choppy but no reversal signal"
+    },
+    {
+      "frame": 4,
+      "nonce": "23dee61e694ce92e",
+      "decision": "HOLD",
+      "reason": "px jumped to +58.75, giveback 0%, PROPP-with, momentum favorable, hold for more"
+    },
+    {
+      "frame": 5,
+      "nonce": "1c4d9b5b7684c1a2",
+      "decision": "HOLD",
+      "reason": "px +82, giveback still low 4%, strong favorable move continues despite short-horizon lambda softening"
+    },
+    {
+      "frame": 6,
+      "nonce": "6b73fb4ebc1a3b1e",
+      "decision": "HOLD",
+      "reason": "px +120.50, giveback 1%, strong sustained continuation, hold"
+    },
+    {
+      "frame": 7,
+      "nonce": "c100954f7dc3de2b",
+      "decision": "HOLD",
+      "reason": "px pulled back to +85.75 from +120.50, giveback 22%, still well positive, watch for further giveback growth"
+    },
+    {
+      "frame": 8,
+      "nonce": "5515cbe1e9255232",
+      "decision": "EXIT",
+      "reason": "px eroded 3 frames straight (+120.5->+85.75->+48.50), giveback 28% and rising, HA+PROPP both flipped against -- reversal signature, lock in gain"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Exited at +48.50pts after a 3-frame erosion from the +120.50 peak (giveback climbing 4%->22%->28%) coinciding with both HA and PROPP flipping from with-trend to against-trend simultaneously -- treated the dual-signal flip plus accelerating giveback as the reversal signature rather than a normal pullback. Next time I'd watch giveback% trajectory more tightly earlier (it was already non-trivial at 22% one frame before the flip) and weight a single against-signal less than two independent detectors agreeing, to avoid bailing on noise while still catching genuine turns."
+}

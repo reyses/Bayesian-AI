@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_08_15_1755266460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6d2fa726bb4e393b",
+      "ts": 1784315422.3097994
+    },
+    {
+      "frame": 1,
+      "nonce": "998a6dd758e3354d",
+      "ts": 1784315440.3606763
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6d2fa726bb4e393b",
+      "decision": "HOLD",
+      "reason": "frame 0, too early, only 1m leg age, no clear reversal signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "998a6dd758e3354d",
+      "decision": "EXIT",
+      "reason": "leg fully reversed: giveback 165% of 33pt amp, px now -25.75, ER10 near-zero (pure chop), HA-against fired"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Exited at t=1m when the leg fully round-tripped: peak favorable amplitude was ~33-38pts but the position had given back 165% of it, sitting at -25.75pts, with ER10 collapsing to ~0.02 (pure chop, no directional follow-through) and an HA-against fire. Next time I'd watch for the giveback% crossing 100% combined with efficiency-ratio collapse as the primary reversal signature, rather than waiting on any single timeframe's z-score since the 5s/15s/1m z_21 values were still positive (misleadingly favorable) even as live price had already reversed hard."
+}

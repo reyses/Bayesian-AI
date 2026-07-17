@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_07_07_1751898905_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "63ecc8565032c51c",
+      "ts": 1784308317.2539272
+    },
+    {
+      "frame": 1,
+      "nonce": "786b10ba3c6430fe",
+      "ts": 1784308325.8962953
+    },
+    {
+      "frame": 2,
+      "nonce": "51435fb37b82ab58",
+      "ts": 1784308334.3151948
+    },
+    {
+      "frame": 3,
+      "nonce": "79ded34a0f58751e",
+      "ts": 1784308341.0343559
+    },
+    {
+      "frame": 4,
+      "nonce": "e537bc4322ac20a9",
+      "ts": 1784308349.9046
+    },
+    {
+      "frame": 5,
+      "nonce": "ae36971dab6ab2c5",
+      "ts": 1784308357.9490638
+    },
+    {
+      "frame": 6,
+      "nonce": "ba8a7126335c6965",
+      "ts": 1784308373.7371716
+    },
+    {
+      "frame": 7,
+      "nonce": "d0fac57b4712675a",
+      "ts": 1784308381.4821076
+    },
+    {
+      "frame": 8,
+      "nonce": "f1555705e05eb278",
+      "ts": 1784308388.867382
+    },
+    {
+      "frame": 9,
+      "nonce": "8fc66f668534a90c",
+      "ts": 1784308396.9432006
+    },
+    {
+      "frame": 10,
+      "nonce": "40e573148578a104",
+      "ts": 1784308403.9360285
+    },
+    {
+      "frame": 11,
+      "nonce": "1ad3634eba9e306c",
+      "ts": 1784308414.462375
+    },
+    {
+      "frame": 12,
+      "nonce": "9f26f165040c4907",
+      "ts": 1784308436.3668067
+    },
+    {
+      "frame": 13,
+      "nonce": "3c4f9d57df133a18",
+      "ts": 1784308452.304189
+    },
+    {
+      "frame": 14,
+      "nonce": "79446d8d34819e07",
+      "ts": 1784308459.4777129
+    },
+    {
+      "frame": 15,
+      "nonce": "65eab14f5e7d1f9e",
+      "ts": 1784308467.692342
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "63ecc8565032c51c",
+      "decision": "HOLD",
+      "reason": "frame 0, just entered, no signal to act on yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "786b10ba3c6430fe",
+      "decision": "HOLD",
+      "reason": "small giveback 16%, no extreme z, too early to bail"
+    },
+    {
+      "frame": 2,
+      "nonce": "51435fb37b82ab58",
+      "decision": "HOLD",
+      "reason": "giveback stable ~15%, mixed fires, no extreme adverse move"
+    },
+    {
+      "frame": 3,
+      "nonce": "79ded34a0f58751e",
+      "decision": "HOLD",
+      "reason": "giveback 23%, but 5s lambda strongly negative (fading/reverting), not a breakout against us"
+    },
+    {
+      "frame": 4,
+      "nonce": "e537bc4322ac20a9",
+      "decision": "HOLD",
+      "reason": "price recovered to -3.50 from -9.25, reversion continuing in our favor"
+    },
+    {
+      "frame": 5,
+      "nonce": "ae36971dab6ab2c5",
+      "decision": "HOLD",
+      "reason": "further recovery to -2.75, 5m/15s lambda negative confirms mean reversion in our favor"
+    },
+    {
+      "frame": 6,
+      "nonce": "ba8a7126335c6965",
+      "decision": "HOLD",
+      "reason": "minor pullback to -5.25, still inside prior range, no new extreme"
+    },
+    {
+      "frame": 7,
+      "nonce": "d0fac57b4712675a",
+      "decision": "HOLD",
+      "reason": "px -6.75, vol compressing, still range-bound within prior swing"
+    },
+    {
+      "frame": 8,
+      "nonce": "f1555705e05eb278",
+      "decision": "HOLD",
+      "reason": "px -9.50 near prior range low, but 1m lambda strongly negative (mean-reverting), ER10 low=chop not trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "8fc66f668534a90c",
+      "decision": "HOLD",
+      "reason": "sharp recovery to -4.75, 1m lambda strongly negative confirms reversion, still range-bound"
+    },
+    {
+      "frame": 10,
+      "nonce": "40e573148578a104",
+      "decision": "HOLD",
+      "reason": "near breakeven -0.75, multi-TF lambda still strongly negative (reversion), ride the fade further"
+    },
+    {
+      "frame": 11,
+      "nonce": "1ad3634eba9e306c",
+      "decision": "HOLD",
+      "reason": "px back to -9.50 (prior range low), fast TF momentum adverse but 1m lambda still strongly negative reversion; watching closely for breakdown"
+    },
+    {
+      "frame": 12,
+      "nonce": "9f26f165040c4907",
+      "decision": "HOLD",
+      "reason": "new low -11.25, but 5s lambda t=-21.4 extreme reversion signal and 1m lambda still sig negative; giving one more bar"
+    },
+    {
+      "frame": 13,
+      "nonce": "3c4f9d57df133a18",
+      "decision": "HOLD",
+      "reason": "recovered from -11.25 to -8.50 as lambda signals predicted, staying in the established range"
+    },
+    {
+      "frame": 14,
+      "nonce": "79446d8d34819e07",
+      "decision": "HOLD",
+      "reason": "px -10.25, within established range, 1m lambda still sig negative reversion"
+    },
+    {
+      "frame": 15,
+      "nonce": "65eab14f5e7d1f9e",
+      "decision": "EXIT",
+      "reason": "new worst level -14.00, third consecutive lower-low despite repeated negative-lambda reversion calls that kept failing to hold; structure = deepening drawdown not chop, larger-TF (1h/4h/1D) context from frame0 showed uptrend against this short"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 15,
+  "finished": true,
+  "summary": "Exited on a new-low breach (-14.00pts) after three consecutive rounds of the same pattern: 1m/5m lambda_hat went significantly negative (predicting reversion), price partially recovered, then broke to a fresh, deeper low. Each 'recovery' failed to make a new favorable high while the lows kept extending (-9.25 -> -11.25 -> -14.00), which reads as a trending structure fighting the fade thesis rather than noise/chop, consistent with the strong up-momentum context seen in the 1h/4h/1D blocks at frame 0. Next time I'd watch for that specific signature earlier -- successive lower-lows with unchanged/failing recovery highs -- as an override to a still-significant but track-record-failing lambda reversion signal, rather than waiting for a third breach."
+}

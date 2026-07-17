@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_01_10_1736521020_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7989d1dc5549c785",
+      "ts": 1784310718.1373098
+    },
+    {
+      "frame": 1,
+      "nonce": "798cb406f7936f55",
+      "ts": 1784310729.5631375
+    },
+    {
+      "frame": 2,
+      "nonce": "a2782237ad82700c",
+      "ts": 1784310742.049177
+    },
+    {
+      "frame": 3,
+      "nonce": "cbd5ac680d63c872",
+      "ts": 1784310752.4738219
+    },
+    {
+      "frame": 4,
+      "nonce": "0036d6724d284967",
+      "ts": 1784310777.8309205
+    },
+    {
+      "frame": 5,
+      "nonce": "ecdbee0d6ed02b30",
+      "ts": 1784310797.410505
+    },
+    {
+      "frame": 6,
+      "nonce": "e4a1899477007a2a",
+      "ts": 1784310808.3875365
+    },
+    {
+      "frame": 7,
+      "nonce": "967e122a93a6bccd",
+      "ts": 1784310817.6217034
+    },
+    {
+      "frame": 8,
+      "nonce": "18670238f64a425b",
+      "ts": 1784310825.6801875
+    },
+    {
+      "frame": 9,
+      "nonce": "a74a76259ca29cf3",
+      "ts": 1784310835.302335
+    },
+    {
+      "frame": 10,
+      "nonce": "79e4f2e500e40869",
+      "ts": 1784310842.8347344
+    },
+    {
+      "frame": 11,
+      "nonce": "827a27e745b765f9",
+      "ts": 1784310849.5197947
+    },
+    {
+      "frame": 12,
+      "nonce": "a230896d44a371cd",
+      "ts": 1784310871.4186912
+    },
+    {
+      "frame": 13,
+      "nonce": "29eefd721b1db2f8",
+      "ts": 1784310880.4696677
+    },
+    {
+      "frame": 14,
+      "nonce": "c069ec7655f63f15",
+      "ts": 1784310887.3892534
+    },
+    {
+      "frame": 15,
+      "nonce": "f22de44fb20961b3",
+      "ts": 1784310894.6811125
+    },
+    {
+      "frame": 16,
+      "nonce": "ba71ca9248a373ac",
+      "ts": 1784310902.621322
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7989d1dc5549c785",
+      "decision": "HOLD",
+      "reason": "frame 0, px flat at entry, mixed against/with fires, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "798cb406f7936f55",
+      "decision": "HOLD",
+      "reason": "px -10.25 against us but lambda_t_21(1m)=-3.29 strongly mean-reverting + reversion_prob~0.96, expect snap-back"
+    },
+    {
+      "frame": 2,
+      "nonce": "a2782237ad82700c",
+      "decision": "HOLD",
+      "reason": "px unchanged at -10.25, 1m bar wicked to -24 then bounced back, lambda_t_21 still -2.29 reversion intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "cbd5ac680d63c872",
+      "decision": "HOLD",
+      "reason": "px swung favorable to +43.25, PROPP-with fresh fire, giveback only 24% off peak - let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "0036d6724d284967",
+      "decision": "HOLD",
+      "reason": "px +73.75 near new-leg peak (giveback only 5%), mixed fresh fires (2 against/1 with) but no confirmed reversal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "ecdbee0d6ed02b30",
+      "decision": "HOLD",
+      "reason": "px extended to +81, new high, giveback still only 14%, against-fires not yet validated by price action"
+    },
+    {
+      "frame": 6,
+      "nonce": "e4a1899477007a2a",
+      "decision": "HOLD",
+      "reason": "px new high +97.50, giveback back down to 4%, ER10 rising to 0.55 (trending), lambda_t_12 +4.17 confirms trend continuation"
+    },
+    {
+      "frame": 7,
+      "nonce": "967e122a93a6bccd",
+      "decision": "HOLD",
+      "reason": "minor pullback to +93.75 (giveback 21%), PROPP flipped to with, vol decelerating -4.7, still strong trend intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "18670238f64a425b",
+      "decision": "HOLD",
+      "reason": "px +96.50, giveback back to 6%, vol contracting sharply (-20.6) suggesting consolidation not reversal, only one against fire"
+    },
+    {
+      "frame": 9,
+      "nonce": "a74a76259ca29cf3",
+      "decision": "HOLD",
+      "reason": "new high px +106.75, vol still contracting, ER10 up to 0.57, PROPP-with fresh fire confirms favorable trend"
+    },
+    {
+      "frame": 10,
+      "nonce": "79e4f2e500e40869",
+      "decision": "HOLD",
+      "reason": "new high +120.50, giveback only 5%, trend still intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "827a27e745b765f9",
+      "decision": "HOLD",
+      "reason": "at peak +129.75 (giveback 0%), ER10 new high 0.63 confirms trend strength despite 15s reversion pressure building"
+    },
+    {
+      "frame": 12,
+      "nonce": "a230896d44a371cd",
+      "decision": "HOLD",
+      "reason": "new high +137.50, giveback still 0%, ER10 new high 0.79 - trend momentum still dominant despite 2 fresh against-fires"
+    },
+    {
+      "frame": 13,
+      "nonce": "29eefd721b1db2f8",
+      "decision": "HOLD",
+      "reason": "minor pullback to +133 (giveback 3%), ER10 still 0.80, trend intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "c069ec7655f63f15",
+      "decision": "HOLD",
+      "reason": "new high +147.75, giveback 2%, ER10 still 0.77, vol decelerating -6.9"
+    },
+    {
+      "frame": 15,
+      "nonce": "f22de44fb20961b3",
+      "decision": "HOLD",
+      "reason": "new high +150, giveback 6%, ER10 cooling slightly to 0.65 but PROPP-with fresh, no confirmed reversal"
+    },
+    {
+      "frame": 16,
+      "nonce": "ba71ca9248a373ac",
+      "decision": "EXIT",
+      "reason": "unanimous against fires (KMDR+HA+PROPP all against, 2 fresh), ER10 cooling to 0.60, giveback jumped to 15%, vol decaying -4.6 - momentum exhaustion signature, lock in +146.5"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 16,
+  "finished": true,
+  "summary": "Held through a violent favorable crash (px ran 0 -> +150 over 15 minutes) since giveback stayed low and ER10/lambda kept confirming trend continuation through repeated single against-fires. Exited at +146.50 when, for the first time, all three fire families (KMDR, HA, PROPP) flipped against simultaneously with two firing fresh in the same bar, ER10 dropped from 0.77 to 0.60, and 5m realized vol decayed sharply (-4.6) alongside giveback jumping to 15% - a momentum-exhaustion signature rather than a normal pullback. Next time I'd watch for that same triple-against + ER-decline + vol-decay combination earlier as the primary reversal trigger, rather than only individual against-fires which fired repeatedly without consequence throughout the hold."
+}

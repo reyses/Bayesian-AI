@@ -1,0 +1,13 @@
+{"ts": 1784314842.918341, "event": "serve", "frame": 0, "nonce": "e5f9a6568c7e90c8"}
+{"ts": 1784314856.3759634, "event": "commit", "frame": 0, "nonce": "e5f9a6568c7e90c8", "decision": "HOLD", "reason": "frame0: leg amp+74.5 giveback0%, high reversion_prob but lambda mixed; hold to see next frame"}
+{"ts": 1784314858.9985275, "event": "serve", "frame": 1, "nonce": "76c03476b1e818f8"}
+{"ts": 1784314864.4819415, "event": "commit", "frame": 1, "nonce": "76c03476b1e818f8", "decision": "HOLD", "reason": "amp grew 74.5->124.5, giveback still 0%, px+26.25 favorable; hold"}
+{"ts": 1784314867.2302437, "event": "serve", "frame": 2, "nonce": "64a8f14aa4aac753"}
+{"ts": 1784314872.7544875, "event": "commit", "frame": 2, "nonce": "64a8f14aa4aac753", "decision": "HOLD", "reason": "amp 154.5, giveback only 4%, px+45.25, ER10 rising (trend efficient); hold"}
+{"ts": 1784314875.261232, "event": "serve", "frame": 3, "nonce": "8320e3c6e92fa8db"}
+{"ts": 1784314884.4599802, "event": "commit", "frame": 3, "nonce": "8320e3c6e92fa8db", "decision": "HOLD", "reason": "amp stalled 154.5, giveback jumped 4%->17%, CLIMAX-against fired; watching closely but not extreme yet, hold"}
+{"ts": 1784314887.56021, "event": "serve", "frame": 4, "nonce": "bf1893b043a60575"}
+{"ts": 1784314894.8601367, "event": "commit", "frame": 4, "nonce": "bf1893b043a60575", "decision": "HOLD", "reason": "new amp high 164.2, giveback reset to 2%; but 3 against-fires stacking (KMDR/CLIMAX/PROPP), watch next frame closely"}
+{"ts": 1784314898.9693377, "event": "serve", "frame": 5, "nonce": "46954f8239694d38"}
+{"ts": 1784314909.732035, "event": "commit", "frame": 5, "nonce": "46954f8239694d38", "decision": "EXIT", "reason": "px flipped +54.75->-8.00, giveback 45% off amp peak, all 4 fires (KMDR/CLIMAX/HA/PROPP) unanimous against - full reversal confirmed, exit now"}
+{"ts": 1784314916.4016397, "event": "finish", "summary": "Held through a clean run-up to +62pts as amp expanded to 164pts with giveback staying under ~17%, using amp-vs-giveback as the primary trailing gauge. Exited at frame 5 when price round-tripped from +54.75 to -8.00 (45% giveback off peak, net negative) with all four short-horizon fire signals (KMDR, CLIMAX, HA, PROPP) unanimously flipping against for the first time - that convergence plus the sign flip was the reversal confirmation. Next time I'd want to react one frame earlier: the 3-signal against-stack at frame 3-4 (giveback 4%->17%) was already the early warning before the full reversal landed.", "exit_frame": 5, "n_commits": 6}

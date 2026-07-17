@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_01_07_1736261820_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4c1a0fefc8b04e7e",
+      "ts": 1784305927.1994545
+    },
+    {
+      "frame": 1,
+      "nonce": "34369a0de7a5f3c6",
+      "ts": 1784305937.7173643
+    },
+    {
+      "frame": 2,
+      "nonce": "bc2ba093d5af80a4",
+      "ts": 1784305944.9003556
+    },
+    {
+      "frame": 3,
+      "nonce": "7e1e8980715d66b9",
+      "ts": 1784305952.281533
+    },
+    {
+      "frame": 4,
+      "nonce": "745c076932e3b3e7",
+      "ts": 1784305959.1656554
+    },
+    {
+      "frame": 5,
+      "nonce": "3b4daee33bcc198e",
+      "ts": 1784305968.1122777
+    },
+    {
+      "frame": 6,
+      "nonce": "5524a98267a10c96",
+      "ts": 1784305974.5998778
+    },
+    {
+      "frame": 7,
+      "nonce": "3a5e5480ebc7b7c6",
+      "ts": 1784305989.8691936
+    },
+    {
+      "frame": 8,
+      "nonce": "c57a894f29b995a2",
+      "ts": 1784306006.4572773
+    },
+    {
+      "frame": 9,
+      "nonce": "8584be54b65d5512",
+      "ts": 1784306014.331754
+    },
+    {
+      "frame": 10,
+      "nonce": "0d0d34142c869ae2",
+      "ts": 1784306028.6172833
+    },
+    {
+      "frame": 11,
+      "nonce": "7add692686425043",
+      "ts": 1784306036.5054386
+    },
+    {
+      "frame": 12,
+      "nonce": "4792b9e324a5982a",
+      "ts": 1784306043.4928946
+    },
+    {
+      "frame": 13,
+      "nonce": "84fbcf6ea69042b8",
+      "ts": 1784306053.1118338
+    },
+    {
+      "frame": 14,
+      "nonce": "3be3bcaf8eba549c",
+      "ts": 1784306059.4676707
+    },
+    {
+      "frame": 15,
+      "nonce": "74f5fe70820c5d6c",
+      "ts": 1784306066.100076
+    },
+    {
+      "frame": 16,
+      "nonce": "8459df940d0073ec",
+      "ts": 1784306072.7161136
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4c1a0fefc8b04e7e",
+      "decision": "HOLD",
+      "reason": "just entered, px flat, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "34369a0de7a5f3c6",
+      "decision": "HOLD",
+      "reason": "px -0.75 tiny giveback, 1m lambda still negative (mean-reverting), no exit trigger"
+    },
+    {
+      "frame": 2,
+      "nonce": "bc2ba093d5af80a4",
+      "decision": "HOLD",
+      "reason": "px +20 favorable, giveback only 3%, lambda still negative/mean-reverting across TFs"
+    },
+    {
+      "frame": 3,
+      "nonce": "7e1e8980715d66b9",
+      "decision": "HOLD",
+      "reason": "px +61 strong favorable move, giveback only 2%, ER10 rising, trend intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "745c076932e3b3e7",
+      "decision": "HOLD",
+      "reason": "px +75, giveback 0%, amp expanding to 134.5, momentum still favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "3b4daee33bcc198e",
+      "decision": "HOLD",
+      "reason": "px +107, giveback 3%, ER10 climbing to 0.52, still trending favorably"
+    },
+    {
+      "frame": 6,
+      "nonce": "5524a98267a10c96",
+      "decision": "HOLD",
+      "reason": "giveback jumped 3%->17%, CLIMAX-against+KMDR-against clustering fresh, watching for confirmed turn next frame but still +96.5"
+    },
+    {
+      "frame": 7,
+      "nonce": "3a5e5480ebc7b7c6",
+      "decision": "HOLD",
+      "reason": "giveback rising 3->17->23%, CLIMAX/KMDR-against persisting, but PROPP-with just fired; need one more frame to confirm turn vs noise"
+    },
+    {
+      "frame": 8,
+      "nonce": "c57a894f29b995a2",
+      "decision": "HOLD",
+      "reason": "new high px +132, giveback reset to 0%, prior against-signals were noise, vol cooling"
+    },
+    {
+      "frame": 9,
+      "nonce": "8584be54b65d5512",
+      "decision": "HOLD",
+      "reason": "px +114, giveback 15% off new amp high 194.2, same against-fire pattern as before which previously reset to new highs; still strongly favorable"
+    },
+    {
+      "frame": 10,
+      "nonce": "0d0d34142c869ae2",
+      "decision": "HOLD",
+      "reason": "giveback eased to 8%, but PROPP flipped against (all 3 fires now against) for first time -- watching closely next frame"
+    },
+    {
+      "frame": 11,
+      "nonce": "7add692686425043",
+      "decision": "HOLD",
+      "reason": "new high px +154.5, amp 200, giveback back to 1%, PROPP flipped back to with -- trend intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "4792b9e324a5982a",
+      "decision": "HOLD",
+      "reason": "amp new high 211, giveback modest 9%, same against-cluster pattern that's repeatedly resolved favorably so far"
+    },
+    {
+      "frame": 13,
+      "nonce": "84fbcf6ea69042b8",
+      "decision": "HOLD",
+      "reason": "new high px +164.5, amp 227.8, giveback low 4%, CLIMAX-against dropped off, PROPP-with fresh"
+    },
+    {
+      "frame": 14,
+      "nonce": "3be3bcaf8eba549c",
+      "decision": "HOLD",
+      "reason": "new high px +165.25, amp 234.5, giveback low 3% despite PROPP-against fire"
+    },
+    {
+      "frame": 15,
+      "nonce": "74f5fe70820c5d6c",
+      "decision": "HOLD",
+      "reason": "new high px +167.5, giveback still low 6%, PROPP-with recent"
+    },
+    {
+      "frame": 16,
+      "nonce": "8459df940d0073ec",
+      "decision": "EXIT",
+      "reason": "amp stalled 3 frames at 234.5, giveback accelerating 3%->6%->21%, 3-way against cluster (KMDR+HA+PROPP) fresh, ER10 breaking down 0.47->0.32 -- confirmed turn signature, locking +123.75"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 16,
+  "finished": true,
+  "summary": "Exited at +123.75 when three independent against-signals (KMDR, HA, PROPP) clustered fresh within the same 1m window while ER10 collapsed 0.47->0.32 and amplitude had stalled at 234.5 for three consecutive frames with accelerating giveback (3%->6%->21%). Earlier single/dual-signal against clusters (frames 6-7, 10) resolved into new highs and were noise, so I held through those; this exit required the combination of a third confirming signal family, breakdown in trend efficiency, and a stalled amplitude ceiling, not giveback percentage alone. Next time I'd watch for the same triple-cluster-plus-ER10-breakdown pattern as the primary trigger, and treat amp-stall duration (frames without a new high) as a secondary confirmation before acting on any single giveback spike."
+}

@@ -1,0 +1,33 @@
+{"ts": 1784310718.2547154, "event": "serve", "frame": 0, "nonce": "1a0b67aa159e7cd9"}
+{"ts": 1784310722.607723, "event": "commit", "frame": 0, "nonce": "1a0b67aa159e7cd9", "decision": "HOLD", "reason": "just entered, px flat, no adverse signal yet"}
+{"ts": 1784310724.868198, "event": "serve", "frame": 1, "nonce": "7682cfcef1da3126"}
+{"ts": 1784310731.303964, "event": "commit", "frame": 1, "nonce": "7682cfcef1da3126", "decision": "HOLD", "reason": "px +9.25 favorable, giveback only 10%, lambda_21 positive/sig suggesting trend continuation"}
+{"ts": 1784310733.5963662, "event": "serve", "frame": 2, "nonce": "ab2a04b29cc287a0"}
+{"ts": 1784310737.3189692, "event": "commit", "frame": 2, "nonce": "ab2a04b29cc287a0", "decision": "HOLD", "reason": "px +14.00 favorable, giveback 0%, lambda_21 t=3.7 sig positive = trend continuation"}
+{"ts": 1784310739.503196, "event": "serve", "frame": 3, "nonce": "fe176f495ba26a7f"}
+{"ts": 1784310755.6631756, "event": "commit", "frame": 3, "nonce": "fe176f495ba26a7f", "decision": "HOLD", "reason": "px pulled back to +4.75 (giveback 18%) but still favorable; lambda_21 t=5.4 still strongly positive = trend continuation intact"}
+{"ts": 1784310758.829968, "event": "serve", "frame": 4, "nonce": "a7357e260b4160a0"}
+{"ts": 1784310763.0278075, "event": "commit", "frame": 4, "nonce": "a7357e260b4160a0", "decision": "HOLD", "reason": "px recovered to +15.25, giveback down to 4%, lambda_21 still strongly positive t=5.6"}
+{"ts": 1784310765.2668262, "event": "serve", "frame": 5, "nonce": "887c972bd3eea178"}
+{"ts": 1784310774.7084534, "event": "commit", "frame": 5, "nonce": "887c972bd3eea178", "decision": "HOLD", "reason": "px +4.00, giveback climbed to 28% and vol(5m) contracting -5.8, but 1m lambda still t=7.8 strong continuation; still net favorable, watching closely"}
+{"ts": 1784310777.8716433, "event": "serve", "frame": 6, "nonce": "95e4d0791bf5b87c"}
+{"ts": 1784310783.9967604, "event": "commit", "frame": 6, "nonce": "95e4d0791bf5b87c", "decision": "HOLD", "reason": "px +14.50 recovered, new leg started (age reset 0m), ER10 dropped to 0.46 (choppier) but lambda_21 1m still sig positive t=4.1"}
+{"ts": 1784310786.3093593, "event": "serve", "frame": 7, "nonce": "a4c291f502c3f1da"}
+{"ts": 1784310792.1330972, "event": "commit", "frame": 7, "nonce": "a4c291f502c3f1da", "decision": "HOLD", "reason": "px +12.00 still solid, z_21 near 0 (mean not overextended), lambda_21 still sig positive t=3.8 despite choppy ER"}
+{"ts": 1784310794.804141, "event": "serve", "frame": 8, "nonce": "9700ee97778418be"}
+{"ts": 1784310817.2163532, "event": "commit", "frame": 8, "nonce": "9700ee97778418be", "decision": "HOLD", "reason": "px dipped to -1.25 (small give-back from +12 peak) but 15s lambda_21 t=-2.07 sig NEGATIVE = mean-reversion expected back in our favor, not a breakout against us"}
+{"ts": 1784310819.8814902, "event": "serve", "frame": 9, "nonce": "40cbb3406ca1bcbb"}
+{"ts": 1784310833.0436335, "event": "commit", "frame": 9, "nonce": "40cbb3406ca1bcbb", "decision": "HOLD", "reason": "px reversed hard to -14.50, worst point yet, but 1m lambda_12 t=-3.0 sig NEGATIVE = mean-reversion expected; noisy regime (ER10 0.15) but not a confirmed trend break yet"}
+{"ts": 1784310835.8250718, "event": "serve", "frame": 10, "nonce": "a3830635729a2f3e"}
+{"ts": 1784310849.3760421, "event": "commit", "frame": 10, "nonce": "a3830635729a2f3e", "decision": "HOLD", "reason": "px -12.00, slight bounce off -14.50 low; ER10=0.00 pure noise regime, 1m lambda_12 near-sig negative (t=-1.78) still favors reversion back toward us, no confirmed against-trend break"}
+{"ts": 1784310852.2586973, "event": "serve", "frame": 11, "nonce": "6c63a478709c277c"}
+{"ts": 1784310859.1764987, "event": "commit", "frame": 11, "nonce": "6c63a478709c277c", "decision": "HOLD", "reason": "px snapped back to +4.25 from -14.50 low, confirms the reversion call; back in favorable territory"}
+{"ts": 1784310861.2716537, "event": "serve", "frame": 12, "nonce": "74f49c859cb41468"}
+{"ts": 1784310870.5750046, "event": "commit", "frame": 12, "nonce": "74f49c859cb41468", "decision": "HOLD", "reason": "px -8.00, still whipsawing inside established -14.5/+15 chop range, ER10 near zero (pure noise), no confirmed directional break either way"}
+{"ts": 1784310874.2414992, "event": "serve", "frame": 13, "nonce": "b7cfe255d297458b"}
+{"ts": 1784310878.7181282, "event": "commit", "frame": 13, "nonce": "b7cfe255d297458b", "decision": "HOLD", "reason": "px +2.00, still chopping around breakeven, no confirmed trend break, HA/PROPP now firing with our position"}
+{"ts": 1784310881.0967193, "event": "serve", "frame": 14, "nonce": "76b7b1b275ff481b"}
+{"ts": 1784310886.1161785, "event": "commit", "frame": 14, "nonce": "76b7b1b275ff481b", "decision": "HOLD", "reason": "px surged to new high +25.25, giveback 0%, lambda_30 1m t=3.6 sig positive continuation"}
+{"ts": 1784310889.183923, "event": "serve", "frame": 15, "nonce": "8ea8c5320fa0e32d"}
+{"ts": 1784310904.0362153, "event": "commit", "frame": 15, "nonce": "8ea8c5320fa0e32d", "decision": "EXIT", "reason": "px rolled off fresh high +25.25 to +5.00 (28% in-leg giveback), KMDR-against + PROPP-against firing together = strongest reversal-at-high signature seen; ER10 near zero all episode = no trend edge to justify riding further; bank the gain"}
+{"ts": 1784310909.8268392, "event": "finish", "summary": "Exited at px +5.00 after price rolled off a fresh episode high of +25.25 (28% in-leg giveback), with KMDR-against and PROPP-against firing together right at the rollover -- the first time two against-signals stacked at a peak. The whole episode was a persistently near-zero-ER10 chop regime (price whipsawed between roughly -14.5 and +25 multiple times), so with no trend edge to justify riding further I banked the gain rather than risk another full round-trip like the earlier -14.5 excursion. Next time I'd watch for that combined against-signal stack specifically at/near local extremes as the primary exit trigger, rather than trying to read lambda_t on individual timeframes which stayed noisy and contradictory throughout.", "exit_frame": 15, "n_commits": 16}

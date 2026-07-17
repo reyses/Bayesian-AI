@@ -1,0 +1,15 @@
+{"ts": 1784315871.8707938, "event": "serve", "frame": 0, "nonce": "43f11017a4f32c44"}
+{"ts": 1784315886.8857784, "event": "commit", "frame": 0, "nonce": "43f11017a4f32c44", "decision": "HOLD", "reason": "at BE after 64pct giveback of 112.8pt run; mixed lambda signals (5s neg-sig, 15s pos-sig); need more frames before acting"}
+{"ts": 1784315889.4155862, "event": "serve", "frame": 1, "nonce": "4babc3828674adf6"}
+{"ts": 1784315895.7380147, "event": "commit", "frame": 1, "nonce": "4babc3828674adf6", "decision": "HOLD", "reason": "price recovered to +12.5, fresh leg giveback only 26%; 1m lambda_12 sig negative but early, not acting yet"}
+{"ts": 1784315898.0478725, "event": "serve", "frame": 2, "nonce": "6404457b1bc24232"}
+{"ts": 1784315909.7703013, "event": "commit", "frame": 2, "nonce": "6404457b1bc24232", "decision": "HOLD", "reason": "surged to +60.5pts; fast lambda_12 sig negative (deceleration risk) but banking winners early is EV-negative historically, letting it run"}
+{"ts": 1784315911.8732803, "event": "serve", "frame": 3, "nonce": "849956709782b71f"}
+{"ts": 1784315916.6405792, "event": "commit", "frame": 3, "nonce": "849956709782b71f", "decision": "HOLD", "reason": "price extending to +68.5pts, both HA and PROPP now firing with the position, ER10 improving to 0.49 - trend strengthening"}
+{"ts": 1784315918.9925654, "event": "serve", "frame": 4, "nonce": "1cadf0e0c57a744b"}
+{"ts": 1784315929.9592392, "event": "commit", "frame": 4, "nonce": "1cadf0e0c57a744b", "decision": "HOLD", "reason": "pulled back from +68.5 to +38.25 but still solidly profitable, fires still HA-with/PROPP-with, treating as normal pullback not reversal"}
+{"ts": 1784315932.6392725, "event": "serve", "frame": 5, "nonce": "a856536baa84b5c2"}
+{"ts": 1784315957.438392, "event": "commit", "frame": 5, "nonce": "a856536baa84b5c2", "decision": "HOLD", "reason": "steep giveback to +8.5pts (81%) and ER10 collapsed to 0.02, concerning, but HA/PROPP still fire WITH not against - waiting for a clear against-signal before banking"}
+{"ts": 1784315959.6750312, "event": "serve", "frame": 6, "nonce": "9b173bd71f4bb496"}
+{"ts": 1784315965.9845521, "event": "commit", "frame": 6, "nonce": "9b173bd71f4bb496", "decision": "EXIT", "reason": "both HA and PROPP flipped to firing AGAINST, price round-tripped from +68.5 to -2.50 (88%+ giveback) - full reversal confirmed, exiting to cap the loss"}
+{"ts": 1784315973.0829554, "event": "finish", "summary": "Held through a fast run-up to +68.5pts and an initial pullback, since HA/PROPP kept firing with the position and cutting winners on ordinary drawdown has historically been EV-negative. Exited at frame 6 (-2.50pts) once BOTH HA and PROPP flipped to firing against the position simultaneously, confirming the giveback (68.5 -> -2.50, ER10 collapsing to near-zero along the way) was a genuine reversal rather than noise. Next time I'd want an earlier partial-de-risk trigger once giveback crossed ~80% of the peak leg amplitude, rather than waiting for both detectors to flip against, since that cost the last ~10pts of cushion.", "exit_frame": 6, "n_commits": 7}

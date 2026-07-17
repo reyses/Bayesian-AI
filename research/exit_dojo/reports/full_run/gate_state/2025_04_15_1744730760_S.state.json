@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_04_15_1744730760_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fe4bda9f55bec65a",
+      "ts": 1784306999.7015777
+    },
+    {
+      "frame": 1,
+      "nonce": "40e06c4726cc5131",
+      "ts": 1784307008.487763
+    },
+    {
+      "frame": 2,
+      "nonce": "6c907acb13a3577b",
+      "ts": 1784307016.0121865
+    },
+    {
+      "frame": 3,
+      "nonce": "cab7ce6a6ddf6f1e",
+      "ts": 1784307023.8640797
+    },
+    {
+      "frame": 4,
+      "nonce": "bc85b3f1916eaa99",
+      "ts": 1784307031.8927557
+    },
+    {
+      "frame": 5,
+      "nonce": "8a99a9492c80cc2f",
+      "ts": 1784307040.227325
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fe4bda9f55bec65a",
+      "decision": "HOLD",
+      "reason": "frame 0, px flat at entry, no adverse move yet, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "40e06c4726cc5131",
+      "decision": "HOLD",
+      "reason": "px +2.25 favorable, leg amp 61.8pts, giveback only 10%, momentum still with trade"
+    },
+    {
+      "frame": 2,
+      "nonce": "6c907acb13a3577b",
+      "decision": "HOLD",
+      "reason": "px +4.75 improving, giveback flat at 10%, ER10 rising, PROPP fires with the trade"
+    },
+    {
+      "frame": 3,
+      "nonce": "cab7ce6a6ddf6f1e",
+      "decision": "HOLD",
+      "reason": "px +10.25, giveback down to 1%, ER10 up to 0.45, trend intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "bc85b3f1916eaa99",
+      "decision": "HOLD",
+      "reason": "px +22.75, giveback low 3%, ER10 rising to 0.49, strong run continuing"
+    },
+    {
+      "frame": 5,
+      "nonce": "8a99a9492c80cc2f",
+      "decision": "EXIT",
+      "reason": "peak +22.75 erased to -1.00 in 1min, giveback jumped 3%->26%, ER10 climbed to 0.60 (rising trend efficiency) with PROPP firing against - strong adverse reversal, locking out before further bleed"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through a clean run-up to +22.75pts (giveback stayed <=10% the whole way, ER10 climbing steadily 0.26->0.49), then exited the instant the leg round-tripped to -1.00pts with giveback spiking 3%->26% and ER10 punching to 0.60 alongside PROPP firing against - treated the sudden efficiency spike on an adverse move as a real trend-reversal signature, not noise. Next time I'd want to see whether giveback>25% combined with ER10>0.55 is a recurring exit trigger across episodes, and whether waiting one more frame to confirm continuation (vs. reacting on the first big giveback print) costs more than it saves."
+}

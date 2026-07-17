@@ -1,0 +1,11 @@
+{"ts": 1784315781.7936811, "event": "serve", "frame": 0, "nonce": "8b652171ca987cba"}
+{"ts": 1784315787.1396608, "event": "commit", "frame": 0, "nonce": "8b652171ca987cba", "decision": "HOLD", "reason": "flat at entry, no adverse signal yet, mixed multi-TF z/lambda, waiting for direction"}
+{"ts": 1784315791.4164977, "event": "serve", "frame": 1, "nonce": "a6712603f1549076"}
+{"ts": 1784315813.2610025, "event": "commit", "frame": 1, "nonce": "a6712603f1549076", "decision": "HOLD", "reason": "adverse -29.5pts but giveback only 3%, no reversion fire yet, lambda_t modest not extreme"}
+{"ts": 1784315815.8302944, "event": "serve", "frame": 2, "nonce": "e0f28fed26921658"}
+{"ts": 1784315827.736672, "event": "commit", "frame": 2, "nonce": "e0f28fed26921658", "decision": "HOLD", "reason": "price recovered 9.5pts off worst (-29.5->-20), CLIMAX fire + extreme z_21=2.94 suggest exhaustion of adverse leg, giveback 33% shows adverse move already fading"}
+{"ts": 1784315830.727908, "event": "serve", "frame": 3, "nonce": "59a36e006fd80088"}
+{"ts": 1784315840.933665, "event": "commit", "frame": 3, "nonce": "59a36e006fd80088", "decision": "HOLD", "reason": "px flipped fully favorable +23.25, adverse leg >100% given back, momentum (lambda, HA/CLIMAX fires) still with the move, no reversal signal against us yet"}
+{"ts": 1784315843.5401766, "event": "serve", "frame": 4, "nonce": "7b444bb94cedffd7"}
+{"ts": 1784315853.168716, "event": "commit", "frame": 4, "nonce": "7b444bb94cedffd7", "decision": "EXIT", "reason": "px pulled back from +23.25 peak to +16.75, KMDR-against and PROPP-against both fired this bar, ER10 collapsed to 0.04 (trend exhausted/chop), locking in the favorable swing before it round-trips"}
+{"ts": 1784315860.2926495, "event": "finish", "summary": "Trade opened flat, dove to -29.5pts within 1m, then fully round-tripped through zero to +23.25pts by t=3m (giveback>100% of the adverse leg, ER10 spiking then collapsing). Exited at +16.75pts at t=4m when KMDR-against and PROPP-against both fired against the favorable move and ER10 crashed to 0.04, reading as trend exhaustion after the peak at +23.25. Next time I'd watch for the against-fires arriving together as the primary trigger rather than waiting for price to actually give back more, since ER10 collapse alone was a leading but noisier signal.", "exit_frame": 4, "n_commits": 5}

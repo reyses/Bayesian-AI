@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_07_22_1753191985_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4d83e22a56de1025",
+      "ts": 1784312117.2642055
+    },
+    {
+      "frame": 1,
+      "nonce": "e8931baf46e85b72",
+      "ts": 1784312142.7615752
+    },
+    {
+      "frame": 2,
+      "nonce": "a9f6e27f544d6116",
+      "ts": 1784312152.1118283
+    },
+    {
+      "frame": 3,
+      "nonce": "115573abda032324",
+      "ts": 1784312158.8823817
+    },
+    {
+      "frame": 4,
+      "nonce": "41feb10c47f78a46",
+      "ts": 1784312168.9403696
+    },
+    {
+      "frame": 5,
+      "nonce": "574ea030cb7fe792",
+      "ts": 1784312176.2358074
+    },
+    {
+      "frame": 6,
+      "nonce": "9074b08ea5bc233a",
+      "ts": 1784312195.9333982
+    },
+    {
+      "frame": 7,
+      "nonce": "13e7c134fb2a8b90",
+      "ts": 1784312202.8179138
+    },
+    {
+      "frame": 8,
+      "nonce": "619ef3183423dabc",
+      "ts": 1784312210.3955362
+    },
+    {
+      "frame": 9,
+      "nonce": "70ad76591f053e3f",
+      "ts": 1784312220.6639338
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4d83e22a56de1025",
+      "decision": "HOLD",
+      "reason": "8m in, only 15% giveback of 59.8pt leg; against-fires noted but not yet decisive"
+    },
+    {
+      "frame": 1,
+      "nonce": "e8931baf46e85b72",
+      "decision": "HOLD",
+      "reason": "px improved to +9, leg amp grew to 77.2pts, giveback eased to 13%, ER10 rising"
+    },
+    {
+      "frame": 2,
+      "nonce": "a9f6e27f544d6116",
+      "decision": "HOLD",
+      "reason": "px +17.5, giveback down to 5%, CLIMAX-against dropped off, trend still favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "115573abda032324",
+      "decision": "HOLD",
+      "reason": "px +33.25, giveback 0%, ER10 up to 0.66, PROPP flipped to with-trend, no against fires"
+    },
+    {
+      "frame": 4,
+      "nonce": "41feb10c47f78a46",
+      "decision": "HOLD",
+      "reason": "px +41.5, giveback 0%, ER10 0.70, 5m lambda_hat_21 t=+3.4 strongly positive (ride signal)"
+    },
+    {
+      "frame": 5,
+      "nonce": "574ea030cb7fe792",
+      "decision": "HOLD",
+      "reason": "px +60.25 fresh extension, giveback still 0%, but KMDR+PROPP just flipped against and clsInRng low on 5s/15s/1m -- watching for giveback next frame"
+    },
+    {
+      "frame": 6,
+      "nonce": "9074b08ea5bc233a",
+      "decision": "HOLD",
+      "reason": "new high px +83, giveback only 2%, ER10 0.72, PROPP flipped back with-trend -- prior against fire was noise"
+    },
+    {
+      "frame": 7,
+      "nonce": "13e7c134fb2a8b90",
+      "decision": "HOLD",
+      "reason": "px +112.75 new high, giveback 0%, ER10 0.75, hurst_30(1m)=1.0 max persistence, PROPP with-trend"
+    },
+    {
+      "frame": 8,
+      "nonce": "619ef3183423dabc",
+      "decision": "HOLD",
+      "reason": "px +126 new high, giveback only 2%, but KMDR+PROPP both against again with vol expansion accelerating -- watching for confirmation"
+    },
+    {
+      "frame": 9,
+      "nonce": "70ad76591f053e3f",
+      "decision": "EXIT",
+      "reason": "confirmed reversal: giveback jumped 2%->15% (~33pt pullback off +138 peak), KMDR+PROPP against 2 consecutive frames, vol expansion -- locking in +104.75"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Held through a strong 9-minute run-up (0 to +138pts, ER10 climbing to 0.75+) treating repeated single-frame KMDR/PROPP against-fires as noise since giveback stayed near 0%. Exited at +104.75 once giveback jumped from 2% to 15% in one frame (a ~33pt pullback off the +138 peak) with KMDR+PROPP both against for two consecutive frames -- the combination of aligned turn-detector fires plus actual realized price erosion (not just a flicker) was the signature. Next time I'd watch for that same two-part confirmation (detector alignment + giveback actually accelerating, not just ticking up 1-2%) rather than reacting to the first single-frame against-fire, since several earlier ones reversed themselves."
+}

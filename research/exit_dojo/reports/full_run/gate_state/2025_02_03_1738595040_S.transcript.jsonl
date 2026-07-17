@@ -1,0 +1,25 @@
+{"ts": 1784310928.015862, "event": "serve", "frame": 0, "nonce": "46e5f65277756bf8"}
+{"ts": 1784310935.6148133, "event": "commit", "frame": 0, "nonce": "46e5f65277756bf8", "decision": "HOLD", "reason": "early leg (2m), px flat at entry, no clear reversal signature yet, giveback only 24%"}
+{"ts": 1784310938.2500088, "event": "serve", "frame": 1, "nonce": "605e02ff91378a46"}
+{"ts": 1784310943.5619545, "event": "commit", "frame": 1, "nonce": "605e02ff91378a46", "decision": "HOLD", "reason": "px improved to +5, giveback easing 24%->22%, lambda negative across TFs (decelerating against continuation)"}
+{"ts": 1784310946.069621, "event": "serve", "frame": 2, "nonce": "23e7bfb1288b717c"}
+{"ts": 1784310957.304859, "event": "commit", "frame": 2, "nonce": "23e7bfb1288b717c", "decision": "HOLD", "reason": "px slipped to -12.75, giveback up to 34%, HA+PROPP firing against now, but still <50% giveback -- watching next frame closely"}
+{"ts": 1784310959.6825316, "event": "serve", "frame": 3, "nonce": "bd1c38e27503d346"}
+{"ts": 1784310964.9865427, "event": "commit", "frame": 3, "nonce": "bd1c38e27503d346", "decision": "HOLD", "reason": "px bounced back to +7.5, new leg (age 1m), 1m lambda strongly negative (t~-4 to -4.6) supporting continued reversion in our favor"}
+{"ts": 1784310967.3370163, "event": "serve", "frame": 4, "nonce": "ffffbc24771df044"}
+{"ts": 1784310976.569353, "event": "commit", "frame": 4, "nonce": "ffffbc24771df044", "decision": "HOLD", "reason": "px slipped to -1.25, giveback 58% is high but 1m lambda still strongly negative (t~-4.3/-3.85) implying continued reversion; ER10 rising to 0.38"}
+{"ts": 1784310979.4940684, "event": "serve", "frame": 5, "nonce": "bee218d5c3ce042b"}
+{"ts": 1784310993.522063, "event": "commit", "frame": 5, "nonce": "bee218d5c3ce042b", "decision": "HOLD", "reason": "px deep negative -20.25 but this adverse leg shows giveback only 4% (near its extreme), 1m lambda still strongly negative (t~-4) implying deceleration/reversion, PROPP now firing with"}
+{"ts": 1784310995.8769493, "event": "serve", "frame": 6, "nonce": "204a081ee4ccbc17"}
+{"ts": 1784311000.8442178, "event": "commit", "frame": 6, "nonce": "204a081ee4ccbc17", "decision": "HOLD", "reason": "px bouncing back -20.25->-11.75, adverse leg giveback 14% off its extreme, 1m lambda still negative (t~-2.4/-3.0) supporting reversion"}
+{"ts": 1784311003.494467, "event": "serve", "frame": 7, "nonce": "9feceb3844d51d3b"}
+{"ts": 1784311022.3998597, "event": "commit", "frame": 7, "nonce": "9feceb3844d51d3b", "decision": "HOLD", "reason": "sharp whipsaw back to px +21 (best since frame1), HA+PROPP both firing with (favorable continuation), 5m lambda positive/extending -- letting it run"}
+{"ts": 1784311025.1655738, "event": "serve", "frame": 8, "nonce": "4972e6866cd67914"}
+{"ts": 1784311032.1114197, "event": "commit", "frame": 8, "nonce": "4972e6866cd67914", "decision": "HOLD", "reason": "new local high px +22.50, adverse leg fully retraced (giveback 104%), HA-with still recent though PROPP flipped against -- mixed, staying in"}
+{"ts": 1784311034.6281898, "event": "serve", "frame": 9, "nonce": "c2a3adfc20550c16"}
+{"ts": 1784311046.0940232, "event": "commit", "frame": 9, "nonce": "c2a3adfc20550c16", "decision": "HOLD", "reason": "px +22.75 new leg near its peak (giveback only 5% of 64pt amp), PROPP-against just fired at this extreme -- single warning signal, watching next frame for confirmation before exiting"}
+{"ts": 1784311048.529473, "event": "serve", "frame": 10, "nonce": "003b91d9cfe48652"}
+{"ts": 1784311053.1714084, "event": "commit", "frame": 10, "nonce": "003b91d9cfe48652", "decision": "HOLD", "reason": "new best px +24.75, PROPP flipped back to with, 15s lambda strongly negative (t~-7.4) supporting continuation"}
+{"ts": 1784311056.2837663, "event": "serve", "frame": 11, "nonce": "31affda446f2ab65"}
+{"ts": 1784311065.5116422, "event": "commit", "frame": 11, "nonce": "31affda446f2ab65", "decision": "EXIT", "reason": "best px yet +39.25, leg amp 85pts near its extreme (giveback only 7%), KMDR+PROPP both flip against simultaneously at the peak, vol(5m) decelerating -- exhaustion/reversal confluence, lock in gains"}
+{"ts": 1784311070.9589138, "event": "finish", "summary": "Exited at +39.25pts when the favorable leg reached a fresh 85pt amplitude extreme (only 7% given back) and two independent against-detectors (KMDR, PROPP) fired simultaneously while 5m volatility decelerated -- read as an exhaustion/reversal confluence rather than a single noisy fire. Prior single against-fires (frames 2-9) were not acted on since they came alone or against a still-negative/decelerating lambda that argued for continued reversion; next time I'd also want the leg-amplitude percentile (is 85pts actually extreme for this instrument/session) since I was inferring exhaustion from magnitude alone without that context.", "exit_frame": 11, "n_commits": 12}

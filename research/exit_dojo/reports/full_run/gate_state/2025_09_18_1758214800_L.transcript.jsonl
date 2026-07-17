@@ -1,0 +1,11 @@
+{"ts": 1784318473.1858635, "event": "serve", "frame": 0, "nonce": "2a898bfc0e5c5d09"}
+{"ts": 1784318492.3256407, "event": "commit", "frame": 0, "nonce": "2a898bfc0e5c5d09", "decision": "HOLD", "reason": "frame0: just entered, px=0, no post-entry structure yet; local leg giveback 85% is pre-entry context, need more data"}
+{"ts": 1784318495.2074616, "event": "serve", "frame": 1, "nonce": "6c6e1a7135796cbf"}
+{"ts": 1784318500.9388034, "event": "commit", "frame": 1, "nonce": "6c6e1a7135796cbf", "decision": "HOLD", "reason": "px only +0.75, still near entry; 5s/15s stabilizing but too early to read trend"}
+{"ts": 1784318503.5927567, "event": "serve", "frame": 2, "nonce": "d47faa7e0c064db5"}
+{"ts": 1784318511.634161, "event": "commit", "frame": 2, "nonce": "d47faa7e0c064db5", "decision": "HOLD", "reason": "new 15pt leg just formed, giveback only 8%, px near flat; against-signals noted but too fresh to confirm reversal"}
+{"ts": 1784318514.7819362, "event": "serve", "frame": 3, "nonce": "efbaccdfbeaa25a7"}
+{"ts": 1784318528.8335829, "event": "commit", "frame": 3, "nonce": "efbaccdfbeaa25a7", "decision": "HOLD", "reason": "px -3.00, leg giveback 40% in 1m, KMDR+PROPP against but only 1m old; prior leg gave back 118% and still recovered, want 1 more frame to confirm reversal vs noise"}
+{"ts": 1784318531.3014271, "event": "serve", "frame": 4, "nonce": "72eb8b2b22c0f37d"}
+{"ts": 1784318541.7513669, "event": "commit", "frame": 4, "nonce": "72eb8b2b22c0f37d", "decision": "EXIT", "reason": "3-signal confluence (KMDR+HA+PROPP all against), giveback climbing 8->40->48%, 5s lambda decay strongly negative -3.5t; exit near flat before reversal deepens"}
+{"ts": 1784318547.3185694, "event": "finish", "summary": "Exited at t=4m, px -0.50, on a 3-detector confluence: KMDR-against and PROPP-against had persisted 2 frames while HA flipped from with- to against-signal in the same frame, alongside monotonically climbing leg giveback (8%->40%->48%) and a sharp negative lambda decay at the 5s timeframe (t=-3.5). Next time I'd watch for this same convergence pattern earlier -- rising giveback percentage plus multiple independent against-fires stacking within a couple minutes -- rather than waiting for price itself to go deeply negative, since the detectors turned before price fully broke down.", "exit_frame": 4, "n_commits": 5}

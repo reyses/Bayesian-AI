@@ -128,6 +128,56 @@ agent physically cannot see frame `t+1` until it has committed at frame `t`) is 
 later build, only worth building if measured LLM exit performance is ever wanted
 for its own sake.
 
+## Full run -- CAUSAL telescope sandbox (stepwise-blind by construction)
+
+The pilot above is single-prompt (leakage-caveated). The full run is a true stepwise-blind
+sandbox: frames are served ONE AT A TIME by a gate that will not reveal frame k+1 until a
+decision on frame k has been committed with the serve-time random nonce. An agent
+mechanically cannot look ahead.
+
+```
+builders/telescope_packet_builder.py   samples 200 episodes + builds per-episode telescope packets
+tools/dojo_gate.py                     the sandbox: next / commit / finish (nonce-gated, append-only)
+tools/dojo_fleet.py                    drives real Sonnet agents (claude -p) through the gate, N-parallel
+tools/dojo_dummy_agent.py              scripted python agent (verification only)
+tools/score_full_run.py                verifies the nonce chain + scores captured-vs-refs + wrong-side speed
+reports/full_run/
+  selection.json / selection_table.md  the 200-episode manifest + why each was picked
+  packets/<eid>.json                   agent-facing telescope frames (gate serves these)
+  truth/<eid>.json                     ground-truth sidecar (scorer-only, NEVER served)
+  gate_state/<eid>.{state.json,transcript.jsonl,agent_stdout.txt}   per-episode play record
+  scorecard.md                         scored results (audit-gated)
+```
+
+Run order:
+```
+python3.11 research/exit_dojo/builders/telescope_packet_builder.py            # select 200 + build all packets
+python3.11 research/exit_dojo/tools/dojo_fleet.py --episodes 200 --parallel 4 # play them (reviewer-gated)
+python3.11 research/exit_dojo/tools/score_full_run.py                         # audit + score
+```
+
+**Telescope layout** (memory `telescope-nested-cadence`): frame 0 is the full wide field
+(every TF's last-closed V2 feature block, grouped by TF, + per-TF last-closed OHLC in
+points-from-entry + the pilot local-state block); frames k>=1 re-emit a TF's block ONLY
+when that TF's bar has closed since the previous frame. **Causality law** (asserted per-TF,
+per-frame, hard build failure on violation): every row/bar in a frame at wall time
+`frame_ts` satisfies `row_ts + period <= frame_ts` at EVERY TF including the 5s base layer
+(the `-period` shift -- the phold-anchor bug must not recur). Verified against raw parquet:
+54/54 independent per-TF checks pass, packet OHLC matches raw recompute exactly.
+
+**Sampling**: 200 episodes, 60/60/40/40 winner/midflip/instantfail/chop over the phold
+engagement population (P>=p90(train), 60s/day/dir de-dup), one distinct 2025-26 day each,
+excluding the 10 pilot days. **Declared deviation**: chop is graduated to +-6pt tolerance
+(the minimal ladder rung reaching 40 distinct chop days; +-4pt yields only 9), extending
+the pilot's own +-3->+-4 widening -- high-confidence entries essentially never stay flat.
+
+**The audit**: the nonce chain proves sequential blind play for the served path (every
+commit carries, in order, the exact serve-time nonce; gapless 0..k prefix; one terminal
+EXIT). Residual risk (an agent reading raw ATLAS itself) is forbidden by the agent
+instructions and, with `dojo_fleet.py --trace`, captured in the stream-json tool trace.
+The graduation firewall stands regardless: no dojo number is ever itself a result -- any
+rule must be codified and pass the sealed 2024/2025-26 harness before belief.
+
 ## Git / size note
 
 Unlike the `research/nt8_catalog/reports/*.parquet` catalog outputs (gitignored

@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_01_17_1737124260_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d6d439542a62c205",
+      "ts": 1784310927.5227497
+    },
+    {
+      "frame": 1,
+      "nonce": "a6b1885a6b8f4bf0",
+      "ts": 1784310944.9159715
+    },
+    {
+      "frame": 2,
+      "nonce": "434f4611165a4f97",
+      "ts": 1784310964.7860534
+    },
+    {
+      "frame": 3,
+      "nonce": "312f236b9125d4a9",
+      "ts": 1784310973.986815
+    },
+    {
+      "frame": 4,
+      "nonce": "635511cb68379e93",
+      "ts": 1784310985.461191
+    },
+    {
+      "frame": 5,
+      "nonce": "c0214dee978bf739",
+      "ts": 1784310993.57
+    },
+    {
+      "frame": 6,
+      "nonce": "a59567834ef38b11",
+      "ts": 1784311007.1167831
+    },
+    {
+      "frame": 7,
+      "nonce": "961e1e71e597fd01",
+      "ts": 1784311014.880944
+    },
+    {
+      "frame": 8,
+      "nonce": "e8d857d814a99135",
+      "ts": 1784311026.8115027
+    },
+    {
+      "frame": 9,
+      "nonce": "d608301492b65552",
+      "ts": 1784311036.2037835
+    },
+    {
+      "frame": 10,
+      "nonce": "787b9e2cef6f4497",
+      "ts": 1784311044.669774
+    },
+    {
+      "frame": 11,
+      "nonce": "9385f254462a1702",
+      "ts": 1784311055.4594522
+    },
+    {
+      "frame": 12,
+      "nonce": "c465590c0a5f7297",
+      "ts": 1784311064.4594078
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d6d439542a62c205",
+      "decision": "HOLD",
+      "reason": "Frame 0 baseline; px flat at entry after round-tripping a 78pt favorable move (88% giveback), no track record yet to act on"
+    },
+    {
+      "frame": 1,
+      "nonce": "a6b1885a6b8f4bf0",
+      "decision": "HOLD",
+      "reason": "Price now +9.25pts, fresh leg (96pt amp, only 14% giveback) shows favorable momentum resuming; too early to exit despite mixed PROPP-against fire"
+    },
+    {
+      "frame": 2,
+      "nonce": "434f4611165a4f97",
+      "decision": "HOLD",
+      "reason": "px +11.00, giveback still low (17%) off 96pt leg amp, favorable trend intact despite recurring PROPP-against fire"
+    },
+    {
+      "frame": 3,
+      "nonce": "312f236b9125d4a9",
+      "decision": "HOLD",
+      "reason": "px +36.75, giveback tightened to 7%, leg amp expanding to 107.5pts - strong favorable trend, riding it"
+    },
+    {
+      "frame": 4,
+      "nonce": "635511cb68379e93",
+      "decision": "HOLD",
+      "reason": "px +33.25, minor pullback from +36.75 but giveback still low (4%), leg amp still expanding to 116.2 - trend intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "c0214dee978bf739",
+      "decision": "HOLD",
+      "reason": "px pulled back to +14.75 (giveback jumped to 27% of 116.2pt leg), but still net favorable and vol declining - watching for further giveback escalation before exiting"
+    },
+    {
+      "frame": 6,
+      "nonce": "a59567834ef38b11",
+      "decision": "HOLD",
+      "reason": "px recovered to +31.00, giveback improved back to 15% - pullback was noise, favorable trend resumed"
+    },
+    {
+      "frame": 7,
+      "nonce": "961e1e71e597fd01",
+      "decision": "HOLD",
+      "reason": "px new high +53.00, giveback low (11%), both HA-with and PROPP-with agree favorable - strong hold"
+    },
+    {
+      "frame": 8,
+      "nonce": "e8d857d814a99135",
+      "decision": "HOLD",
+      "reason": "px new high +62.00, giveback 0%, ER10 0.61 strong trend efficiency; noting KMDR-against as early warning to watch next frame"
+    },
+    {
+      "frame": 9,
+      "nonce": "d608301492b65552",
+      "decision": "HOLD",
+      "reason": "px new high +75.50, giveback only 7%, ER10 0.68 - trend still efficient and strong, KMDR-against not yet materializing into reversal"
+    },
+    {
+      "frame": 10,
+      "nonce": "787b9e2cef6f4497",
+      "decision": "HOLD",
+      "reason": "px +70.00, minor pullback from peak 75.50 but giveback still only 7%, ER10 0.67 still strong - holding through against-fires"
+    },
+    {
+      "frame": 11,
+      "nonce": "9385f254462a1702",
+      "decision": "HOLD",
+      "reason": "px +65.25, giveback creeping to 13%, ER10 easing to 0.56 - still net strongly favorable, holding but watching efficiency decay"
+    },
+    {
+      "frame": 12,
+      "nonce": "c465590c0a5f7297",
+      "decision": "EXIT",
+      "reason": "Exit at +73.00: KMDR-against and PROPP-against both firing together (first double-confluence against signal), current 1m leg already gave back 84% of its 34.2pt amplitude, ER10 decayed 0.67->0.56->0.39 showing trend efficiency collapsing - locking in large favorable move before further reversal"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Exited at +73.00pts after riding a strong favorable trend from entry (peaks of +53, +62, +75.5, +70) that repeatedly showed low giveback and rising ER10 (up to 0.68). The exit trigger was a confluence signature: KMDR-against and PROPP-against firing simultaneously for the first time, the newest 1m sub-leg already giving back 84% of its amplitude, and ER10 decaying sharply (0.67->0.56->0.39) - signaling the trend's efficiency was breaking down after an extended run. Next time I'd watch for KMDR-against alone starting to cluster with rising leg giveback even before PROPP confirms, since KMDR is the leading (~0.2m) signal and waiting for double confluence may give back a few extra points."
+}

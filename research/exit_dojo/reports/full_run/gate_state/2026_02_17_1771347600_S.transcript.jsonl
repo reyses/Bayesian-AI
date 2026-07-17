@@ -1,0 +1,21 @@
+{"ts": 1784309791.0677986, "event": "serve", "frame": 0, "nonce": "73697812e242fb08"}
+{"ts": 1784309799.4872975, "event": "commit", "frame": 0, "nonce": "73697812e242fb08", "decision": "HOLD", "reason": "entry frame, no adverse signal yet"}
+{"ts": 1784309801.804796, "event": "serve", "frame": 1, "nonce": "fbdcf46f616f8e81"}
+{"ts": 1784309807.3899705, "event": "commit", "frame": 1, "nonce": "fbdcf46f616f8e81", "decision": "HOLD", "reason": "px +26 favorable, low giveback 4%, fires aligned with position"}
+{"ts": 1784309809.9483821, "event": "serve", "frame": 2, "nonce": "d5cb063d3f622a9f"}
+{"ts": 1784309816.5353782, "event": "commit", "frame": 2, "nonce": "d5cb063d3f622a9f", "decision": "HOLD", "reason": "px +38.75 still climbing favorably, giveback only 13%, one against-fire but no reversal confirmed"}
+{"ts": 1784309819.1573608, "event": "serve", "frame": 3, "nonce": "64bdc6091f779c01"}
+{"ts": 1784309824.3370538, "event": "commit", "frame": 3, "nonce": "64bdc6091f779c01", "decision": "HOLD", "reason": "px +28.5 pulled back from peak, giveback rising to 24% but still well favorable, PROPP fired with position"}
+{"ts": 1784309827.1790562, "event": "serve", "frame": 4, "nonce": "e7fa5f1650009ae0"}
+{"ts": 1784309840.1795566, "event": "commit", "frame": 4, "nonce": "e7fa5f1650009ae0", "decision": "HOLD", "reason": "px +21 still favorable despite pullback from 38.75 peak, giveback holding ~23%, no strong reversal confirmation yet"}
+{"ts": 1784309843.2209857, "event": "serve", "frame": 5, "nonce": "e310368abbd9cbb2"}
+{"ts": 1784309848.8788054, "event": "commit", "frame": 5, "nonce": "e310368abbd9cbb2", "decision": "HOLD", "reason": "px +23.5 stable, new leg reset (giveback 0%), vol contracting, no clear reversal despite HA-against blip"}
+{"ts": 1784309851.3424265, "event": "serve", "frame": 6, "nonce": "a8f466512488a47c"}
+{"ts": 1784309856.2161787, "event": "commit", "frame": 6, "nonce": "a8f466512488a47c", "decision": "HOLD", "reason": "px +21.25, still favorable and range-bound ~20-25 for several frames, vol contracting, no breakdown"}
+{"ts": 1784309858.5943818, "event": "serve", "frame": 7, "nonce": "9d12bc0d40b434c8"}
+{"ts": 1784309864.8821402, "event": "commit", "frame": 7, "nonce": "9d12bc0d40b434c8", "decision": "HOLD", "reason": "px +26 recovered from 21.25, HA fired with position, vol contracting further"}
+{"ts": 1784309867.1603806, "event": "serve", "frame": 8, "nonce": "14bac9ebfecb8ca7"}
+{"ts": 1784309877.4242663, "event": "commit", "frame": 8, "nonce": "14bac9ebfecb8ca7", "decision": "HOLD", "reason": "px +11.25, sharp pullback from +26 but still favorable, watching for further breakdown toward 0"}
+{"ts": 1784309879.7996042, "event": "serve", "frame": 9, "nonce": "b44760388dc42e6a"}
+{"ts": 1784309891.5931108, "event": "commit", "frame": 9, "nonce": "b44760388dc42e6a", "decision": "EXIT", "reason": "px decayed +38.75->+10 over 6min with both HA and PROPP now firing against position, confluence of reversal signals, locking remaining profit"}
+{"ts": 1784309896.7451947, "event": "finish", "summary": "Exited at +10.0pts after price decayed from a +38.75 peak through a choppy, contracting-vol range for 6+ minutes; the trigger was confluence of both HA and PROPP fires flipping against the position simultaneously at t=9m after several frames of single-detector, non-persistent against-fires. Next time I'd weight the steady multi-frame erosion (giveback climbing across successive legs) more heavily earlier rather than waiting for dual-detector confluence, since roughly two-thirds of the favorable excursion had already been given back by the exit point.", "exit_frame": 9, "n_commits": 10}

@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_05_30_1748611860_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "19e7e2bcdbcb0417",
+      "ts": 1784307870.6843889
+    },
+    {
+      "frame": 1,
+      "nonce": "a7848b000f026828",
+      "ts": 1784307879.8343194
+    },
+    {
+      "frame": 2,
+      "nonce": "466066c2c3cd26be",
+      "ts": 1784307906.37365
+    },
+    {
+      "frame": 3,
+      "nonce": "5d5cfc1eacddea4d",
+      "ts": 1784307914.7830157
+    },
+    {
+      "frame": 4,
+      "nonce": "22910f36d3b3545d",
+      "ts": 1784307930.1363182
+    },
+    {
+      "frame": 5,
+      "nonce": "e9c70bc0cf1b6172",
+      "ts": 1784307939.0472064
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "19e7e2bcdbcb0417",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, leg gave back 94% of 35.8pt favorable excursion but still early; want more data before committing"
+    },
+    {
+      "frame": 1,
+      "nonce": "a7848b000f026828",
+      "decision": "HOLD",
+      "reason": "px -22.75 against us but only 1m in, high vol regime, giveback% actually declining; waiting for confirmation before acting"
+    },
+    {
+      "frame": 2,
+      "nonce": "466066c2c3cd26be",
+      "decision": "HOLD",
+      "reason": "px recovered to +4.50, choppy (ER10 0.06) but net favorable now; no clean turn signal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "5d5cfc1eacddea4d",
+      "decision": "HOLD",
+      "reason": "px +13.75 and building, new favorable leg amp56 giveback only 8%, ER10 improving to 0.32; trade working, one against-fire not enough to cut"
+    },
+    {
+      "frame": 4,
+      "nonce": "22910f36d3b3545d",
+      "decision": "HOLD",
+      "reason": "pullback from +13.75 to +5.50, giveback rose to 22% but amp still growing (60pts), no turn-fire cluster (only PROPP-with); still constructive"
+    },
+    {
+      "frame": 5,
+      "nonce": "e9c70bc0cf1b6172",
+      "decision": "EXIT",
+      "reason": "px +31.00 at fresh leg high (amp74.8, giveback 0%), but KMDR-against + PROPP-against both firing now = adverse turn-signal cluster at the peak; lock in gain rather than risk giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Exited at +31.00pts when KMDR-against and PROPP-against fired together right at a fresh leg high (amp 74.8pts, 0% giveback), after the trade had already round-tripped through a chop phase (0 -> -22.75 -> +4.5 -> +13.75 -> +5.5 -> +31) in the first 4 minutes. The exit signature was a same-bar cluster of two independent adverse-turn fires occurring exactly at a fresh favorable extreme with nothing given back yet -- the highest-value moment to respect a reversal warning. Next time I'd also weight ER10 (efficiency ratio) trend and whether CLIMAX/HA fires re-appear alongside KMDR/PROPP, since a triple-signal cluster would be even higher conviction than the two seen here."
+}

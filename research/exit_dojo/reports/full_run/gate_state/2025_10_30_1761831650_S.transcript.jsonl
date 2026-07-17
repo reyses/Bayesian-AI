@@ -1,0 +1,13 @@
+{"ts": 1784315510.1877348, "event": "serve", "frame": 0, "nonce": "c72479f74c7f4a26"}
+{"ts": 1784315522.2540474, "event": "commit", "frame": 0, "nonce": "c72479f74c7f4a26", "decision": "HOLD", "reason": "frame 0, flat at entry, no signal yet"}
+{"ts": 1784315525.2926092, "event": "serve", "frame": 1, "nonce": "e98593680010f5e2"}
+{"ts": 1784315532.2578194, "event": "commit", "frame": 1, "nonce": "e98593680010f5e2", "decision": "HOLD", "reason": "-2.75pts minor giveback (4%), too early in 167pt leg to react"}
+{"ts": 1784315534.5772774, "event": "serve", "frame": 2, "nonce": "fa41d9b3f66eafdf"}
+{"ts": 1784315561.8105192, "event": "commit", "frame": 2, "nonce": "fa41d9b3f66eafdf", "decision": "HOLD", "reason": "-21pts, 13% giveback; lambda trending against us but still within early noise band"}
+{"ts": 1784315566.9896374, "event": "serve", "frame": 3, "nonce": "a6f4effb7819825a"}
+{"ts": 1784315584.1943707, "event": "commit", "frame": 3, "nonce": "a6f4effb7819825a", "decision": "HOLD", "reason": "-29.5pts, 17% giveback, but adverse-move rate decelerating; watching next frame for confirmation"}
+{"ts": 1784315586.4067626, "event": "serve", "frame": 4, "nonce": "be66816ff9855c82"}
+{"ts": 1784315606.9679008, "event": "commit", "frame": 4, "nonce": "be66816ff9855c82", "decision": "HOLD", "reason": "-34.75pts but loss rate still decelerating (-18.25/-8.5/-5.25); new micro-leg giveback 32% is concerning, watching next frame"}
+{"ts": 1784315609.113283, "event": "serve", "frame": 5, "nonce": "065ee555e56ee756"}
+{"ts": 1784315620.220217, "event": "commit", "frame": 5, "nonce": "065ee555e56ee756", "decision": "EXIT", "reason": "-45.75pts, loss reaccelerated; 15m bar shows reversion_prob=0.00 + significant positive lambda across all windows = confirmed trend against short, not noise"}
+{"ts": 1784315627.1809797, "event": "finish", "summary": "Exited at -45.75pts after the loss re-accelerated (\u0394-11 vs prior \u0394-5.25) following a brief deceleration that looked like stabilization. The deciding signature was the newly-closed 15m bar: reversion_prob_30 fell to 0.00 with highly significant positive lambda across the 12/21/30 windows (t=4.08/3.40/2.99), meaning the higher-timeframe statistically confirmed trend-continuation against the short rather than mean-reversion, corroborated by repeated PROPP-against fires. Next time I'd weight the higher-timeframe reversion_prob/lambda confirmation more heavily and earlier, since the lower-timeframe (5s/15s/1m) deceleration in raw pts was a red herring that cost ~15-20 extra points of giveback before the 15m confirmation arrived.", "exit_frame": 5, "n_commits": 6}

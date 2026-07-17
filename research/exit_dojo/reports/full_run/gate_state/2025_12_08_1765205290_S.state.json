@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_12_08_1765205290_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4ad0b7afd4cf03b6",
+      "ts": 1784309485.2846005
+    },
+    {
+      "frame": 1,
+      "nonce": "9ab1247c932fc875",
+      "ts": 1784309503.5476859
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4ad0b7afd4cf03b6",
+      "decision": "HOLD",
+      "reason": "breakeven after 92% giveback of 27.8pt leg; high reversion_prob across TFs but too early (2m) to call, watching for lambda flip"
+    },
+    {
+      "frame": 1,
+      "nonce": "9ab1247c932fc875",
+      "decision": "EXIT",
+      "reason": "+41.5pts favorable, 1m z_21 extended to -2.27, KMDR-against turn-leader just fired 0m ago predicting reversal of this leg; locking in gain before giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Held through frame 0 at breakeven despite a 92% giveback of an earlier 27.8pt leg, since it was too early (2m) to act on noisy reversion signals. Exited on frame 1 at +41.5pts when the move re-extended sharply (1m z_21 to -2.27) and the KMDR turn-leading detector fired against the current favorable leg, treating that as the signature that the leg was about to reverse and give back gains."
+}

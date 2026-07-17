@@ -1,0 +1,19 @@
+{"ts": 1784309301.5581636, "event": "serve", "frame": 0, "nonce": "1fb5e08fc0701b78"}
+{"ts": 1784309305.6391754, "event": "commit", "frame": 0, "nonce": "1fb5e08fc0701b78", "decision": "HOLD", "reason": "entry frame, px flat 0.00, no signal yet"}
+{"ts": 1784309307.9370766, "event": "serve", "frame": 1, "nonce": "93872130ed287e9d"}
+{"ts": 1784309311.7518034, "event": "commit", "frame": 1, "nonce": "93872130ed287e9d", "decision": "HOLD", "reason": "px +9, fresh leg, low giveback, hold for more"}
+{"ts": 1784309314.299569, "event": "serve", "frame": 2, "nonce": "9862970743054d67"}
+{"ts": 1784309318.6124978, "event": "commit", "frame": 2, "nonce": "9862970743054d67", "decision": "HOLD", "reason": "px +13.25, giveback modest 17%, PROPP now with-trend, hold"}
+{"ts": 1784309321.6937869, "event": "serve", "frame": 3, "nonce": "9281fa46e560a94b"}
+{"ts": 1784309325.4719121, "event": "commit", "frame": 3, "nonce": "9281fa46e560a94b", "decision": "HOLD", "reason": "px +9.50, giveback reset to 0%, amp growing, still choppy but no reversal signal"}
+{"ts": 1784309328.9648743, "event": "serve", "frame": 4, "nonce": "23dee61e694ce92e"}
+{"ts": 1784309333.656773, "event": "commit", "frame": 4, "nonce": "23dee61e694ce92e", "decision": "HOLD", "reason": "px jumped to +58.75, giveback 0%, PROPP-with, momentum favorable, hold for more"}
+{"ts": 1784309336.4833746, "event": "serve", "frame": 5, "nonce": "1c4d9b5b7684c1a2"}
+{"ts": 1784309345.0150814, "event": "commit", "frame": 5, "nonce": "1c4d9b5b7684c1a2", "decision": "HOLD", "reason": "px +82, giveback still low 4%, strong favorable move continues despite short-horizon lambda softening"}
+{"ts": 1784309347.768448, "event": "serve", "frame": 6, "nonce": "6b73fb4ebc1a3b1e"}
+{"ts": 1784309351.4307735, "event": "commit", "frame": 6, "nonce": "6b73fb4ebc1a3b1e", "decision": "HOLD", "reason": "px +120.50, giveback 1%, strong sustained continuation, hold"}
+{"ts": 1784309354.2781825, "event": "serve", "frame": 7, "nonce": "c100954f7dc3de2b"}
+{"ts": 1784309362.2355764, "event": "commit", "frame": 7, "nonce": "c100954f7dc3de2b", "decision": "HOLD", "reason": "px pulled back to +85.75 from +120.50, giveback 22%, still well positive, watch for further giveback growth"}
+{"ts": 1784309364.7131531, "event": "serve", "frame": 8, "nonce": "5515cbe1e9255232"}
+{"ts": 1784309374.8173053, "event": "commit", "frame": 8, "nonce": "5515cbe1e9255232", "decision": "EXIT", "reason": "px eroded 3 frames straight (+120.5->+85.75->+48.50), giveback 28% and rising, HA+PROPP both flipped against -- reversal signature, lock in gain"}
+{"ts": 1784309380.5074408, "event": "finish", "summary": "Exited at +48.50pts after a 3-frame erosion from the +120.50 peak (giveback climbing 4%->22%->28%) coinciding with both HA and PROPP flipping from with-trend to against-trend simultaneously -- treated the dual-signal flip plus accelerating giveback as the reversal signature rather than a normal pullback. Next time I'd watch giveback% trajectory more tightly earlier (it was already non-trivial at 22% one frame before the flip) and weight a single against-signal less than two independent detectors agreeing, to avoid bailing on noise while still catching genuine turns.", "exit_frame": 8, "n_commits": 9}

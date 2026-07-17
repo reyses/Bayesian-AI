@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_03_06_1741278130_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d1bacc69f3ecf95a",
+      "ts": 1784306833.2655883
+    },
+    {
+      "frame": 1,
+      "nonce": "f106a81a6c758694",
+      "ts": 1784306851.027641
+    },
+    {
+      "frame": 2,
+      "nonce": "d2620cc93368ce46",
+      "ts": 1784306858.2234714
+    },
+    {
+      "frame": 3,
+      "nonce": "8de4181eca756c4e",
+      "ts": 1784306866.0809524
+    },
+    {
+      "frame": 4,
+      "nonce": "02b539387117f5cd",
+      "ts": 1784306882.9584239
+    },
+    {
+      "frame": 5,
+      "nonce": "9ca727c35b53615a",
+      "ts": 1784306902.7528615
+    },
+    {
+      "frame": 6,
+      "nonce": "5d6e15eab28e4ac0",
+      "ts": 1784306913.5661118
+    },
+    {
+      "frame": 7,
+      "nonce": "56242282fefb77c9",
+      "ts": 1784306921.166771
+    },
+    {
+      "frame": 8,
+      "nonce": "4b037486788b7b09",
+      "ts": 1784306929.4393587
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d1bacc69f3ecf95a",
+      "decision": "HOLD",
+      "reason": "frame 0, trade just opened, no adverse move yet, wait for structure"
+    },
+    {
+      "frame": 1,
+      "nonce": "f106a81a6c758694",
+      "decision": "HOLD",
+      "reason": "small -1.5pt giveback, no clear reversal signature yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "d2620cc93368ce46",
+      "decision": "HOLD",
+      "reason": "giveback stable ~25%, no acceleration against"
+    },
+    {
+      "frame": 3,
+      "nonce": "8de4181eca756c4e",
+      "decision": "HOLD",
+      "reason": "sharp -25pt swing, giveback jumped to 45%, both fires flipped against; watching for confirmation before acting"
+    },
+    {
+      "frame": 4,
+      "nonce": "02b539387117f5cd",
+      "decision": "HOLD",
+      "reason": "sharp bounce to +12.75 favorable, but 75% giveback in new leg + falling ER signals chop; want confirmation"
+    },
+    {
+      "frame": 5,
+      "nonce": "9ca727c35b53615a",
+      "decision": "HOLD",
+      "reason": "px steady near +13, still net favorable; giveback 95% of small leg but no adverse break yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "5d6e15eab28e4ac0",
+      "decision": "HOLD",
+      "reason": "px extending favorably to +20, trend continuing, let it run"
+    },
+    {
+      "frame": 7,
+      "nonce": "56242282fefb77c9",
+      "decision": "HOLD",
+      "reason": "fresh leg high +31.25, 0% giveback, trend intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "4b037486788b7b09",
+      "decision": "EXIT",
+      "reason": "violent reversal +31.25->-71.50 in 1min, giveback 128%, ER10 collapsed to 0.19, all 3 fires (KMDR/HA/PROPP) unanimously against -- coordinated breakdown signature"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through an early -27pt adverse spike and a whipsaw that fully round-tripped into a +31pt profit, since ER and fires were mixed/noisy rather than unanimous. Exited when price violently reversed to -71.5pts (128% giveback of the leg) with ER10 collapsing to 0.19 and all three fire signals (KMDR, HA, PROPP) flipping against in unison -- that unanimous multi-signal coordinated breakdown, not just an adverse price move, was the exit trigger. Next time I'd watch for that same unanimity-plus-ER-collapse combo earlier, and also track whether a single-signal 'against' flip (as at t=3m/4m) is worth pre-tightening a stop rather than waiting for full unanimity."
+}

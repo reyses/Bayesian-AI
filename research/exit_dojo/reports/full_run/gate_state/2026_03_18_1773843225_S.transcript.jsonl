@@ -1,0 +1,27 @@
+{"ts": 1784314602.4750803, "event": "serve", "frame": 0, "nonce": "8d9b5bf92f8e13da"}
+{"ts": 1784314606.495442, "event": "commit", "frame": 0, "nonce": "8d9b5bf92f8e13da", "decision": "HOLD", "reason": "just entered, px flat, no adverse move yet, let trade develop"}
+{"ts": 1784314609.2958505, "event": "serve", "frame": 1, "nonce": "74a85daf26064d8a"}
+{"ts": 1784314613.2840116, "event": "commit", "frame": 1, "nonce": "74a85daf26064d8a", "decision": "HOLD", "reason": "+6.25pts favorable, 0% giveback, still early leg age 3m, let it run"}
+{"ts": 1784314615.5794158, "event": "serve", "frame": 2, "nonce": "80bbc5b9394a3cb1"}
+{"ts": 1784314619.718414, "event": "commit", "frame": 2, "nonce": "80bbc5b9394a3cb1", "decision": "HOLD", "reason": "small pullback to +1.75, giveback 18% still modest, leg amplitude 88.5pts intact, no strong against-signal cluster"}
+{"ts": 1784314622.72123, "event": "serve", "frame": 3, "nonce": "136c7affc197c7e3"}
+{"ts": 1784314628.4966602, "event": "commit", "frame": 3, "nonce": "136c7affc197c7e3", "decision": "HOLD", "reason": "px flipped to -6.75, giveback 26% rising, but still small abs loss vs 88.5pt amplitude; watching for confirmation before cutting"}
+{"ts": 1784314630.8742766, "event": "serve", "frame": 4, "nonce": "4a4507d9cb13fed1"}
+{"ts": 1784314635.3057165, "event": "commit", "frame": 4, "nonce": "4a4507d9cb13fed1", "decision": "HOLD", "reason": "recovered to +7.25pts, giveback back down to 12%, favorable signature reasserting"}
+{"ts": 1784314637.916388, "event": "serve", "frame": 5, "nonce": "42625164740d7943"}
+{"ts": 1784314642.1874716, "event": "commit", "frame": 5, "nonce": "42625164740d7943", "decision": "HOLD", "reason": "new leg started, ER10 rising to 0.53, fires HA-with/PROPP-with confirm favorable direction, small -3.5pt noise"}
+{"ts": 1784314644.3181407, "event": "serve", "frame": 6, "nonce": "537a119f75432ede"}
+{"ts": 1784314648.3969185, "event": "commit", "frame": 6, "nonce": "537a119f75432ede", "decision": "HOLD", "reason": "px +4.75, ER10 climbing to 0.69 (trending), still small scale leg, no against-signal"}
+{"ts": 1784314650.9903514, "event": "serve", "frame": 7, "nonce": "88f80b0b8531535d"}
+{"ts": 1784314657.4511073, "event": "commit", "frame": 7, "nonce": "88f80b0b8531535d", "decision": "HOLD", "reason": "px +12.25 new high for trade, ER10 0.65 still trending favorably, HA/PROPP with-signals holding"}
+{"ts": 1784314659.7314568, "event": "serve", "frame": 8, "nonce": "9d09ec031ad79409"}
+{"ts": 1784314663.607314, "event": "commit", "frame": 8, "nonce": "9d09ec031ad79409", "decision": "HOLD", "reason": "px +10, pulled back slightly from +12.25 peak, PROPP flipped against, watching closely but still solidly favorable"}
+{"ts": 1784314665.8333406, "event": "serve", "frame": 9, "nonce": "45c43b154fb16db2"}
+{"ts": 1784314670.7984068, "event": "commit", "frame": 9, "nonce": "45c43b154fb16db2", "decision": "HOLD", "reason": "new leg, giveback reset to 0%, px steady at +10.25, PROPP-with"}
+{"ts": 1784314677.3820248, "event": "serve", "frame": 10, "nonce": "752d5f7182ffb7fd"}
+{"ts": 1784314682.4751859, "event": "commit", "frame": 10, "nonce": "752d5f7182ffb7fd", "decision": "HOLD", "reason": "px +9.75 still solid, but KMDR+PROPP both against now and ER10 fading to 0.43 -- watching for confirmation next frame"}
+{"ts": 1784314684.7819502, "event": "serve", "frame": 11, "nonce": "1e62888a3c118daa"}
+{"ts": 1784314689.1237082, "event": "commit", "frame": 11, "nonce": "1e62888a3c118daa", "decision": "HOLD", "reason": "px +18 new high, giveback down to 1%, PROPP back with, letting winner run"}
+{"ts": 1784314691.84816, "event": "serve", "frame": 12, "nonce": "d2ef3fc5957a67dc"}
+{"ts": 1784314705.869534, "event": "commit", "frame": 12, "nonce": "d2ef3fc5957a67dc", "decision": "EXIT", "reason": "px +36 large outlier extreme, lambda_hat_12=-0.176 t=-6.29 strong significant mean-reversion signature, ER10 collapsed to 0.02 (no more trend efficiency) -- banking the gain before snapback"}
+{"ts": 1784314712.0497894, "event": "finish", "summary": "Held through the first 11 frames as price oscillated favorably (giveback cycling 0-72% but never breaking the leg), riding it to a new high of +36pts at t=12m. Exited there on a strong, significant mean-reversion signature: lambda_hat_12=-0.176 (t=-6.29) plus ER10 collapsing to 0.02, signaling the move had exhausted trend efficiency right at a leg extreme with 0% giveback. Next time I'd watch for this lambda-t-stat + ER10 combo forming earlier and give less benefit of the doubt to single against-fires (KMDR/PROPP) in isolation -- they flipped back and forth several times before the real signal (the lambda/ER10 pairing) showed up.", "exit_frame": 12, "n_commits": 13}

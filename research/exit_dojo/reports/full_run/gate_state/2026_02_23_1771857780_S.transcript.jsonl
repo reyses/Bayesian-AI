@@ -1,0 +1,15 @@
+{"ts": 1784316007.6046987, "event": "serve", "frame": 0, "nonce": "6b13be4e0b762c92"}
+{"ts": 1784316012.3294826, "event": "commit", "frame": 0, "nonce": "6b13be4e0b762c92", "decision": "HOLD", "reason": "frame 0, just entered, no adverse signal yet, lambda mostly weak/mixed"}
+{"ts": 1784316014.780624, "event": "serve", "frame": 1, "nonce": "0ea57aba0dec83f6"}
+{"ts": 1784316020.6713338, "event": "commit", "frame": 1, "nonce": "0ea57aba0dec83f6", "decision": "HOLD", "reason": "only -1.25pts, still near entry, no strong against-signal cluster"}
+{"ts": 1784316023.076994, "event": "serve", "frame": 2, "nonce": "165f0764a966b43b"}
+{"ts": 1784316027.5051749, "event": "commit", "frame": 2, "nonce": "165f0764a966b43b", "decision": "HOLD", "reason": "px +20.25pts, giveback 0%, leg running favorably, no reversal signal"}
+{"ts": 1784316031.5578847, "event": "serve", "frame": 3, "nonce": "a51e29a52e4d7f00"}
+{"ts": 1784316035.0269172, "event": "commit", "frame": 3, "nonce": "a51e29a52e4d7f00", "decision": "HOLD", "reason": "px +36.5pts, giveback still 0%, strong favorable momentum, PROPP firing with"}
+{"ts": 1784316037.8770711, "event": "serve", "frame": 4, "nonce": "d6570942f3f37980"}
+{"ts": 1784316047.7762995, "event": "commit", "frame": 4, "nonce": "d6570942f3f37980", "decision": "HOLD", "reason": "giveback 38% off +36.5 peak but amp still 139.8, lambda_12/30 sig positive continuation, not cutting a winner on partial retrace"}
+{"ts": 1784316050.6596153, "event": "serve", "frame": 5, "nonce": "5a3cc54bc3393bea"}
+{"ts": 1784316069.2706373, "event": "commit", "frame": 5, "nonce": "5a3cc54bc3393bea", "decision": "HOLD", "reason": "px turned negative -14.25 with HA+PROPP against firing concurrently, but lambda_hat still sig positive across 1m/5s -- one bad bar not enough to override trend read yet"}
+{"ts": 1784316071.8912818, "event": "serve", "frame": 6, "nonce": "1ac915e14c70b9dd"}
+{"ts": 1784316085.7957642, "event": "commit", "frame": 6, "nonce": "1ac915e14c70b9dd", "decision": "EXIT", "reason": "px deteriorated 3 frames straight (+3.5->-14.25->-18.00) with HA-against+PROPP-against persisting 2 consecutive frames -- round-trip from +36.5 peak to negative signals a real reversal, not noise; cutting here"}
+{"ts": 1784316093.0615256, "event": "finish", "summary": "Exited on the 3-frame deterioration signature: price rounded-tripped from a +36.5pt peak (giveback 0%) down through +3.5 and -14.25 to -18.00, with HA-against and PROPP-against firing concurrently and persisting across two consecutive frames -- a sustained multi-signal cluster rather than a single noisy bar. Held through the first giveback bar since single-frame retracement + still-positive lambda_hat looked like normal chop, but two straight against-fire frames plus a hard sign flip from peak favorable to net negative was treated as genuine reversal confirmation. Next time I'd watch whether lambda_hat flips sign/loses significance at the same time the against-signals cluster, since that combination (trend exhaustion + turn-detector agreement) is the stronger joint signature versus either alone.", "exit_frame": 6, "n_commits": 7}

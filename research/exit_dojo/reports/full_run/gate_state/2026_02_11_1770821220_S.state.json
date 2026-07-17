@@ -1,0 +1,111 @@
+{
+  "episode_id": "2026_02_11_1770821220_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6d071f241b42c5e0",
+      "ts": 1784309790.9956672
+    },
+    {
+      "frame": 1,
+      "nonce": "fb171d179e9f1349",
+      "ts": 1784309798.924169
+    },
+    {
+      "frame": 2,
+      "nonce": "add1901f8f58f4eb",
+      "ts": 1784309806.3904428
+    },
+    {
+      "frame": 3,
+      "nonce": "ff36a030b9910640",
+      "ts": 1784309820.7975183
+    },
+    {
+      "frame": 4,
+      "nonce": "9ab320a2461bafec",
+      "ts": 1784309828.980763
+    },
+    {
+      "frame": 5,
+      "nonce": "722fc3fba518e1eb",
+      "ts": 1784309836.3342085
+    },
+    {
+      "frame": 6,
+      "nonce": "8b04563f8d3c6476",
+      "ts": 1784309844.7313073
+    },
+    {
+      "frame": 7,
+      "nonce": "d02336662ddab541",
+      "ts": 1784309850.7148497
+    },
+    {
+      "frame": 8,
+      "nonce": "554d70be11e1873f",
+      "ts": 1784309858.3708022
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6d071f241b42c5e0",
+      "decision": "HOLD",
+      "reason": "frame0 baseline, px flat at entry, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "fb171d179e9f1349",
+      "decision": "HOLD",
+      "reason": "px +1.5, giveback improving 65->52%, no reversal signature"
+    },
+    {
+      "frame": 2,
+      "nonce": "add1901f8f58f4eb",
+      "decision": "HOLD",
+      "reason": "sharp -20pt adverse swing, both HA/PROPP against, but single bar + ER10 near zero = noisy chop not confirmed trend; want next bar confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "ff36a030b9910640",
+      "decision": "HOLD",
+      "reason": "px stable ~-18, adverse fires aging out (1m), ER10 recovering, no fresh against-signal this bar"
+    },
+    {
+      "frame": 4,
+      "nonce": "9ab320a2461bafec",
+      "decision": "HOLD",
+      "reason": "px +25, giveback only 6%, HA-with confirms favorable move, let it run"
+    },
+    {
+      "frame": 5,
+      "nonce": "722fc3fba518e1eb",
+      "decision": "HOLD",
+      "reason": "pullback to +8.5 from +25 peak, giveback 31% moderate not extreme, PROPP-with just confirmed favorable dir"
+    },
+    {
+      "frame": 6,
+      "nonce": "8b04563f8d3c6476",
+      "decision": "HOLD",
+      "reason": "px new high +25.75, giveback 21%, PROPP-with still confirming, momentum favorable"
+    },
+    {
+      "frame": 7,
+      "nonce": "d02336662ddab541",
+      "decision": "HOLD",
+      "reason": "px +18.75, giveback 30% still moderate, PROPP-with confirms, amp expanding to 77.8"
+    },
+    {
+      "frame": 8,
+      "nonce": "554d70be11e1873f",
+      "decision": "EXIT",
+      "reason": "sharp reversal: px flipped +18.75->-3.00 in one bar (~-22pt swing), PROPP-against fired, 1m lambda_hat_21/30 strongly negative w/ t=-3.5/-3.25 (mean-reversion regime), erasing the favorable excursion after making higher highs -- treating as the turn signature"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Exited on the t=8m frame after price whipsawed from a +18.75 to +25.75 favorable range down through 0 to -3.00 in a single 1-minute bar, coinciding with a fresh PROPP-against fire and strongly negative 1m lambda_hat (t=-3.5 at k=21, t=-3.25 at k=30) -- read as a genuine regime flip from ride to fade rather than the routine mid-single-digit-giveback noise seen in prior bars. In hindsight I'd watch whether that reversal continued or was itself a fakeout before committing, since ER10 was very low (0.04) all episode, meaning the whole trade lived in chop where single-bar reversals are common; next time I'd want a second confirming bar or a bigger lambda-t threshold before treating a first against-fire as binding, since the earlier -18pt swing at t=2m (frame 2) also fired HA/PROPP-against and fully round-tripped back to new highs within 2 minutes."
+}

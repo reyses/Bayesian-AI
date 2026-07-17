@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_03_04_1772635335_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9a14e538899c0c10",
+      "ts": 1784316104.0482876
+    },
+    {
+      "frame": 1,
+      "nonce": "59f855fa38f04492",
+      "ts": 1784316111.490911
+    },
+    {
+      "frame": 2,
+      "nonce": "a56099a96d2f7e83",
+      "ts": 1784316117.4214706
+    },
+    {
+      "frame": 3,
+      "nonce": "cfd4b2267c138260",
+      "ts": 1784316126.470458
+    },
+    {
+      "frame": 4,
+      "nonce": "5560a5cc552ae761",
+      "ts": 1784316132.4162133
+    },
+    {
+      "frame": 5,
+      "nonce": "9dd88cc09c6df41a",
+      "ts": 1784316144.2167213
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9a14e538899c0c10",
+      "decision": "HOLD",
+      "reason": "at entry, px flat, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "59f855fa38f04492",
+      "decision": "HOLD",
+      "reason": "small giveback 12%, no strong adverse lambda, still within noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "a56099a96d2f7e83",
+      "decision": "HOLD",
+      "reason": "px -4.5, giveback still low 1%, lambda mixed, no confirmed reversal signature"
+    },
+    {
+      "frame": 3,
+      "nonce": "cfd4b2267c138260",
+      "decision": "HOLD",
+      "reason": "px +13.5 favorable, ER10 rising to 0.70, PROPP-with fire, trend working"
+    },
+    {
+      "frame": 4,
+      "nonce": "5560a5cc552ae761",
+      "decision": "HOLD",
+      "reason": "giveback jumped 9%->28%, CLIMAX-against fired but PROPP-with also fired same bar - mixed, want confirmation"
+    },
+    {
+      "frame": 5,
+      "nonce": "9dd88cc09c6df41a",
+      "decision": "EXIT",
+      "reason": "triple against-fire confluence (CLIMAX+HA+PROPP), giveback 54%, ER10 collapsed to 0.02, -58pt adverse bar - confirmed reversal"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through the entry chop while px oscillated between -4 and +13, treating single-signal fires as noise. Exited at frame 5 when three independent against-detectors (CLIMAX, HA, PROPP) fired together on the same bar, giveback spiked 9%->28%->54% in two frames, and ER10 collapsed from 0.70 to 0.02 - a clean loss-of-trend-efficiency plus multi-detector confluence signature. Next time I'd watch giveback velocity and ER10 collapse together as the earliest joint tell, rather than waiting for the third confirming fire, since the single CLIMAX-against fire at frame 4 already preceded the big adverse bar."
+}

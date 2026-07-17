@@ -1,0 +1,81 @@
+{"ts": 1784308587.114084, "event": "serve", "frame": 0, "nonce": "7e863e35c0fe360d"}
+{"ts": 1784308601.626379, "event": "commit", "frame": 0, "nonce": "7e863e35c0fe360d", "decision": "HOLD", "reason": "flat at entry, only 2m in, higher-TF lambda strongly positive (uptrend headwind for short) but too early to exit on noise"}
+{"ts": 1784308604.2901692, "event": "serve", "frame": 1, "nonce": "ccef9ef7c34d1d15"}
+{"ts": 1784308610.3699222, "event": "commit", "frame": 1, "nonce": "ccef9ef7c34d1d15", "decision": "HOLD", "reason": "price now +9.5pts favorable, still early (3m), holding despite KMDR-against fire"}
+{"ts": 1784308613.2011323, "event": "serve", "frame": 2, "nonce": "4d0e7ac70ff28643"}
+{"ts": 1784308617.8629377, "event": "commit", "frame": 2, "nonce": "4d0e7ac70ff28643", "decision": "HOLD", "reason": "new leg, amp grew to 38.8pts with only 14% giveback, trade working, holding"}
+{"ts": 1784308620.0324001, "event": "serve", "frame": 3, "nonce": "243986abaf86d33d"}
+{"ts": 1784308642.8120842, "event": "commit", "frame": 3, "nonce": "243986abaf86d33d", "decision": "HOLD", "reason": "px +17pts, amp 45.2 giveback only 2%, ER10 rising to 0.52 - strong trend, holding despite against-fires"}
+{"ts": 1784308644.8804603, "event": "serve", "frame": 4, "nonce": "ec0cdfcac3bd60dc"}
+{"ts": 1784308648.503767, "event": "commit", "frame": 4, "nonce": "ec0cdfcac3bd60dc", "decision": "HOLD", "reason": "small pullback to +12.25pts, giveback still only 6%, trend intact"}
+{"ts": 1784308651.3549125, "event": "serve", "frame": 5, "nonce": "fa80967b624c7485"}
+{"ts": 1784308656.6586692, "event": "commit", "frame": 5, "nonce": "fa80967b624c7485", "decision": "HOLD", "reason": "giveback rose to 22% but still positive +7.25pts, PROPP fired with position, vol contracting"}
+{"ts": 1784308658.7974327, "event": "serve", "frame": 6, "nonce": "9833cd8d8d673a26"}
+{"ts": 1784308663.9314241, "event": "commit", "frame": 6, "nonce": "9833cd8d8d673a26", "decision": "HOLD", "reason": "consolidating around +6-7pts, new leg fresh giveback 2%, vol still contracting, watching for reversal"}
+{"ts": 1784308666.0643337, "event": "serve", "frame": 7, "nonce": "a8e305ad77690c82"}
+{"ts": 1784308670.8894646, "event": "commit", "frame": 7, "nonce": "a8e305ad77690c82", "decision": "HOLD", "reason": "px recovered to +11pts, range-bound consolidation 5-17pts, still net favorable"}
+{"ts": 1784308674.603096, "event": "serve", "frame": 8, "nonce": "5f4e27e2f6426a80"}
+{"ts": 1784308679.0592234, "event": "commit", "frame": 8, "nonce": "5f4e27e2f6426a80", "decision": "HOLD", "reason": "px +10pts holding, vol compressing tightly, watching two against-fires but still net favorable"}
+{"ts": 1784308681.568199, "event": "serve", "frame": 9, "nonce": "e4c2e9bf482242f9"}
+{"ts": 1784308686.8256571, "event": "commit", "frame": 9, "nonce": "e4c2e9bf482242f9", "decision": "HOLD", "reason": "new favorable high +19.25pts, ER10 climbing to 0.56, trend strengthening"}
+{"ts": 1784308689.1334257, "event": "serve", "frame": 10, "nonce": "942c8b3d3745c390"}
+{"ts": 1784308696.305437, "event": "commit", "frame": 10, "nonce": "942c8b3d3745c390", "decision": "HOLD", "reason": "px +16.5pts, still near recent highs, holding"}
+{"ts": 1784308699.4657667, "event": "serve", "frame": 11, "nonce": "0b42566f35140bf9"}
+{"ts": 1784308703.1519074, "event": "commit", "frame": 11, "nonce": "0b42566f35140bf9", "decision": "HOLD", "reason": "new high +20.5pts, fresh leg amp 23.5, trade extending favorably"}
+{"ts": 1784308705.5711608, "event": "serve", "frame": 12, "nonce": "d494514ef6952d76"}
+{"ts": 1784308715.0467057, "event": "commit", "frame": 12, "nonce": "d494514ef6952d76", "decision": "HOLD", "reason": "new high +26.25pts, giveback only 23%, trend extending, holding"}
+{"ts": 1784308717.4645696, "event": "serve", "frame": 13, "nonce": "229bfb999da5f2e1"}
+{"ts": 1784308722.4697845, "event": "commit", "frame": 13, "nonce": "229bfb999da5f2e1", "decision": "HOLD", "reason": "px +28pts new high giveback 8%, but 1m lambda strongly negative (t=-3.5) signaling move decelerating - watching closely"}
+{"ts": 1784308725.5249293, "event": "serve", "frame": 14, "nonce": "a0c4570a58e4e290"}
+{"ts": 1784308737.4127324, "event": "commit", "frame": 14, "nonce": "a0c4570a58e4e290", "decision": "HOLD", "reason": "sharp giveback to +12.75pts (69% of 28pt leg), ER10 crashed to 0.07, both HA/PROPP against - concerning but still net favorable, not cutting on giveback alone"}
+{"ts": 1784308740.1803305, "event": "serve", "frame": 15, "nonce": "0a6e2ac193b06142"}
+{"ts": 1784308744.223436, "event": "commit", "frame": 15, "nonce": "0a6e2ac193b06142", "decision": "HOLD", "reason": "px stabilized +12.5pts, new leg giveback only 6%, ER10 near zero (chop) but not deteriorating further"}
+{"ts": 1784308747.4177563, "event": "serve", "frame": 16, "nonce": "60eee874f56db8b3"}
+{"ts": 1784308751.8328636, "event": "commit", "frame": 16, "nonce": "60eee874f56db8b3", "decision": "HOLD", "reason": "px drifted to +7.25pts, still favorable, ER10 flat/chop, no clear reversal trigger yet"}
+{"ts": 1784308754.2532895, "event": "serve", "frame": 17, "nonce": "9af639c5498483e4"}
+{"ts": 1784308758.4401643, "event": "commit", "frame": 17, "nonce": "9af639c5498483e4", "decision": "HOLD", "reason": "px +10.5pts, chop range 7-13, no against-fires this frame, holding"}
+{"ts": 1784308760.9724014, "event": "serve", "frame": 18, "nonce": "60beddd3b3793db0"}
+{"ts": 1784308765.4601078, "event": "commit", "frame": 18, "nonce": "60beddd3b3793db0", "decision": "HOLD", "reason": "px rebounded to +16.75pts, HA fired with position, still choppy but favorable"}
+{"ts": 1784308769.9895804, "event": "serve", "frame": 19, "nonce": "16c3694d5d4cbfa4"}
+{"ts": 1784308773.7470825, "event": "commit", "frame": 19, "nonce": "16c3694d5d4cbfa4", "decision": "HOLD", "reason": "px +19pts, fresh leg at 0% giveback, near recent highs, holding"}
+{"ts": 1784308776.019546, "event": "serve", "frame": 20, "nonce": "ac1ed7a880c199c5"}
+{"ts": 1784308779.8022027, "event": "commit", "frame": 20, "nonce": "ac1ed7a880c199c5", "decision": "HOLD", "reason": "px +21.25pts, giveback 17%, approaching prior swing high of +28, holding"}
+{"ts": 1784308782.8408482, "event": "serve", "frame": 21, "nonce": "2cebb53b38626025"}
+{"ts": 1784308786.97717, "event": "commit", "frame": 21, "nonce": "2cebb53b38626025", "decision": "HOLD", "reason": "px +22.75pts near recent highs despite KMDR/PROPP against fires, still favorable trend"}
+{"ts": 1784308789.3691154, "event": "serve", "frame": 22, "nonce": "94718a88dcb72333"}
+{"ts": 1784308793.6815102, "event": "commit", "frame": 22, "nonce": "94718a88dcb72333", "decision": "HOLD", "reason": "new episode high +28.25pts, giveback only 4%, trend resuming favorably"}
+{"ts": 1784308796.216851, "event": "serve", "frame": 23, "nonce": "95d1855be6f7a364"}
+{"ts": 1784308801.1449122, "event": "commit", "frame": 23, "nonce": "95d1855be6f7a364", "decision": "HOLD", "reason": "px pulled back to +18.5pts, giveback 38%, still comfortably favorable"}
+{"ts": 1784308803.4729702, "event": "serve", "frame": 24, "nonce": "082f0b6eca0715c5"}
+{"ts": 1784308806.9832363, "event": "commit", "frame": 24, "nonce": "082f0b6eca0715c5", "decision": "HOLD", "reason": "px +27.25pts near highs, giveback only 2%, ER10 climbing to 0.49"}
+{"ts": 1784308809.2473354, "event": "serve", "frame": 25, "nonce": "217a4b3b707d7b8a"}
+{"ts": 1784308813.8316772, "event": "commit", "frame": 25, "nonce": "217a4b3b707d7b8a", "decision": "HOLD", "reason": "new episode high +36pts, ER10 0.56, giveback only 5%, trend strong, holding"}
+{"ts": 1784308816.3281085, "event": "serve", "frame": 26, "nonce": "f06b13f06aea0270"}
+{"ts": 1784308820.5993183, "event": "commit", "frame": 26, "nonce": "f06b13f06aea0270", "decision": "HOLD", "reason": "px surged to +48.5pts, ER10 0.74 strong trend continuation, giveback only 3%"}
+{"ts": 1784308822.7775228, "event": "serve", "frame": 27, "nonce": "2ab4a3399fb8a4e3"}
+{"ts": 1784308826.4163704, "event": "commit", "frame": 27, "nonce": "2ab4a3399fb8a4e3", "decision": "HOLD", "reason": "px +47pts, giveback 19% off the +48.5 peak, still very strong position"}
+{"ts": 1784308828.7796824, "event": "serve", "frame": 28, "nonce": "7a8ec40b18a02c11"}
+{"ts": 1784308832.7873394, "event": "commit", "frame": 28, "nonce": "7a8ec40b18a02c11", "decision": "HOLD", "reason": "new high +56.25pts, ER10 0.57 strong trend, holding a well-working trade"}
+{"ts": 1784308835.9172606, "event": "serve", "frame": 29, "nonce": "b88b0edde73a963c"}
+{"ts": 1784308839.4496055, "event": "commit", "frame": 29, "nonce": "b88b0edde73a963c", "decision": "HOLD", "reason": "px +63.5pts, huge move continuing, ER10 0.61, giveback only 9%, strong trend"}
+{"ts": 1784308842.6073298, "event": "serve", "frame": 30, "nonce": "38857585cd747e71"}
+{"ts": 1784308846.5354338, "event": "commit", "frame": 30, "nonce": "38857585cd747e71", "decision": "HOLD", "reason": "px +68pts, ER10 0.70 strongest trend yet, giveback only 9%, holding"}
+{"ts": 1784308849.1217382, "event": "serve", "frame": 31, "nonce": "a452e01ac178f332"}
+{"ts": 1784308852.8085444, "event": "commit", "frame": 31, "nonce": "a452e01ac178f332", "decision": "HOLD", "reason": "px +60.75pts, giveback 19% off +68 peak, PROPP with, still strong trend"}
+{"ts": 1784308856.3007674, "event": "serve", "frame": 32, "nonce": "1faeaca1c9eaac10"}
+{"ts": 1784308861.7308264, "event": "commit", "frame": 32, "nonce": "1faeaca1c9eaac10", "decision": "HOLD", "reason": "pulled back to +48pts from ~+68-74 peak but still very large favorable cushion, holding"}
+{"ts": 1784308866.1329772, "event": "serve", "frame": 33, "nonce": "5a9603d61def26de"}
+{"ts": 1784308870.1647758, "event": "commit", "frame": 33, "nonce": "5a9603d61def26de", "decision": "HOLD", "reason": "px stable +49.75pts, still huge favorable cushion, holding"}
+{"ts": 1784308874.0198724, "event": "serve", "frame": 34, "nonce": "288e9943f8eb5d31"}
+{"ts": 1784308877.1727006, "event": "commit", "frame": 34, "nonce": "288e9943f8eb5d31", "decision": "HOLD", "reason": "px +45pts, stable, huge favorable margin intact, holding"}
+{"ts": 1784308880.0088203, "event": "serve", "frame": 35, "nonce": "3eb5909608b235cf"}
+{"ts": 1784308890.046652, "event": "commit", "frame": 35, "nonce": "3eb5909608b235cf", "decision": "HOLD", "reason": "px drifted down to +35.25pts from ~68-74 peak, real pullback but still comfortably favorable, watching for further deterioration"}
+{"ts": 1784308893.6206565, "event": "serve", "frame": 36, "nonce": "597871655db13121"}
+{"ts": 1784308897.263093, "event": "commit", "frame": 36, "nonce": "597871655db13121", "decision": "HOLD", "reason": "px recovered to +41.5pts, PROPP with, still favorable"}
+{"ts": 1784308899.7404785, "event": "serve", "frame": 37, "nonce": "8526ab1cabc834f6"}
+{"ts": 1784308903.5215178, "event": "commit", "frame": 37, "nonce": "8526ab1cabc834f6", "decision": "HOLD", "reason": "px back up to +55pts, HA and PROPP both with position, still very favorable"}
+{"ts": 1784308906.2754438, "event": "serve", "frame": 38, "nonce": "31dba06e89671a4d"}
+{"ts": 1784308909.712985, "event": "commit", "frame": 38, "nonce": "31dba06e89671a4d", "decision": "HOLD", "reason": "px +59.5pts, near episode highs, strong favorable position, holding"}
+{"ts": 1784308912.254964, "event": "serve", "frame": 39, "nonce": "1b0f73e2ac8de510"}
+{"ts": 1784308916.667317, "event": "commit", "frame": 39, "nonce": "1b0f73e2ac8de510", "decision": "HOLD", "reason": "px +62.5pts, still very strong favorable position near episode highs"}
+{"ts": 1784308931.2810354, "event": "finish", "summary": "Never exited - held the full 39-frame window. The trade was a strongly working short: repeated giveback episodes (up to 65-69% of a leg's amplitude) always resolved back to new favorable highs, climbing from +0 to a peak near +74pts with ER10 climbing above 0.5-0.7 during the strongest legs. Individual against-fires (KMDR/HA/PROPP) never coincided with a genuine trend break - price kept making higher favorable extremes after each pullback. Next time I'd watch for a giveback that fails to make a new high within a few minutes (i.e., leg amplitude stalling while giveback% stays elevated) combined with ER10 staying pinned near zero, as the actual reversal signature rather than reacting to single against-fires or single-frame giveback spikes.", "exit_frame": null, "n_commits": 40}

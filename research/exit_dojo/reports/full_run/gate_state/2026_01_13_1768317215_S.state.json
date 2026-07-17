@@ -1,0 +1,221 @@
+{
+  "episode_id": "2026_01_13_1768317215_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "963605437bf838a7",
+      "ts": 1784314112.739819
+    },
+    {
+      "frame": 1,
+      "nonce": "4f01f4c88e847c1c",
+      "ts": 1784314120.8839066
+    },
+    {
+      "frame": 2,
+      "nonce": "de422c087499618d",
+      "ts": 1784314130.6397548
+    },
+    {
+      "frame": 3,
+      "nonce": "239a2c6e2fb65eb4",
+      "ts": 1784314136.5828843
+    },
+    {
+      "frame": 4,
+      "nonce": "58d79efd0ba27fa6",
+      "ts": 1784314146.4659693
+    },
+    {
+      "frame": 5,
+      "nonce": "2e03ae14c21ea686",
+      "ts": 1784314152.7325878
+    },
+    {
+      "frame": 6,
+      "nonce": "2e590a202d68c2e8",
+      "ts": 1784314159.0662138
+    },
+    {
+      "frame": 7,
+      "nonce": "aebeaf6d9fc6c50e",
+      "ts": 1784314165.3207798
+    },
+    {
+      "frame": 8,
+      "nonce": "5efb1d3d08d61ef2",
+      "ts": 1784314171.7080567
+    },
+    {
+      "frame": 9,
+      "nonce": "f03097c6e4ef9a08",
+      "ts": 1784314178.2116463
+    },
+    {
+      "frame": 10,
+      "nonce": "5298beb8d4cdf63e",
+      "ts": 1784314188.4089544
+    },
+    {
+      "frame": 11,
+      "nonce": "d049ff85745ef9b0",
+      "ts": 1784314195.414349
+    },
+    {
+      "frame": 12,
+      "nonce": "f2a2c93a72bf0a63",
+      "ts": 1784314201.643637
+    },
+    {
+      "frame": 13,
+      "nonce": "7b8a72ca3814f982",
+      "ts": 1784314208.3804712
+    },
+    {
+      "frame": 14,
+      "nonce": "8905ed68c7e83f3f",
+      "ts": 1784314214.6055782
+    },
+    {
+      "frame": 15,
+      "nonce": "914bd081b68666b4",
+      "ts": 1784314220.8170507
+    },
+    {
+      "frame": 16,
+      "nonce": "560330b672eed0a9",
+      "ts": 1784314227.8056169
+    },
+    {
+      "frame": 17,
+      "nonce": "26e36287c688c909",
+      "ts": 1784314236.1026258
+    },
+    {
+      "frame": 18,
+      "nonce": "5ecce29e2e5ab267",
+      "ts": 1784314249.485025
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "963605437bf838a7",
+      "decision": "HOLD",
+      "reason": "frame0 baseline, flat pnl, gathering signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "4f01f4c88e847c1c",
+      "decision": "HOLD",
+      "reason": "small giveback 11%, still within leg amplitude, no strong against-signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "de422c087499618d",
+      "decision": "HOLD",
+      "reason": "px +10, giveback 0%, PROPP-with fired, trend favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "239a2c6e2fb65eb4",
+      "decision": "HOLD",
+      "reason": "giveback 22% but lambda still negative (reversion), mixed against/with fires, not yet a clear reversal"
+    },
+    {
+      "frame": 4,
+      "nonce": "58d79efd0ba27fa6",
+      "decision": "HOLD",
+      "reason": "px +14.75, new leg high, giveback only 2%, momentum favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "2e03ae14c21ea686",
+      "decision": "HOLD",
+      "reason": "px +21.75, new leg high, giveback 5%, trend continuing favorable"
+    },
+    {
+      "frame": 6,
+      "nonce": "2e590a202d68c2e8",
+      "decision": "HOLD",
+      "reason": "px +38.5, strong trend ER10 0.70, PROPP-with, giveback only 2%"
+    },
+    {
+      "frame": 7,
+      "nonce": "aebeaf6d9fc6c50e",
+      "decision": "HOLD",
+      "reason": "px +28.25, giveback 11%, ER10 dropped to 0.34 (choppier) but still PROPP-with, not a clear reversal yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "5efb1d3d08d61ef2",
+      "decision": "HOLD",
+      "reason": "px +61.25, new leg high, giveback 0%, PROPP-with, strong continuation"
+    },
+    {
+      "frame": 9,
+      "nonce": "f03097c6e4ef9a08",
+      "decision": "HOLD",
+      "reason": "px +45.75, giveback 11% off new high, still PROPP-with, similar pullback pattern held earlier and recovered"
+    },
+    {
+      "frame": 10,
+      "nonce": "5298beb8d4cdf63e",
+      "decision": "HOLD",
+      "reason": "px +49.5, still near highs, giveback 13%, choppy but not breaking down"
+    },
+    {
+      "frame": 11,
+      "nonce": "d049ff85745ef9b0",
+      "decision": "HOLD",
+      "reason": "px +70.5, new leg high, giveback 0%, strong continuation"
+    },
+    {
+      "frame": 12,
+      "nonce": "f2a2c93a72bf0a63",
+      "decision": "HOLD",
+      "reason": "px +68.75, giveback 5%, PROPP-with, trend intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "7b8a72ca3814f982",
+      "decision": "HOLD",
+      "reason": "px +74, new leg high, giveback 5%, PROPP-with"
+    },
+    {
+      "frame": 14,
+      "nonce": "8905ed68c7e83f3f",
+      "decision": "HOLD",
+      "reason": "px +81.25, new leg high, giveback 0%, trend still strong"
+    },
+    {
+      "frame": 15,
+      "nonce": "914bd081b68666b4",
+      "decision": "HOLD",
+      "reason": "px +74.5, giveback 11% typical pullback, 1m lambda_21 sig positive (+0.081, t=3.6) = trend persistence, ride signal"
+    },
+    {
+      "frame": 16,
+      "nonce": "560330b672eed0a9",
+      "decision": "HOLD",
+      "reason": "px +68.25, giveback 15% (highest so far), ER10 down to 0.25 (choppier) but 1m lambda_21 still sig positive, no clean reversal signal yet"
+    },
+    {
+      "frame": 17,
+      "nonce": "26e36287c688c909",
+      "decision": "HOLD",
+      "reason": "px +66.75, giveback 11%, but now 3 against-fires converged (KMDR+HA+PROPP) - elevated alert, will exit on further deterioration"
+    },
+    {
+      "frame": 18,
+      "nonce": "5ecce29e2e5ab267",
+      "decision": "EXIT",
+      "reason": "px +71.25 still strong but 3-detector against-confluence (KMDR+HA+PROPP) sustained 2 frames, ER10 stuck low ~0.26-0.32 (chop/reversal), new local leg already gave back 49% - locking in profit before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Exited at +71.25pts after riding a strong favorable trend from entry through t=18m, where new leg highs kept forming with low giveback (0-15%) each time. The exit trigger was a sustained multi-detector against-confluence: KMDR-against, HA-against, and PROPP-against all fired together across two consecutive frames, coinciding with ER10 staying low (~0.26-0.32, choppy/non-trending) and a freshly-formed local leg already giving back 49% of its small amplitude. Next time I'd watch for this same 3-detector convergence earlier and weight it more than single-detector against-fires (which occurred repeatedly through the hold without being followed by real reversals), while also tracking ER10 decay as a confirming chop signal rather than acting on giveback% alone since giveback on the dominant leg had oscillated 0-22% throughout without ending the trend."
+}

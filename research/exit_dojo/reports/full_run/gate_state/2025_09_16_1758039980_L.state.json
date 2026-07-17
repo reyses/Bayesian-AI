@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_09_16_1758039980_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "38355f30a6204fc4",
+      "ts": 1784318472.915562
+    },
+    {
+      "frame": 1,
+      "nonce": "6a66af5c22dcea70",
+      "ts": 1784318482.3675084
+    },
+    {
+      "frame": 2,
+      "nonce": "7c77ed2e9d3e0848",
+      "ts": 1784318494.4931293
+    },
+    {
+      "frame": 3,
+      "nonce": "4464038efc95818f",
+      "ts": 1784318503.0000274
+    },
+    {
+      "frame": 4,
+      "nonce": "288c6d87b1c0193c",
+      "ts": 1784318512.3580396
+    },
+    {
+      "frame": 5,
+      "nonce": "86d0da201540ed4e",
+      "ts": 1784318529.9758487
+    },
+    {
+      "frame": 6,
+      "nonce": "41c9d1e20e5c276e",
+      "ts": 1784318545.8195474
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "38355f30a6204fc4",
+      "decision": "HOLD",
+      "reason": "Small -3.25pt loss at 7m, giveback 67% of 8.2pt amplitude but 1m/15m lambda negative (mean-reverting), too early to call the leg dead"
+    },
+    {
+      "frame": 1,
+      "nonce": "6a66af5c22dcea70",
+      "decision": "HOLD",
+      "reason": "Price ticking back toward breakeven on 5s/15s (-0.25), still early at 8m, no confirmed reversal despite negative 1m lambda"
+    },
+    {
+      "frame": 2,
+      "nonce": "7c77ed2e9d3e0848",
+      "decision": "HOLD",
+      "reason": "Recovered to positive territory (+0.75 to +2.00 on 5s), momentum turning favorable, holding to see if it extends"
+    },
+    {
+      "frame": 3,
+      "nonce": "4464038efc95818f",
+      "decision": "HOLD",
+      "reason": "Strong favorable push to +3.75/+7.25pts, new leg forming with ER10 up to 0.44, letting the trend run despite stretched z_se"
+    },
+    {
+      "frame": 4,
+      "nonce": "288c6d87b1c0193c",
+      "decision": "HOLD",
+      "reason": "Still up +4.00, but KMDR-against+PROPP-against both fired and 1m/15m lambda_t strongly negative (-3.2/-3.7) -- watching closely for confirmation of the turn next frame"
+    },
+    {
+      "frame": 5,
+      "nonce": "86d0da201540ed4e",
+      "decision": "HOLD",
+      "reason": "1m bar whipsawed to -3.50 then closed +3.00, showing resilience despite against-fires; still positive at +3.25, ER10 fading to 0.36 but not collapsed"
+    },
+    {
+      "frame": 6,
+      "nonce": "41c9d1e20e5c276e",
+      "decision": "EXIT",
+      "reason": "Fresh HA-against stacked on top of KMDR-against+PROPP-against, 1m bar round-tripped to 0.00 despite +4.75 high, shrinking leg amplitude (4.8pt vs prior 16pt) and ER10 fading 0.50->0.29 -- momentum exhaustion signature, locking +2.25"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Exited at +2.25pts after riding the leg from -3.25 up through a +7.5 peak. The exit trigger was a stack of exhaustion signals converging at once: a fresh HA-against fire on top of already-active KMDR-against and PROPP-against, a 1m bar that round-tripped from +4.75 high back to a 0.00 close, sharply shrinking leg amplitude (4.8pts vs the prior leg's 16pts), and ER10 trend-efficiency decaying from 0.50 to 0.29. Persistent negative 1m/15m lambda_t (-3 to -4) throughout the hold was the underlying mean-reversion pull; next time I'd watch for the SAME multi-detector against-stack plus amplitude collapse as the primary exit trigger rather than any single signal alone."
+}

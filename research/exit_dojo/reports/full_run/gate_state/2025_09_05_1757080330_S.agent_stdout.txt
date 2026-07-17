@@ -1,0 +1,8 @@
+# exit_code=0 dt=624s
+## STDOUT
+Exited at frame 17 (+56pts favorable) after a two-bar PROPP-against + persistent KMDR-against confluence hit right at a fresh high, with giveback jumping 11%â†’22% in a single bar. Held through several earlier isolated against-fires (frames 6-7, 16) since they didn't persist or coincide with rising giveback â€” the exit trigger was the combination of signal persistence + accelerating giveback, not any single fire. Episode closed and finish recorded (18 commits total).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

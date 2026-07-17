@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_12_09_1765301700_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9b3617625fcd537c",
+      "ts": 1784313714.3443222
+    },
+    {
+      "frame": 1,
+      "nonce": "e5c822505f12c312",
+      "ts": 1784313722.096448
+    },
+    {
+      "frame": 2,
+      "nonce": "998404f6981196d8",
+      "ts": 1784313730.0541873
+    },
+    {
+      "frame": 3,
+      "nonce": "bc0a18847b53b394",
+      "ts": 1784313739.3158226
+    },
+    {
+      "frame": 4,
+      "nonce": "94e735aa4ce78002",
+      "ts": 1784313756.9075549
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9b3617625fcd537c",
+      "decision": "HOLD",
+      "reason": "frame0, flat at entry, no edge yet to exit"
+    },
+    {
+      "frame": 1,
+      "nonce": "e5c822505f12c312",
+      "decision": "HOLD",
+      "reason": "only +2pt, amplitude/giveback modest, no reversal signature yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "998404f6981196d8",
+      "decision": "HOLD",
+      "reason": "px +8, giveback only 4%, PROPP fired with the move, trend still intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "bc0a18847b53b394",
+      "decision": "HOLD",
+      "reason": "giveback 47% is a pullback but leg still young (4m), PROPP fired with move, waiting for confirmation"
+    },
+    {
+      "frame": 4,
+      "nonce": "94e735aa4ce78002",
+      "decision": "EXIT",
+      "reason": "HA-against fired, giveback 67% of peak amp, now negative px -5, taking the exit on turn signature"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Exited at t=4m on px -5.00 after the leg gave back 67% of its 21.8pt peak amplitude and flipped negative, coinciding with an HA-against fire and a significant negative lambda_hat_21 (t=-2.1 to -2.5 across 5s/1m) signaling momentum decay/mean-reversion against the position. What I'd watch next time: giveback velocity (47%->67% in one minute was the real tell, not the absolute px level) plus turn-detector fires against the position as the primary confirmation, rather than waiting for px to go deeply negative before acting."
+}

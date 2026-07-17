@@ -1,0 +1,25 @@
+{"ts": 1784309661.1561444, "event": "serve", "frame": 0, "nonce": "ee80b1a81eb0ce12"}
+{"ts": 1784309665.7495925, "event": "commit", "frame": 0, "nonce": "ee80b1a81eb0ce12", "decision": "HOLD", "reason": "entry frame, px flat at 0, no exit signal yet"}
+{"ts": 1784309668.1349306, "event": "serve", "frame": 1, "nonce": "cffdf85973382665"}
+{"ts": 1784309673.2033, "event": "commit", "frame": 1, "nonce": "cffdf85973382665", "decision": "HOLD", "reason": "small -3pt drawdown, giveback only 16%, early in leg, no strong reversal signal"}
+{"ts": 1784309675.2699447, "event": "serve", "frame": 2, "nonce": "fd0b03c3164f2f2d"}
+{"ts": 1784309682.6937866, "event": "commit", "frame": 2, "nonce": "fd0b03c3164f2f2d", "decision": "HOLD", "reason": "moved favorable to +3.5pts, giveback 0%, momentum in our favor"}
+{"ts": 1784309684.846552, "event": "serve", "frame": 3, "nonce": "17d7b87e65979864"}
+{"ts": 1784309692.0778008, "event": "commit", "frame": 3, "nonce": "17d7b87e65979864", "decision": "HOLD", "reason": "still +3.0pts favorable, giveback 18% modest, ER10 rising (trend strengthening)"}
+{"ts": 1784309694.3532915, "event": "serve", "frame": 4, "nonce": "803d1e50d9e51b9e"}
+{"ts": 1784309698.3108492, "event": "commit", "frame": 4, "nonce": "803d1e50d9e51b9e", "decision": "HOLD", "reason": "px +7.5pts, giveback 0%, ER10 climbing to 0.49, trend intact"}
+{"ts": 1784309702.087035, "event": "serve", "frame": 5, "nonce": "4d09faf4ff08f3f8"}
+{"ts": 1784309708.3513079, "event": "commit", "frame": 5, "nonce": "4d09faf4ff08f3f8", "decision": "HOLD", "reason": "px +11.25pts, giveback 5%, ER10 0.63 strong trend, 1m reversion_prob collapsed to 0.18 (low mean-revert risk)"}
+{"ts": 1784309710.6135988, "event": "serve", "frame": 6, "nonce": "3f3b31e4047ce449"}
+{"ts": 1784309714.169601, "event": "commit", "frame": 6, "nonce": "3f3b31e4047ce449", "decision": "HOLD", "reason": "px +15.5pts, ER10 0.90 near-max efficiency, giveback only 1%, ride the trend"}
+{"ts": 1784309716.369502, "event": "serve", "frame": 7, "nonce": "d30c3deee2ada5fd"}
+{"ts": 1784309719.7192416, "event": "commit", "frame": 7, "nonce": "d30c3deee2ada5fd", "decision": "HOLD", "reason": "px +15.0pts, ER10 still 0.86, giveback modest 7%, trend still efficient"}
+{"ts": 1784309722.2995028, "event": "serve", "frame": 8, "nonce": "d8731d6e935928c6"}
+{"ts": 1784309727.3298907, "event": "commit", "frame": 8, "nonce": "d8731d6e935928c6", "decision": "HOLD", "reason": "px +14.5pts, giveback 8%, ER10 0.88, still efficient trend"}
+{"ts": 1784309729.7540717, "event": "serve", "frame": 9, "nonce": "32645c0e23c7643e"}
+{"ts": 1784309735.5371838, "event": "commit", "frame": 9, "nonce": "32645c0e23c7643e", "decision": "HOLD", "reason": "px new high +17.0pts; new micro-leg giveback 62% is noise on a tiny 2pt amplitude, overall trend intact"}
+{"ts": 1784309737.8744302, "event": "serve", "frame": 10, "nonce": "f3a72304afb195df"}
+{"ts": 1784309741.855638, "event": "commit", "frame": 10, "nonce": "f3a72304afb195df", "decision": "HOLD", "reason": "px new high +26.0pts, ER10 0.86 still strong despite against-fires, trend keeps making new highs"}
+{"ts": 1784309744.4164572, "event": "serve", "frame": 11, "nonce": "31514aadc03f5f40"}
+{"ts": 1784309774.1094506, "event": "commit", "frame": 11, "nonce": "31514aadc03f5f40", "decision": "EXIT", "reason": "first triple confluence of against-signals (KMDR+CLIMAX+PROPP), ER10 fading 0.90->0.74, px already off high by ~7pts; lock in +19.5pts"}
+{"ts": 1784309780.2465844, "event": "finish", "summary": "Held through a clean, efficient run from 0 to a +26.75pt high (ER10 climbing to 0.90) with minimal giveback, riding the trend rather than reacting to isolated single against-fires. Exited at +19.5pts when three independent against-signals (KMDR, CLIMAX, PROPP) clustered together for the first time in the same 1-2min window while ER10 dropped from 0.90 to 0.74 and price had already pulled back ~7pts off the high. Next time I'd watch for that same multi-signal confluence (especially CLIMAX joining KMDR/PROPP) earlier as the primary exhaustion tell, rather than any single detector firing alone.", "exit_frame": 11, "n_commits": 12}

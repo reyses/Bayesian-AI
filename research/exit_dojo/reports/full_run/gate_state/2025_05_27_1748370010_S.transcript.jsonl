@@ -1,0 +1,15 @@
+{"ts": 1784316589.9118123, "event": "serve", "frame": 0, "nonce": "26b0854e59ef56c4"}
+{"ts": 1784316599.3272705, "event": "commit", "frame": 0, "nonce": "26b0854e59ef56c4", "decision": "HOLD", "reason": "frame 0, just entered, px flat, no exit signal yet"}
+{"ts": 1784316601.979584, "event": "serve", "frame": 1, "nonce": "7d2c74b9c66f9d2a"}
+{"ts": 1784316607.017349, "event": "commit", "frame": 1, "nonce": "7d2c74b9c66f9d2a", "decision": "HOLD", "reason": "px +2.5 favorable, amp building, early leg, hold despite against-fires"}
+{"ts": 1784316610.1178792, "event": "serve", "frame": 2, "nonce": "a833d53a8bd0f9fa"}
+{"ts": 1784316613.977237, "event": "commit", "frame": 2, "nonce": "a833d53a8bd0f9fa", "decision": "HOLD", "reason": "px +4.25 favorable, amp growing, zero giveback, hold"}
+{"ts": 1784316616.577427, "event": "serve", "frame": 3, "nonce": "1256d88c72d8864f"}
+{"ts": 1784316623.3092484, "event": "commit", "frame": 3, "nonce": "1256d88c72d8864f", "decision": "HOLD", "reason": "px pulled back to +1.75, giveback 14% - minor, amp still expanding, hold"}
+{"ts": 1784316625.8945565, "event": "serve", "frame": 4, "nonce": "ca93c233aa5e73cf"}
+{"ts": 1784316638.0687392, "event": "commit", "frame": 4, "nonce": "ca93c233aa5e73cf", "decision": "HOLD", "reason": "px flipped to -0.75, giveback 27%, watching closely but not decisive yet"}
+{"ts": 1784316641.5067182, "event": "serve", "frame": 5, "nonce": "78ba9305f581bc2e"}
+{"ts": 1784316649.168605, "event": "commit", "frame": 5, "nonce": "78ba9305f581bc2e", "decision": "HOLD", "reason": "px -1.25, giveback 31% and rising, but abs loss still small; watch one more frame for confirmation"}
+{"ts": 1784316652.7390087, "event": "serve", "frame": 6, "nonce": "4acd7396bcd8ee62"}
+{"ts": 1784316680.138226, "event": "commit", "frame": 6, "nonce": "4acd7396bcd8ee62", "decision": "EXIT", "reason": "full reversal: px went +4.25 peak -> -4.50 in 3min, HA-against fired 3 consecutive frames, fresh adverse leg with only 3% giveback = strong continuing momentum against position"}
+{"ts": 1784316686.3489637, "event": "finish", "summary": "Exited on the reversal signature: price ran to a +4.25pt favorable peak by t=3m then reversed through zero and accelerated to -4.50pt by t=6m, with the HA turn-detector firing against the position on three consecutive frames and the fresh adverse leg showing almost no giveback (3%), indicating sustained momentum rather than noise. Next time I'd want to weight the giveback-% trend more heavily earlier (it climbed 14%->27%->31% before the leg reset) rather than waiting for price to cross back below entry, since that crossing cost several points of round-trip.", "exit_frame": 6, "n_commits": 7}

@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_06_18_1750253405_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0e3434f5ad61fce5",
+      "ts": 1784312116.9151511
+    },
+    {
+      "frame": 1,
+      "nonce": "2c4426f7afe65a62",
+      "ts": 1784312133.0270858
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0e3434f5ad61fce5",
+      "decision": "HOLD",
+      "reason": "just entered on strong reversion setup (z_21=-2.09, reversion_prob_30=0.97); no adverse signature yet, give it room"
+    },
+    {
+      "frame": 1,
+      "nonce": "2c4426f7afe65a62",
+      "decision": "EXIT",
+      "reason": "px -21pts against us; 1m lambda_hat_21=+0.071 t=3.12 and lambda_hat_12=+0.161 t=4.0 both significant positive (trend-continuation, not reversion); reversion_prob_30(1m) collapsed to 0.000; KMDR-against + PROPP-against both fired 0m ago -- momentum regime working against a mean-reversion short, cut now"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Entered on a mean-reversion short thesis (z_21=-2.09, reversion_prob_30=0.97) but one minute later price had moved -21pts against the position while the 1m lambda estimates flipped significantly positive (lambda_hat_21=+0.071 t=3.12, lambda_hat_12=+0.161 t=4.0) and reversion_prob_30 on the 1m collapsed to 0.000, with both KMDR and PROPP firing against the position. That combination -- significant positive lambda plus a dead reversion probability -- is exactly the trend-continuation signature the lambda-completion thesis says should override a fade bet, so I exited rather than assume the move would revert. Next time I'd want to watch whether lambda_t on the faster (12-bar) window flips this hard within the first 1-2 minutes of a reversion entry as an early stop-loss trigger, and check if waiting one more frame to confirm persistence (vs. reacting to a single lambda spike) would have avoided a premature exit on noise."
+}

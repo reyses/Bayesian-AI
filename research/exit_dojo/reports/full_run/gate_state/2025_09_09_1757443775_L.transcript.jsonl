@@ -1,0 +1,21 @@
+{"ts": 1784318352.6575024, "event": "serve", "frame": 0, "nonce": "1f58ef20ac5f0c82"}
+{"ts": 1784318357.6998482, "event": "commit", "frame": 0, "nonce": "1f58ef20ac5f0c82", "decision": "HOLD", "reason": "flat at entry, early frame, no adverse signal yet despite mixed multi-TF pullback"}
+{"ts": 1784318360.1550677, "event": "serve", "frame": 1, "nonce": "5c5be9e96f4ad2c1"}
+{"ts": 1784318364.4347434, "event": "commit", "frame": 1, "nonce": "5c5be9e96f4ad2c1", "decision": "HOLD", "reason": "px only -0.75, 1m/5m lambda positive (momentum recovering), giveback still small"}
+{"ts": 1784318368.3566759, "event": "serve", "frame": 2, "nonce": "d4fd44e98ea69ef0"}
+{"ts": 1784318372.9130838, "event": "commit", "frame": 2, "nonce": "d4fd44e98ea69ef0", "decision": "HOLD", "reason": "giveback 12% but only -1.25pts, 1m lambda_t still strongly positive (+3.7), momentum intact"}
+{"ts": 1784318375.2990723, "event": "serve", "frame": 3, "nonce": "ca3ada195e4d5b4a"}
+{"ts": 1784318378.9459608, "event": "commit", "frame": 3, "nonce": "ca3ada195e4d5b4a", "decision": "HOLD", "reason": "px +1.25, giveback reset to 0%, no adverse fires, 1m lambda_t +4.1 still strong"}
+{"ts": 1784318381.1678863, "event": "serve", "frame": 4, "nonce": "f9040cfdd6409a88"}
+{"ts": 1784318385.3158088, "event": "commit", "frame": 4, "nonce": "f9040cfdd6409a88", "decision": "HOLD", "reason": "px +1.50, giveback 0%, 1m lambda_t +3.6, trend still favorable"}
+{"ts": 1784318387.8331358, "event": "serve", "frame": 5, "nonce": "55a90aeed013509b"}
+{"ts": 1784318392.9978323, "event": "commit", "frame": 5, "nonce": "55a90aeed013509b", "decision": "HOLD", "reason": "px +1.25, 1m lambda_t +3.4 still strong despite two against-fires, giveback 15% tolerable"}
+{"ts": 1784318396.3803189, "event": "serve", "frame": 6, "nonce": "9d2af0c6d5ecf4da"}
+{"ts": 1784318399.8189104, "event": "commit", "frame": 6, "nonce": "9d2af0c6d5ecf4da", "decision": "HOLD", "reason": "px +1.50, giveback improved to 8%, 1m/5m lambda positive, trend intact"}
+{"ts": 1784318402.730957, "event": "serve", "frame": 7, "nonce": "9036bcc1950624ea"}
+{"ts": 1784318407.532177, "event": "commit", "frame": 7, "nonce": "9036bcc1950624ea", "decision": "HOLD", "reason": "new high +3.25, giveback 4%, 1m lambda_21/30 positive, trend extending"}
+{"ts": 1784318410.2584338, "event": "serve", "frame": 8, "nonce": "e145e142f0de727d"}
+{"ts": 1784318417.3445184, "event": "commit", "frame": 8, "nonce": "e145e142f0de727d", "decision": "HOLD", "reason": "pullback from +3.25 to +1.50, 1m lambda_12 t=-8.1 short-term reversal but 21/30 still positive; watching closely"}
+{"ts": 1784318420.4652836, "event": "serve", "frame": 9, "nonce": "45c5d16a48a86fbe"}
+{"ts": 1784318428.6245048, "event": "commit", "frame": 9, "nonce": "45c5d16a48a86fbe", "decision": "EXIT", "reason": "px flipped negative -2.75, giveback 30%, 1m lambda_12 t=-8.7 two bars running, ER10 collapsed to 0.28, KMDR+HA against-fires confirm reversal"}
+{"ts": 1784318435.3017666, "event": "finish", "summary": "Exited at t=9m/px-2.75 when the trade round-tripped from its +3.25 peak: two consecutive frames of strongly negative 1m short-window lambda (t=-8.1, then -8.7), giveback tripling from 4% to 30%, and ER10 collapsing to 0.28 alongside KMDR/HA against-fires signaled the momentum genuinely flipped rather than a normal pullback. Next time I'd watch the 1m lambda_hat_12 t-stat sign flip as the earliest tell (it flagged at frame 8, one bar before price itself turned negative) and treat two consecutive against-fires + falling ER10 as confirmation to act rather than waiting for price to go red.", "exit_frame": 9, "n_commits": 10}

@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_05_22_1747920600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "028a4839c3012df2",
+      "ts": 1784311427.9122133
+    },
+    {
+      "frame": 1,
+      "nonce": "337c8b4707ab6c14",
+      "ts": 1784311436.428056
+    },
+    {
+      "frame": 2,
+      "nonce": "13a2920f6f1e4cec",
+      "ts": 1784311456.6355476
+    },
+    {
+      "frame": 3,
+      "nonce": "63e8d4ab6650d249",
+      "ts": 1784311486.8441465
+    },
+    {
+      "frame": 4,
+      "nonce": "9182f7a579b43b76",
+      "ts": 1784311495.4992166
+    },
+    {
+      "frame": 5,
+      "nonce": "85fd4cb072ea8e48",
+      "ts": 1784311505.6733065
+    },
+    {
+      "frame": 6,
+      "nonce": "fecf4299603faea0",
+      "ts": 1784311512.604859
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "028a4839c3012df2",
+      "decision": "HOLD",
+      "reason": "Frame 0, trade just opened, px flat at entry, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "337c8b4707ab6c14",
+      "decision": "HOLD",
+      "reason": "Adverse move to -22pts w/ 3 against-fires (CLIMAX/HA/PROPP), but only 1m in on a wide-range regime; too early to call structural break vs noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "13a2920f6f1e4cec",
+      "decision": "HOLD",
+      "reason": "Drawdown deepened to -33.5pts (giveback 137%) but KMDR-with+PROPP-with just fired, high reversion_prob across TFs, lambda<0 (1m t=-4.7) signals mean-reversion; watching for turn confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "63e8d4ab6650d249",
+      "decision": "HOLD",
+      "reason": "Recovered from -33.5 to -12.0pts, confirming the KMDR/PROPP-with turn signal; ER10 rising (0.32), momentum now working with us"
+    },
+    {
+      "frame": 4,
+      "nonce": "9182f7a579b43b76",
+      "decision": "HOLD",
+      "reason": "Swung to +28.75pts profit; mixed fires (KMDR-against vs HA-with) but no clean reversal confirmation yet, letting the trade run"
+    },
+    {
+      "frame": 5,
+      "nonce": "85fd4cb072ea8e48",
+      "decision": "HOLD",
+      "reason": "Profit extending to +40.75pts, ER10 rising to 0.33 (trend strengthening), HA/PROPP-with dominant; letting the run continue"
+    },
+    {
+      "frame": 6,
+      "nonce": "fecf4299603faea0",
+      "decision": "EXIT",
+      "reason": "Violent reversal from +40.75 to -17.50pts; fresh CLIMAX-against (0m) stacked with KMDR-against+PROPP-against and only a stale HA-with, marking the top of the favorable leg and start of a new adverse leg -- taking the R-trigger-style reversal exit rather than risk further giveback"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Exited at -17.50pts after a violent round-trip: the trade dove to -33.5pts by t=2m, snapped back through breakeven to a +40.75pt peak by t=5m, then reversed hard against the position within one bar. The exit trigger was a fresh CLIMAX-against fire stacked with KMDR-against and PROPP-against (only a stale HA-with remaining), which read as exhaustion/top of the favorable leg rather than routine noise, unlike the earlier CLIMAX-against/HA-against cluster at t=1-2m that preceded a reversal IN our favor. Next time I'd watch for the same signal cluster earlier and weight leg-age/amplitude-giveback more explicitly against raw price -- the giveback ratio (137%, then 332%, then 34% on the new leg) was already flagging instability before the price crossed back to unfavorable territory."
+}

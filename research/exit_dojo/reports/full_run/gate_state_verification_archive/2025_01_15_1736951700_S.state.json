@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_01_15_1736951700_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "4b0c144be3dd0083",
+      "ts": 1784304654.3936203
+    },
+    {
+      "frame": 1,
+      "nonce": "54e3ef2cdbdc7940",
+      "ts": 1784304655.3252087
+    },
+    {
+      "frame": 2,
+      "nonce": "5c3334e8a7cf846b",
+      "ts": 1784304656.2587674
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "4b0c144be3dd0083",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy exit_at:2)"
+    },
+    {
+      "frame": 1,
+      "nonce": "54e3ef2cdbdc7940",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy exit_at:2)"
+    },
+    {
+      "frame": 2,
+      "nonce": "5c3334e8a7cf846b",
+      "decision": "EXIT",
+      "reason": "scripted-exit (dummy policy exit_at:2)"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "dummy agent, policy=exit_at:2; scripted verification run."
+}

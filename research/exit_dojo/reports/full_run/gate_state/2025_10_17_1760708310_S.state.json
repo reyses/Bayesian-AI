@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_10_17_1760708310_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fc5529715efed0fb",
+      "ts": 1784312819.6888428
+    },
+    {
+      "frame": 1,
+      "nonce": "b0b0a73fd76bcb7c",
+      "ts": 1784312838.2131958
+    },
+    {
+      "frame": 2,
+      "nonce": "bdd32d4be3a812c6",
+      "ts": 1784312852.372525
+    },
+    {
+      "frame": 3,
+      "nonce": "8e60958926590a67",
+      "ts": 1784312870.0571156
+    },
+    {
+      "frame": 4,
+      "nonce": "1c4bcc76285652e7",
+      "ts": 1784312876.7750735
+    },
+    {
+      "frame": 5,
+      "nonce": "f0c4b2c46d2b2aac",
+      "ts": 1784312883.9632525
+    },
+    {
+      "frame": 6,
+      "nonce": "3bd595ea8994daa7",
+      "ts": 1784312890.1138942
+    },
+    {
+      "frame": 7,
+      "nonce": "4a760a94c7d4f886",
+      "ts": 1784312897.3353179
+    },
+    {
+      "frame": 8,
+      "nonce": "c8871f64c7f38483",
+      "ts": 1784312905.401878
+    },
+    {
+      "frame": 9,
+      "nonce": "f5a92f66d957556a",
+      "ts": 1784312911.7991283
+    },
+    {
+      "frame": 10,
+      "nonce": "667e213299f33073",
+      "ts": 1784312919.7287848
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fc5529715efed0fb",
+      "decision": "HOLD",
+      "reason": "early frame, large favorable multi-TF move already banked, giveback only 13%, no reversal signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "b0b0a73fd76bcb7c",
+      "decision": "HOLD",
+      "reason": "giveback spiked to 57% but still +53pts favorable; ER10 low suggests chop not confirmed reversal, no R-trigger break yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "bdd32d4be3a812c6",
+      "decision": "HOLD",
+      "reason": "px improved to +72 despite noisy ER10=0 chop; PROPP-against just fired but price hasn't turned yet, watching next frame"
+    },
+    {
+      "frame": 3,
+      "nonce": "8e60958926590a67",
+      "decision": "HOLD",
+      "reason": "px extended to +83.25, new leg giveback reset to 0%, PROPP/HA both firing with the move"
+    },
+    {
+      "frame": 4,
+      "nonce": "1c4bcc76285652e7",
+      "decision": "HOLD",
+      "reason": "pulled back to +66.5 from +83 peak but giveback only 13%, normal pullback not a confirmed reversal"
+    },
+    {
+      "frame": 5,
+      "nonce": "f0c4b2c46d2b2aac",
+      "decision": "HOLD",
+      "reason": "new favorable high +89, giveback down to 6%, PROPP-with confirming trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "3bd595ea8994daa7",
+      "decision": "HOLD",
+      "reason": "strong extension to +122, giveback 0%, lambda_t 5s=5.1 confirms trending not reverting"
+    },
+    {
+      "frame": 7,
+      "nonce": "4a760a94c7d4f886",
+      "decision": "HOLD",
+      "reason": "pullback to +105 from ~126 high, giveback only 10%, PROPP-with still confirming, no reversal signature"
+    },
+    {
+      "frame": 8,
+      "nonce": "c8871f64c7f38483",
+      "decision": "HOLD",
+      "reason": "px +100.75, giveback 15% still modest, PROPP-with holding, ER10 rising 0.41 = more directional"
+    },
+    {
+      "frame": 9,
+      "nonce": "f5a92f66d957556a",
+      "decision": "HOLD",
+      "reason": "px +91, giveback 26% still within normal range, PROPP-with continues, lambda_t 1m 30-window rising 3.87"
+    },
+    {
+      "frame": 10,
+      "nonce": "667e213299f33073",
+      "decision": "EXIT",
+      "reason": "sharp reversal: px fell ~60pts in 1min from +91 to +32.5, HA-against AND PROPP-against both fired together, fresh adverse leg starting at 0% giveback -- first dual-confirmed reversal signature in the episode"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Held through the trend expansion (px climbed from 0 to a ~122pt peak) while giveback stayed under ~30% and turn detectors (PROPP/HA/KMDR) mostly fired 'with' the position. Exited at frame 10 (+32.5pts) when px dropped ~60pts in a single minute AND both HA and PROPP fired 'against' simultaneously for the first time -- a dual-confirmed reversal signature, distinct from the earlier noisy single-detector or giveback-only wobbles I held through. Next time I'd watch for that same dual-detector-against confluence earlier, and also track whether waiting one more frame to confirm the leg extends would have cost or saved points."
+}

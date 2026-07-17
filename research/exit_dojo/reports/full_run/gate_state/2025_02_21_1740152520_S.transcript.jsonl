@@ -1,0 +1,13 @@
+{"ts": 1784314842.7994652, "event": "serve", "frame": 0, "nonce": "e5b66c256154d2ac"}
+{"ts": 1784314852.7595828, "event": "commit", "frame": 0, "nonce": "e5b66c256154d2ac", "decision": "HOLD", "reason": "px flat at entry, no signal yet, gather more frames"}
+{"ts": 1784314854.980625, "event": "serve", "frame": 1, "nonce": "2c19b482c17f8f6c"}
+{"ts": 1784314862.7273283, "event": "commit", "frame": 1, "nonce": "2c19b482c17f8f6c", "decision": "HOLD", "reason": "px -3pts small giveback, 2/3 local fires (HA,PROPP) with the trade, only KMDR against"}
+{"ts": 1784314865.258413, "event": "serve", "frame": 2, "nonce": "49acd226390109e5"}
+{"ts": 1784314873.4254985, "event": "commit", "frame": 2, "nonce": "49acd226390109e5", "decision": "HOLD", "reason": "px +30pts fresh leg, 0% giveback, 2/3 fires still with trade; let winner run per R-trigger logic"}
+{"ts": 1784314875.6750271, "event": "serve", "frame": 3, "nonce": "fbeb2ee086f3a754"}
+{"ts": 1784314880.1651053, "event": "commit", "frame": 3, "nonce": "fbeb2ee086f3a754", "decision": "HOLD", "reason": "px +43.25pts, still 0% giveback, momentum continuing favorably, no reversal signal yet"}
+{"ts": 1784314882.5141702, "event": "serve", "frame": 4, "nonce": "b83449f8d43c1eff"}
+{"ts": 1784314897.358335, "event": "commit", "frame": 4, "nonce": "b83449f8d43c1eff", "decision": "HOLD", "reason": "px +18.75 still profitable despite 51% giveback; watching closely, both fires now against"}
+{"ts": 1784314899.6577134, "event": "serve", "frame": 5, "nonce": "c8e3b3b2ced06aeb"}
+{"ts": 1784314905.7753527, "event": "commit", "frame": 5, "nonce": "c8e3b3b2ced06aeb", "decision": "EXIT", "reason": "61% giveback of 58.5pt leg, profit collapsed 43->18.75->7.25, 2/3 fires now against (KMDR,HA); lock in remaining gain before reversal erases it"}
+{"ts": 1784314910.8437057, "event": "finish", "summary": "Exited at +7.25pts after a fast favorable spike to +43.25pts collapsed under 61% giveback of the 58.5pt leg, with KMDR and HA flipping against the trade while only PROPP stayed with. The signature was the giveback-percentage acceleration (0%->51%->61% across three frames) combined with majority-detector reversal, not any single indicator alone. Next time I'd watch for the giveback rate slowing or a detector flipping back 'with' before extending the hold further into a fast unwind like this.", "exit_frame": 5, "n_commits": 6}

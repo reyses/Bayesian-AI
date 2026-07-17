@@ -1,0 +1,7 @@
+{"ts": 1784304654.3966196, "event": "serve", "frame": 0, "nonce": "4b0c144be3dd0083"}
+{"ts": 1784304654.8778381, "event": "commit", "frame": 0, "nonce": "4b0c144be3dd0083", "decision": "HOLD", "reason": "scripted-hold (dummy policy exit_at:2)"}
+{"ts": 1784304655.3334997, "event": "serve", "frame": 1, "nonce": "54e3ef2cdbdc7940"}
+{"ts": 1784304655.7964242, "event": "commit", "frame": 1, "nonce": "54e3ef2cdbdc7940", "decision": "HOLD", "reason": "scripted-hold (dummy policy exit_at:2)"}
+{"ts": 1784304656.2623184, "event": "serve", "frame": 2, "nonce": "5c3334e8a7cf846b"}
+{"ts": 1784304656.723118, "event": "commit", "frame": 2, "nonce": "5c3334e8a7cf846b", "decision": "EXIT", "reason": "scripted-exit (dummy policy exit_at:2)"}
+{"ts": 1784304657.1820533, "event": "finish", "summary": "dummy agent, policy=exit_at:2; scripted verification run.", "exit_frame": 2, "n_commits": 3}

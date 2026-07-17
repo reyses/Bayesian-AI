@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_01_08_1736355735_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6ea32c66ed11bade",
+      "ts": 1784305495.3848238
+    },
+    {
+      "frame": 1,
+      "nonce": "ad5209fdfda90260",
+      "ts": 1784305503.0312674
+    },
+    {
+      "frame": 2,
+      "nonce": "549625b4b319249a",
+      "ts": 1784305509.6918883
+    },
+    {
+      "frame": 3,
+      "nonce": "5df57b8504cfbdf7",
+      "ts": 1784305519.6364698
+    },
+    {
+      "frame": 4,
+      "nonce": "f99739442c572281",
+      "ts": 1784305526.954558
+    },
+    {
+      "frame": 5,
+      "nonce": "41e5be82bb741e40",
+      "ts": 1784305536.1507149
+    },
+    {
+      "frame": 6,
+      "nonce": "b5e5b9c02ccc3937",
+      "ts": 1784305543.516571
+    },
+    {
+      "frame": 7,
+      "nonce": "23b817f7c5eab5da",
+      "ts": 1784305550.416846
+    },
+    {
+      "frame": 8,
+      "nonce": "65a3f44e7f2d4368",
+      "ts": 1784305557.7073245
+    },
+    {
+      "frame": 9,
+      "nonce": "73dff1efe3b4b2da",
+      "ts": 1784305570.6685536
+    },
+    {
+      "frame": 10,
+      "nonce": "9f5e5113decc9059",
+      "ts": 1784305577.7110546
+    },
+    {
+      "frame": 11,
+      "nonce": "05e651990bf1e543",
+      "ts": 1784305583.7368157
+    },
+    {
+      "frame": 12,
+      "nonce": "48d5cbcbeeff9f41",
+      "ts": 1784305589.532672
+    },
+    {
+      "frame": 13,
+      "nonce": "ad2fb1fe254adf06",
+      "ts": 1784305595.4757037
+    },
+    {
+      "frame": 14,
+      "nonce": "36d175b914855ac4",
+      "ts": 1784305603.6300256
+    },
+    {
+      "frame": 15,
+      "nonce": "99ff44bdc9bd68ce",
+      "ts": 1784305611.0221188
+    },
+    {
+      "frame": 16,
+      "nonce": "fc1471a9b20fddd8",
+      "ts": 1784305617.1193118
+    },
+    {
+      "frame": 17,
+      "nonce": "e4ecfc5b2634673d",
+      "ts": 1784305623.4063585
+    },
+    {
+      "frame": 18,
+      "nonce": "f58431de13e896a5",
+      "ts": 1784305641.7356253
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6ea32c66ed11bade",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "ad5209fdfda90260",
+      "decision": "HOLD",
+      "reason": "px +11.25 favorable, no reversal signal, leg still young"
+    },
+    {
+      "frame": 2,
+      "nonce": "549625b4b319249a",
+      "decision": "HOLD",
+      "reason": "amp growing to 40pts, giveback only 15%, ER10 0.67 still trending; watching against-fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "5df57b8504cfbdf7",
+      "decision": "HOLD",
+      "reason": "px extended to +22.25, giveback shrank to 6%, trend still running despite against-fires"
+    },
+    {
+      "frame": 4,
+      "nonce": "f99739442c572281",
+      "decision": "HOLD",
+      "reason": "px +28.50, giveback only 3%, ER10 0.68, trend intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "41e5be82bb741e40",
+      "decision": "HOLD",
+      "reason": "px +37.75, ER10 spiked to 0.94, PROPP now with-trend, giveback low"
+    },
+    {
+      "frame": 6,
+      "nonce": "b5e5b9c02ccc3937",
+      "decision": "HOLD",
+      "reason": "px +50.75, giveback 0%, ER10 0.94, strong clean trend, no against signal"
+    },
+    {
+      "frame": 7,
+      "nonce": "23b817f7c5eab5da",
+      "decision": "HOLD",
+      "reason": "px +50.00 near highs, giveback 0%, ER10 0.99; PROPP flipped against, watching closely"
+    },
+    {
+      "frame": 8,
+      "nonce": "65a3f44e7f2d4368",
+      "decision": "HOLD",
+      "reason": "pulled back to +40.25 from +50 highs, giveback 18%, ER10 cooling to 0.77 but still trend-positive, no hard reversal yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "73dff1efe3b4b2da",
+      "decision": "HOLD",
+      "reason": "new high +56.50, giveback back to 1%, amp 84.2, trend resumed after pullback"
+    },
+    {
+      "frame": 10,
+      "nonce": "9f5e5113decc9059",
+      "decision": "HOLD",
+      "reason": "new high +58.50, giveback 0%, trend still making progress"
+    },
+    {
+      "frame": 11,
+      "nonce": "05e651990bf1e543",
+      "decision": "HOLD",
+      "reason": "new high +65.00, giveback low at 3%, trend continues"
+    },
+    {
+      "frame": 12,
+      "nonce": "48d5cbcbeeff9f41",
+      "decision": "HOLD",
+      "reason": "new high +80.50, giveback 0%, amp 96.8, PROPP back with-trend"
+    },
+    {
+      "frame": 13,
+      "nonce": "ad2fb1fe254adf06",
+      "decision": "HOLD",
+      "reason": "pullback to +69.75 off 83.25 high, giveback 10% still modest relative to 103pt amp, ER10 0.75 holding"
+    },
+    {
+      "frame": 14,
+      "nonce": "36d175b914855ac4",
+      "decision": "HOLD",
+      "reason": "px flat at +70.00, giveback steady 10%, ER10 cooling to 0.65 but no breakdown, still against-fires only"
+    },
+    {
+      "frame": 15,
+      "nonce": "99ff44bdc9bd68ce",
+      "decision": "HOLD",
+      "reason": "px recovered to +78.25, giveback shrank to 4%, still near highs"
+    },
+    {
+      "frame": 16,
+      "nonce": "fc1471a9b20fddd8",
+      "decision": "HOLD",
+      "reason": "new high +84.75, amp 116.0, giveback low 5%, trend still expanding"
+    },
+    {
+      "frame": 17,
+      "nonce": "e4ecfc5b2634673d",
+      "decision": "HOLD",
+      "reason": "px +85.25 near highs giveback 2%, but amp stalled (no fresh extension) and 1m lambda turned significantly negative (t=-2.66,-3.07) for first time -- watching for confirmation"
+    },
+    {
+      "frame": 18,
+      "nonce": "f58431de13e896a5",
+      "decision": "EXIT",
+      "reason": "1m lambda strongly negative across all windows two frames running (t=-3.3,-3.1,-3.4), giveback climbed to 16% (largest yet) off the 95.0 high -- taking the reversal signal at +77.00"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Rode a clean, strong short-favorable trend from 0 to a peak near +95pts with mostly low giveback (0-10%) and PROPP/ER10 confirming momentum for 17 minutes. Exited at +77.00 when the 1m lambda_hat turned significantly negative across all three windows (12/21/30) for two consecutive frames -- the first persistent, multi-window mean-reversion signal of the episode -- combined with giveback jumping to its highest reading yet (16%) off the 95.0 high. Next time I'd weight the lambda-sign persistence more heavily/earlier as the primary exit trigger rather than waiting for giveback confirmation, since the lambda flip preceded the bigger giveback by one frame."
+}

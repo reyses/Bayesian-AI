@@ -1,0 +1,100 @@
+{
+  "episode_id": "2026_03_13_1773408910_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f0608b46dd17cc0f",
+      "ts": 1784316104.4121768
+    },
+    {
+      "frame": 1,
+      "nonce": "aa6153640e9c83d2",
+      "ts": 1784316116.9786615
+    },
+    {
+      "frame": 2,
+      "nonce": "2bf450c4d017b4fe",
+      "ts": 1784316134.2304301
+    },
+    {
+      "frame": 3,
+      "nonce": "23266b618454494d",
+      "ts": 1784316154.294286
+    },
+    {
+      "frame": 4,
+      "nonce": "9ccaba30d1d46039",
+      "ts": 1784316173.6995091
+    },
+    {
+      "frame": 5,
+      "nonce": "919a3008c992f69b",
+      "ts": 1784316187.5777225
+    },
+    {
+      "frame": 6,
+      "nonce": "6110480db76549af",
+      "ts": 1784316198.2922244
+    },
+    {
+      "frame": 7,
+      "nonce": "30cdccb0aebedcd8",
+      "ts": 1784316217.918172
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f0608b46dd17cc0f",
+      "decision": "HOLD",
+      "reason": "frame 0, at entry, px flat, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "aa6153640e9c83d2",
+      "decision": "HOLD",
+      "reason": "px +23.25 favorable, stretched z(-2.4/-2.05) but early; hold through initial move"
+    },
+    {
+      "frame": 2,
+      "nonce": "2bf450c4d017b4fe",
+      "decision": "HOLD",
+      "reason": "profit gave back from +23 to +3.75 but still positive; against-signals noisy this early, not cutting a winner on a pullback"
+    },
+    {
+      "frame": 3,
+      "nonce": "23266b618454494d",
+      "decision": "HOLD",
+      "reason": "now -22 in drawdown, 3 against-signals stacked but no confirmed reversal-off-low trigger yet; not panic-cutting a loser on first stretch"
+    },
+    {
+      "frame": 4,
+      "nonce": "9ccaba30d1d46039",
+      "decision": "HOLD",
+      "reason": "px -33.75, deeper DD, but z_21=2.2 extended and PROPP flipped to with-position, first reversion-favoring signal; holding for R-trigger recovery"
+    },
+    {
+      "frame": 5,
+      "nonce": "919a3008c992f69b",
+      "decision": "HOLD",
+      "reason": "px flat at -33.75 vs prior frame, not making new lows, no confirmed cascade; still waiting for reversal-trigger before cutting"
+    },
+    {
+      "frame": 6,
+      "nonce": "6110480db76549af",
+      "decision": "HOLD",
+      "reason": "px -39.25 new leg extreme, but PROPP flipped with-position at z_21=1.71 extension; watching for the reversal bounce before giving up"
+    },
+    {
+      "frame": 7,
+      "nonce": "30cdccb0aebedcd8",
+      "decision": "EXIT",
+      "reason": "px -73.25, accelerating loss (-34pts in 1m), lambda_hat_12=+0.195 t=2.55 sig trend continuation against, reversion_prob_30 collapsed to 0.667 from ~0.95 - this is a lambda>0 ride regime working against the short, not noise; cutting"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Position bled from +23 peak through a choppy giveback into a steadily deepening drawdown (-22, -34, -39, -73), and I held through the early stretch on the R-trigger/no-fixed-stop prior since drawdown alone is a proven-bad exit rule. The exit trigger was the -34pt-in-one-minute acceleration at frame 7 coinciding with a significant positive lambda_hat_12 (t=2.55) and reversion_prob_30 collapsing from ~0.95 to 0.667 - i.e. the regime flipped from mean-reverting to genuinely trending against the short, which is the one signature (lambda sign flip + confidence collapse) that should override 'let it ride'. Next time I'd watch reversion_prob_30 and lambda_t continuously rather than only reacting to price giveback, since price alone lagged the regime-change signal by at least one frame."
+}

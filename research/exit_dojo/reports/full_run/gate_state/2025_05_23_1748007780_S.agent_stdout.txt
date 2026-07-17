@@ -1,0 +1,8 @@
+# exit_code=0 dt=689s
+## STDOUT
+Episode closed. Held through frames 0â€“7 as amplitude kept making new highs with low giveback, then exited at frame 8 (+7.5pts) when HA and PROPP fired against simultaneously alongside a 44% giveback spike and a 27pt one-bar drop â€” a stronger, dual-corroborated reversal signature than the earlier single-fire 42% giveback blip that had recovered.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

@@ -1,0 +1,320 @@
+{
+  "episode_id": "2025_01_22_1737566080_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f889dc7739a95471",
+      "ts": 1784306107.758367
+    },
+    {
+      "frame": 1,
+      "nonce": "e5c877f64e2cc48d",
+      "ts": 1784306138.8630028
+    },
+    {
+      "frame": 2,
+      "nonce": "f6a6981e789e1836",
+      "ts": 1784306158.4858046
+    },
+    {
+      "frame": 3,
+      "nonce": "60e7e344fc375bde",
+      "ts": 1784306167.5974786
+    },
+    {
+      "frame": 4,
+      "nonce": "eec4ae943beeba6d",
+      "ts": 1784306179.6310902
+    },
+    {
+      "frame": 5,
+      "nonce": "dd0dd368914898db",
+      "ts": 1784306194.4111345
+    },
+    {
+      "frame": 6,
+      "nonce": "defd111531257601",
+      "ts": 1784306203.1919541
+    },
+    {
+      "frame": 7,
+      "nonce": "fe16da36622d8005",
+      "ts": 1784306216.0476787
+    },
+    {
+      "frame": 8,
+      "nonce": "1fce48219a2ed14c",
+      "ts": 1784306230.5656853
+    },
+    {
+      "frame": 9,
+      "nonce": "4a40cfe276518317",
+      "ts": 1784306239.6369
+    },
+    {
+      "frame": 10,
+      "nonce": "757d9a0afe66164b",
+      "ts": 1784306251.708402
+    },
+    {
+      "frame": 11,
+      "nonce": "f10ba138a03795cf",
+      "ts": 1784306260.2403572
+    },
+    {
+      "frame": 12,
+      "nonce": "10638eb0ebe7ca0c",
+      "ts": 1784306268.447784
+    },
+    {
+      "frame": 13,
+      "nonce": "13dc145e648ca55c",
+      "ts": 1784306278.3987036
+    },
+    {
+      "frame": 14,
+      "nonce": "a1e3cfe47f1a822d",
+      "ts": 1784306287.9721687
+    },
+    {
+      "frame": 15,
+      "nonce": "35296ea822b06be5",
+      "ts": 1784306297.681637
+    },
+    {
+      "frame": 16,
+      "nonce": "de89007939733c07",
+      "ts": 1784306305.7318463
+    },
+    {
+      "frame": 17,
+      "nonce": "1de3ca6226b09557",
+      "ts": 1784306317.02747
+    },
+    {
+      "frame": 18,
+      "nonce": "99221471194dbe58",
+      "ts": 1784306329.701742
+    },
+    {
+      "frame": 19,
+      "nonce": "60ac98fcc9702aff",
+      "ts": 1784306337.2956114
+    },
+    {
+      "frame": 20,
+      "nonce": "4bd3969828823bae",
+      "ts": 1784306345.855389
+    },
+    {
+      "frame": 21,
+      "nonce": "336008953f69dae9",
+      "ts": 1784306360.4045112
+    },
+    {
+      "frame": 22,
+      "nonce": "53d314100f2b36dc",
+      "ts": 1784306369.0827553
+    },
+    {
+      "frame": 23,
+      "nonce": "3b967a50469fa502",
+      "ts": 1784306377.18165
+    },
+    {
+      "frame": 24,
+      "nonce": "2f1aa59b709ad495",
+      "ts": 1784306385.698142
+    },
+    {
+      "frame": 25,
+      "nonce": "2bbe7e1fade8e216",
+      "ts": 1784306393.7058845
+    },
+    {
+      "frame": 26,
+      "nonce": "86b21278f6940d12",
+      "ts": 1784306405.7793732
+    },
+    {
+      "frame": 27,
+      "nonce": "43768c0c6f26f000",
+      "ts": 1784306416.869838
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f889dc7739a95471",
+      "decision": "HOLD",
+      "reason": "Frame 0, px flat at entry, mixed lambda signals, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "e5c877f64e2cc48d",
+      "decision": "HOLD",
+      "reason": "Giveback 19% w/ 2 against-fires but z_se extreme+lambda positive=momentum continuation regime, single drawdown frame not enough to cut"
+    },
+    {
+      "frame": 2,
+      "nonce": "f6a6981e789e1836",
+      "decision": "HOLD",
+      "reason": "Giveback easing 19%->13%, no new against-fires, stabilizing not worsening"
+    },
+    {
+      "frame": 3,
+      "nonce": "60e7e344fc375bde",
+      "decision": "HOLD",
+      "reason": "Giveback creeping to 23% but vol contracting and loss still small (-5.25pts), no fresh fires"
+    },
+    {
+      "frame": 4,
+      "nonce": "eec4ae943beeba6d",
+      "decision": "HOLD",
+      "reason": "New leg registered (age 1m amp 10), px -7.5 but vol contracting hard and mixed with/against fires, not a clean breakdown yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "dd0dd368914898db",
+      "decision": "HOLD",
+      "reason": "px recovered -7.5->-4.0, vol still contracting, no fresh against fire this bar"
+    },
+    {
+      "frame": 6,
+      "nonce": "defd111531257601",
+      "decision": "HOLD",
+      "reason": "px -7.75 but both HA and PROPP now firing WITH the position, vol still contracting, no against signal"
+    },
+    {
+      "frame": 7,
+      "nonce": "fe16da36622d8005",
+      "decision": "HOLD",
+      "reason": "px -8.5, chopping in a -4 to -9 range for several minutes, HA flipped against but vol flat/no breakout yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "1fce48219a2ed14c",
+      "decision": "HOLD",
+      "reason": "px recovered to -6.5, vol still contracting, ER10 very low = chop, no decisive breakdown"
+    },
+    {
+      "frame": 9,
+      "nonce": "4a40cfe276518317",
+      "decision": "HOLD",
+      "reason": "px recovered to -2.25 near breakeven, 5s z_se extreme with reversion_prob 0 = momentum continuation in our favor, no reason to exit into strength"
+    },
+    {
+      "frame": 10,
+      "nonce": "757d9a0afe66164b",
+      "decision": "HOLD",
+      "reason": "px -1.75 near breakeven, HA firing with, momentum still constructive"
+    },
+    {
+      "frame": 11,
+      "nonce": "f10ba138a03795cf",
+      "decision": "HOLD",
+      "reason": "px flat -1.75, ER10 near zero = pure chop, no directional edge to act on, staying in"
+    },
+    {
+      "frame": 12,
+      "nonce": "10638eb0ebe7ca0c",
+      "decision": "HOLD",
+      "reason": "px -4.25, ER10 ~0 = pure noise regime, been ranging -1.75/-8.5 for 12min, no trend break to justify exit"
+    },
+    {
+      "frame": 13,
+      "nonce": "13dc145e648ca55c",
+      "decision": "HOLD",
+      "reason": "px -8.75, new low of the chop range but no fires against, still inside established -1.75/-9.5 band"
+    },
+    {
+      "frame": 14,
+      "nonce": "a1e3cfe47f1a822d",
+      "decision": "HOLD",
+      "reason": "px -8.25, still inside established chop range, ER10 near zero = no trend to fade or ride yet"
+    },
+    {
+      "frame": 15,
+      "nonce": "35296ea822b06be5",
+      "decision": "HOLD",
+      "reason": "px back to -2.50, ER10 essentially zero, continued chop, no reason to act"
+    },
+    {
+      "frame": 16,
+      "nonce": "de89007939733c07",
+      "decision": "HOLD",
+      "reason": "px -3.75, still in familiar chop band, HA with, no breakdown signal"
+    },
+    {
+      "frame": 17,
+      "nonce": "1de3ca6226b09557",
+      "decision": "HOLD",
+      "reason": "px -2.00, vol continuing to contract, chop persists, HA with"
+    },
+    {
+      "frame": 18,
+      "nonce": "99221471194dbe58",
+      "decision": "HOLD",
+      "reason": "px -3.75, vol contracting further (1.6), range tightening, no decisive break"
+    },
+    {
+      "frame": 19,
+      "nonce": "60ac98fcc9702aff",
+      "decision": "HOLD",
+      "reason": "px -2.50, vol compressing further to 1.2, HA with, tight range persists"
+    },
+    {
+      "frame": 20,
+      "nonce": "4bd3969828823bae",
+      "decision": "HOLD",
+      "reason": "px back to breakeven, vol compressed to 1.4/ER10 0.05 = coiled range, waiting for the eventual break"
+    },
+    {
+      "frame": 21,
+      "nonce": "336008953f69dae9",
+      "decision": "HOLD",
+      "reason": "px -7.50, back to same familiar range low, still chop, HA with"
+    },
+    {
+      "frame": 22,
+      "nonce": "53d314100f2b36dc",
+      "decision": "HOLD",
+      "reason": "px -5.25, still ranging in familiar band, no clean break either direction"
+    },
+    {
+      "frame": 23,
+      "nonce": "3b967a50469fa502",
+      "decision": "HOLD",
+      "reason": "px -1.75, 20min in, still same rangebound chop, ER10 near zero"
+    },
+    {
+      "frame": 24,
+      "nonce": "2f1aa59b709ad495",
+      "decision": "HOLD",
+      "reason": "px flipped positive +3.25 for the first time since early excursion, HA with, let it run a bit"
+    },
+    {
+      "frame": 25,
+      "nonce": "2bbe7e1fade8e216",
+      "decision": "HOLD",
+      "reason": "px +1.00, vol expanding with fresh PROPP-against fire this bar - watching closely but not enough to cut yet"
+    },
+    {
+      "frame": 26,
+      "nonce": "86b21278f6940d12",
+      "decision": "HOLD",
+      "reason": "px -6.25, back inside the same established range, ER10 near zero"
+    },
+    {
+      "frame": 27,
+      "nonce": "43768c0c6f26f000",
+      "decision": "EXIT",
+      "reason": "px +4.25, best point of the trade, but BOTH HA and PROPP firing against fresh this bar right at the local high after a 17pt spike - this exact spike-then-against-fire pattern has preceded reversals back to losses twice already in this chop; locking in the favorable print"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 27,
+  "finished": true,
+  "summary": "Exited at t=27m with px +4.25, the first clean profitable print after 26 minutes of tight, low-ER10 chop oscillating roughly -9 to +3 around entry. The trigger was a fresh new leg (age 1m, amp 17pts, giveback only 7%) coinciding with BOTH HA and PROPP firing against the position simultaneously right at the local high - a spike-then-dual-against-fire signature that had already preceded two prior reversals back into losses earlier in the episode (t=9-14m and t=24-26m). Watch next time: treat simultaneous against-fires at a fresh local extreme as the key reversal tell in choppy/low-ER10 regimes, rather than holding through every drawdown - the earlier holds were validated by recoveries, but repeated spike-and-dump structure meant the edge was in banking strength once two independent detectors agreed against continuation."
+}

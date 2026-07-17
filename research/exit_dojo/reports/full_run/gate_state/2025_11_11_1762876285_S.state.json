@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_11_11_1762876285_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "568d6f32fbf5820c",
+      "ts": 1784313326.6404445
+    },
+    {
+      "frame": 1,
+      "nonce": "30f9cc1673e08b19",
+      "ts": 1784313336.2760396
+    },
+    {
+      "frame": 2,
+      "nonce": "3982f1cf93a08947",
+      "ts": 1784313346.111851
+    },
+    {
+      "frame": 3,
+      "nonce": "d63accf66b8a03a8",
+      "ts": 1784313354.5786982
+    },
+    {
+      "frame": 4,
+      "nonce": "b0e7099c341dabe5",
+      "ts": 1784313370.1036184
+    },
+    {
+      "frame": 5,
+      "nonce": "479e7e8669a9d997",
+      "ts": 1784313377.5061648
+    },
+    {
+      "frame": 6,
+      "nonce": "bf4d4409c6b228fb",
+      "ts": 1784313387.0465593
+    },
+    {
+      "frame": 7,
+      "nonce": "3a547a44d873e06b",
+      "ts": 1784313402.4221513
+    },
+    {
+      "frame": 8,
+      "nonce": "3ffce3076ffbe2e7",
+      "ts": 1784313418.8200293
+    },
+    {
+      "frame": 9,
+      "nonce": "474a1d9c500c17f8",
+      "ts": 1784313434.2742252
+    },
+    {
+      "frame": 10,
+      "nonce": "eefbd4335dc0f567",
+      "ts": 1784313448.8003733
+    },
+    {
+      "frame": 11,
+      "nonce": "9373208dfb677b69",
+      "ts": 1784313459.1123042
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "568d6f32fbf5820c",
+      "decision": "HOLD",
+      "reason": "entry frame, 0 pts, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "30f9cc1673e08b19",
+      "decision": "HOLD",
+      "reason": "small +2pt profit, 1m lambda strongly negative (fade continuing in our favor), low giveback"
+    },
+    {
+      "frame": 2,
+      "nonce": "3982f1cf93a08947",
+      "decision": "HOLD",
+      "reason": "profit growing to +4.5, 1m lambda still strongly negative supporting continued fade, giveback modest at 10%"
+    },
+    {
+      "frame": 3,
+      "nonce": "d63accf66b8a03a8",
+      "decision": "HOLD",
+      "reason": "gave back to -0.5 but 1m lambda still deeply negative (t=-4.8) supporting continued fade; PROPP-with fired 1m ago"
+    },
+    {
+      "frame": 4,
+      "nonce": "b0e7099c341dabe5",
+      "decision": "HOLD",
+      "reason": "recovered to +3.75, giveback down to 3%, 1m lambda still strongly negative (t=-4.9) despite PROPP-against fire"
+    },
+    {
+      "frame": 5,
+      "nonce": "479e7e8669a9d997",
+      "decision": "HOLD",
+      "reason": "profit now +10.5, giveback 0%, but KMDR-against just fired (leading turn signal) - watching closely next frame"
+    },
+    {
+      "frame": 6,
+      "nonce": "bf4d4409c6b228fb",
+      "decision": "HOLD",
+      "reason": "profit eroded to +0.5 from +10.5 but 1m lambda still negative; cutting winners on giveback is a known losing pattern, holding for the tail"
+    },
+    {
+      "frame": 7,
+      "nonce": "3a547a44d873e06b",
+      "decision": "HOLD",
+      "reason": "now -8.25 (25% giveback), KMDR+HA both against, but 1m lambda still net negative and known finding: bailing losers on drawdown is a losing pattern (R-trigger recovers off low)"
+    },
+    {
+      "frame": 8,
+      "nonce": "3ffce3076ffbe2e7",
+      "decision": "HOLD",
+      "reason": "-18.00, giveback 37%, vol expanding, but 1m lambda_21/30 still net negative (t=-2.0/-2.3) and PROPP-with just fired; holding per no-stop-loss pattern"
+    },
+    {
+      "frame": 9,
+      "nonce": "474a1d9c500c17f8",
+      "decision": "HOLD",
+      "reason": "flat at -19, new leg started (age reset), 1m lambda_30 still sig negative (t=-2.48) supporting reversion"
+    },
+    {
+      "frame": 10,
+      "nonce": "eefbd4335dc0f567",
+      "decision": "HOLD",
+      "reason": "-20.75, stable range last 3 frames, 1m z_21 stretched to +2.0 (overbought vs 1m mean), lambda_30 sig negative, PROPP-with fired, no turn-against fires this frame"
+    },
+    {
+      "frame": 11,
+      "nonce": "9373208dfb677b69",
+      "decision": "EXIT",
+      "reason": "1m z_21 stretched to +1.99 (>Z* threshold) AND lambda_hat_12 flipped strongly positive (t=+4.43) - ride not fade signature, adverse trend continuation risk outweighs further hold at -28"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Held through several profit-giveback and drawdown cycles (per known finding that cutting winners/losers on drawdown alone is a losing pattern), anchored on the 1m lambda_hat sign as the primary hold/exit signal. Exited at frame 11 (-28pts) when the signature flipped from fade-supportive to the danger case: 1m z_21 stretched to +1.99 (above the ~1.85 Z* threshold) while lambda_hat_12 flipped strongly positive (t=+4.43), i.e. stretched-and-trending rather than stretched-and-reverting - the master equation's ride case working against a short. Next time: watch for lambda sign flips on the SHORT lookback (12) specifically, since it led the longer lookbacks (21/30) here and the longer ones stayed negative right up to the flip, which could otherwise mask the regime change."
+}

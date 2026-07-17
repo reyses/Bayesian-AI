@@ -1,0 +1,21 @@
+{"ts": 1784315050.736357, "event": "serve", "frame": 0, "nonce": "521c16c79cb89a1a"}
+{"ts": 1784315056.954172, "event": "commit", "frame": 0, "nonce": "521c16c79cb89a1a", "decision": "HOLD", "reason": "just entered, no adverse move yet, let trade develop"}
+{"ts": 1784315059.5074892, "event": "serve", "frame": 1, "nonce": "8496b201a133f6fe"}
+{"ts": 1784315070.5640147, "event": "commit", "frame": 1, "nonce": "8496b201a133f6fe", "decision": "HOLD", "reason": "adverse -10.25pts but giveback only 7% of 162pt amp, early in leg"}
+{"ts": 1784315073.1192822, "event": "serve", "frame": 2, "nonce": "b3652a45c4b5e730"}
+{"ts": 1784315078.1506736, "event": "commit", "frame": 2, "nonce": "b3652a45c4b5e730", "decision": "HOLD", "reason": "giveback improved to 5%, price stabilizing, no acceleration against"}
+{"ts": 1784315080.7020586, "event": "serve", "frame": 3, "nonce": "65b4665ee971825a"}
+{"ts": 1784315086.5894754, "event": "commit", "frame": 3, "nonce": "65b4665ee971825a", "decision": "HOLD", "reason": "px jumped to +28.5, giveback 0%, fires now WITH position (HA, PROPP), let it run"}
+{"ts": 1784315090.685531, "event": "serve", "frame": 4, "nonce": "2b2feb4de995b6ba"}
+{"ts": 1784315096.4429328, "event": "commit", "frame": 4, "nonce": "2b2feb4de995b6ba", "decision": "HOLD", "reason": "pullback to +14 from +28.5 but still net positive, giveback only 7%, PROPP still with"}
+{"ts": 1784315099.5749025, "event": "serve", "frame": 5, "nonce": "fcaec789f4d44b3f"}
+{"ts": 1784315106.0197039, "event": "commit", "frame": 5, "nonce": "fcaec789f4d44b3f", "decision": "HOLD", "reason": "still +12 net favorable, giveback 10% within normal range, PROPP still with"}
+{"ts": 1784315108.4081972, "event": "serve", "frame": 6, "nonce": "b6b644334bca5b8c"}
+{"ts": 1784315121.9538329, "event": "commit", "frame": 6, "nonce": "b6b644334bca5b8c", "decision": "HOLD", "reason": "flipped to -7.75, giveback 25%, ER10 collapsed to 0.24 - watching closely for confirmed reversal next frame"}
+{"ts": 1784315124.334384, "event": "serve", "frame": 7, "nonce": "34a86407d6784498"}
+{"ts": 1784315133.419272, "event": "commit", "frame": 7, "nonce": "34a86407d6784498", "decision": "HOLD", "reason": "px back to +18.5 favorable despite choppy ER10 0.18; new leg swing but net still good"}
+{"ts": 1784315135.7019758, "event": "serve", "frame": 8, "nonce": "da9368baa1e5afa6"}
+{"ts": 1784315140.5259175, "event": "commit", "frame": 8, "nonce": "da9368baa1e5afa6", "decision": "HOLD", "reason": "still net +11, choppy but no clean reversal signature, mixed fires"}
+{"ts": 1784315144.6139207, "event": "serve", "frame": 9, "nonce": "eeac0ad12f2d399d"}
+{"ts": 1784315154.8136845, "event": "commit", "frame": 9, "nonce": "eeac0ad12f2d399d", "decision": "EXIT", "reason": "px eroded from +28.5 peak to +1.75, ER10 bottomed at 0.09 (dead trend), vol compressing, PROPP flipped against - exiting near breakeven before reversal"}
+{"ts": 1784315161.7329073, "event": "finish", "summary": "Exited on the exhaustion signature: after peaking at +28.5pts the leg bled down through repeated whipsaws while ER10 monotonically collapsed (0.74 to 0.09) and vol(5m) compressed, with PROPP flipping from with to against right at the exit frame. Rather than let a fading, low-efficiency trend round-trip into a loss, closed near breakeven (+1.75pts). Next time I'd watch for ER10 sustained under ~0.2 combined with shrinking vol as the primary stall/reversal tell, and treat two consecutive against-fires from the same detector (KMDR, then PROPP) as a stronger trigger than a single fire.", "exit_frame": 9, "n_commits": 10}

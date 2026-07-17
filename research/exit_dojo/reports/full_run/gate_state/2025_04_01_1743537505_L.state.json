@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_04_01_1743537505_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "36c5c95fc376ff37",
+      "ts": 1784316436.6729996
+    },
+    {
+      "frame": 1,
+      "nonce": "4a00a8c6ed43887c",
+      "ts": 1784316443.8211434
+    },
+    {
+      "frame": 2,
+      "nonce": "3fab44165ca96732",
+      "ts": 1784316452.9157631
+    },
+    {
+      "frame": 3,
+      "nonce": "8e8068fb5aebfac4",
+      "ts": 1784316460.4666035
+    },
+    {
+      "frame": 4,
+      "nonce": "3704b09154e404f0",
+      "ts": 1784316470.6579556
+    },
+    {
+      "frame": 5,
+      "nonce": "360a9f2d0fc44767",
+      "ts": 1784316477.1714473
+    },
+    {
+      "frame": 6,
+      "nonce": "13171314db4c7a24",
+      "ts": 1784316486.160251
+    },
+    {
+      "frame": 7,
+      "nonce": "c998462f7cde4359",
+      "ts": 1784316491.8242435
+    },
+    {
+      "frame": 8,
+      "nonce": "3fce93a1eb76408d",
+      "ts": 1784316502.3717914
+    },
+    {
+      "frame": 9,
+      "nonce": "616d5472004d9a54",
+      "ts": 1784316510.0843523
+    },
+    {
+      "frame": 10,
+      "nonce": "e95e5f698150b756",
+      "ts": 1784316517.1750247
+    },
+    {
+      "frame": 11,
+      "nonce": "bc08a3dd81973e67",
+      "ts": 1784316526.4079285
+    },
+    {
+      "frame": 12,
+      "nonce": "3dc0f6490f3d9092",
+      "ts": 1784316539.5518064
+    },
+    {
+      "frame": 13,
+      "nonce": "e51933da1bf52710",
+      "ts": 1784316547.3580604
+    },
+    {
+      "frame": 14,
+      "nonce": "e0c961ab150ccf26",
+      "ts": 1784316554.5691445
+    },
+    {
+      "frame": 15,
+      "nonce": "ec2bcb2d24b58f89",
+      "ts": 1784316561.171121
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "36c5c95fc376ff37",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at entry, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "4a00a8c6ed43887c",
+      "decision": "HOLD",
+      "reason": "px only -1.25, 1m bar closed strong +6.5 off the low, momentum still with the trade"
+    },
+    {
+      "frame": 2,
+      "nonce": "3fab44165ca96732",
+      "decision": "HOLD",
+      "reason": "px back to +2.0, giveback improved to 15%, still choppy but net favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "8e8068fb5aebfac4",
+      "decision": "HOLD",
+      "reason": "still net positive +0.5, amp stalled at 32.8 for 3 frames but no breakdown below entry yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "3704b09154e404f0",
+      "decision": "HOLD",
+      "reason": "px improved to +5.0, giveback down to 11%, 5s/15s bars closing strong near highs"
+    },
+    {
+      "frame": 5,
+      "nonce": "360a9f2d0fc44767",
+      "decision": "HOLD",
+      "reason": "px still +1.25 but giveback jumped to 34% after new amp high 35pts, watching for further decay"
+    },
+    {
+      "frame": 6,
+      "nonce": "13171314db4c7a24",
+      "decision": "HOLD",
+      "reason": "px +3.5, giveback recovered to 14%, still net favorable"
+    },
+    {
+      "frame": 7,
+      "nonce": "c998462f7cde4359",
+      "decision": "HOLD",
+      "reason": "px +1.0, stalled/choppy (ER10 0.10) but amp high 35 not broken, still net favorable"
+    },
+    {
+      "frame": 8,
+      "nonce": "3fce93a1eb76408d",
+      "decision": "HOLD",
+      "reason": "px near flat -0.5, leg reset (new small leg 10.5pts), no clear breakdown"
+    },
+    {
+      "frame": 9,
+      "nonce": "616d5472004d9a54",
+      "decision": "HOLD",
+      "reason": "px +3.25, 1m lambda_hat_12 strongly positive (t=7.4) suggesting momentum building, not a breakdown"
+    },
+    {
+      "frame": 10,
+      "nonce": "e95e5f698150b756",
+      "decision": "HOLD",
+      "reason": "small dip to -2.25, but 1m lambda still strongly positive (t=7.1) and HA-with fired, giveback modest 9%"
+    },
+    {
+      "frame": 11,
+      "nonce": "bc08a3dd81973e67",
+      "decision": "HOLD",
+      "reason": "px -2.5, at leg low but 1m lambda still strongly positive (t=7.6), z_se -1.7 suggests oversold/reversion-up likely"
+    },
+    {
+      "frame": 12,
+      "nonce": "3dc0f6490f3d9092",
+      "decision": "HOLD",
+      "reason": "px near flat -0.25, 1m lambda extremely strong positive (t=8.7), no breakdown"
+    },
+    {
+      "frame": 13,
+      "nonce": "e51933da1bf52710",
+      "decision": "HOLD",
+      "reason": "px +0.5, 1m bar closed strong +4.5 near high, lambda still positive"
+    },
+    {
+      "frame": 14,
+      "nonce": "e0c961ab150ccf26",
+      "decision": "HOLD",
+      "reason": "px -2.0, choppy but 1m lambda still positive (t=3.3-3.7), no clean breakdown"
+    },
+    {
+      "frame": 15,
+      "nonce": "ec2bcb2d24b58f89",
+      "decision": "HOLD",
+      "reason": "px +3.75, best close in a while, 5s z_se strongly positive, staying in"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Never exited - held through the full 15-frame window. The trade oscillated in a tight +/-5pt band around entry with repeated partial gives-back (giveback% swung 0-50%) but never broke meaningfully negative; 1m lambda_hat stayed persistently positive (t-stats 3-8) through most of the back half, which read as continuation support rather than breakdown, so each dip looked like noise inside the leg rather than a reversal. Next time I'd watch for a sustained negative-lambda flip on 1m/5m together with ER10 collapsing AND giveback pinned above ~40% for multiple consecutive frames as the actual exit trigger, rather than treating single-frame giveback spikes as signal."
+}

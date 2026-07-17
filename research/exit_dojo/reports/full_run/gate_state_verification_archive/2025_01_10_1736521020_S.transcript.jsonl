@@ -1,0 +1,3 @@
+{"ts": 1784304671.5164957, "event": "serve", "frame": 0, "nonce": "406897fc87b1818c"}
+{"ts": 1784304673.12681, "event": "commit", "frame": 0, "nonce": "406897fc87b1818c", "decision": "EXIT", "reason": "test exit"}
+{"ts": 1784304674.635034, "event": "finish", "summary": "gate enforcement test", "exit_frame": 0, "n_commits": 1}

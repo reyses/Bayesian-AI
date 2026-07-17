@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_01_03_1735934940_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "36e9498b79c3e8ab",
+      "ts": 1784304738.2537029
+    },
+    {
+      "frame": 1,
+      "nonce": "645725f8d96fb1e1",
+      "ts": 1784304749.06371
+    },
+    {
+      "frame": 2,
+      "nonce": "98a1d0eb4c02da87",
+      "ts": 1784304760.2799363
+    },
+    {
+      "frame": 3,
+      "nonce": "6d0ac36235ae61c6",
+      "ts": 1784304781.1666386
+    },
+    {
+      "frame": 4,
+      "nonce": "f226e75239c5bd50",
+      "ts": 1784304789.6465154
+    },
+    {
+      "frame": 5,
+      "nonce": "3a35fd1b6271b306",
+      "ts": 1784304797.1264138
+    },
+    {
+      "frame": 6,
+      "nonce": "d265c8e676a039fa",
+      "ts": 1784304807.3065789
+    },
+    {
+      "frame": 7,
+      "nonce": "8c4682bcc5b35c44",
+      "ts": 1784304816.3369665
+    },
+    {
+      "frame": 8,
+      "nonce": "1ac4216f4959497f",
+      "ts": 1784304826.3085124
+    },
+    {
+      "frame": 9,
+      "nonce": "9f6aa46a698862fd",
+      "ts": 1784304834.1146386
+    },
+    {
+      "frame": 10,
+      "nonce": "573a10343969de04",
+      "ts": 1784304841.5466583
+    },
+    {
+      "frame": 11,
+      "nonce": "0bb62c624b8a5c2c",
+      "ts": 1784304853.9837368
+    },
+    {
+      "frame": 12,
+      "nonce": "9d72a64a56647616",
+      "ts": 1784304862.082732
+    },
+    {
+      "frame": 13,
+      "nonce": "f13eb0d47456b885",
+      "ts": 1784304870.2999203
+    },
+    {
+      "frame": 14,
+      "nonce": "67b9bef70a6ed332",
+      "ts": 1784304879.6014152
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "36e9498b79c3e8ab",
+      "decision": "HOLD",
+      "reason": "Just entered, leg age 0m, no adverse structure yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "645725f8d96fb1e1",
+      "decision": "HOLD",
+      "reason": "Flat px, only 1m in, no clear adverse signature"
+    },
+    {
+      "frame": 2,
+      "nonce": "98a1d0eb4c02da87",
+      "decision": "HOLD",
+      "reason": "Only -4pt drawdown, giveback low (3%), still within normal noise band"
+    },
+    {
+      "frame": 3,
+      "nonce": "6d0ac36235ae61c6",
+      "decision": "HOLD",
+      "reason": "px turned favorable +5.75, HA-with fired, holding for more"
+    },
+    {
+      "frame": 4,
+      "nonce": "f226e75239c5bd50",
+      "decision": "HOLD",
+      "reason": "Back near flat, choppy low-ER10 chop, no clean signal either way"
+    },
+    {
+      "frame": 5,
+      "nonce": "3a35fd1b6271b306",
+      "decision": "HOLD",
+      "reason": "New leg started, px flat at 0, but noting HA+PROPP both against now"
+    },
+    {
+      "frame": 6,
+      "nonce": "d265c8e676a039fa",
+      "decision": "HOLD",
+      "reason": "Small -3.25pt drawdown, choppy low-ER regime, still within noise"
+    },
+    {
+      "frame": 7,
+      "nonce": "8c4682bcc5b35c44",
+      "decision": "HOLD",
+      "reason": "Drawdown growing to -5.25, ER10 rising (more directional) but not yet decisive"
+    },
+    {
+      "frame": 8,
+      "nonce": "1ac4216f4959497f",
+      "decision": "HOLD",
+      "reason": "Drawdown recovering to -3.50 from -5.25, no acceleration against us"
+    },
+    {
+      "frame": 9,
+      "nonce": "9f6aa46a698862fd",
+      "decision": "HOLD",
+      "reason": "Still range-bound -3 to -5, HA-with just fired favorably"
+    },
+    {
+      "frame": 10,
+      "nonce": "573a10343969de04",
+      "decision": "HOLD",
+      "reason": "Stagnant -5pt chop, vol declining, ER10 near zero - dead chop not a breakdown"
+    },
+    {
+      "frame": 11,
+      "nonce": "0bb62c624b8a5c2c",
+      "decision": "HOLD",
+      "reason": "px recovering to -1.50, best level in several minutes, HA-with fired"
+    },
+    {
+      "frame": 12,
+      "nonce": "9d72a64a56647616",
+      "decision": "HOLD",
+      "reason": "px back to breakeven +0.75, trend improving in our favor"
+    },
+    {
+      "frame": 13,
+      "nonce": "f13eb0d47456b885",
+      "decision": "HOLD",
+      "reason": "px continues improving to +2.75, momentum in our favor"
+    },
+    {
+      "frame": 14,
+      "nonce": "67b9bef70a6ed332",
+      "decision": "EXIT",
+      "reason": "Whipsawed back from +2.75 to -4.25, giveback 93% of leg, HA+PROPP both fire against simultaneously for first time - confluence against position"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Exited on the t=14m whipsaw back to -4.25 after touching +2.75, driven by HA-against and PROPP-against firing simultaneously for the first time (previously they alternated) combined with 93% giveback of the current leg's amplitude - a stronger confluence than the earlier -3 to -5 chop that I held through. Next time I'd watch for that simultaneous dual-fire-against signature earlier as the real regime-change tell, rather than treating every drawdown dip in a choppy low-ER10 range the same; the position never built a sustained favorable excursion (best was +5.75 at t=3m) which in hindsight was itself a warning that this leg lacked directional conviction."
+}

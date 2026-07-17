@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_10_10_1760108275_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3313ec01d270bdae",
+      "ts": 1784312819.0444589
+    },
+    {
+      "frame": 1,
+      "nonce": "7fd62531aeee2fef",
+      "ts": 1784312826.656637
+    },
+    {
+      "frame": 2,
+      "nonce": "1375df7324e48473",
+      "ts": 1784312842.3180957
+    },
+    {
+      "frame": 3,
+      "nonce": "a2fc0c94dfb024c8",
+      "ts": 1784312851.119367
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3313ec01d270bdae",
+      "decision": "HOLD",
+      "reason": "just entered, price at entry level, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "7fd62531aeee2fef",
+      "decision": "HOLD",
+      "reason": "big favorable move +45pts, ER10=0.82 strong trend, KMDR-against is early warning only, letting it run"
+    },
+    {
+      "frame": 2,
+      "nonce": "1375df7324e48473",
+      "decision": "HOLD",
+      "reason": "px +69.75 still extending, ER10=0.89 very strong trend; PROPP-against is a caution flag but no price stall yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "a2fc0c94dfb024c8",
+      "decision": "EXIT",
+      "reason": "px +156.75, extreme overextension (z_se 5m=-4.23, 15m=-3.60, 1m=-3.21), CLIMAX-against fired 1m ago + negative lambda_t on 1h(-2.23) signals mean-reversion risk; locking in the climax move"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited on a climax signature: price had already run +156.75pts favorable in 3 minutes with extreme mean-reversion stretch (z_se 5m=-4.23, 15m=-3.60, 1h=-2.57) and a CLIMAX-against fire plus negative, significant lambda_t on the 1h, indicating the move was exhausted and vulnerable to snapback. Chose to bank the climax rather than risk giveback. Next time I'd watch whether ER10 staying above ~0.85 into a CLIMAX-against fire is consistently the highest-value exit trigger, versus waiting for an actual stall/reversal bar to confirm before cutting a still-accelerating leg."
+}

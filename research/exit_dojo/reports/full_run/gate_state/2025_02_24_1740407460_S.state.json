@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_02_24_1740407460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "63ef1036cf39c14e",
+      "ts": 1784306833.34789
+    },
+    {
+      "frame": 1,
+      "nonce": "4da1f0de59e976f1",
+      "ts": 1784306841.4197626
+    },
+    {
+      "frame": 2,
+      "nonce": "a8af0e04f19b8e4d",
+      "ts": 1784306863.2148082
+    },
+    {
+      "frame": 3,
+      "nonce": "1d0436abe64681a0",
+      "ts": 1784306878.0037258
+    },
+    {
+      "frame": 4,
+      "nonce": "9c7ceae4f009443b",
+      "ts": 1784306888.0141723
+    },
+    {
+      "frame": 5,
+      "nonce": "d4c8c958c8c47399",
+      "ts": 1784306898.0570323
+    },
+    {
+      "frame": 6,
+      "nonce": "7752403f27aa2700",
+      "ts": 1784306905.1930544
+    },
+    {
+      "frame": 7,
+      "nonce": "8a9a51c0fa24e09e",
+      "ts": 1784306912.476541
+    },
+    {
+      "frame": 8,
+      "nonce": "8c71885f3f51fc2a",
+      "ts": 1784306923.9668827
+    },
+    {
+      "frame": 9,
+      "nonce": "be71cfd605e9d6f9",
+      "ts": 1784306930.5844877
+    },
+    {
+      "frame": 10,
+      "nonce": "9c173855b04b66ba",
+      "ts": 1784306939.2315562
+    },
+    {
+      "frame": 11,
+      "nonce": "c8a9355b3772c27b",
+      "ts": 1784306945.8864033
+    },
+    {
+      "frame": 12,
+      "nonce": "78a9ea19b7cbb17e",
+      "ts": 1784306952.9296117
+    },
+    {
+      "frame": 13,
+      "nonce": "e74ab987330e942e",
+      "ts": 1784306960.1042325
+    },
+    {
+      "frame": 14,
+      "nonce": "21226744dbf0ea54",
+      "ts": 1784306974.7426388
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "63ef1036cf39c14e",
+      "decision": "HOLD",
+      "reason": "early frame, px flat at entry, leg still young (3m), no strong against-signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "4da1f0de59e976f1",
+      "decision": "HOLD",
+      "reason": "px flipped to -14.5, giveback 76%, all 3 fires against - watching closely but too early to confirm trend vs noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "a8af0e04f19b8e4d",
+      "decision": "HOLD",
+      "reason": "deep against move (-28.25, giveback 131%) but PROPP just flipped with, ER10 near zero suggests choppy not trending; watching for confirmation before cutting"
+    },
+    {
+      "frame": 3,
+      "nonce": "1d0436abe64681a0",
+      "decision": "HOLD",
+      "reason": "recovered to +5.25 from -28.25 low, HA and PROPP both flipped with, drawdown resolved as expected - staying in"
+    },
+    {
+      "frame": 4,
+      "nonce": "9c7ceae4f009443b",
+      "decision": "HOLD",
+      "reason": "px continuing to climb (+10.5), HA/PROPP still with, only KMDR flipped against just now - trend recovering"
+    },
+    {
+      "frame": 5,
+      "nonce": "d4c8c958c8c47399",
+      "decision": "HOLD",
+      "reason": "px new high +18.75, uptrend intact, HA/PROPP still with"
+    },
+    {
+      "frame": 6,
+      "nonce": "7752403f27aa2700",
+      "decision": "HOLD",
+      "reason": "px +28.00 new high, giveback only 5%, strong favorable continuation"
+    },
+    {
+      "frame": 7,
+      "nonce": "8a9a51c0fa24e09e",
+      "decision": "HOLD",
+      "reason": "px +32, still strong, only 14% giveback off leg high; KMDR/PROPP flipped against but too early to call reversal, letting winner run"
+    },
+    {
+      "frame": 8,
+      "nonce": "8c71885f3f51fc2a",
+      "decision": "HOLD",
+      "reason": "px pulled back to +24.25 from +32 high, giveback still moderate 18%, still well in profit"
+    },
+    {
+      "frame": 9,
+      "nonce": "be71cfd605e9d6f9",
+      "decision": "HOLD",
+      "reason": "px +41.00 new high, giveback 0%, momentum strong in our favor"
+    },
+    {
+      "frame": 10,
+      "nonce": "9c173855b04b66ba",
+      "decision": "HOLD",
+      "reason": "px +43.50, giveback only 11% off high, trend intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "c8a9355b3772c27b",
+      "decision": "HOLD",
+      "reason": "px +44.50, giveback only 7%, trend still favorable"
+    },
+    {
+      "frame": 12,
+      "nonce": "78a9ea19b7cbb17e",
+      "decision": "HOLD",
+      "reason": "px +53.75 new high, giveback 0%, ER10 rising to 0.50 - trend efficiency improving"
+    },
+    {
+      "frame": 13,
+      "nonce": "e74ab987330e942e",
+      "decision": "HOLD",
+      "reason": "px +54.25 near high, but CLIMAX+KMDR now both against (first time CLIMAX has fired) - watching this confluence closely next frame"
+    },
+    {
+      "frame": 14,
+      "nonce": "21226744dbf0ea54",
+      "decision": "EXIT",
+      "reason": "full confluence: KMDR, CLIMAX, HA, PROPP all against; px dropped from +54.25 high to +32, giveback 30% - locking in profit before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Held through an early sharp drawdown (giveback >100%) that fully recovered, then rode a strong favorable run from +5 to a peak near +54 with giveback staying under 15% most of the way. Exited at +32 when four independent against-signals converged simultaneously for the first time (KMDR, CLIMAX, HA, PROPP all against) after a 30% giveback off the leg high - treated that full confluence, not any single detector, as the turn signal. Next time: watch for CLIMAX firing alongside KMDR specifically, since that pairing preceded the final reversal by one frame and could offer an earlier, still-profitable exit point."
+}

@@ -1,0 +1,8 @@
+# exit_code=0 dt=294s
+## STDOUT
+Episode closed. I held through 20 frames of a long MNQ trade that oscillated in a -14 to +6 pt range (favorable-signed) with several deep pullbacks that all recovered, then exited at px -3.25 when frame 20 showed a distinct regime-change signature: 1m z_se hit -2.67 while `reversion_prob_30` crashed from its consistent ~0.97-0.99 baseline down to 0.54 â€” the first time in the episode the model itself stopped expecting mean-reversion â€” alongside a sharp -8.75pt single-bar drop. Prior giveback episodes (up to 60%+) all had high reversion_prob and recovered, which is why I held through those; this one looked structurally different.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

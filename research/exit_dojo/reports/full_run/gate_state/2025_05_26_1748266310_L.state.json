@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_05_26_1748266310_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fb828247cf8debdc",
+      "ts": 1784311669.158628
+    },
+    {
+      "frame": 1,
+      "nonce": "f56dd3280f19b82b",
+      "ts": 1784311678.1860275
+    },
+    {
+      "frame": 2,
+      "nonce": "cbb678fba974cc99",
+      "ts": 1784311688.605013
+    },
+    {
+      "frame": 3,
+      "nonce": "dc5401772c80a6d7",
+      "ts": 1784311698.7625747
+    },
+    {
+      "frame": 4,
+      "nonce": "840c01f3e084695d",
+      "ts": 1784311707.6345673
+    },
+    {
+      "frame": 5,
+      "nonce": "59b597bbf2d5ba01",
+      "ts": 1784311717.9148293
+    },
+    {
+      "frame": 6,
+      "nonce": "56e1b82a948ee83e",
+      "ts": 1784311733.7301
+    },
+    {
+      "frame": 7,
+      "nonce": "39a00adc7a2db372",
+      "ts": 1784311754.5118003
+    },
+    {
+      "frame": 8,
+      "nonce": "783ace539a984085",
+      "ts": 1784311769.5088205
+    },
+    {
+      "frame": 9,
+      "nonce": "19a0b6db897c66a9",
+      "ts": 1784311781.003744
+    },
+    {
+      "frame": 10,
+      "nonce": "25417def81643ae3",
+      "ts": 1784311794.175579
+    },
+    {
+      "frame": 11,
+      "nonce": "6797ff304ce55439",
+      "ts": 1784311807.9435534
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fb828247cf8debdc",
+      "decision": "HOLD",
+      "reason": "at breakeven, early frame, no clear against-signal yet despite PROPP-against"
+    },
+    {
+      "frame": 1,
+      "nonce": "f56dd3280f19b82b",
+      "decision": "HOLD",
+      "reason": "up +7.5pts, momentum still favorable, giveback only 5%, letting it run despite against-fires"
+    },
+    {
+      "frame": 2,
+      "nonce": "cbb678fba974cc99",
+      "decision": "HOLD",
+      "reason": "up +17.25pts, lambda still positive/running not fading, reversion_prob dropping (trend strengthening), giveback only 8%"
+    },
+    {
+      "frame": 3,
+      "nonce": "dc5401772c80a6d7",
+      "decision": "HOLD",
+      "reason": "up +18.75pts, reversion_prob crashed to 0.165 (trend not mean-reverting), ER10 rising to 0.54, lambda positive across TFs, giveback tiny at 3%"
+    },
+    {
+      "frame": 4,
+      "nonce": "840c01f3e084695d",
+      "decision": "HOLD",
+      "reason": "up +22.75pts, 5m lambda strongly positive (t~3.4), reversion_prob 0 on 5m (pure trend), giveback 9% still modest"
+    },
+    {
+      "frame": 5,
+      "nonce": "59b597bbf2d5ba01",
+      "decision": "HOLD",
+      "reason": "pulled back to +17.5 (giveback 16%) but lambda still positive across TFs (1m t~2.3-2.6), treating as normal pullback within trend not a lambda flip"
+    },
+    {
+      "frame": 6,
+      "nonce": "56e1b82a948ee83e",
+      "decision": "HOLD",
+      "reason": "giveback rising to 26%, CLIMAX-against fire is new warning, but 15s lambda (t+3.1) and 1m lambda_21/30 (t+2.2-2.5) still positive -- treating 5s negative flip as noise per known 5s-is-noise pattern, holding one more frame to confirm"
+    },
+    {
+      "frame": 7,
+      "nonce": "39a00adc7a2db372",
+      "decision": "HOLD",
+      "reason": "recovered to +18.75, giveback back down to 19% from 26%, lambda still positive across 15s/1m, treating prior dip as noise not a top"
+    },
+    {
+      "frame": 8,
+      "nonce": "783ace539a984085",
+      "decision": "HOLD",
+      "reason": "new leg registered (age 0m), z_21 1m near flat at 0.145 (consolidation not extension), lambda mixed/weak but no clear negative flip on 1m -- still up +17.75, holding through the chop"
+    },
+    {
+      "frame": 9,
+      "nonce": "19a0b6db897c66a9",
+      "decision": "HOLD",
+      "reason": "consolidating +17-19pts range for several frames; 5m lambda still strongly positive (t+3.4-3.7) with Z extended +2.2 (ride signal per master eq), 15s lambda negative but Z there near flat so not a fade setup"
+    },
+    {
+      "frame": 10,
+      "nonce": "25417def81643ae3",
+      "decision": "HOLD",
+      "reason": "giveback back down to 8%, no active against-fires, but vol(5m) compressing to 1.3pts -- momentum stalling into consolidation, watching for breakout direction"
+    },
+    {
+      "frame": 11,
+      "nonce": "6797ff304ce55439",
+      "decision": "EXIT",
+      "reason": "multi-TF lambda flip negative simultaneously (1m t=-6.1, 15s t=-3.2/-3.7), giveback accelerating 8%->38%, ER10 decaying 0.69->0.39 -- locking in +17.25 before further erosion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Exited at +17.25pts after a strong +22.75pt run stalled into consolidation: the trigger was a coincident multi-timeframe lambda flip to negative (1m t=-6.1, 15s t=-3.2 to -3.7) combined with accelerating giveback (8%->38% over 3 frames) and decaying ER10 (0.69->0.39), signaling the trend was losing structural support rather than just noisy chop. Earlier single-scale lambda flips (5s only) and isolated CLIMAX/HA-against fires were noise I correctly held through since the anchored 15s/1m/5m lambdas stayed positive; next time I'd watch for this same multi-TF lambda coincidence plus a volatility-compression regime (vol_5m had already decayed from ~13pts to ~1-3pts) as the earliest joint warning of exhaustion, rather than waiting for giveback to compound further."
+}

@@ -1,0 +1,10 @@
+# exit_code=0 dt=237s
+## STDOUT
+Episode closed: exited at **+26.00 pts** on frame 5 (t=5m).
+
+**What drove the exit**: the trade ran from entry to a peak amplitude near +46â€“60 pts with giveback at 0%, then in one bar giveback jumped to 15%, 5m volatility spiked (+7.3), ER10 hit 1.00, and all three turn detectors (KMDR, CLIMAX, PROPP) flipped to firing against the position simultaneously â€” a confluence I hadn't seen all episode. I held through an earlier lone KMDR-against fire at the actual peak (frame 4) since PROPP was still confirming the favorable trend, but treated the multi-detector confluence + vol spike as the real confirmation to lock in profit rather than risk further giveback.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

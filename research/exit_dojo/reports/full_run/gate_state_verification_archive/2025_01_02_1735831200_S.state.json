@@ -1,0 +1,386 @@
+{
+  "episode_id": "2025_01_02_1735831200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "282a8ababac3c7b7",
+      "ts": 1784304621.2208118
+    },
+    {
+      "frame": 1,
+      "nonce": "6542688b521c3bfc",
+      "ts": 1784304622.1268022
+    },
+    {
+      "frame": 2,
+      "nonce": "765cbdab68857861",
+      "ts": 1784304623.0479157
+    },
+    {
+      "frame": 3,
+      "nonce": "0116bd59e41ec6c0",
+      "ts": 1784304623.9549704
+    },
+    {
+      "frame": 4,
+      "nonce": "bef8bb565e886d89",
+      "ts": 1784304624.8519385
+    },
+    {
+      "frame": 5,
+      "nonce": "9a0eb7b9b5574026",
+      "ts": 1784304625.7627778
+    },
+    {
+      "frame": 6,
+      "nonce": "5c2ecaa03bda36b8",
+      "ts": 1784304626.6620045
+    },
+    {
+      "frame": 7,
+      "nonce": "40fc17ac657e73c9",
+      "ts": 1784304627.56578
+    },
+    {
+      "frame": 8,
+      "nonce": "e46c8728639f79c9",
+      "ts": 1784304628.4788961
+    },
+    {
+      "frame": 9,
+      "nonce": "805a1fdfba290c87",
+      "ts": 1784304629.3831022
+    },
+    {
+      "frame": 10,
+      "nonce": "cfdfdf709f8c06be",
+      "ts": 1784304630.3082073
+    },
+    {
+      "frame": 11,
+      "nonce": "9ae9ea380e30c210",
+      "ts": 1784304631.2777574
+    },
+    {
+      "frame": 12,
+      "nonce": "4d09ef10b1989556",
+      "ts": 1784304632.23269
+    },
+    {
+      "frame": 13,
+      "nonce": "5e93a37e5ea86d61",
+      "ts": 1784304633.1564507
+    },
+    {
+      "frame": 14,
+      "nonce": "baab61baedf5f23c",
+      "ts": 1784304634.061315
+    },
+    {
+      "frame": 15,
+      "nonce": "36e7084acac743a2",
+      "ts": 1784304634.983435
+    },
+    {
+      "frame": 16,
+      "nonce": "18e5a3ea0a9fa9ec",
+      "ts": 1784304635.9033577
+    },
+    {
+      "frame": 17,
+      "nonce": "f00b87f459b69ec2",
+      "ts": 1784304636.8079138
+    },
+    {
+      "frame": 18,
+      "nonce": "e09c4205e2eaf7ec",
+      "ts": 1784304637.7316718
+    },
+    {
+      "frame": 19,
+      "nonce": "c7d8c2ba94d2c8e2",
+      "ts": 1784304638.6437557
+    },
+    {
+      "frame": 20,
+      "nonce": "0e127bce1b9ec240",
+      "ts": 1784304639.5706918
+    },
+    {
+      "frame": 21,
+      "nonce": "b26bb959c9b0e259",
+      "ts": 1784304640.490959
+    },
+    {
+      "frame": 22,
+      "nonce": "10b60f888d127ba2",
+      "ts": 1784304641.4569454
+    },
+    {
+      "frame": 23,
+      "nonce": "3ab96118b6728a0f",
+      "ts": 1784304642.3591232
+    },
+    {
+      "frame": 24,
+      "nonce": "d4e1761a65959bfc",
+      "ts": 1784304643.3135023
+    },
+    {
+      "frame": 25,
+      "nonce": "098857194cd131eb",
+      "ts": 1784304644.2137897
+    },
+    {
+      "frame": 26,
+      "nonce": "443e886b41d27391",
+      "ts": 1784304645.132722
+    },
+    {
+      "frame": 27,
+      "nonce": "16faa70ad83b604c",
+      "ts": 1784304646.04907
+    },
+    {
+      "frame": 28,
+      "nonce": "5e46859edb700b92",
+      "ts": 1784304646.9872966
+    },
+    {
+      "frame": 29,
+      "nonce": "bf844519b935c157",
+      "ts": 1784304648.0498855
+    },
+    {
+      "frame": 30,
+      "nonce": "c7bf8ed941436295",
+      "ts": 1784304649.122706
+    },
+    {
+      "frame": 31,
+      "nonce": "39a2fa1dc7786b8c",
+      "ts": 1784304650.1075528
+    },
+    {
+      "frame": 32,
+      "nonce": "4835c078fabfc5f2",
+      "ts": 1784304651.0437894
+    },
+    {
+      "frame": 33,
+      "nonce": "8b96fda04a6ba95c",
+      "ts": 1784304651.9652667
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "282a8ababac3c7b7",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 1,
+      "nonce": "6542688b521c3bfc",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 2,
+      "nonce": "765cbdab68857861",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 3,
+      "nonce": "0116bd59e41ec6c0",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 4,
+      "nonce": "bef8bb565e886d89",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 5,
+      "nonce": "9a0eb7b9b5574026",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 6,
+      "nonce": "5c2ecaa03bda36b8",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 7,
+      "nonce": "40fc17ac657e73c9",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 8,
+      "nonce": "e46c8728639f79c9",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 9,
+      "nonce": "805a1fdfba290c87",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 10,
+      "nonce": "cfdfdf709f8c06be",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 11,
+      "nonce": "9ae9ea380e30c210",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 12,
+      "nonce": "4d09ef10b1989556",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 13,
+      "nonce": "5e93a37e5ea86d61",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 14,
+      "nonce": "baab61baedf5f23c",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 15,
+      "nonce": "36e7084acac743a2",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 16,
+      "nonce": "18e5a3ea0a9fa9ec",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 17,
+      "nonce": "f00b87f459b69ec2",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 18,
+      "nonce": "e09c4205e2eaf7ec",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 19,
+      "nonce": "c7d8c2ba94d2c8e2",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 20,
+      "nonce": "0e127bce1b9ec240",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 21,
+      "nonce": "b26bb959c9b0e259",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 22,
+      "nonce": "10b60f888d127ba2",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 23,
+      "nonce": "3ab96118b6728a0f",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 24,
+      "nonce": "d4e1761a65959bfc",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 25,
+      "nonce": "098857194cd131eb",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 26,
+      "nonce": "443e886b41d27391",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 27,
+      "nonce": "16faa70ad83b604c",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 28,
+      "nonce": "5e46859edb700b92",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 29,
+      "nonce": "bf844519b935c157",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 30,
+      "nonce": "c7bf8ed941436295",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 31,
+      "nonce": "39a2fa1dc7786b8c",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 32,
+      "nonce": "4835c078fabfc5f2",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    },
+    {
+      "frame": 33,
+      "nonce": "8b96fda04a6ba95c",
+      "decision": "HOLD",
+      "reason": "scripted-hold (dummy policy hold)"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "dummy agent, policy=hold; scripted verification run."
+}

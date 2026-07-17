@@ -1,0 +1,15 @@
+{"ts": 1784315422.0075467, "event": "serve", "frame": 0, "nonce": "d3292fc301b5fa82"}
+{"ts": 1784315431.4637475, "event": "commit", "frame": 0, "nonce": "d3292fc301b5fa82", "decision": "HOLD", "reason": "frame 0, flat at entry, no adverse signal yet, gathering info"}
+{"ts": 1784315433.6926007, "event": "serve", "frame": 1, "nonce": "1a7dc38b68a21e30"}
+{"ts": 1784315437.5067413, "event": "commit", "frame": 1, "nonce": "1a7dc38b68a21e30", "decision": "HOLD", "reason": "px -5.75, giveback only 22% of 56.8pt amplitude, within normal noise"}
+{"ts": 1784315439.801965, "event": "serve", "frame": 2, "nonce": "4abce3358e83190f"}
+{"ts": 1784315443.6611512, "event": "commit", "frame": 2, "nonce": "4abce3358e83190f", "decision": "HOLD", "reason": "px -5.00, new leg forming, giveback 19% still modest, no strong against-signal cluster"}
+{"ts": 1784315446.3272188, "event": "serve", "frame": 3, "nonce": "625dbfda90082fb7"}
+{"ts": 1784315450.1840994, "event": "commit", "frame": 3, "nonce": "625dbfda90082fb7", "decision": "HOLD", "reason": "px recovered to -1.25, momentum turning back favorable"}
+{"ts": 1784315452.7520702, "event": "serve", "frame": 4, "nonce": "a34d7b3910bb75bd"}
+{"ts": 1784315469.6908891, "event": "commit", "frame": 4, "nonce": "a34d7b3910bb75bd", "decision": "HOLD", "reason": "large favorable spike to +16.50, lambda strongly positive/significant (t=3.76-3.78) across 12/30 windows suggesting continuation, riding it"}
+{"ts": 1784315472.3092835, "event": "serve", "frame": 5, "nonce": "f3d2f2900f946734"}
+{"ts": 1784315477.3633265, "event": "commit", "frame": 5, "nonce": "f3d2f2900f946734", "decision": "HOLD", "reason": "px +14.00, giveback low (15%), ER10 rising to 0.58, still profitable and holding gains despite mixed against fires"}
+{"ts": 1784315479.8533895, "event": "serve", "frame": 6, "nonce": "30f0639e32af48c6"}
+{"ts": 1784315492.1975152, "event": "commit", "frame": 6, "nonce": "30f0639e32af48c6", "decision": "EXIT", "reason": "profit eroding fast: peak +16.50 -> +14.00 -> +6.25, giveback jumped to 53% of leg amp, ER10 fell 0.58->0.40 (losing directionality), 1h lambda significantly negative (t=-2.23) signaling fade risk; locking in +6.25 before further erosion"}
+{"ts": 1784315497.9339442, "event": "finish", "summary": "Exited on a rapid profit-erosion signature: the leg peaked near +16.50pts and decayed to +14.00 then +6.25 over three frames, with the giveback-of-leg-amplitude metric spiking to 53% (vs 15-28% in prior frames) and ER10 dropping from 0.58 to 0.40, indicating the trend was losing directional efficiency. The 1h lambda_hat turned significantly negative (t=-2.23) at the same time, consistent with higher-timeframe fade pressure against the position. Next time I'd watch for the giveback-% and ER10 combo earlier (a sharp giveback jump concurrent with an ER10 drop seems to be the actionable exit trigger) rather than waiting for px to actually turn negative.", "exit_frame": 6, "n_commits": 7}

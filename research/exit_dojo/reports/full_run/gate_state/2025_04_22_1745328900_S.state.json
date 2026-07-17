@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_04_22_1745328900_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e7610d79731ba4cd",
+      "ts": 1784315050.854309
+    },
+    {
+      "frame": 1,
+      "nonce": "bd1de81ba8c4ee87",
+      "ts": 1784315065.061525
+    },
+    {
+      "frame": 2,
+      "nonce": "42a8c5891b9e3a18",
+      "ts": 1784315077.602107
+    },
+    {
+      "frame": 3,
+      "nonce": "8782a05a90790b94",
+      "ts": 1784315091.0334835
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e7610d79731ba4cd",
+      "decision": "HOLD",
+      "reason": "frame 0, just entered, px flat, gather more info before acting"
+    },
+    {
+      "frame": 1,
+      "nonce": "bd1de81ba8c4ee87",
+      "decision": "HOLD",
+      "reason": "px -10.5, but 1m/5m z heavily stretched (-2.5/-3.2) implying reversion odds, still early leg age 2m"
+    },
+    {
+      "frame": 2,
+      "nonce": "42a8c5891b9e3a18",
+      "decision": "HOLD",
+      "reason": "px -20, deeper drawdown, but 1m z_high -2.65 very stretched w/ reversion_prob 0.94-0.99, giving one more frame before cutting"
+    },
+    {
+      "frame": 3,
+      "nonce": "8782a05a90790b94",
+      "decision": "EXIT",
+      "reason": "px -37.25 and worsening every frame (\u221210.5\u2192\u221220\u2192\u221237.25), 0% giveback = no bounce forming, both HA and PROPP now fire against; this reads as a real adverse trend not noise, cutting here"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Exited at -37.25pts after 3 straight frames of worsening adverse excursion (-10.5, -20, -37.25) with 0% giveback each frame, meaning price kept making new unfavorable extremes rather than bouncing. The tipping signature was both HA and PROPP fires flipping to 'against' simultaneously at frame 3, on top of declining ER10 (0.34->0.22) suggesting directional persistence rather than mean-reverting chop. Next time I'd watch giveback% more closely from frame 1 - it stayed at 0% the whole time, which in hindsight was the earliest tell that this leg wasn't going to mean-revert like the stretched z-scores (z_high -2.65, reversion_prob 0.94-0.99) implied."
+}

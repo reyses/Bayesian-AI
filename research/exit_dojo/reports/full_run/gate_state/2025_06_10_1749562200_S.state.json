@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_06_10_1749562200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2f059f980fae11be",
+      "ts": 1784315173.6180751
+    },
+    {
+      "frame": 1,
+      "nonce": "427894ef67ce7d67",
+      "ts": 1784315182.19738
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2f059f980fae11be",
+      "decision": "HOLD",
+      "reason": "profitable +8.75pts, multi-TF still negative-biased favoring short, early in leg (age 4m)"
+    },
+    {
+      "frame": 1,
+      "nonce": "427894ef67ce7d67",
+      "decision": "EXIT",
+      "reason": "88% giveback of 28.2pt amplitude, price now -4.75 net negative, 5m/15m velocity+accel strongly against (-14 to -17), HA-against fired"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Exited at t=1m on a sharp reversal signature: the leg had already given back 88% of its 28.2pt favorable amplitude, net price had crossed to -4.75 (unfavorable), and 5m/15m price velocity+acceleration were strongly against the position (-14 to -17pts) with HA-against firing. Next time I'd want to see whether that reversal velocity decelerates (a bounce/pause) before treating it as terminal, since a fast whipsaw can also be a shakeout rather than a full trend flip -- but here the speed and magnitude of giveback plus multi-TF confirmation felt too strong to hold through."
+}

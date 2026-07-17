@@ -1,0 +1,19 @@
+{"ts": 1784311669.409355, "event": "serve", "frame": 0, "nonce": "92c43ec14fc4dbdc"}
+{"ts": 1784311681.478722, "event": "commit", "frame": 0, "nonce": "92c43ec14fc4dbdc", "decision": "HOLD", "reason": "Frame 0, mixed lambda signals, only 9% giveback from peak amp, too early to exit"}
+{"ts": 1784311684.087808, "event": "serve", "frame": 1, "nonce": "915843ebd4ea7e8f"}
+{"ts": 1784311692.9467282, "event": "commit", "frame": 1, "nonce": "915843ebd4ea7e8f", "decision": "HOLD", "reason": "Profit growing to +20pts, amp expanding to 73.8, giveback still only 8% from peak"}
+{"ts": 1784311696.4426203, "event": "serve", "frame": 2, "nonce": "57c7880e5b3ab234"}
+{"ts": 1784311709.8434985, "event": "commit", "frame": 2, "nonce": "57c7880e5b3ab234", "decision": "HOLD", "reason": "Giveback jumped to 42% and px retraced to +3, but both KMDR/PROPP fires still read with-position, still net favorable"}
+{"ts": 1784311712.9829755, "event": "serve", "frame": 3, "nonce": "59f327668bcec031"}
+{"ts": 1784311718.4556682, "event": "commit", "frame": 3, "nonce": "59f327668bcec031", "decision": "HOLD", "reason": "px recovered to +32.5, new amp high 75.2, giveback back down to 2%, PROPP-with confirms"}
+{"ts": 1784311721.02832, "event": "serve", "frame": 4, "nonce": "dad7be35bbb9d9cb"}
+{"ts": 1784312055.6214797, "event": "commit", "frame": 4, "nonce": "dad7be35bbb9d9cb", "decision": "HOLD", "reason": "New amp high 92.8, giveback low at 8%, PROPP-with still confirming, trend intact"}
+{"ts": 1784312058.1045797, "event": "serve", "frame": 5, "nonce": "271a69fc996f9e2f"}
+{"ts": 1784312064.6284475, "event": "commit", "frame": 5, "nonce": "271a69fc996f9e2f", "decision": "HOLD", "reason": "px new high +51.5, amp 98, giveback still moderate at 12%, PROPP-with confirms trend"}
+{"ts": 1784312068.015811, "event": "serve", "frame": 6, "nonce": "779c27ddcd1387de"}
+{"ts": 1784312074.713598, "event": "commit", "frame": 6, "nonce": "779c27ddcd1387de", "decision": "HOLD", "reason": "First PROPP-against fire, giveback rose to 15%, but still well within normal range off new amp high 102.8"}
+{"ts": 1784312077.5384443, "event": "serve", "frame": 7, "nonce": "7d9426f8f18f8e1e"}
+{"ts": 1784312083.5743477, "event": "commit", "frame": 7, "nonce": "7d9426f8f18f8e1e", "decision": "HOLD", "reason": "px stable +34.25, giveback flat at 16%, PROPP flipped back to with-position, vol compressing not blowing out"}
+{"ts": 1784312086.5562687, "event": "serve", "frame": 8, "nonce": "09e946b89a195da2"}
+{"ts": 1784312099.4945126, "event": "commit", "frame": 8, "nonce": "09e946b89a195da2", "decision": "EXIT", "reason": "Dual against-fire (HA+PROPP) simultaneous, giveback spiked to 44% with a 27pt one-bar drop off a fresh amp high -- stronger reversal signature than the earlier single-fire 42% giveback that recovered"}
+{"ts": 1784312105.7712617, "event": "finish", "summary": "Exited on a dual-signature reversal: HA-against and PROPP-against fired in the same frame while giveback spiked to 44% of peak amplitude after a 27pt one-bar drop, following a run of new amp highs (73.8->102.8) with low giveback. I'd distinguish this from the earlier frame-2 42% giveback (single fire, smaller amp, which recovered) by requiring corroboration across independent fire families plus a fresh-peak-then-sharp-reversal shape, not giveback percentage alone. Next time I'd also watch vol(5m) delta turning positive (expansion) alongside the against-fires as a confirming tell rather than acting on giveback% in isolation.", "exit_frame": 8, "n_commits": 9}

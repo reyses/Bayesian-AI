@@ -1,0 +1,8 @@
+# exit_code=0 dt=664s
+## STDOUT
+Episode complete â€” exited at +99.25 pts on frame 24 (t=24m) after riding the trend from entry through a peak of +120.50. The exit trigger was the first simultaneous alignment of all three fire systems (KMDR, HA, PROPP) against the position combined with a statistically significant negative 1m lambda (t=-3.21), which stood out from the many isolated against-fires and 15-36% giveback pullbacks earlier that all resolved back into new highs.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

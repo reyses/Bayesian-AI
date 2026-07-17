@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_01_05_1767623520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "98e7af468bdce520",
+      "ts": 1784313919.6258986
+    },
+    {
+      "frame": 1,
+      "nonce": "68d13e9f02c740ea",
+      "ts": 1784313927.5733
+    },
+    {
+      "frame": 2,
+      "nonce": "0c63277a04876baf",
+      "ts": 1784313977.1616828
+    },
+    {
+      "frame": 3,
+      "nonce": "81ef9e3565c3b848",
+      "ts": 1784313997.260297
+    },
+    {
+      "frame": 4,
+      "nonce": "e038535d58add025",
+      "ts": 1784314004.2867806
+    },
+    {
+      "frame": 5,
+      "nonce": "b388d5d786c70f34",
+      "ts": 1784314011.1206481
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "98e7af468bdce520",
+      "decision": "HOLD",
+      "reason": "frame0, no PnL yet, no exit signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "68d13e9f02c740ea",
+      "decision": "HOLD",
+      "reason": "px +36.5 still favorable despite 131% giveback of leg amp; HA/KMDR/PROPP fires still 'with' position, holding for now"
+    },
+    {
+      "frame": 2,
+      "nonce": "0c63277a04876baf",
+      "decision": "HOLD",
+      "reason": "px +22.75 still solidly favorable; new adverse leg growing (amp 73.2, giveback 0%) but 1m z_21=-3.1 extreme suggests overextension, watching for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "81ef9e3565c3b848",
+      "decision": "HOLD",
+      "reason": "px +44.25 new leg high, giveback only 1%, PROPP-with just fired -- momentum resumed in our favor"
+    },
+    {
+      "frame": 4,
+      "nonce": "e038535d58add025",
+      "decision": "HOLD",
+      "reason": "px +68.25 new leg high, giveback 0%, PROPP-with confirms; KMDR-against is a lone dissent, trend still strong"
+    },
+    {
+      "frame": 5,
+      "nonce": "b388d5d786c70f34",
+      "decision": "EXIT",
+      "reason": "px +39.75, giveback 31% off a 116pt leg; CLIMAX-against (high-precision turn signal) + KMDR-against both fired within last min -- locking in profit ahead of further reversal"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Exited at +39.75pts (t=5m) after a 116pt favorable leg gave back 31% and the CLIMAX-against turn signal fired alongside KMDR-against within the same minute, echoing the earlier frame-1 pattern where giveback ran past 100% and erased most of an even bigger favorable swing. Next time I'd weight the CLIMAX fire more heavily as the primary trigger (it's the higher-precision turn detector) rather than waiting for giveback% alone, and pay more attention to leg-amp deceleration (ER10 dropping) as an early warning before the against-signals cluster."
+}

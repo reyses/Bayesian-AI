@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_08_26_1756226830_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0da46419e8b88942",
+      "ts": 1784312471.0019717
+    },
+    {
+      "frame": 1,
+      "nonce": "0ba92337e0bfec8e",
+      "ts": 1784312480.0005872
+    },
+    {
+      "frame": 2,
+      "nonce": "f204ac13f3513dfd",
+      "ts": 1784312491.949191
+    },
+    {
+      "frame": 3,
+      "nonce": "1d3a0c353debd456",
+      "ts": 1784312497.923845
+    },
+    {
+      "frame": 4,
+      "nonce": "264efd41099a1497",
+      "ts": 1784312504.4486325
+    },
+    {
+      "frame": 5,
+      "nonce": "59e791cf4ed6e45c",
+      "ts": 1784312515.3761888
+    },
+    {
+      "frame": 6,
+      "nonce": "76dabb8dfc2019ea",
+      "ts": 1784312530.2136598
+    },
+    {
+      "frame": 7,
+      "nonce": "5def1ce383c63279",
+      "ts": 1784312537.608234
+    },
+    {
+      "frame": 8,
+      "nonce": "d8f06045d0c7bbf2",
+      "ts": 1784312545.871254
+    },
+    {
+      "frame": 9,
+      "nonce": "a5798d16d430f821",
+      "ts": 1784312553.4993787
+    },
+    {
+      "frame": 10,
+      "nonce": "6cddee42f9b99b8c",
+      "ts": 1784312562.259446
+    },
+    {
+      "frame": 11,
+      "nonce": "9551a52f56096d8f",
+      "ts": 1784312570.7209675
+    },
+    {
+      "frame": 12,
+      "nonce": "a6f7e5ca2bc23a35",
+      "ts": 1784312579.0874143
+    },
+    {
+      "frame": 13,
+      "nonce": "d8441aa4d48cb2df",
+      "ts": 1784312597.145298
+    },
+    {
+      "frame": 14,
+      "nonce": "7e3b37ccb504fdf7",
+      "ts": 1784312603.881648
+    },
+    {
+      "frame": 15,
+      "nonce": "cebe52f76ea0b9dd",
+      "ts": 1784312610.8225772
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0da46419e8b88942",
+      "decision": "HOLD",
+      "reason": "flat at entry, mixed multi-TF signals, no clear exit trigger yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "0ba92337e0bfec8e",
+      "decision": "HOLD",
+      "reason": "small -2pt drawdown, reversion_prob still 0.77, giveback only 16%, too early to bail"
+    },
+    {
+      "frame": 2,
+      "nonce": "f204ac13f3513dfd",
+      "decision": "HOLD",
+      "reason": "recovered to +0.5pts, giveback down to 10%, reversion probs still high"
+    },
+    {
+      "frame": 3,
+      "nonce": "1d3a0c353debd456",
+      "decision": "HOLD",
+      "reason": "px +1.25pts, giveback down to 1%, trend moving in our favor"
+    },
+    {
+      "frame": 4,
+      "nonce": "264efd41099a1497",
+      "decision": "HOLD",
+      "reason": "px +1.75pts, lambda_hat positive+sig across 12/21 (trend continuation regime), ER10 rising to 0.52"
+    },
+    {
+      "frame": 5,
+      "nonce": "59e791cf4ed6e45c",
+      "decision": "HOLD",
+      "reason": "sharp reversal to -4.75pts, 42% giveback, two against-fires stacking - watching closely but not yet a decisive break"
+    },
+    {
+      "frame": 6,
+      "nonce": "76dabb8dfc2019ea",
+      "decision": "HOLD",
+      "reason": "recovered to -1.0pts from -4.75, giveback down to 26%, reversion probs still very high"
+    },
+    {
+      "frame": 7,
+      "nonce": "5def1ce383c63279",
+      "decision": "HOLD",
+      "reason": "px +2.75pts new high, giveback down to 13%, HA fire now with our position"
+    },
+    {
+      "frame": 8,
+      "nonce": "d8f06045d0c7bbf2",
+      "decision": "HOLD",
+      "reason": "minor pullback to -0.50pts, new leg just started, giveback only 3%"
+    },
+    {
+      "frame": 9,
+      "nonce": "a5798d16d430f821",
+      "decision": "HOLD",
+      "reason": "px -3.50pts, within range of prior swings that recovered, reversion_prob still high 0.97-0.98"
+    },
+    {
+      "frame": 10,
+      "nonce": "6cddee42f9b99b8c",
+      "decision": "HOLD",
+      "reason": "new low -6.00pts but reversion_prob still 0.98-0.99 across TFs, ER10 dropped to 0.09 (choppy not trending against us)"
+    },
+    {
+      "frame": 11,
+      "nonce": "9551a52f56096d8f",
+      "decision": "HOLD",
+      "reason": "px -5.75pts, slight improvement off -6.00 low, reversion metrics still favor mean-reversion"
+    },
+    {
+      "frame": 12,
+      "nonce": "a6f7e5ca2bc23a35",
+      "decision": "HOLD",
+      "reason": "new low -9.00pts, no confirming fires either way, but reversion_prob still elevated 0.87-0.99 - watching for a break"
+    },
+    {
+      "frame": 13,
+      "nonce": "d8441aa4d48cb2df",
+      "decision": "HOLD",
+      "reason": "recovering to -7.00pts from -9.00 low, PROPP now firing with our position"
+    },
+    {
+      "frame": 14,
+      "nonce": "7e3b37ccb504fdf7",
+      "decision": "HOLD",
+      "reason": "px -7.75pts, stable in recent range, reversion metrics still moderate-high"
+    },
+    {
+      "frame": 15,
+      "nonce": "cebe52f76ea0b9dd",
+      "decision": "HOLD",
+      "reason": "px -6.75pts, both HA and PROPP now firing with our position, improving off the -9.00 low"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Never exited - held the full 15-frame window. The trade oscillated in a wide band (roughly +2.75 to -9.00pts) with reversion_prob staying elevated (0.85-1.00) across timeframes on nearly every frame, and each deep push against the position (-4.75, -6.00, -9.00) was followed by a partial recovery with with-position fires (HA/PROPP) confirming, so no single frame presented a clean structural break to justify cutting. In hindsight the -9.00pt low at t=12m with zero confirming fires was the point of maximum risk; next time I'd weight a lack of any fires during a new-low push more heavily as a signal to tighten out, rather than leaning on reversion_prob alone which stayed high throughout even as price kept making lower lows."
+}

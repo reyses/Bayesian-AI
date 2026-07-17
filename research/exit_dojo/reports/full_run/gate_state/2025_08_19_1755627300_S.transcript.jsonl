@@ -1,0 +1,25 @@
+{"ts": 1784317922.1177614, "event": "serve", "frame": 0, "nonce": "8dce4c2e3ee503d1"}
+{"ts": 1784317930.438738, "event": "commit", "frame": 0, "nonce": "8dce4c2e3ee503d1", "decision": "HOLD", "reason": "leg age 2m, px flat at entry, too early to judge"}
+{"ts": 1784317933.7059064, "event": "serve", "frame": 1, "nonce": "aafaac01cfb51f49"}
+{"ts": 1784317941.8885317, "event": "commit", "frame": 1, "nonce": "aafaac01cfb51f49", "decision": "HOLD", "reason": "giveback only 17%, lambda negative + high reversion_prob favors mean reversion back in our favor"}
+{"ts": 1784317945.8679962, "event": "serve", "frame": 2, "nonce": "b6f724a0c209200d"}
+{"ts": 1784317958.0701272, "event": "commit", "frame": 2, "nonce": "b6f724a0c209200d", "decision": "HOLD", "reason": "px recovering (-3.25->-2.25), giveback easing 17%->15%, reversion_prob still high"}
+{"ts": 1784317961.3303628, "event": "serve", "frame": 3, "nonce": "cc2bf00b22e7e12d"}
+{"ts": 1784317966.715914, "event": "commit", "frame": 3, "nonce": "cc2bf00b22e7e12d", "decision": "HOLD", "reason": "px back to 0, giveback reset to 0%, amp made new high 32pts - momentum still with us despite against-fires"}
+{"ts": 1784317970.0348275, "event": "serve", "frame": 4, "nonce": "ce4b075a57ea439a"}
+{"ts": 1784317974.5233164, "event": "commit", "frame": 4, "nonce": "ce4b075a57ea439a", "decision": "HOLD", "reason": "giveback 13% still within prior oscillation range, no new structural break"}
+{"ts": 1784317977.1811981, "event": "serve", "frame": 5, "nonce": "bbdd8b71f7bf049b"}
+{"ts": 1784317981.79719, "event": "commit", "frame": 5, "nonce": "bbdd8b71f7bf049b", "decision": "HOLD", "reason": "px +3.00, giveback down to 7%, trend still favorable"}
+{"ts": 1784317985.287281, "event": "serve", "frame": 6, "nonce": "4d0928be2eb2995e"}
+{"ts": 1784317989.690367, "event": "commit", "frame": 6, "nonce": "4d0928be2eb2995e", "decision": "HOLD", "reason": "new amp high 36.5, giveback 0%, ER10 rising to 0.68 - strong favorable trend"}
+{"ts": 1784317992.410138, "event": "serve", "frame": 7, "nonce": "0032699e00a1e342"}
+{"ts": 1784317997.5502899, "event": "commit", "frame": 7, "nonce": "0032699e00a1e342", "decision": "HOLD", "reason": "giveback 23% is a new high but ER10 still strong at 0.63, lambda still negative (reversion favored)"}
+{"ts": 1784318000.1968846, "event": "serve", "frame": 8, "nonce": "7a9e8b86cbdf40cf"}
+{"ts": 1784318004.2928474, "event": "commit", "frame": 8, "nonce": "7a9e8b86cbdf40cf", "decision": "HOLD", "reason": "px +2.00, giveback eased back to 9%, position still net favorable"}
+{"ts": 1784318007.0291982, "event": "serve", "frame": 9, "nonce": "54a6a71466ecc758"}
+{"ts": 1784318010.8051848, "event": "commit", "frame": 9, "nonce": "54a6a71466ecc758", "decision": "HOLD", "reason": "new amp high 36.8, giveback 0%, HA-with fired supporting continuation"}
+{"ts": 1784318013.500573, "event": "serve", "frame": 10, "nonce": "a5340a41779cadca"}
+{"ts": 1784318017.3098636, "event": "commit", "frame": 10, "nonce": "a5340a41779cadca", "decision": "HOLD", "reason": "px +3.00, giveback low at 7%, HA-with confirms, no against-fires this frame"}
+{"ts": 1784318019.8901708, "event": "serve", "frame": 11, "nonce": "5b9001ac2edd4a0d"}
+{"ts": 1784318033.0209117, "event": "commit", "frame": 11, "nonce": "5b9001ac2edd4a0d", "decision": "EXIT", "reason": "giveback spiked to new high 35% (prior max 23%), ER10 collapsed to 0.16 (momentum broken), 15s reversion_prob_30 dropped to 0.000 and z_se_30 extended to +3.05 - regime flipped from mean-reverting to trending against the short"}
+{"ts": 1784318039.6483936, "event": "finish", "summary": "Exited at t=11m (px -5.25) when giveback spiked to a new high of 35%, well beyond the prior oscillation ceiling of ~23%, while ER10 collapsed to 0.16 and 15s reversion_prob_30 dropped to 0.000 with z_se_30 extending to +3.05 - the clearest signal all episode that the regime had flipped from mean-reverting (favorable, giveback repeatedly self-corrected under 20%) to trending against the short. Next time I'd watch the combo of reversion_prob collapsing alongside a giveback-vs-amplitude ratio breaking its established range, rather than reacting to any single against-fire, since KMDR/PROPP/HA-against fired repeatedly earlier without a real breakdown.", "exit_frame": 11, "n_commits": 12}

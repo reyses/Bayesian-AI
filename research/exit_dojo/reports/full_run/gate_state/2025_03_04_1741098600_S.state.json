@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_03_04_1741098600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0564fa8a5861be67",
+      "ts": 1784314946.8064778
+    },
+    {
+      "frame": 1,
+      "nonce": "dff17b47437022cc",
+      "ts": 1784314953.9603405
+    },
+    {
+      "frame": 2,
+      "nonce": "6909d4193080a727",
+      "ts": 1784314972.0507386
+    },
+    {
+      "frame": 3,
+      "nonce": "3ba8fd0cae775ed3",
+      "ts": 1784314980.2048788
+    },
+    {
+      "frame": 4,
+      "nonce": "58d2c8051a7ce0e9",
+      "ts": 1784314990.0125504
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0564fa8a5861be67",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at entry, no signal yet to exit"
+    },
+    {
+      "frame": 1,
+      "nonce": "dff17b47437022cc",
+      "decision": "HOLD",
+      "reason": "down -34pts early but 1m lambda_hat sig negative (t=-2.1), reversion bias toward favorable; too early to bail"
+    },
+    {
+      "frame": 2,
+      "nonce": "6909d4193080a727",
+      "decision": "HOLD",
+      "reason": "px recovered to -0.5 from -34, strong bounce toward entry; hold to see if momentum continues favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "3ba8fd0cae775ed3",
+      "decision": "HOLD",
+      "reason": "px flipped favorable to +14.5, amp expanding to 121.8pts, low giveback; let it run but watch PROPP-against"
+    },
+    {
+      "frame": 4,
+      "nonce": "58d2c8051a7ce0e9",
+      "decision": "EXIT",
+      "reason": "giveback jumped 9%->30% off the amp peak, vol rising, PROPP-against persistent 3 frames running; lock the +6.5pt profit before it flips negative again"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Trade whipsawed hard early (-34pts to +37 to +14.5 within 3 min) before I exited at +6.5pts on frame 4. The exit signature was giveback accelerating off the amplitude peak (9%->30% in one minute) with 5m vol rising (+4.0 delta) and PROPP-against firing three frames running -- read as the favorable excursion fading rather than consolidating. Next time I'd want to watch whether giveback stabilizes vs keeps accelerating before bailing, since amp was still flat (121.8) and the move could have re-expanded; also want a clearer read on whether KMDR/PROPP-against firing together is a reliable reversal tell or just chop noise given how violent the 5s/1m swings were throughout this episode."
+}

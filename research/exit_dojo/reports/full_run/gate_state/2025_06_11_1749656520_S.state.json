@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_06_11_1749656520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1208496d3163a3d2",
+      "ts": 1784308161.8036988
+    },
+    {
+      "frame": 1,
+      "nonce": "b12863aa222cc24a",
+      "ts": 1784308175.3113012
+    },
+    {
+      "frame": 2,
+      "nonce": "762a35188b33c41a",
+      "ts": 1784308182.5000293
+    },
+    {
+      "frame": 3,
+      "nonce": "a412d1309d3907b3",
+      "ts": 1784308189.8422804
+    },
+    {
+      "frame": 4,
+      "nonce": "b6e495fc00f3e228",
+      "ts": 1784308198.2906725
+    },
+    {
+      "frame": 5,
+      "nonce": "a85244ea13a30619",
+      "ts": 1784308213.418955
+    },
+    {
+      "frame": 6,
+      "nonce": "343cb676e6512dbe",
+      "ts": 1784308236.3893435
+    },
+    {
+      "frame": 7,
+      "nonce": "dc89b1b3aec2517f",
+      "ts": 1784308245.8514025
+    },
+    {
+      "frame": 8,
+      "nonce": "658426f9a612c9aa",
+      "ts": 1784308258.014586
+    },
+    {
+      "frame": 9,
+      "nonce": "3b3b921c21999cbe",
+      "ts": 1784308275.7909584
+    },
+    {
+      "frame": 10,
+      "nonce": "0068f5977d801864",
+      "ts": 1784308286.4071882
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1208496d3163a3d2",
+      "decision": "HOLD",
+      "reason": "just entered, minimal amplitude, no adverse signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "b12863aa222cc24a",
+      "decision": "HOLD",
+      "reason": "small giveback 17%, no strong against signature yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "762a35188b33c41a",
+      "decision": "HOLD",
+      "reason": "px improved to +4.75, PROPP-with fired, trend favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "a412d1309d3907b3",
+      "decision": "HOLD",
+      "reason": "px +6.25, amp growing 33pts, giveback still low 13%"
+    },
+    {
+      "frame": 4,
+      "nonce": "b6e495fc00f3e228",
+      "decision": "HOLD",
+      "reason": "pulled back to +0.25 from +6.25, giveback 27%, watching but not yet a stop signal"
+    },
+    {
+      "frame": 5,
+      "nonce": "a85244ea13a30619",
+      "decision": "HOLD",
+      "reason": "px turned negative -6.75, giveback 61%, HA+PROPP against confluence -- watching very closely, one more bar before cutting"
+    },
+    {
+      "frame": 6,
+      "nonce": "343cb676e6512dbe",
+      "decision": "HOLD",
+      "reason": "recovered from -6.75 back to 0, new leg started, PROPP-with confirming"
+    },
+    {
+      "frame": 7,
+      "nonce": "dc89b1b3aec2517f",
+      "decision": "HOLD",
+      "reason": "big favorable move to +26.75, HA+PROPP with confirm, letting winner run"
+    },
+    {
+      "frame": 8,
+      "nonce": "658426f9a612c9aa",
+      "decision": "HOLD",
+      "reason": "gave back to +6.25 from +26.75 peak but still positive, CLIMAX-against vs PROPP-with mixed -- not banking early on a winner"
+    },
+    {
+      "frame": 9,
+      "nonce": "3b3b921c21999cbe",
+      "decision": "HOLD",
+      "reason": "px +8.50, fresh leg low giveback 8%, but 3 detectors now against -- watching"
+    },
+    {
+      "frame": 10,
+      "nonce": "0068f5977d801864",
+      "decision": "EXIT",
+      "reason": "all 4 detectors (KMDR,CLIMAX,HA,PROPP) unanimously against for first time in episode, px slipped to -0.25 near breakeven, giveback 55% -- taking the unanimous reversal signature"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Exited on the first bar where all four fire detectors (KMDR, CLIMAX, HA, PROPP) aligned against the position simultaneously, coinciding with price slipping back to roughly breakeven (-0.25pts) after a 55% giveback of the leg's amplitude and a prior peak of +26.75pts. Earlier partial-against readings (2-3 of 4 detectors) were treated as noise and held through, consistent with the graveyard finding that cutting winners early or on partial giveback loses money -- but full 4/4 confluence was the first genuinely new signature in the episode. Next time I'd want to see whether unanimous multi-detector confluence like this has a validated hit-rate/edge on turn timing (vs. TURN-CLIMAX alone), and whether waiting one more bar for confirmation before EXIT would have avoided false positives when only 3/4 align."
+}

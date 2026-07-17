@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_03_14_1741960680_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f673d8b2be8d0dee",
+      "ts": 1784306833.4821374
+    },
+    {
+      "frame": 1,
+      "nonce": "8245c62e6f70fd64",
+      "ts": 1784306843.7741783
+    },
+    {
+      "frame": 2,
+      "nonce": "6a22d90fc7f6b95f",
+      "ts": 1784306853.3747854
+    },
+    {
+      "frame": 3,
+      "nonce": "03479247aeda2386",
+      "ts": 1784306861.8520658
+    },
+    {
+      "frame": 4,
+      "nonce": "095fe96543d22a4b",
+      "ts": 1784306878.0563817
+    },
+    {
+      "frame": 5,
+      "nonce": "1428177479887e08",
+      "ts": 1784306887.765291
+    },
+    {
+      "frame": 6,
+      "nonce": "f61524c3d8061ba2",
+      "ts": 1784306902.014596
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f673d8b2be8d0dee",
+      "decision": "HOLD",
+      "reason": "just entered, no adverse signature yet, giveback 0%"
+    },
+    {
+      "frame": 1,
+      "nonce": "8245c62e6f70fd64",
+      "decision": "HOLD",
+      "reason": "small favorable px+4.25, giveback only 10%, lambda positive 1m sig (t=2.98)"
+    },
+    {
+      "frame": 2,
+      "nonce": "6a22d90fc7f6b95f",
+      "decision": "HOLD",
+      "reason": "px surged to +91.75, giveback only 14%, lambda_1m still sig positive, PROPP/HA both fired with"
+    },
+    {
+      "frame": 3,
+      "nonce": "03479247aeda2386",
+      "decision": "HOLD",
+      "reason": "px pulled back to +77.5 (giveback 19%) but still well favorable; KMDR-against is early warning, watching next frame for confirmation"
+    },
+    {
+      "frame": 4,
+      "nonce": "095fe96543d22a4b",
+      "decision": "HOLD",
+      "reason": "px stable +80, giveback steady 19%, lambda_21 strongly sig positive (t=6.27), ER10 up to 0.69, PROPP-with active"
+    },
+    {
+      "frame": 5,
+      "nonce": "1428177479887e08",
+      "decision": "HOLD",
+      "reason": "giveback jumped 19%->30%, 5s lambda flipped neg sig, but 1m lambda still extremely strong positive (t=8.4) and still +51.5 favorable; watching for further giveback"
+    },
+    {
+      "frame": 6,
+      "nonce": "f61524c3d8061ba2",
+      "decision": "EXIT",
+      "reason": "px decayed from peak +91.75 to +38.75 (>55% giveback from peak); HA-against + PROPP-against fire together now, KMDR-against fired 3m ago (leading), convergence of against-signals = reversal confirmation, protect remaining profit"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Held through a strong favorable surge (entry to +91.75pts peak around t=3m) while lambda/PROPP/HA all fired with the position. Exited at t=6m/+38.75pts once HA and PROPP flipped to firing against the position simultaneously, on top of an already-fired KMDR-against 3 minutes earlier and a >55% giveback from the peak. Next time I'd watch for the KMDR-against fire as the earliest warning and start tightening attention immediately rather than waiting for HA+PROPP to also flip, since KMDR is described as a leading detector -- exiting a minute or two sooner likely banks more of the peak."
+}

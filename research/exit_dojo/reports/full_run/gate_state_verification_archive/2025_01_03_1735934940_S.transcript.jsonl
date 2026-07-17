@@ -1,0 +1,31 @@
+{"ts": 1784304738.2621071, "event": "serve", "frame": 0, "nonce": "36e9498b79c3e8ab"}
+{"ts": 1784304745.8315957, "event": "commit", "frame": 0, "nonce": "36e9498b79c3e8ab", "decision": "HOLD", "reason": "Just entered, leg age 0m, no adverse structure yet"}
+{"ts": 1784304749.0667875, "event": "serve", "frame": 1, "nonce": "645725f8d96fb1e1"}
+{"ts": 1784304755.629857, "event": "commit", "frame": 1, "nonce": "645725f8d96fb1e1", "decision": "HOLD", "reason": "Flat px, only 1m in, no clear adverse signature"}
+{"ts": 1784304760.2880025, "event": "serve", "frame": 2, "nonce": "98a1d0eb4c02da87"}
+{"ts": 1784304778.3029222, "event": "commit", "frame": 2, "nonce": "98a1d0eb4c02da87", "decision": "HOLD", "reason": "Only -4pt drawdown, giveback low (3%), still within normal noise band"}
+{"ts": 1784304781.1751165, "event": "serve", "frame": 3, "nonce": "6d0ac36235ae61c6"}
+{"ts": 1784304786.9548523, "event": "commit", "frame": 3, "nonce": "6d0ac36235ae61c6", "decision": "HOLD", "reason": "px turned favorable +5.75, HA-with fired, holding for more"}
+{"ts": 1784304789.6505418, "event": "serve", "frame": 4, "nonce": "f226e75239c5bd50"}
+{"ts": 1784304794.5871272, "event": "commit", "frame": 4, "nonce": "f226e75239c5bd50", "decision": "HOLD", "reason": "Back near flat, choppy low-ER10 chop, no clean signal either way"}
+{"ts": 1784304797.1443002, "event": "serve", "frame": 5, "nonce": "3a35fd1b6271b306"}
+{"ts": 1784304804.5751772, "event": "commit", "frame": 5, "nonce": "3a35fd1b6271b306", "decision": "HOLD", "reason": "New leg started, px flat at 0, but noting HA+PROPP both against now"}
+{"ts": 1784304807.3065789, "event": "serve", "frame": 6, "nonce": "d265c8e676a039fa"}
+{"ts": 1784304813.089934, "event": "commit", "frame": 6, "nonce": "d265c8e676a039fa", "decision": "HOLD", "reason": "Small -3.25pt drawdown, choppy low-ER regime, still within noise"}
+{"ts": 1784304816.3534153, "event": "serve", "frame": 7, "nonce": "8c4682bcc5b35c44"}
+{"ts": 1784304823.1280224, "event": "commit", "frame": 7, "nonce": "8c4682bcc5b35c44", "decision": "HOLD", "reason": "Drawdown growing to -5.25, ER10 rising (more directional) but not yet decisive"}
+{"ts": 1784304826.3085124, "event": "serve", "frame": 8, "nonce": "1ac4216f4959497f"}
+{"ts": 1784304831.3116784, "event": "commit", "frame": 8, "nonce": "1ac4216f4959497f", "decision": "HOLD", "reason": "Drawdown recovering to -3.50 from -5.25, no acceleration against us"}
+{"ts": 1784304834.1146386, "event": "serve", "frame": 9, "nonce": "9f6aa46a698862fd"}
+{"ts": 1784304838.725592, "event": "commit", "frame": 9, "nonce": "9f6aa46a698862fd", "decision": "HOLD", "reason": "Still range-bound -3 to -5, HA-with just fired favorably"}
+{"ts": 1784304841.5466583, "event": "serve", "frame": 10, "nonce": "573a10343969de04"}
+{"ts": 1784304851.591555, "event": "commit", "frame": 10, "nonce": "573a10343969de04", "decision": "HOLD", "reason": "Stagnant -5pt chop, vol declining, ER10 near zero - dead chop not a breakdown"}
+{"ts": 1784304853.9998012, "event": "serve", "frame": 11, "nonce": "0bb62c624b8a5c2c"}
+{"ts": 1784304858.5888162, "event": "commit", "frame": 11, "nonce": "0bb62c624b8a5c2c", "decision": "HOLD", "reason": "px recovering to -1.50, best level in several minutes, HA-with fired"}
+{"ts": 1784304862.089999, "event": "serve", "frame": 12, "nonce": "9d72a64a56647616"}
+{"ts": 1784304866.1059773, "event": "commit", "frame": 12, "nonce": "9d72a64a56647616", "decision": "HOLD", "reason": "px back to breakeven +0.75, trend improving in our favor"}
+{"ts": 1784304870.3067465, "event": "serve", "frame": 13, "nonce": "f13eb0d47456b885"}
+{"ts": 1784304875.7418358, "event": "commit", "frame": 13, "nonce": "f13eb0d47456b885", "decision": "HOLD", "reason": "px continues improving to +2.75, momentum in our favor"}
+{"ts": 1784304879.6079535, "event": "serve", "frame": 14, "nonce": "67b9bef70a6ed332"}
+{"ts": 1784304891.651417, "event": "commit", "frame": 14, "nonce": "67b9bef70a6ed332", "decision": "EXIT", "reason": "Whipsawed back from +2.75 to -4.25, giveback 93% of leg, HA+PROPP both fire against simultaneously for first time - confluence against position"}
+{"ts": 1784304897.4651375, "event": "finish", "summary": "Exited on the t=14m whipsaw back to -4.25 after touching +2.75, driven by HA-against and PROPP-against firing simultaneously for the first time (previously they alternated) combined with 93% giveback of the current leg's amplitude - a stronger confluence than the earlier -3 to -5 chop that I held through. Next time I'd watch for that simultaneous dual-fire-against signature earlier as the real regime-change tell, rather than treating every drawdown dip in a choppy low-ER10 range the same; the position never built a sustained favorable excursion (best was +5.75 at t=3m) which in hindsight was itself a warning that this leg lacked directional conviction.", "exit_frame": 14, "n_commits": 15}

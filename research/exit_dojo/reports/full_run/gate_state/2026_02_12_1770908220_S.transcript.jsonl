@@ -1,0 +1,13 @@
+{"ts": 1784314501.4978557, "event": "serve", "frame": 0, "nonce": "a7ca5b8a75b7fcbd"}
+{"ts": 1784314506.2360055, "event": "commit", "frame": 0, "nonce": "a7ca5b8a75b7fcbd", "decision": "HOLD", "reason": "fresh entry, 0% giveback, no adverse signal yet"}
+{"ts": 1784314508.9788027, "event": "serve", "frame": 1, "nonce": "86dc68bb29e9fe48"}
+{"ts": 1784314513.1068861, "event": "commit", "frame": 1, "nonce": "86dc68bb29e9fe48", "decision": "HOLD", "reason": "px +7pts favorable, giveback only 11%, PROPP still with trade"}
+{"ts": 1784314515.4889903, "event": "serve", "frame": 2, "nonce": "2f7fe523c98c1437"}
+{"ts": 1784314519.3302813, "event": "commit", "frame": 2, "nonce": "2f7fe523c98c1437", "decision": "HOLD", "reason": "px +16.25pts new high, giveback 0%, trend still favorable despite PROPP flip"}
+{"ts": 1784314522.0925233, "event": "serve", "frame": 3, "nonce": "3a904cf34c62a254"}
+{"ts": 1784314525.8555055, "event": "commit", "frame": 3, "nonce": "3a904cf34c62a254", "decision": "HOLD", "reason": "px +23pts, new high, giveback 19% acceptable, PROPP back with trade"}
+{"ts": 1784314528.1472726, "event": "serve", "frame": 4, "nonce": "01042d50a97f9d00"}
+{"ts": 1784314531.8098717, "event": "commit", "frame": 4, "nonce": "01042d50a97f9d00", "decision": "HOLD", "reason": "px +33.5pts new high, giveback 5%, PROPP with trade, momentum intact"}
+{"ts": 1784314534.5308769, "event": "serve", "frame": 5, "nonce": "00fad7ed0c6a6895"}
+{"ts": 1784314556.3888817, "event": "commit", "frame": 5, "nonce": "00fad7ed0c6a6895", "decision": "EXIT", "reason": "px flipped to -23pts (net underwater), giveback 51% of peak amp, HA/KMDR/PROPP all against within 3m -- full reversal confluence"}
+{"ts": 1784314563.6967645, "event": "finish", "summary": "Held through a clean run-up from entry to a +40.5pt peak (t=4m), then exited at t=5m when price whipped back to -23pts net -- a 51% giveback of peak amplitude confirmed by three independent against-signals (HA, KMDR, PROPP) all firing within the same 3-minute window. The signature that drove the exit was the coincidence of a sign flip (favorable to unfavorable) with multi-indicator confluence, not giveback alone. Next time I'd watch for whether any single fire preceded the giveback acceleration (a leading indicator) versus all three lagging together, since that would tell me if an earlier partial-giveback exit (e.g. at 25-30%) captures more of the peak without needing the full reversal confirmation.", "exit_frame": 5, "n_commits": 6}

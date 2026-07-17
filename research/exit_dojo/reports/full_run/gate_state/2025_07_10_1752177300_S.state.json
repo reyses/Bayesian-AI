@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_07_10_1752177300_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "69e27ad74ce1bc5d",
+      "ts": 1784317115.589699
+    },
+    {
+      "frame": 1,
+      "nonce": "6689ac5abee6be6a",
+      "ts": 1784317135.1310315
+    },
+    {
+      "frame": 2,
+      "nonce": "0565d7791cb47350",
+      "ts": 1784317146.5561805
+    },
+    {
+      "frame": 3,
+      "nonce": "3d45ff91c02d4887",
+      "ts": 1784317154.9547863
+    },
+    {
+      "frame": 4,
+      "nonce": "ee009fd601b68b96",
+      "ts": 1784317169.1494153
+    },
+    {
+      "frame": 5,
+      "nonce": "5b8ace66a8b4d8f2",
+      "ts": 1784317182.5420158
+    },
+    {
+      "frame": 6,
+      "nonce": "10d3294e07851594",
+      "ts": 1784317192.2501218
+    },
+    {
+      "frame": 7,
+      "nonce": "b5d049c3cdfe340a",
+      "ts": 1784317199.402696
+    },
+    {
+      "frame": 8,
+      "nonce": "6a9aec4d6317ab77",
+      "ts": 1784317210.9806814
+    },
+    {
+      "frame": 9,
+      "nonce": "6216d4e16da5cb13",
+      "ts": 1784317220.435754
+    },
+    {
+      "frame": 10,
+      "nonce": "9f4f089f0db1eff5",
+      "ts": 1784317227.4757516
+    },
+    {
+      "frame": 11,
+      "nonce": "1b8b8dd04933272f",
+      "ts": 1784317235.005344
+    },
+    {
+      "frame": 12,
+      "nonce": "74119d82eb07f122",
+      "ts": 1784317244.4528484
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "69e27ad74ce1bc5d",
+      "decision": "HOLD",
+      "reason": "at breakeven, frame 0, mixed multi-TF signals, no clear reversal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "6689ac5abee6be6a",
+      "decision": "HOLD",
+      "reason": "still breakeven, mixed HA-against/PROPP-with fires, no confirmed reversal on actual price"
+    },
+    {
+      "frame": 2,
+      "nonce": "0565d7791cb47350",
+      "decision": "HOLD",
+      "reason": "small -2.5pt drawdown, giveback improved to 13%, no strong confirmed reversal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "3d45ff91c02d4887",
+      "decision": "HOLD",
+      "reason": "drawdown -5.75pts but still modest, giveback shrinking to 8%, strong negative lambda_t on fast TFs suggests mean-reversion pulling back in our favor"
+    },
+    {
+      "frame": 4,
+      "nonce": "ee009fd601b68b96",
+      "decision": "HOLD",
+      "reason": "recovered to -2.5pts from -5.75, no active fires, choppy but not trending against us"
+    },
+    {
+      "frame": 5,
+      "nonce": "5b8ace66a8b4d8f2",
+      "decision": "HOLD",
+      "reason": "flipped to +3.75pts favorable, vol compressing, mixed HA-with/PROPP-against fires, staying in to see if favorable move develops"
+    },
+    {
+      "frame": 6,
+      "nonce": "10d3294e07851594",
+      "decision": "HOLD",
+      "reason": "still marginally favorable +1.0pt, choppy low-ER10 chop, no decisive break either way"
+    },
+    {
+      "frame": 7,
+      "nonce": "b5d049c3cdfe340a",
+      "decision": "HOLD",
+      "reason": "back to +3.75pts, ER10 near zero = pure chop, no directional edge either way, staying in"
+    },
+    {
+      "frame": 8,
+      "nonce": "6a9aec4d6317ab77",
+      "decision": "HOLD",
+      "reason": "whipsaw continues, back to -2.5pts, still chop (ER10 0.22), no confirmed break"
+    },
+    {
+      "frame": 9,
+      "nonce": "6216d4e16da5cb13",
+      "decision": "HOLD",
+      "reason": "+2.75pts, ER10 jumped to 0.58 (more trending), giveback shrinking to 23%, no adverse fires"
+    },
+    {
+      "frame": 10,
+      "nonce": "9f4f089f0db1eff5",
+      "decision": "HOLD",
+      "reason": "+3.75pts, giveback down to 13%, no adverse fires, holding for continuation"
+    },
+    {
+      "frame": 11,
+      "nonce": "1b8b8dd04933272f",
+      "decision": "HOLD",
+      "reason": "+1.5pts, ER10 crashed to 0.03 pure noise, PROPP-against fired but single weak signal, staying in"
+    },
+    {
+      "frame": 12,
+      "nonce": "74119d82eb07f122",
+      "decision": "EXIT",
+      "reason": "px -2.50, giveback spiked to 75% of leg amplitude, HA-against and PROPP-against both fired together for first time (structure double-confirms against us), ER10 still pure noise so no trend to lean on for recovery"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Held through 12 minutes of choppy whipsaw (px oscillating roughly -6 to +4 pts, ER10 mostly near-zero pure noise) with no confirmed trend. Exited at -2.50pts when the leg's giveback spiked to 75% of its amplitude and, for the first time in the episode, HA-against and PROPP-against fired together within the same short window, a double structural confirmation that the setup had turned. Next time I'd watch for that same co-fire pattern earlier and weight sustained low ER10 as a reason to trim size rather than hold full through the chop."
+}

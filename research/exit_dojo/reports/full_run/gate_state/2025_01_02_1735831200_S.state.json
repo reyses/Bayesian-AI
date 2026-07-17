@@ -1,0 +1,100 @@
+{
+  "episode_id": "2025_01_02_1735831200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "efcec9d25e5e693b",
+      "ts": 1784305370.319484
+    },
+    {
+      "frame": 1,
+      "nonce": "aaf3564ba8992be5",
+      "ts": 1784305379.5862236
+    },
+    {
+      "frame": 2,
+      "nonce": "217c448bf4e522ed",
+      "ts": 1784305389.599626
+    },
+    {
+      "frame": 3,
+      "nonce": "56cf53b9e15b0632",
+      "ts": 1784305396.0395973
+    },
+    {
+      "frame": 4,
+      "nonce": "0b5ce8ca4604c724",
+      "ts": 1784305403.991883
+    },
+    {
+      "frame": 5,
+      "nonce": "74b2025521d7b537",
+      "ts": 1784305412.2691982
+    },
+    {
+      "frame": 6,
+      "nonce": "9f4b2de3d5a12874",
+      "ts": 1784305420.3937545
+    },
+    {
+      "frame": 7,
+      "nonce": "cb15286ddc999739",
+      "ts": 1784305431.8167355
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "efcec9d25e5e693b",
+      "decision": "HOLD",
+      "reason": "frame 0, px flat at entry, too early to judge, wait for more data"
+    },
+    {
+      "frame": 1,
+      "nonce": "aaf3564ba8992be5",
+      "decision": "HOLD",
+      "reason": "px+56, strong lambda continuation on 1m/5m, low giveback, let it run"
+    },
+    {
+      "frame": 2,
+      "nonce": "217c448bf4e522ed",
+      "decision": "HOLD",
+      "reason": "px+61.5, ER10 0.74 strong trend, lambda_1m t=6.8 continuation, giveback still small"
+    },
+    {
+      "frame": 3,
+      "nonce": "56cf53b9e15b0632",
+      "decision": "HOLD",
+      "reason": "px+103, ER10 0.77, 1m lambda t=6.97 still strong continuation despite 5s micro-decel, giveback low"
+    },
+    {
+      "frame": 4,
+      "nonce": "0b5ce8ca4604c724",
+      "decision": "HOLD",
+      "reason": "px+93 (small pullback from 103, giveback 5%), 1m lambda t=7.4 still strong, ER10 0.79 high, minor 5s/15s decel not yet a reversal signal"
+    },
+    {
+      "frame": 5,
+      "nonce": "74b2025521d7b537",
+      "decision": "HOLD",
+      "reason": "px+97.25, ER10 0.94 near-max trend efficiency, 1m lambda t=6.77 still strongly continuing"
+    },
+    {
+      "frame": 6,
+      "nonce": "9f4b2de3d5a12874",
+      "decision": "HOLD",
+      "reason": "giveback jumped to 21% (pullback from 97 to 78) but ER10 still 0.92 and 1m lambda t=6.1 still strong continuation, treating as noise not reversal yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "cb15286ddc999739",
+      "decision": "EXIT",
+      "reason": "giveback 25% and rising, ER10 fell 0.92->0.68, three against-fires now clustered (KMDR/HA/PROPP all against) vs one earlier -- treating as the turn signature, lock in +59.25"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Exited at +59.25pts (t=7m) after the trade ran to a +180pt peak amplitude and gave back 25%. The exit signature was a convergence of decay signals: ER10 trend-efficiency dropped from 0.92 to 0.68 in one bar, and the against-position fires clustered from one (KMDR) to three simultaneous (KMDR+HA+PROPP), where PROPP flipped from a with-position fire to against. Next time I'd watch for this same combo -- efficiency-ratio breakdown plus multi-signal fire clustering against the position -- earlier and weight it more than raw giveback percentage alone, since giveback stayed in a tolerable range (9-21%) for several bars before the real reversal signature appeared."
+}

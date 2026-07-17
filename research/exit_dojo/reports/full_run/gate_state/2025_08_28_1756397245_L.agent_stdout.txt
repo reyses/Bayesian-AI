@@ -1,0 +1,12 @@
+# exit_code=0 dt=524s
+## STDOUT
+Episode complete. Exited LONG at **+23.25pts** at t=16m (peak was +31.75pts at t=15m), after holding through the entire run on the strength of a positive 1m `lambda_hat` trend signal.
+
+**Exit driver**: multi-timeframe fast-lambda flip â€” 1m `lambda_hat_12`/`lambda_hat_21` both went strongly negative (t=-4.4, t=-2.3) at the same time 15s `lambda_30` also went negative (t=-3.3), two frames after the price high. Earlier isolated "against" fires (KMDR, HA, PROPP) didn't have lambda confirmation and I correctly held through those.
+
+**Self-critique in the finish summary**: I was one frame slow â€” price had already given back ~8pts intrabar (+31.75â†’+24.5 close) the frame before I exited, and I held one more frame to "confirm" before acting.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

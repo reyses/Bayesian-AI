@@ -1,0 +1,8 @@
+# exit_code=0 dt=349s
+## STDOUT
+Exited at frame 18 (t=18m) with the position at **+241.5 pts favorable**, down from a peak of +317.8 pts. The exit trigger was the first simultaneous 3-way alignment of against-signals (KMDR + HA + PROPP) combined with ER10 trend-efficiency collapsing from 0.91 to 0.53 and price stair-stepping down across four consecutive frames. Earlier single-signal against-fires and giveback spikes (up to 22%) were tolerated because price kept printing new favorable highs and trend-efficiency metrics stayed strong â€” the compounding of all three signature families is what broke the hold.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

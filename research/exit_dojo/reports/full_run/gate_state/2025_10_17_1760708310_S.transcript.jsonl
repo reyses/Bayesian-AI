@@ -1,0 +1,23 @@
+{"ts": 1784312819.6888428, "event": "serve", "frame": 0, "nonce": "fc5529715efed0fb"}
+{"ts": 1784312834.1858284, "event": "commit", "frame": 0, "nonce": "fc5529715efed0fb", "decision": "HOLD", "reason": "early frame, large favorable multi-TF move already banked, giveback only 13%, no reversal signature yet"}
+{"ts": 1784312838.2131958, "event": "serve", "frame": 1, "nonce": "b0b0a73fd76bcb7c"}
+{"ts": 1784312849.4982357, "event": "commit", "frame": 1, "nonce": "b0b0a73fd76bcb7c", "decision": "HOLD", "reason": "giveback spiked to 57% but still +53pts favorable; ER10 low suggests chop not confirmed reversal, no R-trigger break yet"}
+{"ts": 1784312852.3765686, "event": "serve", "frame": 2, "nonce": "bdd32d4be3a812c6"}
+{"ts": 1784312867.7835085, "event": "commit", "frame": 2, "nonce": "bdd32d4be3a812c6", "decision": "HOLD", "reason": "px improved to +72 despite noisy ER10=0 chop; PROPP-against just fired but price hasn't turned yet, watching next frame"}
+{"ts": 1784312870.0617514, "event": "serve", "frame": 3, "nonce": "8e60958926590a67"}
+{"ts": 1784312874.523297, "event": "commit", "frame": 3, "nonce": "8e60958926590a67", "decision": "HOLD", "reason": "px extended to +83.25, new leg giveback reset to 0%, PROPP/HA both firing with the move"}
+{"ts": 1784312876.7797809, "event": "serve", "frame": 4, "nonce": "1c4bcc76285652e7"}
+{"ts": 1784312881.0824325, "event": "commit", "frame": 4, "nonce": "1c4bcc76285652e7", "decision": "HOLD", "reason": "pulled back to +66.5 from +83 peak but giveback only 13%, normal pullback not a confirmed reversal"}
+{"ts": 1784312883.9652586, "event": "serve", "frame": 5, "nonce": "f0c4b2c46d2b2aac"}
+{"ts": 1784312887.7267966, "event": "commit", "frame": 5, "nonce": "f0c4b2c46d2b2aac", "decision": "HOLD", "reason": "new favorable high +89, giveback down to 6%, PROPP-with confirming trend"}
+{"ts": 1784312890.1185515, "event": "serve", "frame": 6, "nonce": "3bd595ea8994daa7"}
+{"ts": 1784312894.5547318, "event": "commit", "frame": 6, "nonce": "3bd595ea8994daa7", "decision": "HOLD", "reason": "strong extension to +122, giveback 0%, lambda_t 5s=5.1 confirms trending not reverting"}
+{"ts": 1784312897.3512998, "event": "serve", "frame": 7, "nonce": "4a760a94c7d4f886"}
+{"ts": 1784312902.8422985, "event": "commit", "frame": 7, "nonce": "4a760a94c7d4f886", "decision": "HOLD", "reason": "pullback to +105 from ~126 high, giveback only 10%, PROPP-with still confirming, no reversal signature"}
+{"ts": 1784312905.4062705, "event": "serve", "frame": 8, "nonce": "c8871f64c7f38483"}
+{"ts": 1784312909.0446072, "event": "commit", "frame": 8, "nonce": "c8871f64c7f38483", "decision": "HOLD", "reason": "px +100.75, giveback 15% still modest, PROPP-with holding, ER10 rising 0.41 = more directional"}
+{"ts": 1784312911.802725, "event": "serve", "frame": 9, "nonce": "f5a92f66d957556a"}
+{"ts": 1784312916.5815165, "event": "commit", "frame": 9, "nonce": "f5a92f66d957556a", "decision": "HOLD", "reason": "px +91, giveback 26% still within normal range, PROPP-with continues, lambda_t 1m 30-window rising 3.87"}
+{"ts": 1784312919.7307892, "event": "serve", "frame": 10, "nonce": "667e213299f33073"}
+{"ts": 1784312937.3579855, "event": "commit", "frame": 10, "nonce": "667e213299f33073", "decision": "EXIT", "reason": "sharp reversal: px fell ~60pts in 1min from +91 to +32.5, HA-against AND PROPP-against both fired together, fresh adverse leg starting at 0% giveback -- first dual-confirmed reversal signature in the episode"}
+{"ts": 1784312942.833795, "event": "finish", "summary": "Held through the trend expansion (px climbed from 0 to a ~122pt peak) while giveback stayed under ~30% and turn detectors (PROPP/HA/KMDR) mostly fired 'with' the position. Exited at frame 10 (+32.5pts) when px dropped ~60pts in a single minute AND both HA and PROPP fired 'against' simultaneously for the first time -- a dual-confirmed reversal signature, distinct from the earlier noisy single-detector or giveback-only wobbles I held through. Next time I'd watch for that same dual-detector-against confluence earlier, and also track whether waiting one more frame to confirm the leg extends would have cost or saved points.", "exit_frame": 10, "n_commits": 11}

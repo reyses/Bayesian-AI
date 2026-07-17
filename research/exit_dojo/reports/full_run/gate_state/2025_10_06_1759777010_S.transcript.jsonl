@@ -1,0 +1,57 @@
+{"ts": 1784318673.001441, "event": "serve", "frame": 0, "nonce": "8d5b783e298a3d01"}
+{"ts": 1784318678.2566001, "event": "commit", "frame": 0, "nonce": "8d5b783e298a3d01", "decision": "HOLD", "reason": "early frame, px flat at entry, no adverse signal yet"}
+{"ts": 1784318681.456063, "event": "serve", "frame": 1, "nonce": "bb801dbb6d51342c"}
+{"ts": 1784318694.9175289, "event": "commit", "frame": 1, "nonce": "bb801dbb6d51342c", "decision": "HOLD", "reason": "adverse move to -4.75, 49% giveback, but only 1m in and mixed fire signals"}
+{"ts": 1784318698.209189, "event": "serve", "frame": 2, "nonce": "a5046ba6cc44d84f"}
+{"ts": 1784318715.7288327, "event": "commit", "frame": 2, "nonce": "a5046ba6cc44d84f", "decision": "HOLD", "reason": "adverse trend persisting (lambda_t -3.2 on 1m) but 15s z_21 overbought (+1.58) suggests near-term snapback; giveback 59% not yet extreme"}
+{"ts": 1784318718.11693, "event": "serve", "frame": 3, "nonce": "469644632b8f6c13"}
+{"ts": 1784318723.6541843, "event": "commit", "frame": 3, "nonce": "469644632b8f6c13", "decision": "HOLD", "reason": "slight bounce -6.00 to -5.50, giveback easing 59%->53%, but signals mixed and ER10 near zero (choppy)"}
+{"ts": 1784318726.0689144, "event": "serve", "frame": 4, "nonce": "3c82b684cbde6849"}
+{"ts": 1784318730.5637386, "event": "commit", "frame": 4, "nonce": "3c82b684cbde6849", "decision": "HOLD", "reason": "recovering: -6.00 -> -2.25, giveback down to 39%, position clawing back toward favorable"}
+{"ts": 1784318733.1646292, "event": "serve", "frame": 5, "nonce": "d6ad55322ce32b13"}
+{"ts": 1784318740.2380419, "event": "commit", "frame": 5, "nonce": "d6ad55322ce32b13", "decision": "HOLD", "reason": "choppy oscillation -2.25 to -4.50, leg amp flat at 12.8 (consolidating), no decisive break either way"}
+{"ts": 1784318744.1707728, "event": "serve", "frame": 6, "nonce": "475cf3c3ee967cac"}
+{"ts": 1784318748.7855778, "event": "commit", "frame": 6, "nonce": "475cf3c3ee967cac", "decision": "HOLD", "reason": "swung favorable to +1.50, giveback down to 11%, new leg high made - momentum turning our way"}
+{"ts": 1784318751.2702668, "event": "serve", "frame": 7, "nonce": "36c3f4ab09e48a5d"}
+{"ts": 1784318755.8299956, "event": "commit", "frame": 7, "nonce": "36c3f4ab09e48a5d", "decision": "HOLD", "reason": "px +2.00 new high, giveback down to 6%, ER10 rising (0.32) - trend strengthening in our favor"}
+{"ts": 1784318758.4786866, "event": "serve", "frame": 8, "nonce": "e03ad9cc669d9305"}
+{"ts": 1784318762.2384307, "event": "commit", "frame": 8, "nonce": "e03ad9cc669d9305", "decision": "HOLD", "reason": "minor pullback +2.00->+1.50, still net favorable, giveback low at 9%"}
+{"ts": 1784318765.22242, "event": "serve", "frame": 9, "nonce": "035a308036dc340e"}
+{"ts": 1784318769.8648293, "event": "commit", "frame": 9, "nonce": "035a308036dc340e", "decision": "HOLD", "reason": "px near flat -0.25, new leg high made (amp 15.2), giveback moderate 20%, no clear reversal trigger"}
+{"ts": 1784318772.2849638, "event": "serve", "frame": 10, "nonce": "54b37cc767d08fc2"}
+{"ts": 1784318781.9194705, "event": "commit", "frame": 10, "nonce": "54b37cc767d08fc2", "decision": "HOLD", "reason": "px -3.00, giveback 46%, CLIMAX-against fired but drawdown level similar to prior troughs that recovered; watching closely"}
+{"ts": 1784318784.5523283, "event": "serve", "frame": 11, "nonce": "7ab79737fa2cf2f9"}
+{"ts": 1784318788.5103765, "event": "commit", "frame": 11, "nonce": "7ab79737fa2cf2f9", "decision": "HOLD", "reason": "px improving -3.00->-1.25, giveback easing to 39%, still within established range"}
+{"ts": 1784318792.3737543, "event": "serve", "frame": 12, "nonce": "fdbfe9606b4cce2c"}
+{"ts": 1784318797.3638546, "event": "commit", "frame": 12, "nonce": "fdbfe9606b4cce2c", "decision": "HOLD", "reason": "new leg started, px -1.50 mild, giveback reset to 0%, no acute signal"}
+{"ts": 1784318800.9638445, "event": "serve", "frame": 13, "nonce": "eddcc5e4c36fb7b4"}
+{"ts": 1784318804.9866655, "event": "commit", "frame": 13, "nonce": "eddcc5e4c36fb7b4", "decision": "HOLD", "reason": "px -2.50, still within noise band, giveback 0% on fresh leg"}
+{"ts": 1784318807.6362472, "event": "serve", "frame": 14, "nonce": "6338e04aa848eebf"}
+{"ts": 1784318811.5079198, "event": "commit", "frame": 14, "nonce": "6338e04aa848eebf", "decision": "HOLD", "reason": "px -1.00, mild, vol contracting (1.5pt 5m), no acute risk"}
+{"ts": 1784318814.3072326, "event": "serve", "frame": 15, "nonce": "ff1189d264a7aef6"}
+{"ts": 1784318818.8297658, "event": "commit", "frame": 15, "nonce": "ff1189d264a7aef6", "decision": "HOLD", "reason": "px +0.25 near breakeven, vol contracting, choppy but no adverse breakout"}
+{"ts": 1784318821.4295554, "event": "serve", "frame": 16, "nonce": "8c860752d9ccaafb"}
+{"ts": 1784318827.765239, "event": "commit", "frame": 16, "nonce": "8c860752d9ccaafb", "decision": "HOLD", "reason": "px -3.75, within prior established range (worst seen was -6.00), vol still low/contracting"}
+{"ts": 1784318830.511262, "event": "serve", "frame": 17, "nonce": "c8c685beaf4a6f95"}
+{"ts": 1784318833.6634653, "event": "commit", "frame": 17, "nonce": "c8c685beaf4a6f95", "decision": "HOLD", "reason": "px -3.25, mild improvement, still range-bound"}
+{"ts": 1784318837.31467, "event": "serve", "frame": 18, "nonce": "a0fe81ed74f9d2ce"}
+{"ts": 1784318841.5953505, "event": "commit", "frame": 18, "nonce": "a0fe81ed74f9d2ce", "decision": "HOLD", "reason": "px -2.50, vol compressing further, market quieting down"}
+{"ts": 1784318844.048086, "event": "serve", "frame": 19, "nonce": "c909dbab0bdc3222"}
+{"ts": 1784318851.5201874, "event": "commit", "frame": 19, "nonce": "c909dbab0bdc3222", "decision": "HOLD", "reason": "px +3.25, new best favorable print, momentum turning our way again"}
+{"ts": 1784318855.8428826, "event": "serve", "frame": 20, "nonce": "2658bf444499e13e"}
+{"ts": 1784318859.6264424, "event": "commit", "frame": 20, "nonce": "2658bf444499e13e", "decision": "HOLD", "reason": "pullback from +3.25 to -1.25, still normal chop within range"}
+{"ts": 1784318863.1734474, "event": "serve", "frame": 21, "nonce": "9ad13e40d1239338"}
+{"ts": 1784318867.0075445, "event": "commit", "frame": 21, "nonce": "9ad13e40d1239338", "decision": "HOLD", "reason": "px +4.25 new best favorable print, letting the winner run"}
+{"ts": 1784318869.672565, "event": "serve", "frame": 22, "nonce": "a8dfa48365484aa7"}
+{"ts": 1784318875.0746577, "event": "commit", "frame": 22, "nonce": "a8dfa48365484aa7", "decision": "HOLD", "reason": "px +4.00 holding near best level, PROPP-against fired but no price breakdown yet"}
+{"ts": 1784318877.3008113, "event": "serve", "frame": 23, "nonce": "209efccd3c0c17aa"}
+{"ts": 1784318881.094984, "event": "commit", "frame": 23, "nonce": "209efccd3c0c17aa", "decision": "HOLD", "reason": "px +3.00, holding gains, still favorable zone"}
+{"ts": 1784318884.4874456, "event": "serve", "frame": 24, "nonce": "6a78f17d4e9296b8"}
+{"ts": 1784318888.3932166, "event": "commit", "frame": 24, "nonce": "6a78f17d4e9296b8", "decision": "HOLD", "reason": "px +6.75 new best, trend clearly favorable now, letting it run"}
+{"ts": 1784318893.1448092, "event": "serve", "frame": 25, "nonce": "ef65782faf6ae7a2"}
+{"ts": 1784318902.512277, "event": "commit", "frame": 25, "nonce": "ef65782faf6ae7a2", "decision": "HOLD", "reason": "px +7.75 new best, ER10 strengthening (0.34) but KMDR-against fired (leading turn signal) - watching next frame closely"}
+{"ts": 1784318905.581983, "event": "serve", "frame": 26, "nonce": "d8320c865390d58a"}
+{"ts": 1784318911.2811613, "event": "commit", "frame": 26, "nonce": "d8320c865390d58a", "decision": "HOLD", "reason": "px +9.25 new best, prior KMDR-against fire did not materialize into reversal, trend intact"}
+{"ts": 1784318915.3826816, "event": "serve", "frame": 27, "nonce": "4a7cbda5d2ddd3ab"}
+{"ts": 1784318928.6786945, "event": "commit", "frame": 27, "nonce": "4a7cbda5d2ddd3ab", "decision": "EXIT", "reason": "px +12.75 new best by far; KMDR+PROPP both against confluence; price rejection wicks on 5s/15s/1m at the high - taking profit"}
+{"ts": 1784318935.1425474, "event": "finish", "summary": "Exited at +12.75pts after a long choppy 27-minute grind (oscillating -6 to +4 for the first ~20min) finally broke out favorably from +4 to +12.75 in the last few frames. Exit trigger was a confluence of two independent turn-detection signals (KMDR-against and PROPP-against) firing simultaneously right at the largest favorable excursion of the trade, corroborated by visible rejection wicks on the 5s/15s/1m closes pulling back from the highs. Next time I'd watch for this same dual-signal confluence earlier and weight single-signal fires (which occurred multiple times mid-episode without follow-through) less heavily than simultaneous multi-signal + price-action confirmation.", "exit_frame": 27, "n_commits": 28}

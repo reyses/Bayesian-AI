@@ -1,0 +1,78 @@
+{
+  "episode_id": "2026_02_19_1771511545_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "19287fc9e8348a5e",
+      "ts": 1784314501.0865157
+    },
+    {
+      "frame": 1,
+      "nonce": "11e57ec2aaabc567",
+      "ts": 1784314509.3187792
+    },
+    {
+      "frame": 2,
+      "nonce": "0edf7b3176269520",
+      "ts": 1784314515.7738006
+    },
+    {
+      "frame": 3,
+      "nonce": "bc704e1a52d5e93d",
+      "ts": 1784314524.745897
+    },
+    {
+      "frame": 4,
+      "nonce": "c8cbb10d4a3a11a0",
+      "ts": 1784314531.4679596
+    },
+    {
+      "frame": 5,
+      "nonce": "c6959c842a26956b",
+      "ts": 1784314544.9067826
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "19287fc9e8348a5e",
+      "decision": "HOLD",
+      "reason": "at entry, px flat, mixed against/with fires, no edge yet to act on"
+    },
+    {
+      "frame": 1,
+      "nonce": "11e57ec2aaabc567",
+      "decision": "HOLD",
+      "reason": "small -5.75pt drawdown, new leg just started, no strong against-signal cluster yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "0edf7b3176269520",
+      "decision": "HOLD",
+      "reason": "px -11.75, giveback 59% but lambda still mostly negative (mean-reverting), fires mixed, not conclusive"
+    },
+    {
+      "frame": 3,
+      "nonce": "bc704e1a52d5e93d",
+      "decision": "HOLD",
+      "reason": "flipped to +20.50 profit, HA-with and PROPP-with both aligned, let it run"
+    },
+    {
+      "frame": 4,
+      "nonce": "c8cbb10d4a3a11a0",
+      "decision": "HOLD",
+      "reason": "px +75.25, lambda strongly positive/trending (t=3.85), reversion_prob dropped to 0.39 = trend continuation regime; one KMDR-against blip not enough to cut a running winner"
+    },
+    {
+      "frame": 5,
+      "nonce": "c6959c842a26956b",
+      "decision": "EXIT",
+      "reason": "peak +75 giving back to +36.5 (45% giveback), KMDR-against + CLIMAX-against both fired within 1m (the two flagged good turn detectors), reversion_prob climbing back up -- locking in the run before it erodes further"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through an initial small drawdown and a fast +75pt favorable spike where lambda/reversion_prob signaled genuine trend continuation, not just noise. Exited at +36.5pts once the run gave back 45% of its amplitude and the two detectors I trust most for turns (KMDR and CLIMAX) fired against the position within the same minute -- that confluence, not a fixed profit target, drove the exit. Next time I'd watch for that same KMDR+CLIMAX co-fire earlier as the primary turn trigger rather than waiting for giveback to confirm it, since giveback is a lagging tell."
+}

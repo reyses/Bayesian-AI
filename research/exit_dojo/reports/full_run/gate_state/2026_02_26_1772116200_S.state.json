@@ -1,0 +1,518 @@
+{
+  "episode_id": "2026_02_26_1772116200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c37f48fdaa53e493",
+      "ts": 1784310006.8466601
+    },
+    {
+      "frame": 1,
+      "nonce": "0f253a8927e72483",
+      "ts": 1784310014.0864048
+    },
+    {
+      "frame": 2,
+      "nonce": "ba6bb11eff7aa4c2",
+      "ts": 1784310023.7019253
+    },
+    {
+      "frame": 3,
+      "nonce": "0c903329318cd808",
+      "ts": 1784310034.0471432
+    },
+    {
+      "frame": 4,
+      "nonce": "6003443655cb82ee",
+      "ts": 1784310042.5768735
+    },
+    {
+      "frame": 5,
+      "nonce": "b378532e0ac18fb1",
+      "ts": 1784310054.6499162
+    },
+    {
+      "frame": 6,
+      "nonce": "32913280f1a81d70",
+      "ts": 1784310062.0494783
+    },
+    {
+      "frame": 7,
+      "nonce": "3532c4c6c0b2b058",
+      "ts": 1784310068.0271597
+    },
+    {
+      "frame": 8,
+      "nonce": "f5a5c26ff770cc90",
+      "ts": 1784310073.9071176
+    },
+    {
+      "frame": 9,
+      "nonce": "8c9aa2ee0c5e676d",
+      "ts": 1784310080.9968054
+    },
+    {
+      "frame": 10,
+      "nonce": "938a58443311b6a7",
+      "ts": 1784310089.275777
+    },
+    {
+      "frame": 11,
+      "nonce": "cc2959d43d6fdb95",
+      "ts": 1784310095.7986345
+    },
+    {
+      "frame": 12,
+      "nonce": "311fc436dfb9fdc4",
+      "ts": 1784310103.4625413
+    },
+    {
+      "frame": 13,
+      "nonce": "dcbd04e54ee33bf5",
+      "ts": 1784310110.2984347
+    },
+    {
+      "frame": 14,
+      "nonce": "fa5caddee0397750",
+      "ts": 1784310118.8776317
+    },
+    {
+      "frame": 15,
+      "nonce": "f4ae5f9bbe410b73",
+      "ts": 1784310127.6930504
+    },
+    {
+      "frame": 16,
+      "nonce": "80e0715b7e286b81",
+      "ts": 1784310134.1959562
+    },
+    {
+      "frame": 17,
+      "nonce": "cf56ac61d36319f5",
+      "ts": 1784310140.5787375
+    },
+    {
+      "frame": 18,
+      "nonce": "450fc831d12f4141",
+      "ts": 1784310146.6323006
+    },
+    {
+      "frame": 19,
+      "nonce": "918eede736415497",
+      "ts": 1784310153.9246385
+    },
+    {
+      "frame": 20,
+      "nonce": "fdade1bdbd3b9e8a",
+      "ts": 1784310160.4209058
+    },
+    {
+      "frame": 21,
+      "nonce": "c8f83820ab3c88bd",
+      "ts": 1784310177.5265582
+    },
+    {
+      "frame": 22,
+      "nonce": "e22920c4c8b2952f",
+      "ts": 1784310183.967769
+    },
+    {
+      "frame": 23,
+      "nonce": "0e4cdaae7a0aab63",
+      "ts": 1784310192.228183
+    },
+    {
+      "frame": 24,
+      "nonce": "52c9e99f8db7b920",
+      "ts": 1784310198.3762114
+    },
+    {
+      "frame": 25,
+      "nonce": "6781d24fb5d5a0e6",
+      "ts": 1784310206.733056
+    },
+    {
+      "frame": 26,
+      "nonce": "9add6711121ca40c",
+      "ts": 1784310214.8085225
+    },
+    {
+      "frame": 27,
+      "nonce": "771e5130cb8e127f",
+      "ts": 1784310221.569811
+    },
+    {
+      "frame": 28,
+      "nonce": "e5a5f919d3707e7f",
+      "ts": 1784310227.9639592
+    },
+    {
+      "frame": 29,
+      "nonce": "ffbd46c4d867950e",
+      "ts": 1784310235.2936914
+    },
+    {
+      "frame": 30,
+      "nonce": "0d3ad5116a86b58f",
+      "ts": 1784310242.1992867
+    },
+    {
+      "frame": 31,
+      "nonce": "792ffe044c856341",
+      "ts": 1784310250.0775912
+    },
+    {
+      "frame": 32,
+      "nonce": "c750bc557629e313",
+      "ts": 1784310256.6103415
+    },
+    {
+      "frame": 33,
+      "nonce": "55de8758c790a263",
+      "ts": 1784310264.9267726
+    },
+    {
+      "frame": 34,
+      "nonce": "83a54fe0b3765bc2",
+      "ts": 1784310274.6455278
+    },
+    {
+      "frame": 35,
+      "nonce": "466e18f165a6a541",
+      "ts": 1784310281.153483
+    },
+    {
+      "frame": 36,
+      "nonce": "94a204153ce67f66",
+      "ts": 1784310287.2781582
+    },
+    {
+      "frame": 37,
+      "nonce": "52972cd62e4088ad",
+      "ts": 1784310293.5265398
+    },
+    {
+      "frame": 38,
+      "nonce": "c173f77dcdee3367",
+      "ts": 1784310299.9296272
+    },
+    {
+      "frame": 39,
+      "nonce": "59d01c9411a17f2e",
+      "ts": 1784310306.6650906
+    },
+    {
+      "frame": 40,
+      "nonce": "6838c14262ec5d5e",
+      "ts": 1784310314.019559
+    },
+    {
+      "frame": 41,
+      "nonce": "175f70f13ec012c5",
+      "ts": 1784310320.5727608
+    },
+    {
+      "frame": 42,
+      "nonce": "2cb63892c25297e8",
+      "ts": 1784310327.5765724
+    },
+    {
+      "frame": 43,
+      "nonce": "fd0099fb0ad33698",
+      "ts": 1784310336.0173285
+    },
+    {
+      "frame": 44,
+      "nonce": "0442358a333e8a2e",
+      "ts": 1784310342.9191992
+    },
+    {
+      "frame": 45,
+      "nonce": "1de212323d1bb1c5",
+      "ts": 1784310349.7098176
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c37f48fdaa53e493",
+      "decision": "HOLD",
+      "reason": "just entered, no giveback, multi-TF momentum still favorable for short"
+    },
+    {
+      "frame": 1,
+      "nonce": "0f253a8927e72483",
+      "decision": "HOLD",
+      "reason": "+46pts favorable, giveback only 6%, ER10 0.59, momentum still with the short"
+    },
+    {
+      "frame": 2,
+      "nonce": "ba6bb11eff7aa4c2",
+      "decision": "HOLD",
+      "reason": "still net favorable (+16pts), giveback 37% but ER10 high 0.74, avoid banking-early bias"
+    },
+    {
+      "frame": 3,
+      "nonce": "0c903329318cd808",
+      "decision": "HOLD",
+      "reason": "new leg high, giveback reset to 0%, momentum recovering in favor"
+    },
+    {
+      "frame": 4,
+      "nonce": "6003443655cb82ee",
+      "decision": "HOLD",
+      "reason": "new high +53pts, giveback only 4%, lambda_t strongly positive on 1m (momentum continuing)"
+    },
+    {
+      "frame": 5,
+      "nonce": "b378532e0ac18fb1",
+      "decision": "HOLD",
+      "reason": "still +50pts, giveback modest at 11%, amp expanding to 126.5, lambda_t 1m +2.6 to +2.9 still favorable"
+    },
+    {
+      "frame": 6,
+      "nonce": "32913280f1a81d70",
+      "decision": "HOLD",
+      "reason": "px +64pts new high, giveback only 6%, ER10 0.57, lambda still positive multi-TF"
+    },
+    {
+      "frame": 7,
+      "nonce": "3532c4c6c0b2b058",
+      "decision": "HOLD",
+      "reason": "px +94.5pts, amp expanding to 159pts, giveback still low 6%, lambda_t 1m ~2.5-2.9 sustained"
+    },
+    {
+      "frame": 8,
+      "nonce": "f5a5c26ff770cc90",
+      "decision": "HOLD",
+      "reason": "pullback to +67.5pts, giveback 16% still moderate, 1m lambda_t remains strongly positive 1.6-3.4, no structural break"
+    },
+    {
+      "frame": 9,
+      "nonce": "8c9aa2ee0c5e676d",
+      "decision": "HOLD",
+      "reason": "px holding ~+67pts, giveback rising to 22% but still under quartile of amp, 1m lambda_t still positive"
+    },
+    {
+      "frame": 10,
+      "nonce": "938a58443311b6a7",
+      "decision": "HOLD",
+      "reason": "new leg segment starts fresh (giveback reset 0%), overall px still +56.5pts, lambda 1m positive 2.4-2.7"
+    },
+    {
+      "frame": 11,
+      "nonce": "cc2959d43d6fdb95",
+      "decision": "HOLD",
+      "reason": "overall px +76.25pts still strong, local leg giveback 48% is small-amp noise (51pt leg), 5m lambda_t still positive 1.6-2.8"
+    },
+    {
+      "frame": 12,
+      "nonce": "311fc436dfb9fdc4",
+      "decision": "HOLD",
+      "reason": "px +60.5pts still comfortably favorable, giveback recovered to 8% in current leg"
+    },
+    {
+      "frame": 13,
+      "nonce": "dcbd04e54ee33bf5",
+      "decision": "HOLD",
+      "reason": "px +67.25pts, choppier now (ER10 0.29, vol compressing), but still deep in profit and no break below zero"
+    },
+    {
+      "frame": 14,
+      "nonce": "fa5caddee0397750",
+      "decision": "HOLD",
+      "reason": "px recovered to +82.75pts near recent highs, still strongly favorable despite choppy ER10"
+    },
+    {
+      "frame": 15,
+      "nonce": "f4ae5f9bbe410b73",
+      "decision": "HOLD",
+      "reason": "px +70.75pts, range-bound between 60-95 for several minutes but no breakdown toward zero"
+    },
+    {
+      "frame": 16,
+      "nonce": "80e0715b7e286b81",
+      "decision": "HOLD",
+      "reason": "new high +98.75pts, giveback only 6%, trade continuing to work"
+    },
+    {
+      "frame": 17,
+      "nonce": "cf56ac61d36319f5",
+      "decision": "HOLD",
+      "reason": "px +91.25pts, near recent highs, still healthy"
+    },
+    {
+      "frame": 18,
+      "nonce": "450fc831d12f4141",
+      "decision": "HOLD",
+      "reason": "new all-time high +102.5pts, giveback modest 23%, vol compressing (could be pause before continuation)"
+    },
+    {
+      "frame": 19,
+      "nonce": "918eede736415497",
+      "decision": "HOLD",
+      "reason": "new high +109pts, giveback 0%, trend still expanding"
+    },
+    {
+      "frame": 20,
+      "nonce": "fdade1bdbd3b9e8a",
+      "decision": "HOLD",
+      "reason": "px +94.25pts still strong; note 1m lambda_t_21 -3.78 flags rising reversion risk, watching closely"
+    },
+    {
+      "frame": 21,
+      "nonce": "c8f83820ab3c88bd",
+      "decision": "HOLD",
+      "reason": "px +108.5pts near highs, 5m lambda_t strongly positive (+3.9), still favorable"
+    },
+    {
+      "frame": 22,
+      "nonce": "e22920c4c8b2952f",
+      "decision": "HOLD",
+      "reason": "new high +126pts, giveback only 2%, strong persistent trend"
+    },
+    {
+      "frame": 23,
+      "nonce": "0e4cdaae7a0aab63",
+      "decision": "HOLD",
+      "reason": "new high +133.25pts, giveback 0%, trend continuing to expand strongly"
+    },
+    {
+      "frame": 24,
+      "nonce": "52c9e99f8db7b920",
+      "decision": "HOLD",
+      "reason": "px +129.5pts, giveback modest 19%, 1m hurst 0.94 indicates strong trending regime"
+    },
+    {
+      "frame": 25,
+      "nonce": "6781d24fb5d5a0e6",
+      "decision": "HOLD",
+      "reason": "px +111.75pts still well above recent range, giveback 25% within normal chop, no structural break"
+    },
+    {
+      "frame": 26,
+      "nonce": "9add6711121ca40c",
+      "decision": "HOLD",
+      "reason": "px +103.75pts still strong, giveback 34% in normal range, 5m lambda_t +4.4 still very favorable"
+    },
+    {
+      "frame": 27,
+      "nonce": "771e5130cb8e127f",
+      "decision": "HOLD",
+      "reason": "px +114.25pts, giveback low 4% new leg, no reversal signal"
+    },
+    {
+      "frame": 28,
+      "nonce": "e5a5f919d3707e7f",
+      "decision": "HOLD",
+      "reason": "px new all-time high +136.25pts, trend intact"
+    },
+    {
+      "frame": 29,
+      "nonce": "ffbd46c4d867950e",
+      "decision": "HOLD",
+      "reason": "px new high +139.5pts, trend still expanding"
+    },
+    {
+      "frame": 30,
+      "nonce": "0d3ad5116a86b58f",
+      "decision": "HOLD",
+      "reason": "px +129.75pts still very strong; note 1m lambda_t_30 -4.09 strengthening reversion signal, watching for confirmation"
+    },
+    {
+      "frame": 31,
+      "nonce": "792ffe044c856341",
+      "decision": "HOLD",
+      "reason": "new high +159.5pts, giveback 6%, 5m lambda_t strongly positive (+4.07), trend accelerating"
+    },
+    {
+      "frame": 32,
+      "nonce": "c750bc557629e313",
+      "decision": "HOLD",
+      "reason": "px surged to +184.25pts new high, giveback only 9%, vol expanding strongly with the move"
+    },
+    {
+      "frame": 33,
+      "nonce": "55de8758c790a263",
+      "decision": "HOLD",
+      "reason": "px +166.5pts still enormous winner, giveback 25% off the 198 wick, no structural break"
+    },
+    {
+      "frame": 34,
+      "nonce": "83a54fe0b3765bc2",
+      "decision": "HOLD",
+      "reason": "px +165.75pts, giveback 40% but still deep in profit, no reversal confirmation"
+    },
+    {
+      "frame": 35,
+      "nonce": "466e18f165a6a541",
+      "decision": "HOLD",
+      "reason": "px +166.25pts stable, giveback moderate 16%"
+    },
+    {
+      "frame": 36,
+      "nonce": "94a204153ce67f66",
+      "decision": "HOLD",
+      "reason": "px +175.5pts near highs, 5m lambda_t +4.2 still strongly favorable"
+    },
+    {
+      "frame": 37,
+      "nonce": "52972cd62e4088ad",
+      "decision": "HOLD",
+      "reason": "px +166.5pts stable, giveback 30% within normal chop of a huge winner"
+    },
+    {
+      "frame": 38,
+      "nonce": "c173f77dcdee3367",
+      "decision": "HOLD",
+      "reason": "px +174pts, giveback 0%, vol compressing to 8.0pts - consolidation near highs, no reversal signal"
+    },
+    {
+      "frame": 39,
+      "nonce": "59d01c9411a17f2e",
+      "decision": "HOLD",
+      "reason": "px +171pts stable, tight consolidation (vol 8.3pts), giveback 23% normal"
+    },
+    {
+      "frame": 40,
+      "nonce": "6838c14262ec5d5e",
+      "decision": "HOLD",
+      "reason": "px +180.5pts near new highs, giveback low 6%, 15s lambda_t +3.5 favorable"
+    },
+    {
+      "frame": 41,
+      "nonce": "175f70f13ec012c5",
+      "decision": "HOLD",
+      "reason": "px +167pts still huge, 5m lambda_t +4.07 remains strongly favorable, local giveback is small-leg noise"
+    },
+    {
+      "frame": 42,
+      "nonce": "2cb63892c25297e8",
+      "decision": "HOLD",
+      "reason": "px +184.25pts near new highs, 15s lambda_t +4.8 strongly favorable"
+    },
+    {
+      "frame": 43,
+      "nonce": "fd0099fb0ad33698",
+      "decision": "HOLD",
+      "reason": "huge acceleration to +235.25pts, giveback only 5%, vol expanding sharply with the move (breakout continuation)"
+    },
+    {
+      "frame": 44,
+      "nonce": "0442358a333e8a2e",
+      "decision": "HOLD",
+      "reason": "new high +244.75pts, giveback only 4%, 15s lambda_t +7.1 extremely strong continuation"
+    },
+    {
+      "frame": 45,
+      "nonce": "1de212323d1bb1c5",
+      "decision": "HOLD",
+      "reason": "new high +286.75pts, giveback 0%, ER10 0.60, trend still expanding at max frame count"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Never exited: this short trended almost monotonically favorable from entry to +286.75pts over 45 frames, with repeated new highs, giveback consistently staying under ~40 percent of the active leg amplitude, and multi-timeframe lambda_t staying net positive through most pullbacks, so every frame looked like normal chop inside an intact trend rather than a reversal. Next time I'd weight sustained negative 1m lambda_t_21/30 readings (several -3 to -5 stretches appeared, e.g. around t=20-26m and t=30-31m) more heavily as an early degradation signal, and consider trimming/tightening once a leg giveback exceeds ~50 percent even if the aggregate px is still deep in profit, since that would have protected against a sharper reversal without missing much of this move."
+}

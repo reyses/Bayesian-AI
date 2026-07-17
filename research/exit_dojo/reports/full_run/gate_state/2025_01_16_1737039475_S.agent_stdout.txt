@@ -1,0 +1,10 @@
+# exit_code=0 dt=188s
+## STDOUT
+Episode closed. I held through the first three frames (entry recovery through the initial giveback, then a steady run-up), and exited at **+55.75pts** at t=3m â€” the peak of the leg with 0% giveback at that moment.
+
+Exit trigger was a convergence of overextension signals: volatility spiking (+8.3 delta), the 5s-timeframe Î» flipping sharply negative (t=-4.23) even as the 15s Î» stayed positive, and two consecutive PROPP-against fires while price kept printing new highs â€” a blow-off pattern rather than clean continuation.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

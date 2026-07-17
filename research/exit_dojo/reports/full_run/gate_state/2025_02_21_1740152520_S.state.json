@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_02_21_1740152520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e5b66c256154d2ac",
+      "ts": 1784314842.7994652
+    },
+    {
+      "frame": 1,
+      "nonce": "2c19b482c17f8f6c",
+      "ts": 1784314854.977504
+    },
+    {
+      "frame": 2,
+      "nonce": "49acd226390109e5",
+      "ts": 1784314865.2526846
+    },
+    {
+      "frame": 3,
+      "nonce": "fbeb2ee086f3a754",
+      "ts": 1784314875.671921
+    },
+    {
+      "frame": 4,
+      "nonce": "b83449f8d43c1eff",
+      "ts": 1784314882.501528
+    },
+    {
+      "frame": 5,
+      "nonce": "c8e3b3b2ced06aeb",
+      "ts": 1784314899.6577134
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e5b66c256154d2ac",
+      "decision": "HOLD",
+      "reason": "px flat at entry, no signal yet, gather more frames"
+    },
+    {
+      "frame": 1,
+      "nonce": "2c19b482c17f8f6c",
+      "decision": "HOLD",
+      "reason": "px -3pts small giveback, 2/3 local fires (HA,PROPP) with the trade, only KMDR against"
+    },
+    {
+      "frame": 2,
+      "nonce": "49acd226390109e5",
+      "decision": "HOLD",
+      "reason": "px +30pts fresh leg, 0% giveback, 2/3 fires still with trade; let winner run per R-trigger logic"
+    },
+    {
+      "frame": 3,
+      "nonce": "fbeb2ee086f3a754",
+      "decision": "HOLD",
+      "reason": "px +43.25pts, still 0% giveback, momentum continuing favorably, no reversal signal yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "b83449f8d43c1eff",
+      "decision": "HOLD",
+      "reason": "px +18.75 still profitable despite 51% giveback; watching closely, both fires now against"
+    },
+    {
+      "frame": 5,
+      "nonce": "c8e3b3b2ced06aeb",
+      "decision": "EXIT",
+      "reason": "61% giveback of 58.5pt leg, profit collapsed 43->18.75->7.25, 2/3 fires now against (KMDR,HA); lock in remaining gain before reversal erases it"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Exited at +7.25pts after a fast favorable spike to +43.25pts collapsed under 61% giveback of the 58.5pt leg, with KMDR and HA flipping against the trade while only PROPP stayed with. The signature was the giveback-percentage acceleration (0%->51%->61% across three frames) combined with majority-detector reversal, not any single indicator alone. Next time I'd watch for the giveback rate slowing or a detector flipping back 'with' before extending the hold further into a fast unwind like this."
+}

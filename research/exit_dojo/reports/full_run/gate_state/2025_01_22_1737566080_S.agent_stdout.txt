@@ -1,0 +1,8 @@
+# exit_code=0 dt=527s
+## STDOUT
+Episode complete. I held through 26 frames of tight, low-efficiency chop (px oscillating roughly -9 to +3 around entry, repeatedly recovering from drawdowns as high as -8.75), then exited at t=27m at **+4.25 favorable points** â€” the best print of the trade. The exit trigger was a fresh leg spike (17pt amplitude, only 7% given back) coinciding with both HA and PROPP detectors firing *against* simultaneously, a signature that had already preceded two earlier reversals back into losses during the chop. Full reasoning trail and the finish summary are logged via the gate's commit/finish records (28 total commits, exit at frame 27).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

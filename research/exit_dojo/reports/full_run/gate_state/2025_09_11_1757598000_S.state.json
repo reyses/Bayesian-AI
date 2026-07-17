@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_09_11_1757598000_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9d5b78734b54c979",
+      "ts": 1784312665.5257363
+    },
+    {
+      "frame": 1,
+      "nonce": "9ff4d0c68e07127a",
+      "ts": 1784312678.3096025
+    },
+    {
+      "frame": 2,
+      "nonce": "5cdaa2bfa84af3a1",
+      "ts": 1784312686.6441104
+    },
+    {
+      "frame": 3,
+      "nonce": "f7506b765451347c",
+      "ts": 1784312697.7368062
+    },
+    {
+      "frame": 4,
+      "nonce": "56d95851a33f82d7",
+      "ts": 1784312704.8331876
+    },
+    {
+      "frame": 5,
+      "nonce": "3b2a4e48356c8418",
+      "ts": 1784312711.6784697
+    },
+    {
+      "frame": 6,
+      "nonce": "59ed945dbc172b12",
+      "ts": 1784312719.008413
+    },
+    {
+      "frame": 7,
+      "nonce": "cc8ed08eb9f9ce2e",
+      "ts": 1784312727.6984978
+    },
+    {
+      "frame": 8,
+      "nonce": "4e7df752572eb126",
+      "ts": 1784312746.0684712
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9d5b78734b54c979",
+      "decision": "HOLD",
+      "reason": "frame 0, entry just opened, px flat, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9ff4d0c68e07127a",
+      "decision": "HOLD",
+      "reason": "px -4.75, small giveback 22%, lambda mostly positive on 1m/5m, no strong against signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "5cdaa2bfa84af3a1",
+      "decision": "HOLD",
+      "reason": "px +15.25 favorable, giveback 0%, leg running well, lambda positive on 1m"
+    },
+    {
+      "frame": 3,
+      "nonce": "f7506b765451347c",
+      "decision": "HOLD",
+      "reason": "px +20.75, giveback only 2%, momentum still favorable, lambda_t_30 +3.65 on 1m"
+    },
+    {
+      "frame": 4,
+      "nonce": "56d95851a33f82d7",
+      "decision": "HOLD",
+      "reason": "px +17.50, giveback 10% modest pullback from peak, lambda still strongly positive on 1m"
+    },
+    {
+      "frame": 5,
+      "nonce": "3b2a4e48356c8418",
+      "decision": "HOLD",
+      "reason": "px +16.75, giveback 14% still modest, lambda_t_30 +4.03 strong positive on 1m, ER10 rising to 0.71"
+    },
+    {
+      "frame": 6,
+      "nonce": "59ed945dbc172b12",
+      "decision": "HOLD",
+      "reason": "px +9.50, pullback from peak but giveback only 7%, still net favorable, lambda mixed but 1m lambda_t_30 +3.4"
+    },
+    {
+      "frame": 7,
+      "nonce": "cc8ed08eb9f9ce2e",
+      "decision": "HOLD",
+      "reason": "px flipped to -10.50, giveback jumped to 43% - concerning reversal, but lambda still positive (trend not broken) and R-trigger pattern historically recovers off lows; watching next frame closely"
+    },
+    {
+      "frame": 8,
+      "nonce": "4e7df752572eb126",
+      "decision": "EXIT",
+      "reason": "px -16.75 and deepening, giveback 44%, ER10 collapsed to 0.04 (no clean trend/choppy), vol(5m) rising against us (+4.5), HA-against and PROPP-against both firing 2 frames running - reversal looks structural not noise, cutting to protect capital"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through the initial run-up to +20.75pts and a normal pullback, but exited once price reversed to -16.75 (44% giveback of the 84pt leg amplitude) with ER10 collapsing to 0.04 and both HA and PROPP firing against the position for two consecutive frames. The signature was a compounding reversal (from +20.75 to -10.5 to -16.75) plus rising against-side volatility, not a single noisy tick, so I treated it as a broken trend rather than a dip to hold through. Next time I'd watch whether lambda on the 1m/15s flips negative alongside the against-fires before the price actually crosses into loss, to react one frame earlier."
+}

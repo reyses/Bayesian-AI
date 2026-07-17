@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_06_12_1749741680_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d6676cb2b6e9a6a2",
+      "ts": 1784315304.2653406
+    },
+    {
+      "frame": 1,
+      "nonce": "d83bef153c83ac7b",
+      "ts": 1784315311.259307
+    },
+    {
+      "frame": 2,
+      "nonce": "ef44484a7736cb9e",
+      "ts": 1784315326.4644427
+    },
+    {
+      "frame": 3,
+      "nonce": "97b919719b285f7f",
+      "ts": 1784315334.449321
+    },
+    {
+      "frame": 4,
+      "nonce": "da71b2854da915aa",
+      "ts": 1784315342.7267032
+    },
+    {
+      "frame": 5,
+      "nonce": "7df05bd75a119fd0",
+      "ts": 1784315354.712843
+    },
+    {
+      "frame": 6,
+      "nonce": "fd9d9c275c743be9",
+      "ts": 1784315362.125087
+    },
+    {
+      "frame": 7,
+      "nonce": "a6a5fa6abe19de77",
+      "ts": 1784315368.9093578
+    },
+    {
+      "frame": 8,
+      "nonce": "e5064053054fb193",
+      "ts": 1784315377.5417156
+    },
+    {
+      "frame": 9,
+      "nonce": "d045f82b476f7c8d",
+      "ts": 1784315394.1616378
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d6676cb2b6e9a6a2",
+      "decision": "HOLD",
+      "reason": "flat at entry, no adverse signal yet, early in trade"
+    },
+    {
+      "frame": 1,
+      "nonce": "d83bef153c83ac7b",
+      "decision": "HOLD",
+      "reason": "still +6pts favorable despite pullback; small-amplitude leg, too early to read as reversal"
+    },
+    {
+      "frame": 2,
+      "nonce": "ef44484a7736cb9e",
+      "decision": "HOLD",
+      "reason": "trade moving strongly favorable (+23pts, up from +6); no reversal signature yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "97b919719b285f7f",
+      "decision": "HOLD",
+      "reason": "minor pullback +23->+21, still strongly favorable; CLIMAX-against noted but not confirmed by price action yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "da71b2854da915aa",
+      "decision": "HOLD",
+      "reason": "new leg high +26.5pts, giveback only 24% of fresh 34pt amplitude; against-fires present but price still making progress"
+    },
+    {
+      "frame": 5,
+      "nonce": "7df05bd75a119fd0",
+      "decision": "HOLD",
+      "reason": "giveback 38% of 34pt leg, still +20.5pts; normal pullback within an intact favorable leg"
+    },
+    {
+      "frame": 6,
+      "nonce": "fd9d9c275c743be9",
+      "decision": "HOLD",
+      "reason": "new high +28.25pts, giveback only 23%; trend intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "a6a5fa6abe19de77",
+      "decision": "HOLD",
+      "reason": "pulled back to +19.75 but giveback only 24% of 35pt leg; within normal noise band"
+    },
+    {
+      "frame": 8,
+      "nonce": "e5064053054fb193",
+      "decision": "HOLD",
+      "reason": "giveback 57% and ER10 dropped to 0.16 (chop), but still +10.25 favorable; watching for further deterioration before cutting"
+    },
+    {
+      "frame": 9,
+      "nonce": "d045f82b476f7c8d",
+      "decision": "EXIT",
+      "reason": "giveback climbed to 66% of the 35pt leg, ER10 collapsed to 0.08 (momentum dead); locking +8.5pts before further reversion"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited at +8.5pts after the favorable leg's giveback climbed steadily (24%->38%->57%->66%) while ER10 collapsed from ~0.5 down to 0.08, signaling the trend had exhausted into pure chop rather than a normal pullback. Next time I'd weight the giveback/ER10 combo earlier and less on individual against-fires (KMDR/CLIMAX/PROPP), which fired repeatedly during the healthy uptrend portion without meaning anything; the real tell was the sustained multi-frame monotonic rise in giveback% paired with cratering ER10, not any single indicator print."
+}

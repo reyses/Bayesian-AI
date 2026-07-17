@@ -1,0 +1,111 @@
+{
+  "episode_id": "2026_03_09_1773063365_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "bb5c3db14b6d08ea",
+      "ts": 1784310376.6937158
+    },
+    {
+      "frame": 1,
+      "nonce": "a56c334a48f668f4",
+      "ts": 1784310386.6106746
+    },
+    {
+      "frame": 2,
+      "nonce": "7e35c9b3767ef9f4",
+      "ts": 1784310403.509259
+    },
+    {
+      "frame": 3,
+      "nonce": "b38fefbd3ece4c36",
+      "ts": 1784310412.0042956
+    },
+    {
+      "frame": 4,
+      "nonce": "931718a9a5739459",
+      "ts": 1784310421.7047262
+    },
+    {
+      "frame": 5,
+      "nonce": "57c557035a2571bf",
+      "ts": 1784310428.720593
+    },
+    {
+      "frame": 6,
+      "nonce": "09b71025496b0885",
+      "ts": 1784310440.6532516
+    },
+    {
+      "frame": 7,
+      "nonce": "c997f318dda61894",
+      "ts": 1784310447.9744513
+    },
+    {
+      "frame": 8,
+      "nonce": "5931c9baf8e5d504",
+      "ts": 1784310455.6611295
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "bb5c3db14b6d08ea",
+      "decision": "HOLD",
+      "reason": "Early frame, leg still young (2m/51.5pts amp) with only 7% giveback, lambda negative on short TFs = mean-reversion still favorable, no reason to exit yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "a56c334a48f668f4",
+      "decision": "HOLD",
+      "reason": "Amp grew 51.5->82pts with giveback back to 0%, KMDR+HA firing with the move; reversion risk building (z_21 -1.4) but no giveback yet, let it run"
+    },
+    {
+      "frame": 2,
+      "nonce": "7e35c9b3767ef9f4",
+      "decision": "HOLD",
+      "reason": "px +33.25 with giveback only 1%, amp still expanding (82->98pts), KMDR+HA still with the move; extension building (z_21 -1.7 on 1m) but no real giveback signal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "b38fefbd3ece4c36",
+      "decision": "HOLD",
+      "reason": "giveback still 0%, amp expanded to 110.8pts, but ER10 collapsed to 0.02 (choppy) and KMDR fire dropped off -- watching closely for the first real giveback tick"
+    },
+    {
+      "frame": 4,
+      "nonce": "931718a9a5739459",
+      "decision": "HOLD",
+      "reason": "px +51.0, giveback still 0%, amp now 125.5pts -- trend still accelerating in favor, no reversal signature yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "57c557035a2571bf",
+      "decision": "HOLD",
+      "reason": "First real giveback (14%) after 7m of clean expansion (amp 138pts), KMDR flipped against -- a caution flag but still early/small pullback, not yet a broken structure"
+    },
+    {
+      "frame": 6,
+      "nonce": "09b71025496b0885",
+      "decision": "HOLD",
+      "reason": "New high px +89pts, giveback reset to 0%, amp 147.8pts -- prior pullback was noise, trend resumed"
+    },
+    {
+      "frame": 7,
+      "nonce": "c997f318dda61894",
+      "decision": "HOLD",
+      "reason": "px pulled back to +76.5 (giveback 3%), both KMDR and PROPP now against -- watching, but giveback still shallow vs 151.5pt amp"
+    },
+    {
+      "frame": 8,
+      "nonce": "5931c9baf8e5d504",
+      "decision": "EXIT",
+      "reason": "Giveback jumped to 20% (first big pullback), 5s/15s lambda flipped strongly POSITIVE (t=+2.5,+2.6) meaning momentum continuing against us not reverting, 15s reversion_prob collapsed to 0.0 -- the lambda-completion signature says this is a real reversal not noise, lock in +69.25pts"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through a clean 8-minute expansion (0->151.5pt amp) with giveback staying near 0% on every prior pullback, so I let it run. Exited at frame 8 when giveback jumped to 20% AND the short-timeframe (5s/15s) lambda_hat flipped strongly positive with t-stats +2.5/+2.6 while 15s reversion_prob collapsed to 0.0 -- the lambda-completion signature (momentum continuing, not reverting) rather than raw giveback size drove the call. Next time I'd watch for lambda flipping positive on multiple short TFs simultaneously as the primary trigger, treating giveback% alone as too noisy on its own (it had already spiked to 14% once at frame 5 and reset to 0%)."
+}

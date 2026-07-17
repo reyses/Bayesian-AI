@@ -1,0 +1,8 @@
+# exit_code=0 dt=154s
+## STDOUT
+Episode closed: HOLD through frames 0-2, EXIT at frame 3 on px -38pts â€” the worst drawdown of the run. The call was driven by the Î»-completion logic itself: 1m z_21 hit +3.19 (extremely stretched) while lambda_hat_12 stayed strongly positive (t=7.04), which per the program's own thesis (`|Z|>Z* âˆ§ Î»>0 â†’ ride`) reads as trend continuation against the short rather than a reversion setup, reinforced by ER10 jumping to 0.75 (trending, not chop).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

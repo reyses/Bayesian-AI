@@ -1,0 +1,13 @@
+{"ts": 1784315780.753379, "event": "serve", "frame": 0, "nonce": "529ad03f2d8dc682"}
+{"ts": 1784315785.55141, "event": "commit", "frame": 0, "nonce": "529ad03f2d8dc682", "decision": "HOLD", "reason": "frame 0, at entry, no signal yet"}
+{"ts": 1784315788.1861224, "event": "serve", "frame": 1, "nonce": "a12f695698e05b9d"}
+{"ts": 1784315793.098795, "event": "commit", "frame": 1, "nonce": "a12f695698e05b9d", "decision": "HOLD", "reason": "only +3.25pts, leg still early, no reversal signature yet"}
+{"ts": 1784315795.2919376, "event": "serve", "frame": 2, "nonce": "336ba46252c3f39d"}
+{"ts": 1784315800.9074752, "event": "commit", "frame": 2, "nonce": "336ba46252c3f39d", "decision": "HOLD", "reason": "px +17.25 favorable, giveback only 10%, lambda_30 strongly negative (t=-4.8) still trending in our favor"}
+{"ts": 1784315803.547268, "event": "serve", "frame": 3, "nonce": "7e6b3cb325844c81"}
+{"ts": 1784315813.484018, "event": "commit", "frame": 3, "nonce": "7e6b3cb325844c81", "decision": "HOLD", "reason": "pullback to +3.25 but giveback only 8%, lambda_30 on 1m still strong (-0.041,t=-4.7); PROPP-against is a caution flag but not enough alone"}
+{"ts": 1784315815.814638, "event": "serve", "frame": 4, "nonce": "aa83f8ab94af53db"}
+{"ts": 1784315820.7222457, "event": "commit", "frame": 4, "nonce": "aa83f8ab94af53db", "decision": "HOLD", "reason": "px recovering to +6.25, ER10 spiked to 0.84 (clean directional move), lambda_30 1m still -4.8t continuation"}
+{"ts": 1784315822.7063851, "event": "serve", "frame": 5, "nonce": "aec2972dccbcc12f"}
+{"ts": 1784315834.645041, "event": "commit", "frame": 5, "nonce": "aec2972dccbcc12f", "decision": "EXIT", "reason": "px flipped to -18.50 from +6.25, giveback jumped 16%->39%, HA-against and PROPP-against both fired same bar - dual reversal signature"}
+{"ts": 1784315841.2950275, "event": "finish", "summary": "Exited on the sharp reversal at t=5m: price had built up to +6.25/+17 favorable over the prior 4 minutes with strong 1m lambda continuation, but then whipsawed to -18.50, giveback jumped from 16% to 39% in one bar, and HA-against + PROPP-against fired simultaneously - a dual against-signature I treated as the reversal trigger. Next time I'd want to watch for that same combo (fast giveback acceleration + coincident multi-detector against-fires) earlier, and consider trailing out partial size on the first single against-fire rather than waiting for two to stack.", "exit_frame": 5, "n_commits": 6}

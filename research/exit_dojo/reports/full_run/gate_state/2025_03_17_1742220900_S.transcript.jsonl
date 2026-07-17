@@ -1,0 +1,15 @@
+{"ts": 1784306999.7824714, "event": "serve", "frame": 0, "nonce": "6aed575aa879e699"}
+{"ts": 1784307007.754487, "event": "commit", "frame": 0, "nonce": "6aed575aa879e699", "decision": "HOLD", "reason": "Leg age 6m, amp +89.2pts favorable, giveback only 5%; multi-TF z_21 mostly positive/favorable extension, no strong reversal signature yet"}
+{"ts": 1784307011.7611482, "event": "serve", "frame": 1, "nonce": "1203dc53850677bf"}
+{"ts": 1784307017.2315066, "event": "commit", "frame": 1, "nonce": "1203dc53850677bf", "decision": "HOLD", "reason": "px +9.75, giveback only 11%, short-TF lambda still positive/favorable, no reversal signature"}
+{"ts": 1784307020.52756, "event": "serve", "frame": 2, "nonce": "46c6e50c73f6aa9f"}
+{"ts": 1784307039.195289, "event": "commit", "frame": 2, "nonce": "46c6e50c73f6aa9f", "decision": "HOLD", "reason": "px extended to +22.75, short-TF lambda strongly positive (continuation), HA-with fired; giveback rising but still net favorable trend"}
+{"ts": 1784307041.4442003, "event": "serve", "frame": 3, "nonce": "e324318f1fa44da5"}
+{"ts": 1784307048.299554, "event": "commit", "frame": 3, "nonce": "e324318f1fa44da5", "decision": "HOLD", "reason": "px pulled back to +17.25 from +22.75, new leg started, ER10 dropped to 0.22 (chop) but still net favorable, no confirmed reversal"}
+{"ts": 1784307051.5062373, "event": "serve", "frame": 4, "nonce": "665aa09dc89deb90"}
+{"ts": 1784307059.3471937, "event": "commit", "frame": 4, "nonce": "665aa09dc89deb90", "decision": "HOLD", "reason": "px recovered to +23.50, giveback low at 8%, new leg still young and favorable"}
+{"ts": 1784307062.3844986, "event": "serve", "frame": 5, "nonce": "496e26ba9eec4603"}
+{"ts": 1784307070.561322, "event": "commit", "frame": 5, "nonce": "496e26ba9eec4603", "decision": "HOLD", "reason": "px retraced to +15.50, giveback jumped to 38% of leg - watching closely, but still solidly favorable and PROPP now fires with position"}
+{"ts": 1784307072.7990942, "event": "serve", "frame": 6, "nonce": "9bb1d589f3a5aee8"}
+{"ts": 1784307080.9331107, "event": "commit", "frame": 6, "nonce": "9bb1d589f3a5aee8", "decision": "EXIT", "reason": "px collapsed +23.5->+7.00, giveback 72% of leg, HA-against fired, lambda significantly negative across 5m/15s/1m (t=-2 to -3.4) - reversal signature confirmed, locking in remaining gain"}
+{"ts": 1784307087.0320044, "event": "finish", "summary": "Exited on a compounding reversal signature: after peaking near +33pts the trade gave back 72% of its most recent leg amplitude, HA flipped to firing against the position, and lambda_hat turned significantly negative (t=-2 to -3.4) across 5m/15s/1m simultaneously, indicating the favorable drift had stalled and was reverting. Next time I'd watch giveback% crossing ~50-70% combined with a lambda sign-flip across multiple timeframes at once as the earliest reliable multi-TF confirmation, rather than waiting on single-TF noise like the earlier PROPP-against fires which gave false alarms while price kept extending favorably.", "exit_frame": 6, "n_commits": 7}

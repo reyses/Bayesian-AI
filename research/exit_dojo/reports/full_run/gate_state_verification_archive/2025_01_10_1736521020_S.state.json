@@ -1,0 +1,23 @@
+{
+  "episode_id": "2025_01_10_1736521020_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "406897fc87b1818c",
+      "ts": 1784304671.5072377
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "406897fc87b1818c",
+      "decision": "EXIT",
+      "reason": "test exit"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 0,
+  "finished": true,
+  "summary": "gate enforcement test"
+}

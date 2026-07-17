@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_01_13_1736783925_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "91057ba98dad2b9b",
+      "ts": 1784305927.3205276
+    },
+    {
+      "frame": 1,
+      "nonce": "29e048c73d0eb528",
+      "ts": 1784305935.9901464
+    },
+    {
+      "frame": 2,
+      "nonce": "7b629eb027a05af9",
+      "ts": 1784305944.1512175
+    },
+    {
+      "frame": 3,
+      "nonce": "fe48cb4110a257f4",
+      "ts": 1784305954.331956
+    },
+    {
+      "frame": 4,
+      "nonce": "a4d06cdbc1b383d9",
+      "ts": 1784305963.2567663
+    },
+    {
+      "frame": 5,
+      "nonce": "6fee5dea31b2a96e",
+      "ts": 1784305971.466861
+    },
+    {
+      "frame": 6,
+      "nonce": "b49e65c011ba3a22",
+      "ts": 1784305979.1316679
+    },
+    {
+      "frame": 7,
+      "nonce": "7d1a8be2617c14c2",
+      "ts": 1784305990.5464454
+    },
+    {
+      "frame": 8,
+      "nonce": "038bf1b16d8eb6af",
+      "ts": 1784305996.678133
+    },
+    {
+      "frame": 9,
+      "nonce": "34a935eed7bce761",
+      "ts": 1784306007.8212407
+    },
+    {
+      "frame": 10,
+      "nonce": "30cb348d76a43b82",
+      "ts": 1784306018.89308
+    },
+    {
+      "frame": 11,
+      "nonce": "32f2d71bcd6d9b92",
+      "ts": 1784306027.7539384
+    },
+    {
+      "frame": 12,
+      "nonce": "5d846c8c7d0e8d26",
+      "ts": 1784306038.705659
+    },
+    {
+      "frame": 13,
+      "nonce": "3f5e7da80ec29e08",
+      "ts": 1784306046.9519875
+    },
+    {
+      "frame": 14,
+      "nonce": "e476def4125777c7",
+      "ts": 1784306053.8342252
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "91057ba98dad2b9b",
+      "decision": "HOLD",
+      "reason": "Frame 0, px at entry, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "29e048c73d0eb528",
+      "decision": "HOLD",
+      "reason": "Small -1pt drawdown, giveback only 8%, no strong lambda/reversion signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "7b629eb027a05af9",
+      "decision": "HOLD",
+      "reason": "px recovered to +1, PROPP fires with position, no reversal signal"
+    },
+    {
+      "frame": 3,
+      "nonce": "fe48cb4110a257f4",
+      "decision": "HOLD",
+      "reason": "px -5.5, giveback 13% still modest relative to 83pt amplitude"
+    },
+    {
+      "frame": 4,
+      "nonce": "a4d06cdbc1b383d9",
+      "decision": "HOLD",
+      "reason": "px recovered to -0.75, giveback eased to 10%"
+    },
+    {
+      "frame": 5,
+      "nonce": "6fee5dea31b2a96e",
+      "decision": "HOLD",
+      "reason": "px +7.75 new high, giveback only 4%, PROPP-with confirms"
+    },
+    {
+      "frame": 6,
+      "nonce": "b49e65c011ba3a22",
+      "decision": "HOLD",
+      "reason": "px +16.25 new high, giveback 2%, trend running well"
+    },
+    {
+      "frame": 7,
+      "nonce": "7d1a8be2617c14c2",
+      "decision": "HOLD",
+      "reason": "px +25.50 new high, giveback 5%, PROPP-with confirms continuation"
+    },
+    {
+      "frame": 8,
+      "nonce": "038bf1b16d8eb6af",
+      "decision": "HOLD",
+      "reason": "px +37.25 strong new high, giveback only 4%; KMDR-against noted but no confirmed reversal yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "34a935eed7bce761",
+      "decision": "HOLD",
+      "reason": "minor pullback to +35.5, giveback 8% still within normal trend noise"
+    },
+    {
+      "frame": 10,
+      "nonce": "30cb348d76a43b82",
+      "decision": "HOLD",
+      "reason": "px +32.25, giveback 9%, ER10 softening to 0.48 but no reversal confirmation yet"
+    },
+    {
+      "frame": 11,
+      "nonce": "32f2d71bcd6d9b92",
+      "decision": "HOLD",
+      "reason": "px +35.75 back near highs, giveback down to 3%"
+    },
+    {
+      "frame": 12,
+      "nonce": "5d846c8c7d0e8d26",
+      "decision": "HOLD",
+      "reason": "px +31, giveback 9% within prior range; amp stalled at 118.8 but PROPP-with still confirms"
+    },
+    {
+      "frame": 13,
+      "nonce": "3f5e7da80ec29e08",
+      "decision": "HOLD",
+      "reason": "px +39.75 new high, giveback 3%"
+    },
+    {
+      "frame": 14,
+      "nonce": "e476def4125777c7",
+      "decision": "EXIT",
+      "reason": "New high +43.75 intrabar then hard reversal to +34.25; local leg giveback spiked to 98%, lambda_t -7.46 on 1m, KMDR/PROPP against -- exhaustion/reversal signature, lock in gain"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Rode a strong favorable run from 0 to a +43.75pt intrabar high over 14 minutes with low giveback throughout (mostly 2-9%). Exited when the local leg tracker spiked to 98% giveback after the bar reversed hard from +43.75 to +34.25 close, coinciding with a very significant negative lambda_t (-7.46 on 1m) and KMDR/PROPP against-fires -- treated as an exhaustion/reversal signature rather than normal trend noise. Next time I'd watch the local-leg giveback% and 1m lambda_t jointly as the primary trigger pair, since amplitude and ER10 alone were noisy and lagged the actual turn."
+}

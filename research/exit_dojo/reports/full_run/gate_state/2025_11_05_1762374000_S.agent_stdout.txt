@@ -1,0 +1,8 @@
+# exit_code=0 dt=359s
+## STDOUT
+Episode complete. Held through the run from entry to a +36.25pt peak (amplitude 55.2pts), riding out several giveback spikes (up to 42%) that all recovered â€” consistent with the "cutting winners early loses EV" finding. Exited at +19.50pts when a fresh adverse leg formed (19.8pts already) and all three fire signals (KMDR, HA, PROPP) aligned against the position simultaneously for the first time â€” the strongest reversal confluence in the episode. 22 commits, exit at frame 21.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

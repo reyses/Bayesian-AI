@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_10_27_1761592525_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c12f79cb7f80de24",
+      "ts": 1784318947.67358
+    },
+    {
+      "frame": 1,
+      "nonce": "f6b179f1df6edcde",
+      "ts": 1784318964.711339
+    },
+    {
+      "frame": 2,
+      "nonce": "74e4866718a6f33d",
+      "ts": 1784318973.6138477
+    },
+    {
+      "frame": 3,
+      "nonce": "ff16db51edbbf6a2",
+      "ts": 1784318980.9761002
+    },
+    {
+      "frame": 4,
+      "nonce": "545feab724fe84e8",
+      "ts": 1784318987.8748033
+    },
+    {
+      "frame": 5,
+      "nonce": "6bbb728c4f158385",
+      "ts": 1784318993.8533177
+    },
+    {
+      "frame": 6,
+      "nonce": "63b306d5fce373c6",
+      "ts": 1784319000.671859
+    },
+    {
+      "frame": 7,
+      "nonce": "09f08a89dab0ebcc",
+      "ts": 1784319009.6969924
+    },
+    {
+      "frame": 8,
+      "nonce": "ea3a17264dc6bacf",
+      "ts": 1784319020.3819861
+    },
+    {
+      "frame": 9,
+      "nonce": "ebfe0dd607180b9b",
+      "ts": 1784319064.83528
+    },
+    {
+      "frame": 10,
+      "nonce": "c71dbf374a1169d0",
+      "ts": 1784319074.5260432
+    },
+    {
+      "frame": 11,
+      "nonce": "91a2d6e0f0b4de17",
+      "ts": 1784319087.293211
+    },
+    {
+      "frame": 12,
+      "nonce": "63d46f778e7f6687",
+      "ts": 1784319099.284163
+    },
+    {
+      "frame": 13,
+      "nonce": "6d7a6b6d84172951",
+      "ts": 1784319110.289577
+    },
+    {
+      "frame": 14,
+      "nonce": "3a94aecdee076259",
+      "ts": 1784319122.9787204
+    },
+    {
+      "frame": 15,
+      "nonce": "784f4215e4fa92ea",
+      "ts": 1784319131.7751062
+    },
+    {
+      "frame": 16,
+      "nonce": "1295d0677ef344c1",
+      "ts": 1784319142.359499
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c12f79cb7f80de24",
+      "decision": "HOLD",
+      "reason": "frame0: local px flat, only 9m into leg, giveback high but small sample, gathering more info"
+    },
+    {
+      "frame": 1,
+      "nonce": "f6b179f1df6edcde",
+      "decision": "HOLD",
+      "reason": "px -0.5, giveback only 14% of 17.8pt amp, early leg, holding through noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "74e4866718a6f33d",
+      "decision": "HOLD",
+      "reason": "px +2.25, giveback down to 6%, trade moving favorably, no fresh against-fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "ff16db51edbbf6a2",
+      "decision": "HOLD",
+      "reason": "px +1.25, giveback 8%, amp plateaued at 17.8 for 3 frames but still favorable, no fresh fires"
+    },
+    {
+      "frame": 4,
+      "nonce": "545feab724fe84e8",
+      "decision": "HOLD",
+      "reason": "px +2.25, amp new high 18.5, ER10 jumped to 0.83 (trending), no against-fires"
+    },
+    {
+      "frame": 5,
+      "nonce": "6bbb728c4f158385",
+      "decision": "HOLD",
+      "reason": "px dipped to -0.25 but giveback still low (14%) and ER10 stays 0.81 trending, no fires"
+    },
+    {
+      "frame": 6,
+      "nonce": "63b306d5fce373c6",
+      "decision": "HOLD",
+      "reason": "px +2.75, giveback 9%, ER10 0.83 strong trend, single HA-against fire not enough to cut"
+    },
+    {
+      "frame": 7,
+      "nonce": "09f08a89dab0ebcc",
+      "decision": "HOLD",
+      "reason": "px new high +4.00, HA-with fire aligns favorably, micro-leg giveback 91% is on a tiny 2.8pt amp so not meaningful yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "ea3a17264dc6bacf",
+      "decision": "HOLD",
+      "reason": "px pulled back hard from +4.00 to +0.25 but still net positive, local leg giveback only 18%, HA-with still supportive; watching closely"
+    },
+    {
+      "frame": 9,
+      "nonce": "ebfe0dd607180b9b",
+      "decision": "HOLD",
+      "reason": "px back to +1.25, still net favorable, but local giveback rising to 59% and HA-against fire fresh; watching for confirmation"
+    },
+    {
+      "frame": 10,
+      "nonce": "c71dbf374a1169d0",
+      "decision": "HOLD",
+      "reason": "px +2.00 continuing to recover, though local giveback rising to 71% and ER10 fading to 0.52 - stalling but not reversing yet"
+    },
+    {
+      "frame": 11,
+      "nonce": "91a2d6e0f0b4de17",
+      "decision": "HOLD",
+      "reason": "px +1.00, giveback eased to 47%, but ER10 collapsed to 0.20 (pure chop), leg amp stuck 5m; still net positive, no exit trigger yet"
+    },
+    {
+      "frame": 12,
+      "nonce": "63d46f778e7f6687",
+      "decision": "HOLD",
+      "reason": "px jumped to +3.50, near best-seen level, fresh HA-with fire; holding despite low ER10 chop reading"
+    },
+    {
+      "frame": 13,
+      "nonce": "6d7a6b6d84172951",
+      "decision": "HOLD",
+      "reason": "px +2.00, ER10 flat at 0.00 (pure chop not adverse trend), lambda significantly negative across scales suggesting reversion still favors short; no exit trigger"
+    },
+    {
+      "frame": 14,
+      "nonce": "3a94aecdee076259",
+      "decision": "HOLD",
+      "reason": "px +1.75, stable in 1.75-3.5 range last several frames, vol contracting, no adverse trigger"
+    },
+    {
+      "frame": 15,
+      "nonce": "784f4215e4fa92ea",
+      "decision": "HOLD",
+      "reason": "px +1.25, still within the established positive range, HA-against fire noted but not decisive"
+    },
+    {
+      "frame": 16,
+      "nonce": "1295d0677ef344c1",
+      "decision": "EXIT",
+      "reason": "px flipped negative (-3.50) for first time in 15 frames, fresh adverse leg (amp 7.5, 0% giveback = still extending), HA-against fire, vol accelerating (d+0.7) - reversal confirmed, cutting here"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 16,
+  "finished": true,
+  "summary": "Held through 15 frames of net-positive chop (px ranging +0.25 to +4.00), riding a trending-then-consolidating short with supportive HA-with fires and ER10 oscillating between trend and chop regimes. Exited at frame 16 when px flipped negative for the first time (-3.50) alongside a fresh, still-extending adverse leg (amp 7.5, 0% giveback), a fresh HA-against fire, and accelerating volatility - the first real reversal signature after a long stable positive stretch. Next time I'd watch for the local giveback metric climbing steadily across consecutive frames as an earlier warning of stalling momentum before the outright px sign-flip confirms it."
+}

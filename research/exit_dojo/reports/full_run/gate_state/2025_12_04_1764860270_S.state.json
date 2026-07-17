@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_12_04_1764860270_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7d730492f725d5c7",
+      "ts": 1784315640.741594
+    },
+    {
+      "frame": 1,
+      "nonce": "7f30a18975d3670b",
+      "ts": 1784315649.2141092
+    },
+    {
+      "frame": 2,
+      "nonce": "09b85ca64821ec88",
+      "ts": 1784315659.7544708
+    },
+    {
+      "frame": 3,
+      "nonce": "8d543a5ca2619f5f",
+      "ts": 1784315668.9545553
+    },
+    {
+      "frame": 4,
+      "nonce": "83d23f21a4675dd3",
+      "ts": 1784315695.4540143
+    },
+    {
+      "frame": 5,
+      "nonce": "366ff8ae9f516009",
+      "ts": 1784315704.496382
+    },
+    {
+      "frame": 6,
+      "nonce": "67ed8a99829d24ac",
+      "ts": 1784315712.3729339
+    },
+    {
+      "frame": 7,
+      "nonce": "295c8820fc12e9ea",
+      "ts": 1784315724.8082688
+    },
+    {
+      "frame": 8,
+      "nonce": "f3e9eec347072d54",
+      "ts": 1784315736.061133
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7d730492f725d5c7",
+      "decision": "HOLD",
+      "reason": "just entered, px flat, too early to read signal"
+    },
+    {
+      "frame": 1,
+      "nonce": "7f30a18975d3670b",
+      "decision": "HOLD",
+      "reason": "px -0.5, near flat, giveback high but amp small, too early to judge"
+    },
+    {
+      "frame": 2,
+      "nonce": "09b85ca64821ec88",
+      "decision": "HOLD",
+      "reason": "px -7.25, moving against us, but no extreme z-score yet, watching for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "8d543a5ca2619f5f",
+      "decision": "HOLD",
+      "reason": "px -12.25, choppy whipsaw both directions, still within local vol range, early in episode"
+    },
+    {
+      "frame": 4,
+      "nonce": "83d23f21a4675dd3",
+      "decision": "HOLD",
+      "reason": "px recovered to -6.75 from -12.25, giveback dropping, though HA/PROPP now against"
+    },
+    {
+      "frame": 5,
+      "nonce": "366ff8ae9f516009",
+      "decision": "HOLD",
+      "reason": "px -8.50, vol contracting, 1m z near flat, consolidating not extending against us"
+    },
+    {
+      "frame": 6,
+      "nonce": "67ed8a99829d24ac",
+      "decision": "HOLD",
+      "reason": "px -14.00 new low but vol not expanding, HA/PROPP now fire with us, 1m z not extreme"
+    },
+    {
+      "frame": 7,
+      "nonce": "295c8820fc12e9ea",
+      "decision": "HOLD",
+      "reason": "px -14.25 stabilizing near prior low, vol still contracting, no extreme z, watching for direction"
+    },
+    {
+      "frame": 8,
+      "nonce": "f3e9eec347072d54",
+      "decision": "EXIT",
+      "reason": "px -25.00, sharp acceleration from -14, giveback 0% = clean trend not chop, HA+PROPP both against us persistently, cutting adverse trend"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Exited at t=8m, px -25.00, after price accelerated sharply from a stable -14pt drawdown to a new -25pt low within one frame. The exit signature was giveback dropping to 0% (a clean, non-choppy directional move against the position, unlike earlier whipsaw legs that gave back 35-87%) combined with HA and PROPP both firing against the position persistently across two consecutive frames. Next time I'd watch for this giveback-collapse-to-0%-with-persistent-against-fires pattern earlier, and weight the accelerating adverse velocity (roughly doubling drawdown in 60s) more heavily than absolute drawdown level alone."
+}

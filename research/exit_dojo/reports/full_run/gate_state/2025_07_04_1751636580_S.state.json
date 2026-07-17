@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_07_04_1751636580_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5daf6101b94af227",
+      "ts": 1784317115.7444792
+    },
+    {
+      "frame": 1,
+      "nonce": "6540e4a2be0e4269",
+      "ts": 1784317124.1676214
+    },
+    {
+      "frame": 2,
+      "nonce": "51b48a55817b4b5c",
+      "ts": 1784317134.013641
+    },
+    {
+      "frame": 3,
+      "nonce": "ffb81ba143935b9b",
+      "ts": 1784317141.3198466
+    },
+    {
+      "frame": 4,
+      "nonce": "b4285ea7428d6c5c",
+      "ts": 1784317148.2662046
+    },
+    {
+      "frame": 5,
+      "nonce": "82a9de77955ce2a1",
+      "ts": 1784317154.6026726
+    },
+    {
+      "frame": 6,
+      "nonce": "1d8cc86360a060a5",
+      "ts": 1784317162.3006058
+    },
+    {
+      "frame": 7,
+      "nonce": "fb099bbcb3e28bfb",
+      "ts": 1784317172.2270129
+    },
+    {
+      "frame": 8,
+      "nonce": "03a9abc4428cfdb4",
+      "ts": 1784317180.7878036
+    },
+    {
+      "frame": 9,
+      "nonce": "5448d2480ca50387",
+      "ts": 1784317188.5811682
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5daf6101b94af227",
+      "decision": "HOLD",
+      "reason": "Frame 0, just entered, price flat at entry, no exit signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "6540e4a2be0e4269",
+      "decision": "HOLD",
+      "reason": "Small favorable move +3pts, early in leg, no reversal signal against position"
+    },
+    {
+      "frame": 2,
+      "nonce": "51b48a55817b4b5c",
+      "decision": "HOLD",
+      "reason": "Still small favorable +2.75pts, giveback modest, no strong against-signal"
+    },
+    {
+      "frame": 3,
+      "nonce": "ffb81ba143935b9b",
+      "decision": "HOLD",
+      "reason": "Px dipped slightly to -0.75 but giveback low (4%), still near entry noise band"
+    },
+    {
+      "frame": 4,
+      "nonce": "b4285ea7428d6c5c",
+      "decision": "HOLD",
+      "reason": "Choppy around entry, px +0.25, no clear directional break yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "82a9de77955ce2a1",
+      "decision": "HOLD",
+      "reason": "px +1.25, one against-fire but no follow-through, vol contracting"
+    },
+    {
+      "frame": 6,
+      "nonce": "1d8cc86360a060a5",
+      "decision": "HOLD",
+      "reason": "px near flat -0.50, amp stalled since f4, but no decisive break against yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "fb099bbcb3e28bfb",
+      "decision": "HOLD",
+      "reason": "New leg forming, px +4.25 best-so-far, HA-with fired, ER10 high"
+    },
+    {
+      "frame": 8,
+      "nonce": "03a9abc4428cfdb4",
+      "decision": "HOLD",
+      "reason": "px +4.00 still net positive but giveback jumped 13->31%, ER10 fading; watching closely"
+    },
+    {
+      "frame": 9,
+      "nonce": "5448d2480ca50387",
+      "decision": "EXIT",
+      "reason": "Giveback escalated 13->31->41%, ER10 collapsed 0.84->0.16, HA-against just fired: momentum fading, locking +1.50"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited on a giveback-escalation signature: after the leg peaked around +4-4.25pts, giveback climbed steadily 13%->31%->41% over three frames while ER10 (trend efficiency) collapsed from 0.84 to 0.16, and HA-against fired right at decision time -- a classic 'momentum drained, structure turning' pattern rather than a single sharp reversal bar. Next time I'd watch giveback% and ER10 jointly as the primary during-trade signature (both degrading together is a stronger tell than either alone) and would want to see whether earlier partial de-risking at the +4pt peak (giveback still <20%) captures more of the amplitude than waiting for the against-fire confirmation."
+}

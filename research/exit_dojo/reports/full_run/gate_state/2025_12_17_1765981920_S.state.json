@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_12_17_1765981920_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8471a11b6eb60c37",
+      "ts": 1784313919.3979478
+    },
+    {
+      "frame": 1,
+      "nonce": "c7768d2652ce9821",
+      "ts": 1784313927.7071064
+    },
+    {
+      "frame": 2,
+      "nonce": "7d2a57c7a1013ae9",
+      "ts": 1784313934.2121954
+    },
+    {
+      "frame": 3,
+      "nonce": "641566a462b36fc9",
+      "ts": 1784313944.018964
+    },
+    {
+      "frame": 4,
+      "nonce": "ea5549b6865403d8",
+      "ts": 1784313955.4733431
+    },
+    {
+      "frame": 5,
+      "nonce": "e260014a0feaf687",
+      "ts": 1784313961.9028182
+    },
+    {
+      "frame": 6,
+      "nonce": "4babb19206889b6e",
+      "ts": 1784313970.4027143
+    },
+    {
+      "frame": 7,
+      "nonce": "f09ed3655a268c18",
+      "ts": 1784313977.628662
+    },
+    {
+      "frame": 8,
+      "nonce": "e1348ca9fa8b6154",
+      "ts": 1784313987.2262547
+    },
+    {
+      "frame": 9,
+      "nonce": "2d17516b375380f2",
+      "ts": 1784313994.8001132
+    },
+    {
+      "frame": 10,
+      "nonce": "043e0b0017d20181",
+      "ts": 1784314010.3025577
+    },
+    {
+      "frame": 11,
+      "nonce": "652b4c0592d2843a",
+      "ts": 1784314016.7392192
+    },
+    {
+      "frame": 12,
+      "nonce": "4976412854a77d2d",
+      "ts": 1784314023.5948348
+    },
+    {
+      "frame": 13,
+      "nonce": "a29dff5619394574",
+      "ts": 1784314030.391026
+    },
+    {
+      "frame": 14,
+      "nonce": "8a5db0620db14643",
+      "ts": 1784314050.9676638
+    },
+    {
+      "frame": 15,
+      "nonce": "82f3e64f8f8df882",
+      "ts": 1784314057.7078004
+    },
+    {
+      "frame": 16,
+      "nonce": "175dfea2f597b579",
+      "ts": 1784314063.8637917
+    },
+    {
+      "frame": 17,
+      "nonce": "45cdb34b3645eee1",
+      "ts": 1784314069.827647
+    },
+    {
+      "frame": 18,
+      "nonce": "ea01b6f4dc047b6e",
+      "ts": 1784314080.8079047
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8471a11b6eb60c37",
+      "decision": "HOLD",
+      "reason": "frame0, px flat at entry, no signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "c7768d2652ce9821",
+      "decision": "HOLD",
+      "reason": "small favorable px +4.75, early, no reversal signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "7d2a57c7a1013ae9",
+      "decision": "HOLD",
+      "reason": "px +5.0, giveback 51% of small fresh leg + KMDR/HA against fires, but too early/noisy to act on single-frame turn fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "641566a462b36fc9",
+      "decision": "HOLD",
+      "reason": "px surged to +25.5, strong favorable move, mixed fires (HA-with vs PROPP-against), known bias: cutting winners early loses EV structurally"
+    },
+    {
+      "frame": 4,
+      "nonce": "ea5549b6865403d8",
+      "decision": "HOLD",
+      "reason": "px +49.75, ER10 rising to 0.65 (strong trend), HA-with+PROPP-with dominate, only 1 against fire; let winner run"
+    },
+    {
+      "frame": 5,
+      "nonce": "e260014a0feaf687",
+      "decision": "HOLD",
+      "reason": "px +63.75, ER10 0.72 strong trend, giveback only 13% of fresh leg; stretched z(-2.7 on 1m) but momentum dominant, no confirmed reversal yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "4babb19206889b6e",
+      "decision": "HOLD",
+      "reason": "px +78.0, ER10 0.93 near-straight trend, reversion_prob_30(1m)=0.00, giveback only 11%; strongly trending, no reversal confirmation"
+    },
+    {
+      "frame": 7,
+      "nonce": "f09ed3655a268c18",
+      "decision": "HOLD",
+      "reason": "px pulled back to +60.5 from +78 peak, giveback rising to 19%, reversion_prob(1m) jumped to 0.71 -- first real pullback, watching closely but still deep in profit, no exit-confirming cluster yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "e1348ca9fa8b6154",
+      "decision": "HOLD",
+      "reason": "px made new high +91.75, PROPP-with confirms continuation, ER10 still 0.73; trend intact, hold the winner"
+    },
+    {
+      "frame": 9,
+      "nonce": "2d17516b375380f2",
+      "decision": "HOLD",
+      "reason": "px +77.5, pulled back from ~+98.75 15s-bar peak; CLIMAX-against fired first time (best-known detector but still sub-null precision per prior study) alongside KMDR-against -- watching for confirmation cluster next frame, not acting on single fire"
+    },
+    {
+      "frame": 10,
+      "nonce": "043e0b0017d20181",
+      "decision": "HOLD",
+      "reason": "px made new high +107.5, prior pullback was noise, PROPP-with confirms continuation, ER10 0.69 still trending"
+    },
+    {
+      "frame": 11,
+      "nonce": "652b4c0592d2843a",
+      "decision": "HOLD",
+      "reason": "px +101.5, near recent +112 peak, giveback only 11%, PROPP-with continues to confirm trend, ER10 0.76"
+    },
+    {
+      "frame": 12,
+      "nonce": "4976412854a77d2d",
+      "decision": "HOLD",
+      "reason": "px +106.75, giveback only 2%, 1m bar tagged +119 high, trend still intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "a29dff5619394574",
+      "decision": "HOLD",
+      "reason": "px pulled back to +81.5 from ~+119 peak (giveback 36%), first unanimous against-cluster (KMDR+CLIMAX+PROPP all against) but prior pullbacks all recovered to new highs and ER10 still 0.69 -- watching next frame for confirmation before cutting a huge winner"
+    },
+    {
+      "frame": 14,
+      "nonce": "8a5db0620db14643",
+      "decision": "HOLD",
+      "reason": "px surged to new high +132, giveback 0%, PROPP flipped back to with -- prior pullback was noise, trend resumed"
+    },
+    {
+      "frame": 15,
+      "nonce": "82f3e64f8f8df882",
+      "decision": "HOLD",
+      "reason": "px +151.75, new high, PROPP-with confirms, giveback only 10%, trend continues to accelerate favorably"
+    },
+    {
+      "frame": 16,
+      "nonce": "175dfea2f597b579",
+      "decision": "HOLD",
+      "reason": "px +151, 1m bar tagged +168 high, only PROPP-with firing (no against signals this frame), trend healthy"
+    },
+    {
+      "frame": 17,
+      "nonce": "45cdb34b3645eee1",
+      "decision": "HOLD",
+      "reason": "px +149.25, giveback only 14%, but ER10 dropped to 0.40 (choppier) and KMDR+PROPP both against -- caution rising, watching next frame closely"
+    },
+    {
+      "frame": 18,
+      "nonce": "ea01b6f4dc047b6e",
+      "decision": "EXIT",
+      "reason": "sharp ~40pt single-step drop from +150 plateau to +111.75, unanimous KMDR+HA+PROPP against for 2nd consecutive frame, ER10 declining -- first multi-frame confirmed reversal after a stable high, locking in profit"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Held through a strongly favorable, choppy uptrend (0 to +150+ pts) as long as ER10 stayed elevated and turn-detector fires (KMDR/HA/CLIMAX/PROPP) were mixed or isolated single-frame events -- prior pullbacks like frame 9 and frame 13 recovered to new highs, so single against-fires were treated as noise. Exited when price broke sharply (~40pts in one step) off a 3-frame stable plateau near +150 with all three detectors (KMDR, HA, PROPP) unanimously against for two consecutive frames and ER10 fading -- that multi-frame confirmed cluster after a plateau, rather than a single fire mid-trend, was the exit trigger. Next time I'd watch for that same signature (plateau + multi-frame unanimous against + ER10 rollover) earlier, and pre-define how large a single-step giveback from a plateau justifies acting on one fire instead of waiting for confirmation."
+}

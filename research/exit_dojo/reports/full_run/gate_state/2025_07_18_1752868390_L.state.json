@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_07_18_1752868390_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2cd122abd6679a42",
+      "ts": 1784317532.7372437
+    },
+    {
+      "frame": 1,
+      "nonce": "7b820051a3a05d3c",
+      "ts": 1784317542.497301
+    },
+    {
+      "frame": 2,
+      "nonce": "0114a08f4a888625",
+      "ts": 1784317550.145516
+    },
+    {
+      "frame": 3,
+      "nonce": "34e4c94244a77bf5",
+      "ts": 1784317561.6622696
+    },
+    {
+      "frame": 4,
+      "nonce": "64d4890693a2d3db",
+      "ts": 1784317570.6900282
+    },
+    {
+      "frame": 5,
+      "nonce": "6420654bc66e60d6",
+      "ts": 1784317586.7489638
+    },
+    {
+      "frame": 6,
+      "nonce": "fbda049b40fd379a",
+      "ts": 1784317605.0496984
+    },
+    {
+      "frame": 7,
+      "nonce": "a4f43ca19dbe597e",
+      "ts": 1784317623.9301918
+    },
+    {
+      "frame": 8,
+      "nonce": "7677cf186631d164",
+      "ts": 1784317634.3526397
+    },
+    {
+      "frame": 9,
+      "nonce": "29fb40ae005d907f",
+      "ts": 1784317645.2163875
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2cd122abd6679a42",
+      "decision": "HOLD",
+      "reason": "frame 0, at entry, no giveback yet, holding to see structure develop"
+    },
+    {
+      "frame": 1,
+      "nonce": "7b820051a3a05d3c",
+      "decision": "HOLD",
+      "reason": "only 12% giveback, ER10 0.89 high trend efficiency, lambda_21 1m positive t=2.5 suggests still trending not fading"
+    },
+    {
+      "frame": 2,
+      "nonce": "0114a08f4a888625",
+      "decision": "HOLD",
+      "reason": "41% giveback but 1m/5m lambda still positive (t=3.2/n.s.) and z_21 still +0.9/+1.4, trend structure intact on slower TFs despite fast 5s pullback"
+    },
+    {
+      "frame": 3,
+      "nonce": "34e4c94244a77bf5",
+      "decision": "HOLD",
+      "reason": "price recovered to +0.25, giveback back down to 16%, 1m lambda_21 t=3.5 strongly trending, pullback absorbed"
+    },
+    {
+      "frame": 4,
+      "nonce": "64d4890693a2d3db",
+      "decision": "HOLD",
+      "reason": "px -7 but 5s z_21 deeply oversold (-2.2) with reversion_prob 0.90, 1m lambda_21 still trending positive t=3.06 - treating as a sharp pullback not a trend break"
+    },
+    {
+      "frame": 5,
+      "nonce": "6420654bc66e60d6",
+      "decision": "HOLD",
+      "reason": "44% giveback but 1m z_21 -2.24 deeply oversold w/ lambda_21 still +2.1t; this mirrors the earlier dip-then-recover pattern, watching ER10 collapse to 0.25 closely next frame"
+    },
+    {
+      "frame": 6,
+      "nonce": "fbda049b40fd379a",
+      "decision": "HOLD",
+      "reason": "px -4.00 recovering off -7 low, but ER10 crashed to 0.13 and 1m hurst dropped to 0.287 (mean-reverting regime) - trend quality deteriorating, flagging for exit if no bounce next frame"
+    },
+    {
+      "frame": 7,
+      "nonce": "a4f43ca19dbe597e",
+      "decision": "HOLD",
+      "reason": "strong bounce, px back to +1.00, 1m body +11.25 impulsive bar, lambda_21 5s t=4.0 confirms trend resumption after the pullback"
+    },
+    {
+      "frame": 8,
+      "nonce": "7677cf186631d164",
+      "decision": "HOLD",
+      "reason": "still net positive +1.75, ER10 choppy (0.31) and local leg giveback 92% but that is just swing noise, overall trade thesis unbroken since px above entry"
+    },
+    {
+      "frame": 9,
+      "nonce": "29fb40ae005d907f",
+      "decision": "EXIT",
+      "reason": "multi-TF lambda flip to negative and strengthening (1m t=-4.18, 15s t=-3.23) plus ER10 stuck low (0.13-0.31) for 4 frames = genuine fade regime, not noise; px back to -2, exiting near breakeven rather than bleed further"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Exited on a multi-TF lambda regime flip: after three oscillation cycles (dips to -7, -4.75, -4.00 all recovering on positive 1m lambda_21), the 1m lambda_hat_12 turned decisively negative and strengthening (t=-3.4 then -4.2) while 15s lambda also went negative (t=-3.2), and ER10 stayed stuck low (0.13-0.31) for four straight frames instead of the earlier 0.66-0.89 trending reads. That combination read as a genuine fade/chop regime rather than another pullback, so I closed near breakeven (px -2.0) instead of risking a repeat of the deeper -7 excursion. Next time I'd watch whether the 1m and 15s lambda agree in sign for 2+ consecutive frames as the earlier trigger, rather than waiting for a third confirming frame, since the price action after this exit could still have bounced given the prior recovery pattern."
+}

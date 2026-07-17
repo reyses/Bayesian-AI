@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_09_18_1758214800_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2a898bfc0e5c5d09",
+      "ts": 1784318473.1840925
+    },
+    {
+      "frame": 1,
+      "nonce": "6c6e1a7135796cbf",
+      "ts": 1784318495.2029614
+    },
+    {
+      "frame": 2,
+      "nonce": "d47faa7e0c064db5",
+      "ts": 1784318503.5901337
+    },
+    {
+      "frame": 3,
+      "nonce": "efbaccdfbeaa25a7",
+      "ts": 1784318514.7776613
+    },
+    {
+      "frame": 4,
+      "nonce": "72eb8b2b22c0f37d",
+      "ts": 1784318531.2979124
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2a898bfc0e5c5d09",
+      "decision": "HOLD",
+      "reason": "frame0: just entered, px=0, no post-entry structure yet; local leg giveback 85% is pre-entry context, need more data"
+    },
+    {
+      "frame": 1,
+      "nonce": "6c6e1a7135796cbf",
+      "decision": "HOLD",
+      "reason": "px only +0.75, still near entry; 5s/15s stabilizing but too early to read trend"
+    },
+    {
+      "frame": 2,
+      "nonce": "d47faa7e0c064db5",
+      "decision": "HOLD",
+      "reason": "new 15pt leg just formed, giveback only 8%, px near flat; against-signals noted but too fresh to confirm reversal"
+    },
+    {
+      "frame": 3,
+      "nonce": "efbaccdfbeaa25a7",
+      "decision": "HOLD",
+      "reason": "px -3.00, leg giveback 40% in 1m, KMDR+PROPP against but only 1m old; prior leg gave back 118% and still recovered, want 1 more frame to confirm reversal vs noise"
+    },
+    {
+      "frame": 4,
+      "nonce": "72eb8b2b22c0f37d",
+      "decision": "EXIT",
+      "reason": "3-signal confluence (KMDR+HA+PROPP all against), giveback climbing 8->40->48%, 5s lambda decay strongly negative -3.5t; exit near flat before reversal deepens"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Exited at t=4m, px -0.50, on a 3-detector confluence: KMDR-against and PROPP-against had persisted 2 frames while HA flipped from with- to against-signal in the same frame, alongside monotonically climbing leg giveback (8%->40%->48%) and a sharp negative lambda decay at the 5s timeframe (t=-3.5). Next time I'd watch for this same convergence pattern earlier -- rising giveback percentage plus multiple independent against-fires stacking within a couple minutes -- rather than waiting for price itself to go deeply negative, since the detectors turned before price fully broke down."
+}
