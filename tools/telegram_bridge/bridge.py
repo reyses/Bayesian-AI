@@ -69,18 +69,22 @@ def log(*a):
 
 
 def load_env():
-    envf = HERE / ".env"
-    if envf.exists():
-        for ln in envf.read_text(encoding="utf-8").splitlines():
-            ln = ln.strip()
-            if ln and not ln.startswith("#") and "=" in ln:
-                k, v = ln.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip())
-    tok = os.environ.get("CLAUDE_TG_BOT_TOKEN")
-    cid = os.environ.get("CLAUDE_TG_CHAT_ID")
+    # Own env first; FALLBACK to the repo-root .env's AG bot credentials
+    # (user-approved takeover 2026-07-17: "SUDO hijack the API key already
+    # on the telegram for AG"). Caveat: one getUpdates poller per token —
+    # if AG's telegram MCP is running, the bridge logs 409s and retries.
+    for envf in (HERE / ".env", REPO_ROOT / ".env"):
+        if envf.exists():
+            for ln in envf.read_text(encoding="utf-8").splitlines():
+                ln = ln.strip()
+                if ln and not ln.startswith("#") and "=" in ln:
+                    k, v = ln.split("=", 1)
+                    os.environ.setdefault(k.strip(), v.strip())
+    tok = os.environ.get("CLAUDE_TG_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
+    cid = os.environ.get("CLAUDE_TG_CHAT_ID") or os.environ.get("TELEGRAM_CHAT_ID")
     if not tok or not cid:
         sys.exit("Set CLAUDE_TG_BOT_TOKEN and CLAUDE_TG_CHAT_ID in "
-                 f"{envf} (see module docstring).")
+                 f"{HERE / '.env'} (or TELEGRAM_* in the repo-root .env).")
     return tok, cid
 
 
