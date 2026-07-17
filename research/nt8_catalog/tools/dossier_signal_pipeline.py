@@ -1329,3 +1329,120 @@ if __name__ == '__main__':
     with open(os.path.join(REP, 'dossier_signal_league.md'), 'w', encoding='utf-8') as f:
         f.write('\n'.join(lines))
     print('\nwrote reports/dossier_signal_league.md')
+
+
+# ---- PROP-TURN (2026-07-16, Moises' proportional leg-turn confirmation, stop-and- ----
+# reverse) -----------------------------------------------------------------------------
+# DECLARED DEVIATION (verification-driven, flagged for review): the literal spec gate
+# "fire only if A>=A_min" TRAPS stop-and-reverse. After every flip the new leg's amplitude
+# starts at the triggering retrace (< A_min); if price then reverses HARD the leg's A is
+# frozen < A_min, the opposite-turn branch is disabled by the leg direction, and the
+# tracker holds a losing position for the rest of the day. On the raw spec this killed 82
+# of 318 test days (26%: zero fires) and equally suppressed 2024 fires (corrupting tuning).
+# FIX: keep the A>=A_min proportional confirm EXACTLY as specified for real legs, and add a
+# sub-minimal ESCAPE — a leg whose amplitude never reached A_min is re-designated when a
+# FULL A_min counter-move occurs (retr>=A_min). This honors A_min as the "noise floor"
+# (no fires on <A_min moves) and is spec-exact for A>=A_min legs (only the c1 branch can
+# fire there). Escape fires are only ~3% of fires DIRECTLY, but they prevent the stuck
+# state that otherwise suppresses ~60% of the day's fires: measured on 8 normal 2024 days
+# the literal spec emitted 314 fires vs 783 de-stuck (2.49x), and stuck 2/8 fully from
+# the open. i.e. the sticking pervades MOST days (partial), not just the 26% fully-dead —
+# the raw-spec 42/day & 0.107 recall were bug artifacts; true rate ~100/day. See
+# research/nt8_catalog/reports/propturn.md.
+# ---------------------------------------------------------------------------------------
+# Causal leg tracker on the continuous 5s CLOSE stream (tail+day, doc-073 no-cold-start).
+# A leg runs from the last confirmed pivot price P0 to a running extreme E (max close
+# since the pivot on an up-leg / min on a down-leg); leg amplitude A = |E - P0|. A TURN
+# CONFIRMS (stop-AND-reverse) when the close retraces from E by >= PROPTURN_R * A of THIS
+# leg's amplitude, subject to A >= PROPTURN_A_MIN (min leg size so r*A clears tick noise)
+# AND a STALL gate (>= PROPTURN_S_MIN minutes elapsed since E was last improved;
+# S=0 disables the gate). On fire the pivot jumps to E, the leg flips, and the fire's
+# direction IS the NEW leg (up-leg turning down -> SHORT; down-leg turning up -> LONG) --
+# each fire closes the old leg-trade and opens the new one. Warmup: the first pivot is
+# seeded from the first stream bar; no fire before A_MIN is first reached. State runs
+# CONTINUOUSLY (incl. overnight, consistent with the zigzag in DayCtx and doc 073);
+# emission is RTH-gated (i>=start & rth[i]).
+#
+# PROVENANCE OF THE FROZEN PARAMS: SEALED-selected on 2024 interior label turns ONLY
+# (grid r in {.05,.08,.10,.15,.20,.25} x S in {0,1,2,3,5} min x A_min in {5,10,15} pts,
+# 90 cells; objective = maximize dir-recall@+-2m SUBJECT TO lead-median <= +1.0 min AND
+# fires/day <= 60). Selection + full test read-outs (turn scorecard, capture sim):
+#   research/nt8_catalog/tools/propturn_tune_and_capture.py
+#   research/nt8_catalog/reports/propturn.md
+# The tracker below is the SINGLE shared implementation used by BOTH the tuning grid and
+# this production generator (the tool imports _propturn_core), so there is no drift.
+from numba import njit as _njit
+
+PROPTURN_R = 0.05        # retrace fraction of the leg amplitude (2024-SEALED; frozen)
+PROPTURN_S_MIN = 3.0     # stall gate: minutes since the running extreme last improved
+PROPTURN_A_MIN = 15.0    # minimum leg amplitude (pts) before a turn may fire
+# 2024 SEALED selection (max dir-recall@+-2m s.t. lead-median<=+1.0min & fires/day<=60):
+# winner dir-recall@2m 0.038, lead-median -0.55m, fires/day 56.9 on 11,545 interior turns.
+# KEY FINDING (see reports/propturn.md): the fires/day<=60 cap forces selection into a
+# DEGENERATE high-stall regime — EVERY feasible cell is S>=3, where the long stall delays
+# the confirm so far that direction-correctness collapses (S=2->S=3: 0.85->0.28) and the
+# lead goes negative. The mechanic's usable regime (S<=2, dir-recall 0.22-0.32) all fires
+# 94-705/day (excluded by the cap); even that is largely fire-rate saturation (precision
+# ~0.16). PROP-TURN is a firehose, not a ~45/day turn detector. Frozen cell = degenerate.
+
+
+@_njit(cache=True)
+def _propturn_core(c, ts, rth, start, r, s_sec, a_min):
+    """Causal proportional-leg stop-and-reverse tracker (Moises 2026-07-16). Returns the
+    EMITTED fires (RTH-gated) as (idx, is_long int8, amplitude): fire idx into the stream,
+    the NEW leg direction (1=long/0=short), and the just-closed leg's amplitude A (pts).
+    State (P0, d, extremes, stall timers) updates on EVERY bar; only emission is gated."""
+    n = c.shape[0]
+    fi = np.empty(n, np.int64)
+    fl = np.empty(n, np.int8)
+    fa = np.empty(n, np.float64)
+    k = 0
+    P0 = c[0]                                    # seed pivot = first stream bar
+    d = 0                                        # leg dir: 0 unseeded, +1 up, -1 down
+    hi_v = c[0]; lo_v = c[0]                     # running extremes since the pivot
+    hi_ts = ts[0]; lo_ts = ts[0]                 # when each extreme was last improved
+    for i in range(1, n):
+        x = c[i]
+        if x > hi_v:
+            hi_v = x; hi_ts = ts[i]
+        if x < lo_v:
+            lo_v = x; lo_ts = ts[i]
+        fired = False
+        if d >= 0:                               # up-leg (or unseeded): watch a down-turn
+            A = hi_v - P0
+            retr = hi_v - x
+            # normal proportional confirm (A>=A_min, spec-exact) OR sub-minimal escape:
+            # a leg whose amplitude never reached A_min is not yet 'real'; a full A_min
+            # counter-move re-designates it (else stop-and-reverse STICKS in a sub-A_min
+            # leg through a hard reversal -> a losing position held for hours; see header).
+            if ((A >= a_min and retr >= r * A) or (A < a_min and retr >= a_min)) and \
+               (s_sec <= 0.0 or (ts[i] - hi_ts) >= s_sec):
+                if rth[i] and i >= start:
+                    fi[k] = i; fl[k] = 0; fa[k] = A; k += 1   # NEW leg down -> SHORT
+                P0 = hi_v; d = -1
+                lo_v = x; lo_ts = ts[i]          # new down-leg extreme starts at x
+                fired = True
+        if (not fired) and d <= 0:               # down-leg (or unseeded): watch an up-turn
+            A = P0 - lo_v
+            retr = x - lo_v
+            if ((A >= a_min and retr >= r * A) or (A < a_min and retr >= a_min)) and \
+               (s_sec <= 0.0 or (ts[i] - lo_ts) >= s_sec):
+                if rth[i] and i >= start:
+                    fi[k] = i; fl[k] = 1; fa[k] = A; k += 1   # NEW leg up -> LONG
+                P0 = lo_v; d = 1
+                hi_v = x; hi_ts = ts[i]          # new up-leg extreme starts at x
+    return fi[:k], fl[:k], fa[:k]
+
+
+def gen_propturn(ctx):
+    """PROP-TURN: Moises' proportional leg-turn stop-and-reverse confirmation. Fires at
+    each turn; direction = the NEW leg. value = the completed leg's amplitude A (pts).
+    Frozen params PROPTURN_R/S_MIN/A_MIN were 2024-SEALED (see module header)."""
+    fi, fl, fa = _propturn_core(ctx.c.astype(np.float64), ctx.ts.astype(np.int64),
+                                ctx.rth.astype(np.bool_), np.int64(ctx.start),
+                                float(PROPTURN_R), float(PROPTURN_S_MIN) * 60.0,
+                                float(PROPTURN_A_MIN))
+    return [ctx.emit(int(fi[k]), bool(fl[k]), float(fa[k])) for k in range(len(fi))]
+
+
+GENS['PROP-TURN'] = gen_propturn
