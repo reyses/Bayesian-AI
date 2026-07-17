@@ -899,6 +899,293 @@ for _t in ('FREIGHT', 'KILLSHOT', 'CASCADE', 'RIDEAGN', 'FADEAGN',
 NMP_STREAMS = {'NMP', 'NMP-LAMBDA'}   # streams needing the canonical z_se load
 
 
+# ---- batch 3 (2026-07-16, doc-082: turn/exit-timing concepts as causal 1m streams) ---
+# Six concepts ported from TURN_CATALOG_DRAFT (TURN-10/07/06) + EXIT_CATALOG_DRAFT
+# (EXIT-05/06/04). ALL operate on CLOCK-ALIGNED 1m buckets (ts//60) over the CONTINUOUS
+# tail+day stream (no cold start, doc 073); emission = the 5s row where the bucket
+# CLOSES (first row of the NEXT bucket, the identical causal knowledge point used by
+# _cdl_flags), gated RTH & >=start. Every DECLARED parameter (the catalogs mark these
+# [UNSPECIFIED]) is a named module constant with a comment on its origin.
+CLIMAX_K = 2.0        # TURN-CLIMAX volume-spike multiple vs rolling median (declared)
+CLIMAX_N = 30         # TURN-CLIMAX / EXIT-TIMESTOP fresh-extreme + vol-norm window (declared)
+SWEEP_WICK = 0.50     # TURN-SWEEP rejection-wick fraction of bucket range (declared)
+ER_N = 10             # CTX-ER efficiency-ratio window (Kaufman KAMA canonical)
+ER_CHOP = 0.30        # CTX-ER chop-onset cross level (declared)
+KMDR_L_LO, KMDR_L_HI = 28, 22     # EXIT-KMDR EMA lengths (WPI floors/ceilings verbatim)
+KMDR_MOM_LO, KMDR_MOM_HI = 6, 11  # EXIT-KMDR momentum lengths (WPI floors/ceilings verbatim)
+KMDR_ATR_N, KMDR_ATRS = 14, 1.5   # EXIT-KMDR ATR (Wilder, doc-082) x band multiple (WPI)
+TIMESTOP_STALE_S = 20 * 60        # EXIT-TIMESTOP stale window: catalog illustrative 20-min peak
+
+
+def _min_bkt(ctx):
+    """Clock-aligned 1m OHLCV buckets over the full stream + the 5s row where each
+    bucket CLOSES (first row of the next bucket = the _cdl_flags causal point).
+    Cached on ctx so the six batch-3 generators share one bucketing per day."""
+    if getattr(ctx, '_mb', None) is not None:
+        return ctx._mb
+    b = ctx.ts // 60
+    g = pd.DataFrame({'b': b, 'o': ctx.o, 'h': ctx.h, 'l': ctx.l,
+                      'c': ctx.c, 'v': ctx.v}).groupby('b')
+    ids = g['c'].last().index.values
+    first_row = pd.Series(np.arange(len(ctx.ts)), index=b).groupby(level=0).first()
+    close_row = pd.Series(first_row.values, index=first_row.index - 1)  # bucket -> close row
+    mb = dict(o=g['o'].first().values, h=g['h'].max().values, l=g['l'].min().values,
+              c=g['c'].last().values, v=g['v'].sum().values, ids=ids, close_row=close_row)
+    ctx._mb = mb
+    return mb
+
+def _bkt_row(ctx, mb, k):
+    """Causal emission row for bucket position k (RTH & >=start), else None."""
+    r = mb['close_row'].get(mb['ids'][k])
+    if r is None or not np.isfinite(r):
+        return None
+    r = int(r)
+    if r < ctx.start or not ctx.rth[r]:
+        return None
+    return r
+
+
+def gen_turn_ha(ctx):
+    """TURN-HA (TURN_CATALOG_DRAFT TURN-10 HeikinAshi_Color_Flip; four HA equations
+    verbatim: HA-close=(o+h+l+c)/4; HA-open=avg(prev HA-open,prev HA-close); HA-high/
+    -low unused since value=|body| and no wick gate). HA on clock-aligned 1m buckets,
+    continuous across the stream, HA-open seeded (o+c)/2 at the first bucket. FIRE at
+    the bucket-close row where HA color flips; direction=NEW color (green=LONG/red=
+    SHORT); value=|HA body|=|HA-close-HA-open|.
+    DECLARED (doc-082): fire on EVERY color flip — the article's small-body + two-sided-
+    wick refinement is a precision knob and is NOT applied as a gate; value stays scalar
+    (=|HA body|). Latch-removal philosophy of the harness (all fires emitted)."""
+    mb = _min_bkt(ctx)
+    o, h, l, c = mb['o'], mb['h'], mb['l'], mb['c']
+    n = len(c)
+    if n < 2:
+        return []
+    ha_c = (o + h + l + c) / 4.0
+    ha_o = np.empty(n)
+    ha_o[0] = (o[0] + c[0]) / 2.0                       # declared seed (doc-082)
+    for k in range(1, n):
+        ha_o[k] = (ha_o[k - 1] + ha_c[k - 1]) / 2.0     # HA-open recurrence (verbatim)
+    green = ha_c > ha_o
+    out = []
+    for k in range(1, n):
+        if green[k] == green[k - 1]:
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        out.append(ctx.emit(r, bool(green[k]), abs(ha_c[k] - ha_o[k])))
+    return out
+
+def gen_turn_sweep(ctx):
+    """TURN-SWEEP (TURN_CATALOG_DRAFT TURN-07 Sweep_And_Reclaim / liquidity-trap).
+    Levels: prior-day RTH high/low (prior_daily true H/L) + overnight high/low (this
+    day file's pre-RTH rows, ~18:00->08:30 CT, fixed at the RTH open). A 1m bucket that
+    trades BEYOND a level then CLOSES back inside WITH a rejection wick. FIRE at bucket
+    close; direction=AWAY from the swept level (high swept->SHORT, low swept->LONG);
+    value=penetration depth (pts).
+    DECLARED (catalog marks the wick threshold [UNSPECIFIED]): rejection wick on the
+    swept side >= SWEEP_WICK(0.50) x bucket range (standard rejection-candle criterion).
+    Highs swept from below (high>L & close<L); lows from above (low<L & close>L). One
+    fire per bucket (largest-penetration qualifying level). Order-flow confirmation
+    (delta divergence / footprint absorption) is DATA-BLOCKED for the train year, OMITTED."""
+    mb = _min_bkt(ctx)
+    o, h, l, c = mb['o'], mb['h'], mb['l'], mb['c']
+    ar = np.arange(len(ctx.c))
+    day = ar >= ctx.start
+    rth_idx = np.flatnonzero(ctx.rth & day)
+    if len(rth_idx) == 0:
+        return []
+    first_rth = rth_idx[0]
+    on_mask = day & (~ctx.rth) & (ar < first_rth)
+    highs, lows = [], []
+    if on_mask.any():
+        highs.append(float(ctx.h[on_mask].max()))       # overnight high
+        lows.append(float(ctx.l[on_mask].min()))        # overnight low
+    if ctx.prior_daily:
+        d = ctx.prior_daily[-1]
+        highs.append(float(d['high']))                  # prior-day RTH high
+        lows.append(float(d['low']))                    # prior-day RTH low
+    if not highs and not lows:
+        return []
+    out = []
+    for k in range(len(c)):
+        rng = h[k] - l[k]
+        if rng <= 0:
+            continue
+        best = None                                      # (is_long, penetration)
+        if (h[k] - max(o[k], c[k])) >= SWEEP_WICK * rng:            # upper rejection wick
+            pen = max((h[k] - L for L in highs if h[k] > L > c[k]), default=None)
+            if pen is not None:
+                best = (False, pen)                      # high swept -> SHORT
+        if (min(o[k], c[k]) - l[k]) >= SWEEP_WICK * rng:           # lower rejection wick
+            pen = max((L - l[k] for L in lows if l[k] < L < c[k]), default=None)
+            if pen is not None and (best is None or pen > best[1]):
+                best = (True, pen)                       # low swept -> LONG
+        if best is None:
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        out.append(ctx.emit(r, best[0], best[1]))
+    return out
+
+def gen_turn_climax(ctx):
+    """TURN-CLIMAX (TURN_CATALOG_DRAFT TURN-06 Climax_Volume_Exhaustion_Bar; OHLCV
+    shadow of the DATA-BLOCKED footprint/delta exhaustion). 1m bucket with a volume
+    spike AT a fresh extreme that CLOSES in the far third AWAY from the extreme. FIRE
+    at bucket close; direction=away from the extreme (high->SHORT, low->LONG);
+    value=volume ratio.
+    DECLARED (catalog marks m/window/close-frac [UNSPECIFIED]): spike = vol >
+    CLIMAX_K(2.0) x trailing rolling-CLIMAX_N(30)-bucket MEDIAN volume (session-relative:
+    during RTH the trailing window is entirely same-day, overnight-into-RTH); fresh
+    extreme = new CLIMAX_N-bucket high/low vs the PRIOR 30 buckets (excl. current);
+    rejection = close in the far third of the bucket range (close<=low+range/3 at a
+    high; close>=high-range/3 at a low)."""
+    mb = _min_bkt(ctx)
+    o, h, l, c, v = mb['o'], mb['h'], mb['l'], mb['c'], mb['v']
+    hs, ls, vsr = pd.Series(h), pd.Series(l), pd.Series(v)
+    prev_max = hs.rolling(CLIMAX_N, min_periods=CLIMAX_N).max().shift(1).values
+    prev_min = ls.rolling(CLIMAX_N, min_periods=CLIMAX_N).min().shift(1).values
+    vmed = vsr.rolling(CLIMAX_N, min_periods=CLIMAX_N).median().values
+    out = []
+    for k in range(len(c)):
+        rng = h[k] - l[k]
+        if rng <= 0 or not np.isfinite(vmed[k]) or vmed[k] <= 0:
+            continue
+        vr = v[k] / vmed[k]
+        if vr <= CLIMAX_K:
+            continue
+        is_long = None
+        if np.isfinite(prev_max[k]) and h[k] > prev_max[k] and c[k] <= l[k] + rng / 3.0:
+            is_long = False                              # fresh high, close low third -> SHORT
+        elif np.isfinite(prev_min[k]) and l[k] < prev_min[k] and c[k] >= h[k] - rng / 3.0:
+            is_long = True                               # fresh low, close high third -> LONG
+        if is_long is None:
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        out.append(ctx.emit(r, is_long, vr))
+    return out
+
+def gen_exit_kmdr(ctx):
+    """EXIT-KMDR (EXIT_CATALOG_DRAFT EXIT-05 Keltner_Momentum_Decel_Reversal; WPI
+    Appendix D params verbatim). Keltner = EMA(price,L) +- 1.5*ATR(Wilder 14) on 1m
+    buckets. At the LOWER band with Mom<0 AND Accel<0 -> LONG (reversal up); MIRROR at
+    the UPPER band with Mom>0 AND Accel>0 -> SHORT. Asymmetric source lengths:
+    LONG/floor EMA L=28, Mom Lmom=6; SHORT/ceiling EMA L=22, Mom Lmom=11.
+    Mom=Momentum(price,Lmom)=c[k]-c[k-Lmom]; Accel=Momentum(Mom,1)=Mom[k]-Mom[k-1].
+    value=|Mom|. Edge-triggered: fire only when the full band+decel condition goes
+    false->true (marks the exhaustion onset once per event).
+    DECLARED (doc-082): centerline = EMA(span,adjust=False) and ATR = Wilder-14 (both
+    per doc-082, overriding the source's AverageFC-SMA / ATR(L)); WPI params were fit on
+    EURUSD 60m and are used here as STRUCTURE, not re-tuned constants."""
+    mb = _min_bkt(ctx)
+    c = pd.Series(mb['c']); h = pd.Series(mb['h']); l = pd.Series(mb['l'])
+    pc = c.shift(1)
+    tr = pd.concat([h - l, (h - pc).abs(), (l - pc).abs()], axis=1).max(axis=1)
+    atr = tr.ewm(alpha=1 / KMDR_ATR_N, adjust=False).mean().values      # Wilder-14
+    cv = c.values
+    ema_lo = c.ewm(span=KMDR_L_LO, adjust=False).mean().values
+    ema_hi = c.ewm(span=KMDR_L_HI, adjust=False).mean().values
+    mom_lo = cv - np.concatenate([np.full(KMDR_MOM_LO, np.nan), cv[:-KMDR_MOM_LO]])
+    mom_hi = cv - np.concatenate([np.full(KMDR_MOM_HI, np.nan), cv[:-KMDR_MOM_HI]])
+    acc_lo = np.concatenate([[np.nan], np.diff(mom_lo)])
+    acc_hi = np.concatenate([[np.nan], np.diff(mom_hi)])
+    lower = cv <= ema_lo - KMDR_ATRS * atr
+    upper = cv >= ema_hi + KMDR_ATRS * atr
+    cond_long = lower & (mom_lo < 0) & (acc_lo < 0)
+    cond_short = upper & (mom_hi > 0) & (acc_hi > 0)
+    out = []
+    for k in range(1, len(cv)):
+        fl = bool(cond_long[k]) and not bool(cond_long[k - 1])
+        fs = bool(cond_short[k]) and not bool(cond_short[k - 1])
+        if not (fl or fs):
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        if fl:
+            out.append(ctx.emit(r, True, abs(mom_lo[k])))
+        if fs:
+            out.append(ctx.emit(r, False, abs(mom_hi[k])))
+    return out
+
+def gen_ctx_er(ctx):
+    """CTX-ER (EXIT_CATALOG_DRAFT EXIT-06 Efficiency_Ratio_Chop_Filter, ported as a
+    TIMING MARK). ER = |c[k]-c[k-N]| / sum_i|c[i]-c[i-1]| over the last N 1m buckets
+    (bounded 0..1). FIRE when ER crosses DOWN through ER_CHOP(0.30) = chop onset.
+    *** DECLARED ADAPTATION (PROMINENT) ***: ER is direction-NEUTRAL; the turn
+    scorecard needs a direction per fire, so direction = OPPOSITE the sign of the
+    last-N-bucket net move (a dying trend marks a potential turn AGAINST it). This is a
+    REGIME/CONTEXT stream FORCED directional purely for scoring — read the verdict with
+    that caveat. N=ER_N(10) (Kaufman KAMA canonical); threshold ER_CHOP(0.30) declared;
+    value = ER at the cross."""
+    mb = _min_bkt(ctx)
+    c = mb['c']; n = len(c)
+    if n < ER_N + 2:
+        return []
+    dc = np.abs(np.diff(c, prepend=c[0]))
+    denom = pd.Series(dc).rolling(ER_N, min_periods=ER_N).sum().values
+    net = c - np.concatenate([np.full(ER_N, np.nan), c[:-ER_N]])
+    er = np.abs(net) / np.where(denom > 0, denom, np.nan)
+    out = []
+    for k in range(ER_N + 1, n):
+        if not (np.isfinite(er[k]) and np.isfinite(er[k - 1])):
+            continue
+        if not (er[k] < ER_CHOP and er[k - 1] >= ER_CHOP):     # cross DOWN through 0.30
+            continue
+        if not np.isfinite(net[k]) or net[k] == 0:
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        out.append(ctx.emit(r, bool(net[k] < 0), float(er[k])))  # OPPOSITE the dying move
+    return out
+
+def gen_exit_timestop(ctx):
+    """EXIT-TIMESTOP (EXIT_CATALOG_DRAFT EXIT-04 MFE-duration/time-stop as a turn mark —
+    the WEAKEST, MOST-DECLARED port). Track the day's most-recent fresh CLIMAX_N(30)-
+    bucket extreme; FIRE when >= TIMESTOP_STALE_S(20 min) elapse since it with no newer
+    extreme (the move has gone stale). direction = OPPOSITE the stale move (last extreme
+    a high -> SHORT; a low -> LONG). value = minutes since the extreme.
+    DECLARED (doc-082): fresh extreme = new 30-bucket high/low vs the prior 30 (excl.
+    current); stale window = 20 min (the catalog's ILLUSTRATIVE 20-min peak, NOT measured
+    on our own MFE-duration distribution — flagged as unmeasured); edge-triggered at the
+    20-min crossing, re-armed by the next fresh extreme; value = staleness minutes.
+    NOTE: direction-neutral clock context forced directional for scoring — weakest port."""
+    mb = _min_bkt(ctx)
+    h, l, ids = mb['h'], mb['l'], mb['ids']
+    n = len(h)
+    prev_max = pd.Series(h).rolling(CLIMAX_N, min_periods=CLIMAX_N).max().shift(1).values
+    prev_min = pd.Series(l).rolling(CLIMAX_N, min_periods=CLIMAX_N).min().shift(1).values
+    out = []
+    last_ts = None; last_long = None; fired = False
+    for k in range(n):
+        is_hi = np.isfinite(prev_max[k]) and h[k] > prev_max[k]
+        is_lo = np.isfinite(prev_min[k]) and l[k] < prev_min[k]
+        if is_hi or is_lo:
+            last_ts = int(ids[k]) * 60                  # bucket-start clock
+            last_long = bool(is_lo and not is_hi)       # low extreme -> LONG, high -> SHORT
+            fired = False
+            continue
+        if last_ts is None or fired:
+            continue
+        r = _bkt_row(ctx, mb, k)
+        if r is None:
+            continue
+        elapsed = int(ctx.ts[r]) - last_ts
+        if elapsed >= TIMESTOP_STALE_S:
+            out.append(ctx.emit(r, last_long, elapsed / 60.0))
+            fired = True
+    return out
+
+
+GENS.update({'TURN-HA': gen_turn_ha, 'TURN-SWEEP': gen_turn_sweep,
+             'TURN-CLIMAX': gen_turn_climax, 'EXIT-KMDR': gen_exit_kmdr,
+             'CTX-ER': gen_ctx_er, 'EXIT-TIMESTOP': gen_exit_timestop})
+
+
 def _day_profile(prices, volumes):
     """RTH volume profile (ag_deepdive_01_vol_profile.compute_daily_profile verbatim:
     0.25-tick close-binned volume; POC = argmax; VA = 70% expansion around POC)."""
