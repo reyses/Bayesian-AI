@@ -1,0 +1,15 @@
+t=0m: HOLD — fresh entry, bar closed green (C+12.25), leg intact (giveback 21%), ER10 0.07 shows no adverse trend, both fires (HA, PROPP) with.
+t=1m: HOLD — ugly bar (C-11.00) and giveback 102%, but ER10 still low (0.20, choppy) and both fires still with; reading as noise in a choppy regime, not a trend.
+t=2m: HOLD — bar stabilizes with a green close (+0.75), HA flips against but PROPP still with and ER10 stays low (0.11); no unanimous trend confirmation yet.
+t=3m: HOLD — price recovering (-5.50 from -8.25), giveback improving to 83%, vol compressing to 4.2, ER10 near zero (0.01); looks like consolidation, not breakdown.
+t=4m: HOLD — sharp reversal bar and PROPP flips against alongside HA-against, but the fresh leg's giveback is only 2% and ER10 (0.26) is still below trend threshold; watching closely, not yet acting.
+t=5m: HOLD — third down-leg extension to -23.00, vol and ER10 both rising, but PROPP flips back to with (detectors still disagreeing) — no unanimous confirmation to act on.
+t=6m: HOLD — strong bounce (+7.5pts off the low), leg giveback jumps to 34% and ER10 falls to 0.23; the down-move is losing steam.
+t=7m: HOLD — powerful reversal bar back to -3.50, leg giveback hits 75% (down-leg essentially failed), both fires realign with, ER10 collapses to 0.06; the dip looks resolved.
+t=8m: HOLD — breaks into profit (+15.50) on a strong wide-range green bar, fresh leg giveback 0%, ER10 rising with the move (0.35) — trending with the position now.
+t=9m: HOLD — minor pullback within the up-leg (+13.00), giveback only 7%, structure intact.
+t=10m: HOLD — new highs (+26.75) on a strong bar; first KMDR-against fire appears, but giveback stays low (5%) and HA is still with — one contrarian signal against an otherwise strong tape.
+t=11m: HOLD — pullback to +25.25 on a weak red bar with ER10 rising to 0.45 while KMDR-against persists; giveback still only 8% and price still near highs, but flagging the buildup.
+t=12m: HOLD — third straight narrow/weak red bar, price stalling at the highs, KMDR-against persists a 3rd bar in a row; still holding since giveback is flat at 8% and no other detector has confirmed yet.
+t=13m: EXIT — violent rejection bar erases most of the leg's gain (+25.50→+7.25, giveback ~73% of the peak leg in one close), a brand-new down-leg stamps in (age/giveback both reset to 0), and for the first time all three detectors (KMDR, HA, PROPP) flip against in unison with none supportive — cutting here while still net positive rather than risking the round-trip.
+SUMMARY: Exit signature was a violent single-bar rejection off new highs (+26.75 → +7.25, ~73% of the leg given back in one close) landing exactly when all three tracked detectors (KMDR, HA, PROPP) flipped against in unison for the first time all episode, confirmed by a fresh-leg reset. Next time I'd treat the earlier 3-bar KMDR-against buildup while price stalled at the highs (t=10-12) as the cue to tighten up rather than waiting for full unanimous confirmation, since by t=13 the trade had already surrendered most of its open profit.

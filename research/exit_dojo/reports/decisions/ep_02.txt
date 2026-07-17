@@ -1,0 +1,33 @@
+t=0m: HOLD — Fresh entry; mixed bar (H+1.25/L-7.75) but giveback only 12%, ER10 0.52 mid-range; no against-cluster yet.
+t=1m: HOLD — Strong bar (C+9.50), giveback resets to 0%, ER10 up to 0.67, PROPP flips with; KMDR-against alone isn't enough to act on.
+t=2m: HOLD — Pullback to +4.50 but giveback still low (15%), ER10 0.61; no bar-close breakdown.
+t=3m: HOLD — Bar closes positive again (+9.00 px), giveback eases to 8%; trend intact.
+t=4m: HOLD — px steady near +8, giveback 10%, ER10 dips to 0.42 but no adverse bar or vol pickup.
+t=5m: HOLD — New tiny leg, giveback 50%, but amp only 14.0 and px flat; too small/early to read as a top.
+t=6m: HOLD — Giveback 95% on a small leg yet px extends to +14.50 on a strong bar (C+9.25); leg-giveback decoupled from the actual trend here.
+t=7m: HOLD — Giveback 188% (leg fully round-tripped) but px still extends to +27.50 with ER10 0.62, HA-with; confirms giveback% spikes aren't predictive in this tape.
+t=8m: HOLD — New leg resets giveback to 0%, px pulls to +24.75; vol(5m) jump to 7.1 reads as expansion-with-trend (HA-with), not breakdown.
+t=9m: HOLD — px holds ~+23.5, giveback only 5%, ER10 0.57; quiet consolidation.
+t=10m: HOLD — Strong bar (C+13.00), ER10 spikes to 0.95, giveback 0%; clean continuation.
+t=11m: HOLD — Small pullback to +35.00, giveback 8%, ER10 still high (0.81); normal noise inside a strong trend.
+t=12m: HOLD — px stable at +35.50, giveback 6%, ER10 0.83; no deterioration.
+t=13m: HOLD — New leg, giveback 0%, ER10 0.80 still strong; shallow dip to +32.50.
+t=14m: HOLD — px ticks up to +33.75 despite 64% giveback on a small leg; ER10 unaffected (0.80) — same noisy-giveback pattern as t=6/7.
+t=15m: HOLD — px +29.25, giveback 24%, ER10 cools to 0.61 but bar close only -4.25, no deep wick; shallow pullback.
+t=16m: HOLD — px recovers to +33.00 on a decent bar (H+8.00/C+2.00); giveback 58% again decoupled from actual direction.
+t=17m: HOLD — Breakout bar (H+13.75/C+12.50) to +43.00, giveback only 6%, HA-with + PROPP-with; clean new high.
+t=18m: HOLD — Give-up bar (L-9.00/C-7.25) to +39.25, ER10 drops to 0.34 — first real adverse bar, but single-bar, no vol spike, no HA-against; watching for confirmation before acting.
+t=19m: HOLD — Bar closes positive (+3.25) and ER10 ticks up to 0.37; the t=18 wobble isn't extending.
+t=20m: HOLD — px holds +37.75, ER10 falls to 0.06 but vol(5m) also contracts to 4.0 on a tiny leg (amp 6.2) — reads as low-energy chop, not a breakdown.
+t=21m: HOLD — px ~flat, ER10 still 0.06, vol contracts further to 2.3; HA-against fires but px isn't actually losing ground — consistent with consolidation.
+t=22m: HOLD — px ~flat +37.00, vol keeps contracting to 1.8, ER10 0.09; quiet, shrinking-range chop, not the expanding-vol pattern I'd need to act on.
+t=23m: HOLD — px breaks higher to +41.50 on a vol uptick, confirming t=20-22 was a pause, not a top.
+t=24m: HOLD — px steady +39.50, ER10 recovers to 0.16, HA-with fires fresh; trend resuming.
+t=25m: HOLD — px extends to a new high +43.50; giveback 95% on a small leg again, but px still climbing — same noisy-giveback signature as before.
+t=26m: HOLD — New high +44.50 despite 105% giveback (leg round-tripped); ER10 recovering to 0.39 — reconfirms leg-giveback isn't the trigger here.
+t=27m: HOLD — Breakout bar (H+14.25/C+8.75) to +55.50, giveback only 4% on the new leg; expansion (vol 5.3) is with-trend, PROPP-with.
+t=28m: HOLD — Marginal new high +56.00, ER10 strong at 0.70, giveback 2%; no deterioration signature present.
+t=29m: HOLD — First give-up bar since the top (L-10.25/C-7.00), ER10 collapses 0.70→0.28, giveback jumps to 19% — but bar closed well off its low (partial recovery), same shape as t=18 which didn't extend; want next-bar confirmation.
+t=30m: HOLD — Bar stabilizes (H+7.25/C+2.00), ER10 recovers to 0.41, px holds flat at +52.25; t=29 wobble isn't extending, mirroring the t=18→19 resolution.
+t=31m: EXIT — Largest single-bar adverse move of the trade (px -11.50 in one minute, ~2.5x any prior pullback), bar closes at its low (L-13.75/C-13.50, no intrabar recovery, unlike t=29's bar), ER10 craters to 0.03 (new floor, below the t=20-22 low-vol-chop reading), and HA flips against on a fresh fire — a magnitude/confluence break from the two earlier false alarms (t=18, t=29), not another one-bar wobble.
+SUMMARY: The exit was driven by confluence, not any single stat: the largest one-bar adverse move of the trade, a close pinned at the bar's low (no intrabar recovery, unlike the prior wobble), and ER10 collapsing to a fresh floor alongside a new against-fire. Next time I'd watch for exactly that combination — an outsized single-bar range/close-at-extreme plus a NEW low in ER10 — rather than reacting to giveback% spikes, single indicator fires, or low ER10 alone, since each of those individually threw false positives earlier in this same trade.

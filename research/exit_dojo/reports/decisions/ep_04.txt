@@ -1,0 +1,19 @@
+t=0m: HOLD — flat P&L, tiny leg (amp25.2) already 51% given back; nothing established yet, no reason to act on a leg this small.
+t=1m: HOLD — px+2.25, giveback climbing to 60% on the same small leg; KMDR/HA/PROPP all read against but position is barely off entry — noise on a leg too small to matter.
+t=2m: HOLD — giveback 83% (leg fully round-tripped), but HA flips with; px+8.00 still trivial, ER10 0.58 mid-range — waiting for a real move to form.
+t=3m: HOLD — new leg starts, px dips to -0.50; KMDR+PROPP against but HA with — mixed, no confluence, leg still tiny (28.5).
+t=4m: HOLD — leg turns clean favorable (amp33.2, giveback0%), px+20.25, HA and PROPP both flip with — this looks like the real trend starting.
+t=5m: HOLD — amp58.8, giveback only 16%, vol(5m) expanding to 14.4 confirms real range in our favor; KMDR-against persists but has been wrong every bar since t=1.
+t=6m: HOLD — amp78.0, giveback7%, vol20.8 — strong impulsive continuation, no reason to leave.
+t=7m: HOLD — amp88.8, giveback1%, PROPP flips with too — only KMDR (a chronically-wrong laggard here) reads against.
+t=8m: HOLD — first real pullback, px+66.50, giveback13% on amp91.5; ER10 actually rising (0.56) and only PROPP (noisy oscillator) is against — no HA/KMDR confluence.
+t=9m: HOLD — second pullback bar, giveback20% on amp96.5; still only lone PROPP against, ER10 0.50 mid-range — not enough to call a reversal.
+t=10m: HOLD — giveback recovers to 10%, ER10 jumps to 0.71; pullback stalling, trend regaining efficiency even though leg hasn't extended past 96.5 yet.
+t=11m: HOLD — new leg high, amp101.0, giveback0%, PROPP flips with, ER10 0.67 — trend healthy again.
+t=12m: HOLD — giveback9%, ER10 0.80 (highest yet) — minor pullback inside a very efficient trend, PROPP still with, only the stale KMDR against.
+t=13m: HOLD — new high, amp103.0, giveback0%, px+90.00 — trend intact.
+t=14m: HOLD — new high, amp126.0, giveback0%, ER10 0.78; HA flips against but isolated (KMDR stale, PROPP still with 2m ago) and price just made a new high anyway — no corroboration yet.
+t=15m: HOLD — new high px+118.75, amp135.2 (largest leg of the trade), giveback3%, ER10 0.78; HA flips back with, PROPP with — trend still efficient and printing highs.
+t=16m: HOLD — sharp pullback, px+90.25, giveback jumps to 24% on the largest leg yet, but ER10 still high (0.76) and the only fresh fire is PROPP-with — HA/KMDR against readings are stale (2-3m old); one bar of damage without confirmation, and past ~20% giveback blips (t=9) resolved back to new highs, so holding for one more bar of confirmation.
+t=17m: EXIT — ER10 collapses 0.76→0.23 (trend-efficiency regime break), HA and PROPP both flip fresh-against alongside the long-stale KMDR-against (first real 3-way confluence of the trade), giveback holds ~25% of the 135.2pt leg for a second straight bar, and the 1m bar itself is a wide, ugly adverse print (H+3.25/C-33.25 rel. prior close) — this reads as a confirmed reversal, not chop; taking the exit here.
+SUMMARY: Exited on the first true confluence of a trend-efficiency breakdown (ER10 0.76→0.23) with two signals (HA, PROPP) flipping fresh-against together, stacked on a giveback that had already claimed ~25% of the trade's largest leg (135.2pts) for two straight bars. Earlier ~20% giveback blips during the healthy trend (t=9) never got this confirmation and resolved back to new highs, so I held through those. Next time: watch for the same triple stack (ER10 crash + multi-signal fresh-against + sustained giveback on the largest leg) rather than reacting to giveback or a lone oscillator flip alone, since KMDR fired against nearly the entire trend and was wrong the whole way.

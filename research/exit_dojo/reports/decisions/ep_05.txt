@@ -1,0 +1,10 @@
+t=0m: HOLD — entry bar; px flat at 0, KMDR/PROPP against-fires present but no adverse price move yet, too early to judge.
+t=1m: HOLD — px +16.75 favorable with ER10 spiking to 0.80 (strong trend); PROPP still against but price action overrides it.
+t=2m: HOLD — px +27.25, new high; ER10 0.82 (peak trend efficiency), giveback only 11%, leg amplitude expanding cleanly.
+t=3m: HOLD — px +32.25, new high; giveback near zero (1%), PROPP flips to with; bar close ticks slightly negative but trend intact.
+t=4m: HOLD — px +41.00, new peak of the trade; leg still expanding (amp 60.5), ER10 0.77 still strong despite both detectors against.
+t=5m: HOLD — first real pullback to +38 but giveback only 18% of a growing leg, ER10 0.68 still trend-like, PROPP fires with.
+t=6m: HOLD — deeper pullback to +26.50, giveback 35%, ER10 sliding to 0.53 and PROPP flips against again; a warning, not yet a confirmed reversal.
+t=7m: EXIT — giveback jumps to 58% of the trade's largest leg (65.5pts) right as ER10 collapses to 0.25 (trend->chop), a third detector (HA) joins KMDR+PROPP all against within the last 3 minutes, and two consecutive bars have now closed hard adverse (-10.50, -17.50); locking +11.25 before the reversal erases the rest of the peak gain.
+
+SUMMARY: Exited at t=7m on a stacked reversal signature: giveback crossed the halfway mark on the trade's biggest leg exactly as ER10 broke down from a 0.82 trend peak to 0.25 chop, while KMDR, PROPP, and HA all registered against-fires inside the same 3-minute window after two straight hard-adverse bar closes. Next time watch for that same co-occurrence (giveback velocity + ER10 breakdown + multi-detector consensus) rather than any single metric — t=6 already showed ER10 softening but I correctly waited one more bar for the full stack to confirm before exiting.
