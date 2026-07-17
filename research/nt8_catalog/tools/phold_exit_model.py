@@ -43,6 +43,7 @@ D5DIR = os.path.join(ROOT, 'DATA', 'ATLAS', '5s')
 REP = os.path.join(ROOT, 'research', 'nt8_catalog', 'reports')
 
 # ---- constants (no magic numbers) ----------------------------------------------------
+BAR_S = 5              # 5s base bar; row B closes at B+BAR_S (build_dataset.py:96)
 P_PCTL = 90            # entry-P percentile that defines an engagement (top decile)
 DEDUP_S = 60           # co-fires within this many seconds/same dir/day = one engagement
 TAU_MAX = 60           # hard cap on during-trade minutes
@@ -203,7 +204,7 @@ def build_panel(engs, featcols, want_features):
                 t = e.ts + 60 * tau
                 if t > ts_grid[-1]:
                     break
-                ai = int(np.searchsorted(ts_grid, t, side='right') - 1)
+                ai = int(np.searchsorted(ts_grid, t - BAR_S, side='right') - 1)
                 if ai < 0:
                     break
                 lab_t = active_label(labs, t)
@@ -399,7 +400,7 @@ def main():
                 t = e.ts + 60 * tau
                 if t > ts_grid[-1]:
                     break
-                ai = int(np.searchsorted(ts_grid, t, side='right') - 1)
+                ai = int(np.searchsorted(ts_grid, t - BAR_S, side='right') - 1)
                 if ai < 0:
                     break
                 lab_t = active_label(labs, t)
