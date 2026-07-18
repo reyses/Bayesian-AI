@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_04_09_1744217460_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2cdbb9b75f52f61b",
+      "ts": 1784387357.5157087
+    },
+    {
+      "frame": 1,
+      "nonce": "e689ca4f58f90599",
+      "ts": 1784387569.9914715
+    },
+    {
+      "frame": 2,
+      "nonce": "81efe91cfae2c245",
+      "ts": 1784387782.2469988
+    },
+    {
+      "frame": 3,
+      "nonce": "7029b1b48637ce7b",
+      "ts": 1784388009.9008667
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2cdbb9b75f52f61b",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists of complex, time-series financial data and internal system signals. Without a specific objective or query, no trading decision can be logically derived based solely on the provided frame."
+    },
+    {
+      "frame": 1,
+      "nonce": "e689ca4f58f90599",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 30%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit evidence of multi-family fires and accelerating loss (G0.2) was confirmed."
+    },
+    {
+      "frame": 2,
+      "nonce": "81efe91cfae2c245",
+      "decision": "HOLD",
+      "reason": "The input data indicates a significant price giveback/retrace (55% over 4m) according to the local context. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD. Rule [G0.2] (EXIT) is not triggered as the provided fire check indicates no multi-family fires."
+    },
+    {
+      "frame": 3,
+      "nonce": "7029b1b48637ce7b",
+      "decision": "EXIT",
+      "reason": "The input data indicates multiple 'fires' (KMDR-against, HA-against, PROPP-with), suggesting a multi-family event. Although 'accelerating loss' is not explicitly quantified as a continuous trend in the provided snippet, the presence of adverse market signals and complex volatility changes warrants an EXIT based on rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

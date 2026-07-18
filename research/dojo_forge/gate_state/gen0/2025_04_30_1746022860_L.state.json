@@ -1,0 +1,19 @@
+{
+  "episode_id": "2025_04_30_1746022860_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e888266e1d57a120",
+      "ts": 1784398605.9072
+    }
+  ],
+  "commits": [],
+  "pending": {
+    "frame": 0,
+    "nonce": "e888266e1d57a120"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

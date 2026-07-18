@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_01_31_1738353960_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d7a759a6d0df3839",
+      "ts": 1784393511.2432232
+    },
+    {
+      "frame": 1,
+      "nonce": "2682d3e67de699e1",
+      "ts": 1784393694.0093503
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d7a759a6d0df3839",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided for a decision. The input consists solely of structured data/metrics. Therefore, the default action is to HOLD, awaiting a specific query or instruction based on the provided 'Genome' rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "2682d3e67de699e1",
+      "decision": "EXIT",
+      "reason": "The local summary indicates 'fires' (KMDR-against and PROPP-against in the last 2m and 1m), suggesting adverse market conditions. Combined with a recent 'giveback 15%', this aligns with the condition for EXIT based on rule [G0.2] (multi-family fires AND accelerating loss)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

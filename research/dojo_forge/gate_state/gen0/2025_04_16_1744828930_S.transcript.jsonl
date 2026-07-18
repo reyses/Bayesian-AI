@@ -1,0 +1,11 @@
+{"ts": 1784397407.104693, "event": "serve", "frame": 0, "nonce": "6e95f3c11360750b"}
+{"ts": 1784397561.4432573, "event": "commit", "frame": 0, "nonce": "6e95f3c11360750b", "decision": "HOLD", "reason": "The provided data indicates a specific, localized signal: `fires<=3m: PROPP-against(1m ago), none-else`. This suggests an immediate counter-trend or cautionary position based on the internal logic of the system. Given the lack of explicit adverse conditions (like multi-family fires or accelerating loss) defined in the Genome rules, and the presence of a specific signal, the safest action according to the provided framework is to HOLD."}
+{"ts": 1784397561.4479964, "event": "serve", "frame": 1, "nonce": "5368ca38a1b17c19"}
+{"ts": 1784397722.2286797, "event": "commit", "frame": 1, "nonce": "5368ca38a1b17c19", "decision": "HOLD", "reason": "The local context explicitly mentions a 'giveback 5%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784397722.236644, "event": "serve", "frame": 2, "nonce": "6a51d6a671b032c6"}
+{"ts": 1784397881.5920832, "event": "commit", "frame": 2, "nonce": "6a51d6a671b032c6", "decision": "HOLD", "reason": "The local information indicates a 'giveback 1%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate multi-family fires leading to accelerating loss were detected, negating the trigger for EXIT under [G0.2]."}
+{"ts": 1784397881.5974808, "event": "serve", "frame": 3, "nonce": "3e167608cbb995df"}
+{"ts": 1784397959.0368404, "event": "commit", "frame": 3, "nonce": "3e167608cbb995df", "decision": "HOLD", "reason": "Failed to parse json"}
+{"ts": 1784397959.0421202, "event": "serve", "frame": 4, "nonce": "f99bba3e24141dcb"}
+{"ts": 1784398112.4930534, "event": "commit", "frame": 4, "nonce": "f99bba3e24141dcb", "decision": "EXIT", "reason": "The local context indicates active multi-family fires (KMDR-against, PROPP-with) combined with a recent retracement (giveback 4%). This combination suggests that the momentum structure is unstable, triggering the condition for exiting."}
+{"ts": 1784398112.498368, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 4, "n_commits": 5}

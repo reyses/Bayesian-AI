@@ -1,0 +1,7 @@
+{"ts": 1784388114.15116, "event": "serve", "frame": 0, "nonce": "c3fc1d4f72731bdf"}
+{"ts": 1784388301.7472756, "event": "commit", "frame": 3, "nonce": "fb8cb076480c9ae3", "decision": "HOLD", "reason": "The data indicates a 'giveback 26%' in the leg age context, suggesting a retracement has occurred. This aligns with rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."}
+{"ts": 1784388301.7561133, "event": "serve", "frame": 4, "nonce": "12436274fad341c4"}
+{"ts": 1784388528.1353521, "event": "commit", "frame": 4, "nonce": "12436274fad341c4", "decision": "HOLD", "reason": "The data indicates a significant price giveback (184% over the last 2m). This aligns with rule [G0.3] IF giveback/retrace AND trend is intact THEN HOLD. Without explicit confirmation of accelerating loss or multi-family fires, holding is the appropriate action to wait for the trend to reassert itself."}
+{"ts": 1784388528.1408505, "event": "serve", "frame": 5, "nonce": "dae5bbcd3123cedd"}
+{"ts": 1784388757.121786, "event": "commit", "frame": 5, "nonce": "dae5bbcd3123cedd", "decision": "EXIT", "reason": "The system detected 'fires' (KMDR-against, PROPP-with) within the last 3 minutes, indicating multi-family conflicts. Although accelerating loss is not explicitly quantified in the provided snapshot, the presence of multiple conflicting signals suggests an environment where holding is risky. This triggers the condition for EXIT based on rule [G0.2]."}
+{"ts": 1784388757.1302948, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 5, "n_commits": 6}

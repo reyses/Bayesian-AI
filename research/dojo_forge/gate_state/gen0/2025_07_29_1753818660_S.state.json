@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_07_29_1753818660_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a76a0b0ba73ba946",
+      "ts": 1784397882.5690112
+    },
+    {
+      "frame": 1,
+      "nonce": "39534b0443a5ebf9",
+      "ts": 1784398043.6207757
+    },
+    {
+      "frame": 2,
+      "nonce": "c60b9679c2dd20df",
+      "ts": 1784398206.379492
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a76a0b0ba73ba946",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a relatively stable state with positive momentum over the recent periods (`price_velocity_30=+62.483`, `hurst_30=+0.756`). The volatility metrics are within expected ranges, and the final local signal suggests minimal immediate price movement (`px +0.00pts`). No conditions for an immediate EXIT (adverse excursion or multi-family fires) were met based on the provided context."
+    },
+    {
+      "frame": 1,
+      "nonce": "39534b0443a5ebf9",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 17%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit conditions for EXIT ([G0.2]) or adverse excursion ([G0.1]) are clearly met."
+    },
+    {
+      "frame": 2,
+      "nonce": "c60b9679c2dd20df",
+      "decision": "EXIT",
+      "reason": "The system detected 'multi-family fires' (HA-with, PROPP-against) alongside a significant price retracement ('giveback 20%'). This combination suggests an adverse and stressed environment, triggering the condition for EXIT based on rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

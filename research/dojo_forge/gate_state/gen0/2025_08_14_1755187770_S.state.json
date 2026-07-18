@@ -1,0 +1,42 @@
+{
+  "episode_id": "2025_08_14_1755187770_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "389402df7984d709",
+      "ts": 1784398369.5542164
+    },
+    {
+      "frame": 1,
+      "nonce": "f05bdb549fa1ea0c",
+      "ts": 1784398535.837059
+    },
+    {
+      "frame": 2,
+      "nonce": "8af6a83178179d6f",
+      "ts": 1784398693.8005207
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "389402df7984d709",
+      "decision": "HOLD",
+      "reason": "The local signal indicates a recent price leg with a 2% giveback, and the specific condition `fires<=3m: PROPP-against(2m ago), none-else` suggests a potential setup based on a counter-trend strategy that was recently reversed. Given the current negligible price change (`px +0.00pts`), holding is prudent to observe if the established pattern continues or if new signals emerge."
+    },
+    {
+      "frame": 1,
+      "nonce": "f05bdb549fa1ea0c",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT ([G0.2] multi-family fires AND accelerating loss) are met, as the summary indicates 'fires<=3m: none'. While a 7% giveback occurred, this aligns with condition [G0.3], suggesting that if the underlying trend remains intact, holding is appropriate."
+    }
+  ],
+  "pending": {
+    "frame": 2,
+    "nonce": "8af6a83178179d6f"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

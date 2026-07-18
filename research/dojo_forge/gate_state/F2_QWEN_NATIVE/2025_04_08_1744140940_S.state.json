@@ -1,0 +1,32 @@
+{
+  "episode_id": "2025_04_08_1744140940_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e14b441424658c5b",
+      "ts": 1784389008.7314854
+    },
+    {
+      "frame": 1,
+      "nonce": "112a53f9b52110eb",
+      "ts": 1784389033.3927634
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e14b441424658c5b",
+      "decision": "HOLD",
+      "reason": "",
+      "p_exit": 0.49999999975
+    }
+  ],
+  "pending": {
+    "frame": 1,
+    "nonce": "112a53f9b52110eb"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

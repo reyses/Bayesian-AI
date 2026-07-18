@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_01_31_1738354150_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1caacc32570b68f2",
+      "ts": 1784393872.892021
+    },
+    {
+      "frame": 1,
+      "nonce": "c7d4b8dc0246484c",
+      "ts": 1784394062.2524104
+    },
+    {
+      "frame": 2,
+      "nonce": "f2e70a129194673b",
+      "ts": 1784394253.341064
+    },
+    {
+      "frame": 3,
+      "nonce": "b0c5d3b8b66816fe",
+      "ts": 1784394423.1555817
+    },
+    {
+      "frame": 4,
+      "nonce": "47926a64b9a63a80",
+      "ts": 1784394608.4049766
+    },
+    {
+      "frame": 5,
+      "nonce": "6cba6199de4ee21d",
+      "ts": 1784394789.850564
+    },
+    {
+      "frame": 6,
+      "nonce": "ec35efdee936fb19",
+      "ts": 1784394966.4926803
+    },
+    {
+      "frame": 7,
+      "nonce": "c327c8ae88282b42",
+      "ts": 1784395059.2906318
+    },
+    {
+      "frame": 8,
+      "nonce": "0b472c35c211379e",
+      "ts": 1784395222.9426267
+    },
+    {
+      "frame": 9,
+      "nonce": "dd616dd6198ccd61",
+      "ts": 1784395405.385029
+    },
+    {
+      "frame": 10,
+      "nonce": "8b50adb92df81459",
+      "ts": 1784395575.8826032
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1caacc32570b68f2",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided regarding which of the Genome rules ([G0.1], [G0.2], or [G0.3]) should be applied to the provided data. The input consists of complex time-series metrics and a final status command, but lacks a clear question requiring a HOLD or EXIT decision based on those rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "c7d4b8dc0246484c",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT (G0.2) or HOLD (G0.1, G0.3) are definitively met based on the provided data. While firing signals are present, there is no confirmation of 'accelerating loss' required for an exit, nor a confirmed 'giveback/retrace' with an intact trend."
+    },
+    {
+      "frame": 2,
+      "nonce": "f2e70a129194673b",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 14%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD. There are no explicit signals of multi-family fires leading to accelerating loss ([G0.2]) or an adverse excursion on a clean entry ([G0.1])."
+    },
+    {
+      "frame": 3,
+      "nonce": "b0c5d3b8b66816fe",
+      "decision": "HOLD",
+      "reason": "The input data explicitly indicates a 'giveback 83%', which aligns with the condition specified in rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 4,
+      "nonce": "47926a64b9a63a80",
+      "decision": "HOLD",
+      "reason": "The input data explicitly indicates a 'giveback 72%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit evidence of multi-family fires and accelerating loss (G0.2) was present."
+    },
+    {
+      "frame": 5,
+      "nonce": "6cba6199de4ee21d",
+      "decision": "HOLD",
+      "reason": "No conditions from the Genome rules were met to trigger an EXIT. Specifically, there are no active multi-family fires and accelerating loss (G0.2 is not triggered). The data does not explicitly confirm an adverse excursion on a clean entry (G0.1) or a giveback/retrace with an intact trend (G0.3)."
+    },
+    {
+      "frame": 6,
+      "nonce": "ec35efdee936fb19",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 7,
+      "nonce": "c327c8ae88282b42",
+      "decision": "HOLD",
+      "reason": "No explicit condition for EXIT (G0.2) was met. The system does not indicate multi-family fires combined with accelerating loss, nor are there clear signals of adverse excursion or a sustained giveback/retrace that would trigger an exit based on G0.1 or G0.3."
+    },
+    {
+      "frame": 8,
+      "nonce": "0b472c35c211379e",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 52%', which aligns with condition [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although adverse signals ('fires') are present, the presence of a retrace suggests that the underlying trend may still be intact, warranting a HOLD rather than an immediate EXIT."
+    },
+    {
+      "frame": 9,
+      "nonce": "dd616dd6198ccd61",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 72%' over the last 2 minutes, which satisfies the condition for [G0.3] (giveback/retrace AND trend is intact). No explicit signal for multi-family fires and accelerating loss ([G0.2]) was detected."
+    },
+    {
+      "frame": 10,
+      "nonce": "8b50adb92df81459",
+      "decision": "EXIT",
+      "reason": "Triggered rule [G0.2] because the input indicates 'multi-family fires' (KMDR-against, HA-against, PROPP-with) combined with significant price movement and volatility changes, suggesting accelerating loss."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

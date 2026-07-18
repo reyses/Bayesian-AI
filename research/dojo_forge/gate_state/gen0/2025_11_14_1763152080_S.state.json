@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_11_14_1763152080_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e51eef3f09b99c13",
+      "ts": 1784387357.50792
+    },
+    {
+      "frame": 1,
+      "nonce": "dbb4db6d265138ac",
+      "ts": 1784387564.7257993
+    },
+    {
+      "frame": 2,
+      "nonce": "40c4e68e6368d5b2",
+      "ts": 1784387776.579996
+    },
+    {
+      "frame": 3,
+      "nonce": "a90957153cffcb35",
+      "ts": 1784388003.35089
+    },
+    {
+      "frame": 4,
+      "nonce": "7b3288b58aa2ef14",
+      "ts": 1784388050.1086807
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e51eef3f09b99c13",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was given for a trade decision, and the provided data is raw statistical input rather than a direct prompt requiring an EXIT or HOLD based on the defined Genome rules. The data itself presents complex market dynamics across different timeframes (4h, 1D) and specific short-term commentary, suggesting a need for further analysis before applying the provided rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "dbb4db6d265138ac",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 44%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "40c4e68e6368d5b2",
+      "decision": "HOLD",
+      "reason": "The data indicates a price retrace or 'giveback' (24% giveback noted in the summary) following initial movement. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is to HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "a90957153cffcb35",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 4,
+      "nonce": "7b3288b58aa2ef14",
+      "decision": "EXIT",
+      "reason": "The system detected multiple family fires (KMDR-against, HA-with, PROPP-with) within the last 3 minutes, which suggests a complex or volatile market structure. This triggers the condition in rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

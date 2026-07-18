@@ -1,0 +1,31 @@
+{
+  "episode_id": "2025_04_08_1744133580_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5ff7b1a045ee6ec1",
+      "ts": 1784398501.7122684
+    },
+    {
+      "frame": 1,
+      "nonce": "e4323fe5ffbcc1e2",
+      "ts": 1784398661.1498294
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5ff7b1a045ee6ec1",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT was met based on the provided Genome rules (G0.1, G0.2, G0.3). The data does not indicate an adverse excursion on a clean entry, multi-family fires with accelerating loss, or a giveback/retrace where the trend is intact."
+    }
+  ],
+  "pending": {
+    "frame": 1,
+    "nonce": "e4323fe5ffbcc1e2"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

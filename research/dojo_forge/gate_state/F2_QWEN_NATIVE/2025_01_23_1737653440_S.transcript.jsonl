@@ -1,0 +1,5 @@
+{"ts": 1784388783.1592076, "event": "serve", "frame": 0, "nonce": "55545622ab4a09f5"}
+{"ts": 1784388791.7525375, "event": "commit", "frame": 0, "nonce": "55545622ab4a09f5", "decision": "HOLD", "reason": "", "p_exit": 0.49999999975}
+{"ts": 1784388791.7809136, "event": "serve", "frame": 1, "nonce": "2aa1bc7a59003c76"}
+{"ts": 1784388799.4910989, "event": "commit", "frame": 1, "nonce": "2aa1bc7a59003c76", "decision": "EXIT", "reason": "", "p_exit": 0.49999999975}
+{"ts": 1784388799.5140588, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

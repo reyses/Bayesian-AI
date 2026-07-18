@@ -1,0 +1,100 @@
+{
+  "episode_id": "2025_04_08_1744129320_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "968a68e7dcdf1b28",
+      "ts": 1784391247.7946212
+    },
+    {
+      "frame": 1,
+      "nonce": "3767ce79ff2e6a1e",
+      "ts": 1784391448.1581705
+    },
+    {
+      "frame": 2,
+      "nonce": "b3f66ac27268610d",
+      "ts": 1784391650.2348201
+    },
+    {
+      "frame": 3,
+      "nonce": "b19c1b217b060012",
+      "ts": 1784391869.1883404
+    },
+    {
+      "frame": 4,
+      "nonce": "aa674529f1c05757",
+      "ts": 1784392065.0953412
+    },
+    {
+      "frame": 5,
+      "nonce": "8ada69cdaa2fbad4",
+      "ts": 1784392261.8142045
+    },
+    {
+      "frame": 6,
+      "nonce": "5ede2d929f1cd792",
+      "ts": 1784392450.2347794
+    },
+    {
+      "frame": 7,
+      "nonce": "85e1742d4b21eae9",
+      "ts": 1784392646.8452685
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "968a68e7dcdf1b28",
+      "decision": "HOLD",
+      "reason": "The provided data indicates complex, multi-timeframe volatility and acceleration patterns. While there are significant velocity changes observed on the 1D scale (high price/volatility velocity), the immediate local context shows a recent pullback ('giveback 8%') following a larger move (179.2pts). The system is currently in a neutral state regarding specific adverse conditions defined by G0.1, G0.2, and G0.3, suggesting caution and observation rather than an immediate directional commitment."
+    },
+    {
+      "frame": 1,
+      "nonce": "3767ce79ff2e6a1e",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. Specifically, there are no indications of 'multi-family fires AND accelerating loss' (G0.2). The data does not explicitly show an adverse excursion on a clean entry (G0.1) or a giveback/retrace with an intact trend (G0.3)."
+    },
+    {
+      "frame": 2,
+      "nonce": "b3f66ac27268610d",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 2%' over the last 7 minutes, which triggers Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit evidence of multi-family fires and accelerating loss (Rule [G0.2]) or an adverse excursion on a clean entry (Rule [G0.1]) is present to trigger an EXIT."
+    },
+    {
+      "frame": 3,
+      "nonce": "b19c1b217b060012",
+      "decision": "HOLD",
+      "reason": "The data indicates a price retrace or giveback (as suggested by 'giveback 6%') following recent movement. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is to HOLD."
+    },
+    {
+      "frame": 4,
+      "nonce": "aa674529f1c05757",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 5%', which aligns with the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 5,
+      "nonce": "8ada69cdaa2fbad4",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 9%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 6,
+      "nonce": "5ede2d929f1cd792",
+      "decision": "HOLD",
+      "reason": "No explicit conditions from the Genome rules (G0.1, G0.2, G0.3) are definitively met to trigger an EXIT. While there are indicators of recent volatility and directional conflicts (as suggested by the 'fires' context), the specific criteria for exiting (multi-family fires AND accelerating loss) or holding (adverse excursion/giveback with intact trend) are not clearly confirmed by the provided data alone."
+    },
+    {
+      "frame": 7,
+      "nonce": "85e1742d4b21eae9",
+      "decision": "EXIT",
+      "reason": "The system detected multiple adverse conditions ('fires'): KMDR-against (3m ago), HA-against (1m ago), and PROPP-against (0m ago). This suggests a multi-family adverse situation, which aligns with the condition for EXIT based on rule [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

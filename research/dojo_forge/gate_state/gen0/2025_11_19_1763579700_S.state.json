@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_11_19_1763579700_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "945ff8808685f121",
+      "ts": 1784396890.0659049
+    },
+    {
+      "frame": 1,
+      "nonce": "5aaeca921fb2b239",
+      "ts": 1784397054.990928
+    },
+    {
+      "frame": 2,
+      "nonce": "e8182e41d9a96ac3",
+      "ts": 1784397113.2379856
+    },
+    {
+      "frame": 3,
+      "nonce": "ecedf3f0ca9642fe",
+      "ts": 1784397270.052559
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "945ff8808685f121",
+      "decision": "HOLD",
+      "reason": "The immediate local context indicates that the current price action is moving against the recent high structure ('HA-against(2m ago)'). While volatility metrics show significant movement in the 4h and 1D frames (especially negative velocity/acceleration in the 1D data), the lack of a strong 'PROPP-with' signal suggests that an immediate reversal or sharp exit is not mandated by the current structure. The system advises holding, pending further confirmation."
+    },
+    {
+      "frame": 1,
+      "nonce": "5aaeca921fb2b239",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 2,
+      "nonce": "e8182e41d9a96ac3",
+      "decision": "HOLD",
+      "reason": "The local summary explicitly indicates a 'giveback 60%', which satisfies the condition for Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 3,
+      "nonce": "ecedf3f0ca9642fe",
+      "decision": "EXIT",
+      "reason": "The input summary indicates 'fires<=3m: HA-with(1m ago), PROPP-against(1m ago)', suggesting conflicting momentum and adverse market activity. This aligns with the condition in [G0.2] (multi-family fires) which mandates an EXIT if accelerating loss is present, making EXIT the appropriate action."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

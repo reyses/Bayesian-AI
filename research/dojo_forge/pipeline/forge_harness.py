@@ -124,33 +124,59 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
     total_tokens = 0
 
     llm.reset()
-    system_tokens = llm.tokenize(f"<start_of_turn>user\n{system_prompt}\n<end_of_turn>\n".encode("utf-8"))
-    
+    sys_text = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+    sys_tokens = llm.tokenize(sys_text.encode('utf-8'), add_bos=False, special=True)
     t0 = time.time()
-    llm.eval(system_tokens)
+    for i in range(0, len(sys_tokens), llm.n_batch):
+        llm.eval(sys_tokens[i:i + llm.n_batch])
     t1 = time.time()
     cold_time = t1 - t0
-    
-    state = llm.save_state()
-    
-    llm.reset()
-    t0 = time.time()
-    llm.load_state(state)
-    t1 = time.time()
-    prefix_time = t1 - t0
+    prefix_time = 0.0
 
     print(f"Prefix Cache - Cold: {cold_time:.3f}s | Cached (restored): {prefix_time:.3f}s")
     
+    sys_len = len(sys_tokens)
+    
+    # Get token IDs for "EXIT" and "HOLD"
+    token_exit = llm.tokenize(b"EXIT")[1] if len(llm.tokenize(b"EXIT")) > 1 else llm.tokenize(b"EXIT")[0]
+    token_hold = llm.tokenize(b"HOLD")[1] if len(llm.tokenize(b"HOLD")) > 1 else llm.tokenize(b"HOLD")[0]
+
     while True:
         k, frame_text, nonce = gate.serve()
         if k is None:
             break
             
-        llm.load_state(state)
-        frame_tokens = llm.tokenize(f"<start_of_turn>user\n{frame_text}\n<end_of_turn>\n<start_of_turn>model\n".encode("utf-8"))
+        llm._ctx.kv_cache_seq_rm(-1, sys_len, -1)
+        llm.n_tokens = sys_len
         
-        llm.eval(frame_tokens)
+        user_prefix = llm.tokenize(b"<|im_start|>user\n", add_bos=False, special=True)
+        assistant_suffix = llm.tokenize(b"<|im_end|>\n<|im_start|>assistant\n", add_bos=False, special=True)
+        frame_tokens = llm.tokenize(frame_text.encode("utf-8"), add_bos=False, special=False)
         
+        max_frame_len = llm._n_ctx - sys_len - len(user_prefix) - len(assistant_suffix) - 128
+        if max_frame_len < 0:
+            max_frame_len = 0
+            
+        if len(frame_tokens) > max_frame_len:
+            frame_tokens = frame_tokens[-max_frame_len:]
+            
+        new_tokens = user_prefix + frame_tokens + assistant_suffix
+            
+        llm.eval(new_tokens)
+        
+        import numpy as np
+        # Extract P(EXIT) from logits
+        logits = np.array(llm.eval_logits[-1]) if hasattr(llm, 'eval_logits') else np.array(llm.scores) if hasattr(llm, 'scores') else np.array(llm._scores) if hasattr(llm, '_scores') else None
+        
+        p_exit = 0.5
+        if logits is not None:
+            logit_exit = logits[token_exit]
+            logit_hold = logits[token_hold]
+            exp_exit = np.exp(logit_exit)
+            exp_hold = np.exp(logit_hold)
+            p_exit = exp_exit / (exp_exit + exp_hold + 1e-9)
+            print(f"Frame {k}: P(EXIT)={p_exit:.4f} (logits: EXIT={logit_exit:.2f}, HOLD={logit_hold:.2f})")
+
         output = ""
         while True:
             token = llm.sample(grammar=grammar)
@@ -168,7 +194,6 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
             if ":" in output:
                 reason = output.split(":", 1)[1].strip()
 
-        p_exit = 0.5
         closed = gate.commit(nonce, decision, reason, p_exit)
         total_tokens += len(frame_tokens)
         
@@ -206,7 +231,7 @@ def run_episode_ollama(gate: InProcessGate, url: str, system_prompt: str):
                 },
                 "required": ["decision", "reason"]
             },
-            "options": {"temperature": 0.0, "num_ctx": 4096}
+            "options": {"temperature": 0.0, "num_ctx": 8192}
         })
         
         if resp.status_code != 200:
@@ -214,6 +239,11 @@ def run_episode_ollama(gate: InProcessGate, url: str, system_prompt: str):
             break
             
         data = resp.json()
+        
+        prompt_eval = data.get('prompt_eval_count', 0)
+        if prompt_eval >= 8192:
+            raise RuntimeError(f"Ollama silent truncation detected: prompt size {prompt_eval} exceeded num_ctx!")
+            
         output = data['message']['content'].strip()
         
         try:
@@ -242,7 +272,14 @@ if __name__ == '__main__':
     ap.add_argument('--run-id', required=True, help='Unique ID for this run (e.g. F1-run-1)')
     args = ap.parse_args()
 
-    system_prompt = "Decide to HOLD or EXIT based on the frame. If EXIT, provide a reason."
+    genome_path = os.path.join(DOJO_ROOT, 'genome', 'GENOME.md')
+    if os.path.exists(genome_path):
+        with open(genome_path, 'r', encoding='utf-8') as f:
+            genome_text = f.read()
+    else:
+        genome_text = ""
+
+    system_prompt = f"Decide to HOLD or EXIT based on the frame. If EXIT, provide a reason.\n\nRULES (Genome):\n{genome_text}"
 
     if args.fallback_url:
         for eid in args.episodes:
@@ -251,7 +288,7 @@ if __name__ == '__main__':
     else:
         from llama_cpp import Llama, LlamaGrammar
         grammar = LlamaGrammar.from_string(GBNF_GRAMMAR)
-        llm = Llama(model_path=args.model_blob, n_gpu_layers=-1, n_ctx=4096, seed=42, temperature=0.0)
+        llm = Llama(model_path=args.model_blob, n_gpu_layers=-1, n_ctx=4096, n_batch=512, seed=42, temperature=0.0, logits_all=True)
         
         for eid in args.episodes:
             gate = InProcessGate(args.run_id, eid)

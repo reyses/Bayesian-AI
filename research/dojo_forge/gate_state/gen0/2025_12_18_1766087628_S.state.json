@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_12_18_1766087628_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "93baf216568e0a50",
+      "ts": 1784398021.809703
+    },
+    {
+      "frame": 1,
+      "nonce": "f3f7c249c557b1dd",
+      "ts": 1784398181.526126
+    },
+    {
+      "frame": 2,
+      "nonce": "4ca4fc1b0f2a1ba0",
+      "ts": 1784398343.8642912
+    },
+    {
+      "frame": 3,
+      "nonce": "f84b27686ecbc8c2",
+      "ts": 1784398511.9808364
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "93baf216568e0a50",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided for an EXIT condition based on the Genome rules. The current frame does not trigger G0.2 (multi-family fires and accelerating loss) or G0.1/G0.3 conditions, so the default action is HOLD."
+    },
+    {
+      "frame": 1,
+      "nonce": "f3f7c249c557b1dd",
+      "decision": "HOLD",
+      "reason": "The conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are not explicitly confirmed by the provided data, although multiple fires (HA and PROPP) are noted. The condition for HOLD (G0.3: giveback/retrace AND trend is intact) is met, as the summary indicates a 'giveback 2%'. Therefore, holding is the appropriate action while awaiting further confirmation of trend integrity."
+    },
+    {
+      "frame": 2,
+      "nonce": "4ca4fc1b0f2a1ba0",
+      "decision": "HOLD",
+      "reason": "The frame indicates a 'giveback 12%' occurred over the last 2 minutes, suggesting a retrace in the current price action. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "f84b27686ecbc8c2",
+      "decision": "EXIT",
+      "reason": "Triggered by Genome Rule [G0.2]. The summary explicitly indicates 'fires' (KMDR-against(1m ago), PROPP-against(1m ago)), suggesting multi-family adverse signals are present, which mandates an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

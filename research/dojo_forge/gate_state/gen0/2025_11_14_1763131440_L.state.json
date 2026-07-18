@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_11_14_1763131440_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "516250a28c93c7d9",
+      "ts": 1784397358.063959
+    },
+    {
+      "frame": 1,
+      "nonce": "31b875f675b042ac",
+      "ts": 1784397509.345971
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "516250a28c93c7d9",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists solely of data and rules, requiring a prompt to determine an action (HOLD or EXIT)."
+    },
+    {
+      "frame": 1,
+      "nonce": "31b875f675b042ac",
+      "decision": "EXIT",
+      "reason": "The system detected 'multi-family fires' (KMDR-against, PROPP-against) in the recent history, which suggests adverse conditions. This aligns with the condition for EXIT under rule [G0.2], especially when combined with significant price movement observed across the timeframes."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

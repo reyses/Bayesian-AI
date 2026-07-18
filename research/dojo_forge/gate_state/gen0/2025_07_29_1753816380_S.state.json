@@ -1,0 +1,130 @@
+{
+  "episode_id": "2025_07_29_1753816380_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "66ea775f34d7d519",
+      "ts": 1784397143.821164
+    },
+    {
+      "frame": 1,
+      "nonce": "8a77efda7076972c",
+      "ts": 1784397302.4727583
+    },
+    {
+      "frame": 2,
+      "nonce": "d8597359c31a9c63",
+      "ts": 1784397457.111102
+    },
+    {
+      "frame": 3,
+      "nonce": "4e514deb64e29baf",
+      "ts": 1784397616.1781132
+    },
+    {
+      "frame": 4,
+      "nonce": "6861216b1cc53932",
+      "ts": 1784397705.9733975
+    },
+    {
+      "frame": 5,
+      "nonce": "9d21eaa4f39d6604",
+      "ts": 1784397862.7747421
+    },
+    {
+      "frame": 6,
+      "nonce": "6cf71fbf8ea6fdd3",
+      "ts": 1784398020.7222185
+    },
+    {
+      "frame": 7,
+      "nonce": "dc9d473ef7ef5efc",
+      "ts": 1784398180.598539
+    },
+    {
+      "frame": 8,
+      "nonce": "dc8dfc8cdbc5da39",
+      "ts": 1784398342.467102
+    },
+    {
+      "frame": 9,
+      "nonce": "1918821ff4915121",
+      "ts": 1784398510.7787097
+    },
+    {
+      "frame": 10,
+      "nonce": "ee107820438496ef",
+      "ts": 1784398669.6706705
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "66ea775f34d7d519",
+      "decision": "HOLD",
+      "reason": "The system indicates a state of caution, aligning with the conditions set by G0.3. Although there is evidence of recent momentum shifts and a significant pullback (56% giveback), the overall trend context remains intact based on the statistical measures provided in the initial frame. The specific signal suggests that while volatility is present, the current price action does not yet confirm an adverse excursion or multi-family fire requiring an immediate exit."
+    },
+    {
+      "frame": 1,
+      "nonce": "8a77efda7076972c",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The system reports no active multi-family fires, which negates rule [G0.2]. While there is a 67% giveback, the trend status remains ambiguous, preventing an automatic HOLD based on [G0.3] without confirmation that the trend is intact."
+    },
+    {
+      "frame": 2,
+      "nonce": "d8597359c31a9c63",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 2%' occurred, which satisfies the condition for [G0.3]. Although there are some firing conditions (HA-against, PROPP-with), there is no explicit signal of 'accelerating loss' required to trigger an EXIT via [G0.2]. Therefore, HOLD is selected."
+    },
+    {
+      "frame": 3,
+      "nonce": "4e514deb64e29baf",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 4,
+      "nonce": "6861216b1cc53932",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered because the local data explicitly indicates a 'giveback 15%', suggesting a retrace occurred. Since the rule requires the trend to be intact, and no explicit signal of accelerating loss (G0.2) or adverse excursion on a clean entry (G0.1) is dominant, HOLD is the appropriate action."
+    },
+    {
+      "frame": 5,
+      "nonce": "9d21eaa4f39d6604",
+      "decision": "HOLD",
+      "reason": "The trade exhibits a 63% giveback, which satisfies the condition in [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 6,
+      "nonce": "6cf71fbf8ea6fdd3",
+      "decision": "HOLD",
+      "reason": "The trade exhibits a 76% giveback, satisfying the condition for [G0.3] (giveback/retrace AND trend is intact)."
+    },
+    {
+      "frame": 7,
+      "nonce": "dc9d473ef7ef5efc",
+      "decision": "HOLD",
+      "reason": "The trade exhibits a 65% giveback/retrace. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 8,
+      "nonce": "dc8dfc8cdbc5da39",
+      "decision": "HOLD",
+      "reason": "The provided data explicitly indicates a 'giveback 43%' over the last 7 minutes. This satisfies the condition for Rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 9,
+      "nonce": "1918821ff4915121",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 61%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    }
+  ],
+  "pending": {
+    "frame": 10,
+    "nonce": "ee107820438496ef"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

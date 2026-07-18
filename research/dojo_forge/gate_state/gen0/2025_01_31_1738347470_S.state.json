@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_01_31_1738347470_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ff601a5133e0a5e6",
+      "ts": 1784390736.418421
+    },
+    {
+      "frame": 1,
+      "nonce": "7f56cfd6abc4b514",
+      "ts": 1784390986.7113369
+    },
+    {
+      "frame": 2,
+      "nonce": "1ee42d19974210ae",
+      "ts": 1784391211.2582915
+    },
+    {
+      "frame": 3,
+      "nonce": "993b562d5af7e48e",
+      "ts": 1784391420.1258657
+    },
+    {
+      "frame": 4,
+      "nonce": "0e2f52efb5bca04b",
+      "ts": 1784391620.2429245
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ff601a5133e0a5e6",
+      "decision": "HOLD",
+      "reason": "The system indicates a neutral or waiting state based on the current indicators. The specific signal 'fires<=3m: HA-against(1m ago), none-else' suggests that while there was recent price action (HA against the previous 1m candle), there are no other immediate, strong directional signals ('fires') present in the very short term. This aligns with a strategy of waiting for confirmation rather than executing an immediate trade."
+    },
+    {
+      "frame": 1,
+      "nonce": "7f56cfd6abc4b514",
+      "decision": "HOLD",
+      "reason": "The conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are not explicitly confirmed by the provided data. While firing signals ('HA-against', 'PROPP-with') and a significant giveback (150%) are present, there is no explicit indication of *accelerating loss* required to trigger an EXIT. The conditions for HOLD (G0.3: giveback/retrace AND trend is intact) are also not definitively violated; the price action shows volatility rather than a clear trend break."
+    },
+    {
+      "frame": 2,
+      "nonce": "1ee42d19974210ae",
+      "decision": "HOLD",
+      "reason": "The provided data indicates multiple conflicting signals ('fires') and a significant retracement (630% giveback). While this suggests potential risk, there is no explicit confirmation that the conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are met, nor is there clear evidence of an adverse excursion on a clean entry (G0.1). Therefore, HOLD is the appropriate action to await further confirmation."
+    },
+    {
+      "frame": 3,
+      "nonce": "993b562d5af7e48e",
+      "decision": "HOLD",
+      "reason": "The data indicates a 34% giveback, suggesting a retrace. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 4,
+      "nonce": "0e2f52efb5bca04b",
+      "decision": "EXIT",
+      "reason": "G0.2: The data indicates 'multi-family fires' (evidenced by the summary: KMDR-against, CLIMAX-against, etc.) combined with extreme volatility and accelerating changes in momentum (e.g., high volume acceleration in the 1m bar). This triggers the EXIT condition."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -1,0 +1,100 @@
+{
+  "episode_id": "2025_12_18_1766073900_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "01efb9f05bb6f5b4",
+      "ts": 1784396761.3684926
+    },
+    {
+      "frame": 1,
+      "nonce": "37d04b7c7fe732ca",
+      "ts": 1784396921.2159197
+    },
+    {
+      "frame": 2,
+      "nonce": "7c95c07b78f7fb06",
+      "ts": 1784397078.6966
+    },
+    {
+      "frame": 3,
+      "nonce": "bc8d9484c021b8b0",
+      "ts": 1784397242.1632254
+    },
+    {
+      "frame": 4,
+      "nonce": "4edb3a03a2b3dbb6",
+      "ts": 1784397398.178614
+    },
+    {
+      "frame": 5,
+      "nonce": "9c59a509a07e2845",
+      "ts": 1784397550.2457457
+    },
+    {
+      "frame": 6,
+      "nonce": "33a7ec9692f2c5fb",
+      "ts": 1784397707.0359178
+    },
+    {
+      "frame": 7,
+      "nonce": "8de2814e4bd277c6",
+      "ts": 1784397863.8356724
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "01efb9f05bb6f5b4",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided for decision-making based on the Genome rules. The input is a data dump containing complex statistical and time-series metrics. Therefore, no trading action (HOLD/EXIT) can be determined without an objective to fulfill. The system remains in a passive state awaiting a directive."
+    },
+    {
+      "frame": 1,
+      "nonce": "37d04b7c7fe732ca",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant price movement and a 'giveback 102%' in the recent history, which aligns with the condition for [G0.3] (giveback/retrace AND trend is intact)."
+    },
+    {
+      "frame": 2,
+      "nonce": "7c95c07b78f7fb06",
+      "decision": "HOLD",
+      "reason": "G0.3 is met as the data explicitly indicates a 'giveback 10%', suggesting a retracement while the underlying trend is assumed to be intact."
+    },
+    {
+      "frame": 3,
+      "nonce": "bc8d9484c021b8b0",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 12%' occurred over the last 2 minutes, which satisfies the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 4,
+      "nonce": "4edb3a03a2b3dbb6",
+      "decision": "HOLD",
+      "reason": "No multi-family fires were detected that would trigger an EXIT (G0.2). Although a giveback/retrace occurred (10% retracement), the conditions for HOLD (G0.3) are met if the underlying trend is considered intact, which is assumed in the absence of clear accelerating loss signals."
+    },
+    {
+      "frame": 5,
+      "nonce": "9c59a509a07e2845",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 27%', which satisfies the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). There is no explicit evidence of 'multi-family fires AND accelerating loss' required to trigger an EXIT under [G0.2]."
+    },
+    {
+      "frame": 6,
+      "nonce": "33a7ec9692f2c5fb",
+      "decision": "HOLD",
+      "reason": "The input summary explicitly indicates a 'giveback 30%'. This aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No conditions for EXIT ([G0.2]) are met based on the provided fire status."
+    },
+    {
+      "frame": 7,
+      "nonce": "8de2814e4bd277c6",
+      "decision": "EXIT",
+      "reason": "The data indicates significant volatility and adverse conditions, evidenced by 'fires' (KMDR-against, PROPP-against) and a substantial price retracement ('giveback 170%'). This combination suggests that the current trend structure is likely compromised or accelerating loss is occurring, triggering the EXIT condition defined in [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

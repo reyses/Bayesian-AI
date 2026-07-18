@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_01_31_1738352560_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "aba68769123b8847",
+      "ts": 1784394566.0877259
+    },
+    {
+      "frame": 1,
+      "nonce": "6defcecdc6a354b7",
+      "ts": 1784394749.2481287
+    },
+    {
+      "frame": 2,
+      "nonce": "e58b80cbe9237351",
+      "ts": 1784394933.0397367
+    },
+    {
+      "frame": 3,
+      "nonce": "fbb4972f99728cc1",
+      "ts": 1784395104.1247025
+    },
+    {
+      "frame": 4,
+      "nonce": "b29371b9ab27b5ca",
+      "ts": 1784395169.0590718
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "aba68769123b8847",
+      "decision": "HOLD",
+      "reason": "The provided data indicates mixed signals across different timeframes. While there is positive velocity in the shorter term ([50]), the longer-term daily trend ([1D]) shows negative velocity, suggesting a need to maintain a cautious stance rather than exiting immediately. The system rules (G0.1, G0.2, G0.3) are not explicitly triggered by the provided metrics alone, but the overall structure suggests stability or potential for consolidation."
+    },
+    {
+      "frame": 1,
+      "nonce": "6defcecdc6a354b7",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 10%', which suggests a retrace has occurred. According to rule [G0.3] ('IF giveback/retrace AND trend is intact THEN HOLD'), this condition is met, leading to a HOLD decision."
+    },
+    {
+      "frame": 2,
+      "nonce": "e58b80cbe9237351",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT (G0.2) or a clear trigger for adverse excursion (G0.1) or giveback/retrace with intact trend (G0.3) were met based on the provided data summary. The system remains in a holding state."
+    },
+    {
+      "frame": 3,
+      "nonce": "fbb4972f99728cc1",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 4,
+      "nonce": "b29371b9ab27b5ca",
+      "decision": "EXIT",
+      "reason": "The system detected multiple conflicting signals ('multi-family fires': KMDR-against, PROPP-against) in the recent history. This situation suggests high volatility and conflicting market forces, which triggers the exit condition defined by [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

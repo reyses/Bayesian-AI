@@ -1,0 +1,2 @@
+{"ts": 1784388303.0917158, "event": "commit", "frame": 3, "nonce": "91babbc133b1a894", "decision": "EXIT", "reason": "The system detected 'multi-family fires' (KMDR-against and PROPP-against) in the recent history. According to rule [G0.2], if multi-family fires occur and there is an accelerating loss, the action should be EXIT."}
+{"ts": 1784388303.0996425, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 3, "n_commits": 4}

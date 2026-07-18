@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_01_23_1737654625_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c63fc291cf6e6d8f",
+      "ts": 1784387357.499808
+    },
+    {
+      "frame": 1,
+      "nonce": "742d89af98a56191",
+      "ts": 1784387572.3545418
+    },
+    {
+      "frame": 2,
+      "nonce": "adc0b81f66f636ca",
+      "ts": 1784387784.5045571
+    },
+    {
+      "frame": 3,
+      "nonce": "91babbc133b1a894",
+      "ts": 1784388013.1632807
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c63fc291cf6e6d8f",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a recent price leg with a 10% giveback over the last 13 minutes, suggesting consolidation or a pause in momentum. The immediate firing signals (`fires<=3m: none`) are absent, supporting a cautious HOLD position until further momentum is established."
+    },
+    {
+      "frame": 1,
+      "nonce": "742d89af98a56191",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The system did not detect multi-family fires and accelerating loss (G0.2), nor is there explicit confirmation of an adverse excursion or a clear giveback/retrace that invalidates the trend (G0.1, G0.3)."
+    },
+    {
+      "frame": 2,
+      "nonce": "adc0b81f66f636ca",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 2%', which satisfies the condition of rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 3,
+      "nonce": "91babbc133b1a894",
+      "decision": "EXIT",
+      "reason": "The system detected 'multi-family fires' (KMDR-against and PROPP-against) in the recent history. According to rule [G0.2], if multi-family fires occur and there is an accelerating loss, the action should be EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

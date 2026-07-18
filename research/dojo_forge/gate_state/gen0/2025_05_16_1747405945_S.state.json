@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_05_16_1747405945_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6a4d7560c5cbd861",
+      "ts": 1784391504.4951332
+    },
+    {
+      "frame": 1,
+      "nonce": "b8b03c0c85790650",
+      "ts": 1784391699.6372938
+    },
+    {
+      "frame": 2,
+      "nonce": "41cd6254940b3414",
+      "ts": 1784391909.46108
+    },
+    {
+      "frame": 3,
+      "nonce": "1bab21fd57f8013d",
+      "ts": 1784392101.2273486
+    },
+    {
+      "frame": 4,
+      "nonce": "fcd234d341095cdf",
+      "ts": 1784392299.7006197
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6a4d7560c5cbd861",
+      "decision": "HOLD",
+      "reason": "The provided data is a complex set of technical indicators and market statistics across multiple timeframes. The final summary line indicates that the current position has a 13% giveback over the last 2 minutes, and the 'fires' indicator shows the position is currently against both KMDR and PROPP from recent timeframes. Given the lack of an explicit instruction to EXIT or HOLD based on the provided Genome rules (G0.1, G0.2, G0.3), the default action remains HOLD while awaiting a specific directive."
+    },
+    {
+      "frame": 1,
+      "nonce": "b8b03c0c85790650",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (G0.2) was met. While a 'giveback 14%' is noted, there is no confirmation that the trend is intact (G0.3), nor are the specific conditions for adverse excursion or multi-family fires and accelerating loss explicitly confirmed by the provided data."
+    },
+    {
+      "frame": 2,
+      "nonce": "41cd6254940b3414",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 3%' over the last 4 minutes, which aligns with the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit evidence of multi-family fires and accelerating loss (G0.2) was present."
+    },
+    {
+      "frame": 3,
+      "nonce": "1bab21fd57f8013d",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) are met. While a 1% giveback was noted, there is no explicit confirmation that an adverse excursion occurred (G0.1), and the trend status required for G0.3 is not definitively established as broken."
+    },
+    {
+      "frame": 4,
+      "nonce": "fcd234d341095cdf",
+      "decision": "EXIT",
+      "reason": "The input data indicates multiple conflicting signals ('fires<=3m': KMDR-against, CLIMAX-against, PROPP-with), suggesting a multi-family fire condition. This aligns with rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

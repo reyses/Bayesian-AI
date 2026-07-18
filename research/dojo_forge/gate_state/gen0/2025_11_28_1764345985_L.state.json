@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_11_28_1764345985_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0823d4268e8aa8dd",
+      "ts": 1784396305.774675
+    },
+    {
+      "frame": 1,
+      "nonce": "880f803cde0857a9",
+      "ts": 1784396459.3658624
+    },
+    {
+      "frame": 2,
+      "nonce": "38e11642a12c1b18",
+      "ts": 1784396612.752295
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0823d4268e8aa8dd",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a state where no immediate, high-risk conditions for an EXIT (such as multi-family fires or accelerating loss) are met according to the defined Genome rules. The local context suggests recent activity is being monitored (HA/PROPP alerts), but the core statistical indicators do not trigger an immediate exit signal based on the provided constraints."
+    },
+    {
+      "frame": 1,
+      "nonce": "880f803cde0857a9",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 2%' occurred, which triggers condition [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although adverse signals are present (KMDR-against, PROPP-against), the presence of a retracement suggests that the underlying trend may still be intact, warranting a HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "38e11642a12c1b18",
+      "decision": "EXIT",
+      "reason": "Triggered by Genome rule [G0.2]. The input data indicates 'fires' (KMDR-against and PROPP-against) detected within the last 1-2 minutes, suggesting multi-family conflicting signals. This environment warrants an exit."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

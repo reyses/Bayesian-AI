@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_03_13_1741885140_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "996c6b30181dc7d4",
+      "ts": 1784396292.022341
+    },
+    {
+      "frame": 1,
+      "nonce": "822d5c7cea62b119",
+      "ts": 1784396450.1861255
+    },
+    {
+      "frame": 2,
+      "nonce": "dcd06e35a000b60d",
+      "ts": 1784396603.0761395
+    },
+    {
+      "frame": 3,
+      "nonce": "e49bbd88be1d9345",
+      "ts": 1784396752.9230125
+    },
+    {
+      "frame": 4,
+      "nonce": "3c7bce5cfdc6613b",
+      "ts": 1784396910.4362276
+    },
+    {
+      "frame": 5,
+      "nonce": "3918a3165771c0f3",
+      "ts": 1784397071.6899865
+    },
+    {
+      "frame": 6,
+      "nonce": "295a4c1e3b4f7cee",
+      "ts": 1784397232.6640983
+    },
+    {
+      "frame": 7,
+      "nonce": "80e564038cfccb89",
+      "ts": 1784397389.3173273
+    },
+    {
+      "frame": 8,
+      "nonce": "714f04963730b8c8",
+      "ts": 1784397540.267931
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "996c6b30181dc7d4",
+      "decision": "HOLD",
+      "reason": "The provided signals indicate a state where immediate aggressive action is not warranted, aligning with the principle of waiting for confirmation or managing existing positions based on recent volatility and directional indicators. Specifically, the 'fires' signal shows KMDR-against and HA-against, suggesting current momentum is unfavorable against the position, which supports maintaining the current stance (HOLD) rather than exiting immediately."
+    },
+    {
+      "frame": 1,
+      "nonce": "822d5c7cea62b119",
+      "decision": "HOLD",
+      "reason": "The system shows evidence of adverse conditions ('fires') against the position, but there is also a significant pullback ('giveback 57%'). Rule [G0.3] applies if there is a giveback/retrace AND the trend is intact; since we cannot confirm accelerating loss (required for EXIT via G0.2), HOLD is the safer default stance while observing the continuation or reversal of the trend."
+    },
+    {
+      "frame": 2,
+      "nonce": "dcd06e35a000b60d",
+      "decision": "HOLD",
+      "reason": "The provided rules are conditional statements based on specific market conditions (adverse excursion, multi-family fires, giveback/retrace). Without explicit confirmation that any of these conditions are met by the input data, the default action based on the structure is to HOLD, as no immediate EXIT condition is triggered."
+    },
+    {
+      "frame": 3,
+      "nonce": "e49bbd88be1d9345",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered by the observed 'giveback 71%'. Since the condition requires the trend to be intact, and no explicit signal for accelerating loss (G0.2) or adverse excursion (G0.1) is dominant, HOLD is selected."
+    },
+    {
+      "frame": 4,
+      "nonce": "3c7bce5cfdc6613b",
+      "decision": "HOLD",
+      "reason": "The input data explicitly indicates a 'giveback 67%', which aligns with the condition in Genome Rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "3918a3165771c0f3",
+      "decision": "HOLD",
+      "reason": "The local summary explicitly indicates a 'giveback 90%', which aligns with the condition specified in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 6,
+      "nonce": "295a4c1e3b4f7cee",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The summary indicates no active multi-family fires (G0.2 is false). While there is a 'giveback' noted, the trend appears intact, satisfying the condition for HOLD under G0.3."
+    },
+    {
+      "frame": 7,
+      "nonce": "80e564038cfccb89",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (G0.2) was met. While a 51% giveback occurred, the condition for HOLD (G0.3: giveback/retrace AND trend is intact) is plausible, and there is no evidence of 'multi-family fires AND accelerating loss' required to exit."
+    },
+    {
+      "frame": 8,
+      "nonce": "714f04963730b8c8",
+      "decision": "EXIT",
+      "reason": "The trade is experiencing a significant pullback (giveback 107%) while active adverse signals ('HA-with', 'PROPP-against') are present according to the summary. This aligns with the condition for EXIT based on Rule [G0.2] (multi-family fires and accelerating loss), suggesting risk management is necessary."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

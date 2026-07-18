@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_01_31_1738334640_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9aeb9d2ff1cb3ff9",
+      "ts": 1784388303.1380928
+    },
+    {
+      "frame": 1,
+      "nonce": "8b25c220cd17a79c",
+      "ts": 1784388529.3446712
+    },
+    {
+      "frame": 2,
+      "nonce": "5164784f73e18d85",
+      "ts": 1784388758.2220824
+    },
+    {
+      "frame": 3,
+      "nonce": "3bc205f969a25611",
+      "ts": 1784388847.01613
+    },
+    {
+      "frame": 4,
+      "nonce": "edaf366715c1737d",
+      "ts": 1784389118.4106815
+    },
+    {
+      "frame": 5,
+      "nonce": "85f16b820e62ddf8",
+      "ts": 1784389377.3340282
+    },
+    {
+      "frame": 6,
+      "nonce": "5ca123370195bcf0",
+      "ts": 1784389615.7074409
+    },
+    {
+      "frame": 7,
+      "nonce": "011fc45380b8f4d7",
+      "ts": 1784389838.8061104
+    },
+    {
+      "frame": 8,
+      "nonce": "106da2afac7b25d7",
+      "ts": 1784390069.1076114
+    },
+    {
+      "frame": 9,
+      "nonce": "2e93cda5844d9972",
+      "ts": 1784390283.6039908
+    },
+    {
+      "frame": 10,
+      "nonce": "792d809b01512955",
+      "ts": 1784390513.137887
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9aeb9d2ff1cb3ff9",
+      "decision": "HOLD",
+      "reason": "The local context indicates a recent pullback or giveback (`leg age 4m amp 52.5pts giveback 40%`). While the overall statistical features are present, there is no immediate signal triggering an EXIT condition based on the provided rules (G0.1, G0.2, G0.3). The system is currently in a holding state."
+    },
+    {
+      "frame": 1,
+      "nonce": "8b25c220cd17a79c",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant price pullback or retrace, as explicitly noted by 'giveback 104%'. This aligns with Rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "5164784f73e18d85",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 3,
+      "nonce": "3bc205f969a25611",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 89%' over the last 2 minutes. This aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit confirmation of multi-family fires and accelerating loss required for an EXIT signal."
+    },
+    {
+      "frame": 4,
+      "nonce": "edaf366715c1737d",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant pullback or retrace ('giveback 156%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "85f16b820e62ddf8",
+      "decision": "HOLD",
+      "reason": "No explicit condition for EXIT (G0.2) is met, and the conditions for HOLD (G0.1 and G0.3) are not definitively triggered by the provided data. The summary indicates a recent adverse pressure ('PROPP-against(1m ago)'), suggesting caution, but this does not meet the strict criteria for an immediate EXIT signal."
+    },
+    {
+      "frame": 6,
+      "nonce": "5ca123370195bcf0",
+      "decision": "HOLD",
+      "reason": "The input indicates a 'giveback 37%' occurred in the last 1m, which satisfies the condition for [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit trigger for EXIT conditions ([G0.2]) or adverse excursion ([G0.1]) was met."
+    },
+    {
+      "frame": 7,
+      "nonce": "011fc45380b8f4d7",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant retracement or giveback has occurred ('leg age 2m amp 33.2pts giveback 54%'). This aligns with Rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 8,
+      "nonce": "106da2afac7b25d7",
+      "decision": "HOLD",
+      "reason": "The trade exhibits a 'giveback 29%', which satisfies the condition for [G0.3] (giveback/retrace AND trend is intact). No explicit signal for adverse excursion or accelerating loss that would trigger an EXIT rule is present."
+    },
+    {
+      "frame": 9,
+      "nonce": "2e93cda5844d9972",
+      "decision": "HOLD",
+      "reason": "The local summary indicates a significant pullback ('giveback 292%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 10,
+      "nonce": "792d809b01512955",
+      "decision": "EXIT",
+      "reason": "The data indicates multiple conflicting signals (multi-family fires: KMDR-against, PROPP-against, HA-with). This combination suggests an accelerating loss scenario, triggering rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

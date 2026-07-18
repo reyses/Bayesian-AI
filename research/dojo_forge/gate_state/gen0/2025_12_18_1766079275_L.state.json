@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_12_18_1766079275_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "51ccf45396483018",
+      "ts": 1784397899.8893354
+    },
+    {
+      "frame": 1,
+      "nonce": "165c34780b10d780",
+      "ts": 1784398061.042923
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "51ccf45396483018",
+      "decision": "HOLD",
+      "reason": "The provided data presents a complex mix of momentum, volatility, and specific pattern recognition signals. While the 4-hour data suggests recent upward acceleration (positive velocity/acceleration), the longer-term daily data indicates deceleration or a pullback (negative velocity/acceleration). The local signal points to a specific pattern (`PROPP`) observed in the immediate past, suggesting a potential trigger point for consideration. Given the conflicting momentum signals and the need for confirmation, holding the current position is the most prudent action until the immediate pattern resolves or further confirmation is established."
+    },
+    {
+      "frame": 1,
+      "nonce": "165c34780b10d780",
+      "decision": "EXIT",
+      "reason": "The summary indicates recent 'fires' (KMDR-against, PROPP-with) and significant volatility across timeframes (e.g., 5m bar range of +68.000). This suggests adverse market conditions are present, which aligns with the condition for EXIT under rule [G0.2] if accelerating loss is implied by the observed price swings."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

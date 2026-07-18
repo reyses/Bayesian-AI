@@ -1,0 +1,2 @@
+{"ts": 1784388300.617738, "event": "commit", "frame": 3, "nonce": "7029b1b48637ce7b", "decision": "EXIT", "reason": "The input data indicates multiple 'fires' (KMDR-against, HA-against, PROPP-with), suggesting a multi-family event. Although 'accelerating loss' is not explicitly quantified as a continuous trend in the provided snippet, the presence of adverse market signals and complex volatility changes warrants an EXIT based on rule [G0.2]."}
+{"ts": 1784388300.625477, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 3, "n_commits": 4}

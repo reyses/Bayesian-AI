@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_05_05_1746457020_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "552615c91946cf98",
+      "ts": 1784388005.8663402
+    },
+    {
+      "frame": 1,
+      "nonce": "566d036a4558172b",
+      "ts": 1784388296.483783
+    },
+    {
+      "frame": 2,
+      "nonce": "85a1db145c73655b",
+      "ts": 1784388523.3591075
+    },
+    {
+      "frame": 3,
+      "nonce": "09e7872a82a27d8f",
+      "ts": 1784388751.1801412
+    },
+    {
+      "frame": 4,
+      "nonce": "f4add638715dc901",
+      "ts": 1784389002.0414898
+    },
+    {
+      "frame": 5,
+      "nonce": "eed56ee0541e1907",
+      "ts": 1784389265.4030154
+    },
+    {
+      "frame": 6,
+      "nonce": "a9fa2be28a0b1a92",
+      "ts": 1784389501.1444893
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "552615c91946cf98",
+      "decision": "HOLD",
+      "reason": "The provided data indicates mixed signals across different timeframes, but no immediate trigger for an EXIT based on the defined Genome rules. The system is currently in a state where momentum and volatility are present, suggesting caution rather than an immediate forced exit or hold based on adverse conditions."
+    },
+    {
+      "frame": 1,
+      "nonce": "566d036a4558172b",
+      "decision": "HOLD",
+      "reason": "The local information indicates a 'giveback 9%', which satisfies the condition for [G0.3] IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "85a1db145c73655b",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 22%' in the summary. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "09e7872a82a27d8f",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 21%', which aligns with the condition in [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal for multi-family fires and accelerating loss ([G0.2]) was detected."
+    },
+    {
+      "frame": 4,
+      "nonce": "f4add638715dc901",
+      "decision": "HOLD",
+      "reason": "The provided data describes various market metrics, velocity changes, and distribution statistics across different timeframes (30m, 15m, 1h). The final signal indicates a 'giveback' of 8% with an amplitude of 9.5pts, suggesting recent price correction or consolidation following momentum, but the overall structure does not immediately trigger the conditions for EXIT (multi-family fires and accelerating loss) or HOLD based on adverse excursion without further context on the specific risk parameters defined by G0.1, G0.2, or G0.3."
+    },
+    {
+      "frame": 5,
+      "nonce": "eed56ee0541e1907",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 92%', which satisfies the condition for rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 6,
+      "nonce": "a9fa2be28a0b1a92",
+      "decision": "EXIT",
+      "reason": "The system detected multiple conflicting signals ('fires': KMDR-against, HA-with, PROPP-against) combined with a price retracement ('giveback 17%'). This aligns with the condition [G0.2] (multi-family fires) suggesting an exit strategy."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

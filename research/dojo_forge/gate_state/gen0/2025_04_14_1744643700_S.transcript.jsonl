@@ -1,0 +1,13 @@
+{"ts": 1784397405.8176863, "event": "serve", "frame": 0, "nonce": "f23e1e748ec85018"}
+{"ts": 1784397559.9095263, "event": "commit", "frame": 0, "nonce": "f23e1e748ec85018", "decision": "HOLD", "reason": "No explicit instruction or question was provided for decision-making based on the Genome rules. The input consists solely of raw statistical data, price history, and indicator signals. Therefore, no action (HOLD or EXIT) can be determined without a specific objective or query."}
+{"ts": 1784397559.914159, "event": "serve", "frame": 1, "nonce": "d2ddc2500eae6a75"}
+{"ts": 1784397633.3374705, "event": "commit", "frame": 1, "nonce": "d2ddc2500eae6a75", "decision": "HOLD", "reason": "Failed to parse json"}
+{"ts": 1784397633.3524318, "event": "serve", "frame": 2, "nonce": "ff56684e1cf96335"}
+{"ts": 1784397795.8302877, "event": "commit", "frame": 2, "nonce": "ff56684e1cf96335", "decision": "HOLD", "reason": "The data indicates a 'giveback 12%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit evidence of multi-family fires leading to accelerating loss ([G0.2]) or an adverse excursion on a clean entry ([G0.1]) is present."}
+{"ts": 1784397795.835034, "event": "serve", "frame": 3, "nonce": "820e00308cf5fb0d"}
+{"ts": 1784397955.0261605, "event": "commit", "frame": 3, "nonce": "820e00308cf5fb0d", "decision": "HOLD", "reason": "The input summary explicitly indicates a 'giveback 11%', which aligns with the condition in Genome Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784397955.0320241, "event": "serve", "frame": 4, "nonce": "24f5f9eff17bc7f6"}
+{"ts": 1784398111.5790942, "event": "commit", "frame": 4, "nonce": "24f5f9eff17bc7f6", "decision": "HOLD", "reason": "The data indicates a 'giveback 29%', satisfying the condition in [G0.3] (giveback/retrace AND trend is intact), suggesting a pause or retracement rather than an immediate reversal or catastrophic failure."}
+{"ts": 1784398111.5838337, "event": "serve", "frame": 5, "nonce": "040e202750e56595"}
+{"ts": 1784398279.0614479, "event": "commit", "frame": 5, "nonce": "040e202750e56595", "decision": "EXIT", "reason": "The input summary indicates multiple adverse conditions ('fires<=3m: KMDR-against(3m ago), HA-against(0m ago), PROPP-against(0m ago)'). This aligns with the condition for EXIT under rule [G0.2], suggesting that holding is no longer advisable given the multi-family adverse signals."}
+{"ts": 1784398279.0662613, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 5, "n_commits": 6}

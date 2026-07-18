@@ -1,0 +1,5 @@
+{"ts": 1784397100.6328902, "event": "serve", "frame": 0, "nonce": "51783164b335e9b2"}
+{"ts": 1784397260.367776, "event": "commit", "frame": 0, "nonce": "51783164b335e9b2", "decision": "HOLD", "reason": "The provided data indicates a state of moderate volatility with some signs of potential reversion, but no immediate, strong acceleration signals that would trigger an EXIT based on the defined Genome rules. The statistical measures (e.g., Hurst value, Z-scores) suggest persistence mixed with recent deviation, warranting a cautious HOLD position until further confirmation is available."}
+{"ts": 1784397260.373, "event": "serve", "frame": 1, "nonce": "c24f47222ea22968"}
+{"ts": 1784397414.9702575, "event": "commit", "frame": 1, "nonce": "c24f47222ea22968", "decision": "EXIT", "reason": "The local context indicates a 'fire' event ('PROPP-with') occurred recently. Rule [G0.2] states: IF multi-family fires AND accelerating loss THEN EXIT. Given the high volatility and recent event indicators, exiting is warranted to manage potential adverse losses."}
+{"ts": 1784397414.9750957, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

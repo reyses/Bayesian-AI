@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_01_23_1737653440_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ef89a7c54b1bf0dc",
+      "ts": 1784392112.537345
+    },
+    {
+      "frame": 1,
+      "nonce": "17307802ae32298b",
+      "ts": 1784392302.7231734
+    },
+    {
+      "frame": 2,
+      "nonce": "c65bffbdb45baf90",
+      "ts": 1784392497.4444678
+    },
+    {
+      "frame": 3,
+      "nonce": "6c9512fedd100c03",
+      "ts": 1784392696.9987106
+    },
+    {
+      "frame": 4,
+      "nonce": "f0cc1ac6a2a1100b",
+      "ts": 1784392894.8132412
+    },
+    {
+      "frame": 5,
+      "nonce": "a6a2e0d91328e9a1",
+      "ts": 1784393074.9790442
+    },
+    {
+      "frame": 6,
+      "nonce": "f9e6be73e8386183",
+      "ts": 1784393258.6245291
+    },
+    {
+      "frame": 7,
+      "nonce": "e2fdd5d0ec63631e",
+      "ts": 1784393449.7573981
+    },
+    {
+      "frame": 8,
+      "nonce": "0f88b362e2a25fe0",
+      "ts": 1784393633.5787194
+    },
+    {
+      "frame": 9,
+      "nonce": "b8247eb1336d2869",
+      "ts": 1784393816.1939406
+    },
+    {
+      "frame": 10,
+      "nonce": "b8e0f252b501526d",
+      "ts": 1784394012.6757889
+    },
+    {
+      "frame": 11,
+      "nonce": "bf0be9f195294d89",
+      "ts": 1784394196.07007
+    },
+    {
+      "frame": 12,
+      "nonce": "e95606bbba1575d4",
+      "ts": 1784394376.4991271
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ef89a7c54b1bf0dc",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided for a decision based on the Genome rules. The input consists solely of technical data and predefined rules (G0.1, G0.2, G0.3). Without a specific market scenario or trigger event to evaluate against these rules, the default action is HOLD."
+    },
+    {
+      "frame": 1,
+      "nonce": "17307802ae32298b",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT (G0.2) are met. The data suggests a potential retrace scenario (implied by 'giveback 0%'), which aligns with the condition in G0.3, leading to a HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "c65bffbdb45baf90",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 13%', which aligns with the condition in [G0.3] (giveback/retrace AND trend is intact). No explicit evidence of multi-family fires and accelerating loss ([G0.2]) or an adverse excursion on a clean entry ([G0.1]) was found to trigger an EXIT."
+    },
+    {
+      "frame": 3,
+      "nonce": "6c9512fedd100c03",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT were met. While there are signals indicating giveback (3%) and some negative momentum indicators (KMDR-against, PROPP-against), the rules for EXIT (G0.2) require 'multi-family fires AND accelerating loss,' which is not explicitly confirmed by the provided data. The conditions for HOLD (G0.1 and G0.3) are not definitively violated; therefore, maintaining the position is the prudent action."
+    },
+    {
+      "frame": 4,
+      "nonce": "f0cc1ac6a2a1100b",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 19%', which suggests a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "a6a2e0d91328e9a1",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT rules (G0.2) was found, as the summary indicates 'fires<=3m: none'. The conditions for HOLD (G0.1 and G0.3) are not definitively met based solely on the provided data, especially since the price action shows high volatility and a recent reversal in the 5m bar."
+    },
+    {
+      "frame": 6,
+      "nonce": "f9e6be73e8386183",
+      "decision": "HOLD",
+      "reason": "The input summary explicitly mentions a 'giveback 13%'. According to Genome rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 7,
+      "nonce": "e2fdd5d0ec63631e",
+      "decision": "HOLD",
+      "reason": "The input summary explicitly states 'giveback 100%'. This aligns with rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 8,
+      "nonce": "0f88b362e2a25fe0",
+      "decision": "HOLD",
+      "reason": "The trade exhibits a 'giveback 0%' over the last 2 minutes, which satisfies the condition of [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 9,
+      "nonce": "b8247eb1336d2869",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered by the presence of a 'giveback 24%', suggesting a retrace occurred while the overall trend is assumed to be intact."
+    },
+    {
+      "frame": 10,
+      "nonce": "b8e0f252b501526d",
+      "decision": "HOLD",
+      "reason": "The conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are not explicitly confirmed by the provided data, although adverse signals ('fires') are present. The data also indicates a significant retracement ('giveback 148%'), which aligns with the condition in G0.3. Therefore, HOLD is selected to await further confirmation regarding the trend integrity or acceleration of losses."
+    },
+    {
+      "frame": 11,
+      "nonce": "bf0be9f195294d89",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered. The data indicates a significant retracement or giveback (62% giveback) has occurred over the last 4 minutes, suggesting a potential pause in momentum while the overall trend structure remains under consideration."
+    },
+    {
+      "frame": 12,
+      "nonce": "e95606bbba1575d4",
+      "decision": "EXIT",
+      "reason": "The system detected multiple negative signals ('fires') across different timeframes (KMDR-against(3m ago), HA-against(1m ago), PROPP-against(2m ago)). This aligns with the condition for G0.2: 'multi-family fires'. Although acceleration/deceleration is complex, the presence of these multiple adverse indicators suggests an accelerating loss scenario, triggering an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_04_14_1744660320_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c4f0de99ff8218a7",
+      "ts": 1784396932.3889892
+    },
+    {
+      "frame": 1,
+      "nonce": "ea9e371c72a10e9e",
+      "ts": 1784397090.7773325
+    },
+    {
+      "frame": 2,
+      "nonce": "70a57aae35dfdafa",
+      "ts": 1784397252.2719133
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c4f0de99ff8218a7",
+      "decision": "HOLD",
+      "reason": "The provided data indicates complex, multi-timeframe volatility and momentum signals. While there are conflicting acceleration metrics between the 4h and 1D views (positive acceleration in 4h vs. negative acceleration in 1D), the overall reversion probabilities remain high (0.982 and 0.930). Given the presence of a significant 'giveback' (39%) and the need to wait for clearer directional confirmation, HOLD is the most prudent action according to the Genome rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "ea9e371c72a10e9e",
+      "decision": "HOLD",
+      "reason": "The system shows conflicting signals ('fires': KMDR-against, HA-against), indicating instability. Although there is a 26% giveback, the condition for EXIT (G0.2: multi-family fires AND accelerating loss) is not explicitly met based solely on this snapshot. Therefore, HOLD is selected to await further confirmation of the trend or acceleration."
+    },
+    {
+      "frame": 2,
+      "nonce": "70a57aae35dfdafa",
+      "decision": "EXIT",
+      "reason": "The system exhibits signs of multiple adverse conditions ('fires<=3m: KMDR-against', 'PROPP-against') combined with accelerating loss indicators (e.g., price_accel_1b=-11.500, price_accel_1b=-54.000 in the 1m bar). This combination triggers the condition for EXIT based on rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

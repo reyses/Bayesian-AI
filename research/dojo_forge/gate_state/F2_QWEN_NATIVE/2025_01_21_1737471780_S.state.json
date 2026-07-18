@@ -1,0 +1,36 @@
+{
+  "episode_id": "2025_01_21_1737471780_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2560e9418f3d67c4",
+      "ts": 1784388738.0995865
+    },
+    {
+      "frame": 1,
+      "nonce": "117b4ad845ce23dd",
+      "ts": 1784388746.4054487
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2560e9418f3d67c4",
+      "decision": "HOLD",
+      "reason": "",
+      "p_exit": 0.49999999975
+    },
+    {
+      "frame": 1,
+      "nonce": "117b4ad845ce23dd",
+      "decision": "EXIT",
+      "reason": "",
+      "p_exit": 0.49999999975
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

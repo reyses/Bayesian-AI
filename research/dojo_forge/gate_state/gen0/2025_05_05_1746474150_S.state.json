@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_05_05_1746474150_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e5382805114a3c68",
+      "ts": 1784395088.845716
+    },
+    {
+      "frame": 1,
+      "nonce": "d51a9130f0e0fa88",
+      "ts": 1784395259.749164
+    },
+    {
+      "frame": 2,
+      "nonce": "e9e454e438329770",
+      "ts": 1784395444.3771935
+    },
+    {
+      "frame": 3,
+      "nonce": "542d53265ae9cc9c",
+      "ts": 1784395605.2122161
+    },
+    {
+      "frame": 4,
+      "nonce": "8b8c5e9dcd1d3ab6",
+      "ts": 1784395678.0949402
+    },
+    {
+      "frame": 5,
+      "nonce": "02d0c505b817dbdb",
+      "ts": 1784395837.9685276
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e5382805114a3c68",
+      "decision": "HOLD",
+      "reason": "The system signals indicate a state where recent high-probability (HA) and probability (PROPP) signals were against the current direction, suggesting a potential pause or reversal setup. While volatility metrics are present, the immediate action context points toward caution rather than an aggressive exit or entry based on the provided constraints."
+    },
+    {
+      "frame": 1,
+      "nonce": "d51a9130f0e0fa88",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT (G0.2) or HOLD (G0.1, G0.3) are definitively met based on the provided data. While firing events (HA, PROPP) are noted, there is no confirmation of 'multi-family fires AND accelerating loss' (G0.2), nor a clear 'giveback/retrace AND trend is intact' pattern (G0.3). Therefore, the default action is HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "e9e454e438329770",
+      "decision": "HOLD",
+      "reason": "The context indicates a 'giveback 3%' over the last 4 minutes, which aligns with the condition in [G0.3] (giveback/retrace AND trend is intact). There are recent fires (HA-with(2m ago), PROPP-with(1m ago)), but there is no explicit signal of 'accelerating loss' required to trigger an EXIT under [G0.2]. Therefore, HOLD is the appropriate action."
+    },
+    {
+      "frame": 3,
+      "nonce": "542d53265ae9cc9c",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 4,
+      "nonce": "8b8c5e9dcd1d3ab6",
+      "decision": "HOLD",
+      "reason": "The input data explicitly indicates a 'giveback 7%', which aligns with the condition in Genome Rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "02d0c505b817dbdb",
+      "decision": "EXIT",
+      "reason": "The system detected multiple adverse signals ('fires') recently (KMDR-against, CLIMAX-against, PROPP-against). This aligns with the condition for G0.2: IF multi-family fires AND accelerating loss THEN EXIT. Furthermore, the data shows a significant giveback/retrace (26% giveback over 7m) amidst high volatility, suggesting that the current trend structure is unstable and warrants an exit."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

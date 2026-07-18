@@ -1,0 +1,86 @@
+{
+  "episode_id": "2025_11_14_1763131515_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "355ac0614cdb2d83",
+      "ts": 1784397668.103521
+    },
+    {
+      "frame": 1,
+      "nonce": "b4bf18bb153fbec4",
+      "ts": 1784397825.2968786
+    },
+    {
+      "frame": 2,
+      "nonce": "f847a26da794ff1d",
+      "ts": 1784397984.8165052
+    },
+    {
+      "frame": 3,
+      "nonce": "d6c112aad29143f0",
+      "ts": 1784398135.6009228
+    },
+    {
+      "frame": 4,
+      "nonce": "f064deb3f63fc275",
+      "ts": 1784398304.5301359
+    },
+    {
+      "frame": 5,
+      "nonce": "d1ad5dcbae526158",
+      "ts": 1784398470.727464
+    },
+    {
+      "frame": 6,
+      "nonce": "fc8f809808954d47",
+      "ts": 1784398633.4019816
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "355ac0614cdb2d83",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists solely of data and rules, requiring a prompt for analysis or decision."
+    },
+    {
+      "frame": 1,
+      "nonce": "b4bf18bb153fbec4",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (multi-family fires AND accelerating loss) was met. While there is evidence of a giveback (5%), the overall structure does not immediately signal an adverse excursion or a clear, accelerating loss pattern required to exit based on the provided Genome rules."
+    },
+    {
+      "frame": 2,
+      "nonce": "f847a26da794ff1d",
+      "decision": "HOLD",
+      "reason": "The local data indicates a 'giveback 2%', which aligns with the condition in [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate signals for adverse excursion or accelerating multi-family fires that would trigger an EXIT."
+    },
+    {
+      "frame": 3,
+      "nonce": "d6c112aad29143f0",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (G0.2) has been met, nor is there a clear confirmation of an adverse excursion on a clean entry (G0.1). The data shows high volatility and recent activity ('fires'), but the immediate PnL is positive (+49.00pts). While price action involves fluctuations, the conditions for G0.3 (giveback/retrace AND trend intact) are not definitively established based solely on this snapshot."
+    },
+    {
+      "frame": 4,
+      "nonce": "f064deb3f63fc275",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT (G0.2) is met. While there are complex velocity and volatility shifts across the timeframes, the conditions for HOLD (G0.1 or G0.3) are not definitively confirmed by this snapshot alone. The system should wait for further confirmation regarding an adverse excursion or a sustained intact trend following a retrace."
+    },
+    {
+      "frame": 5,
+      "nonce": "d1ad5dcbae526158",
+      "decision": "HOLD",
+      "reason": "The conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are not explicitly met. While there are indicators of conflict (KMDR-against, PROPP-against), the primary observed event is a 7% giveback/retrace (G0.3). Since the rule requires the trend to be intact for a HOLD based on retracement, and we cannot confirm accelerating loss or a clear adverse excursion, HOLD is the appropriate action."
+    }
+  ],
+  "pending": {
+    "frame": 6,
+    "nonce": "fc8f809808954d47"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

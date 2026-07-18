@@ -1,0 +1,5 @@
+{"ts": 1784394224.8950493, "event": "serve", "frame": 0, "nonce": "96bcc767a6386ffd"}
+{"ts": 1784394403.359638, "event": "commit", "frame": 0, "nonce": "96bcc767a6386ffd", "decision": "HOLD", "reason": "No explicit instruction or question was provided. The input consists solely of raw data from a system named 'DOJO FORGE GENOME' detailing statistical and movement metrics across 30m, 4h, and 1D timeframes, along with local context. Therefore, no trading decision (HOLD/EXIT) can be made based on the provided frame alone."}
+{"ts": 1784394403.3643825, "event": "serve", "frame": 1, "nonce": "edcb33d72c59da3a"}
+{"ts": 1784394594.43404, "event": "commit", "frame": 1, "nonce": "edcb33d72c59da3a", "decision": "EXIT", "reason": "The context indicates 'fires' (KMDR-against, PROPP-against) and a 'giveback 2%', suggesting market stress and potential acceleration in loss. This aligns with the condition for G0.2: IF multi-family fires AND accelerating loss THEN EXIT."}
+{"ts": 1784394594.437705, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

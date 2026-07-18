@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_05_05_1746471660_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9872e7c07ebb334f",
+      "ts": 1784394731.00116
+    },
+    {
+      "frame": 1,
+      "nonce": "6c807eaf179d252a",
+      "ts": 1784394917.8957136
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9872e7c07ebb334f",
+      "decision": "HOLD",
+      "reason": "The current state suggests maintaining the existing position while awaiting further confirmation or a clearer trend shift. The system is currently in a neutral-to-cautious state based on the mixed signals across timeframes, particularly the slight negative acceleration observed in the [1D] context, despite positive momentum in the longer term ([30]).\n\n**Analysis Breakdown:**\n\n1. **Momentum vs. Trend Conflict:** The [30] timeframe shows positive velocity and acceleration, suggesting upward momentum. However, the [1D] timeframe indicates a recent downward movement (O-55.00 H-73.00), creating a conflict between short-term bearishness and longer-term bullish statistics.\n2. **Volatility Management:** The volatility metrics across the timeframes are relatively spread out, indicating that while there is movement, the immediate risk profile needs careful monitoring.\n3. **Local Context (Position Management):** The specific local signals (`leg age 13m amp 59.0pts giveback 0%`) suggest a position that has matured but is currently stable. The system is not triggering the aggressive exit conditions defined in the Genome rules (e.g., no immediate multi-family fires or adverse excursion on a clean entry).\n\n**Conclusion:** Given the conflicting signals and the lack of an immediate, clear trigger for EXIT (G0.2) or HOLD (G0.1/G0.3), the prudent action is to **HOLD** and observe how the short-term price action resolves against the established longer-term momentum."
+    },
+    {
+      "frame": 1,
+      "nonce": "6c807eaf179d252a",
+      "decision": "EXIT",
+      "reason": "The input contains evidence of 'multi-family fires' (KMDR-against, CLIMAX-against, PROPP-with), which triggers rule [G0.2]. This condition suggests high volatility and conflicting signals, warranting an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

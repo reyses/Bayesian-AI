@@ -1,0 +1,75 @@
+{
+  "episode_id": "2025_10_07_1759859420_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2a044fdf2979097a",
+      "ts": 1784397903.885238
+    },
+    {
+      "frame": 1,
+      "nonce": "0694898a3c76ae99",
+      "ts": 1784398064.5930464
+    },
+    {
+      "frame": 2,
+      "nonce": "d10c847c2ef9274c",
+      "ts": 1784398232.076832
+    },
+    {
+      "frame": 3,
+      "nonce": "84afb2b6c9f0bf0e",
+      "ts": 1784398395.1500692
+    },
+    {
+      "frame": 4,
+      "nonce": "c67450c4ed16af1f",
+      "ts": 1784398558.62741
+    },
+    {
+      "frame": 5,
+      "nonce": "b03e89cd475c3155",
+      "ts": 1784398716.3221438
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2a044fdf2979097a",
+      "decision": "HOLD",
+      "reason": "The provided data presents a mixed signal, but the immediate local action suggests caution. While the 4-hour data shows negative velocity and acceleration, the overall statistical context (G0.1, G0.3) does not trigger an immediate exit. The final instruction `fires<=3m: PROPP-with(2m ago), none-else` indicates a specific condition has been met for a potential trade setup, suggesting that holding the current position or waiting for confirmation is the appropriate strategy rather than exiting based on the provided metrics alone."
+    },
+    {
+      "frame": 1,
+      "nonce": "0694898a3c76ae99",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The summary indicates no multi-family fires (G0.2). While price action shows volatility and a potential retrace in the 1m bar, there is no explicit confirmation of an 'adverse excursion on a clean entry' (G0.1) or a clear 'giveback/retrace AND trend is intact' scenario (G0.3) that mandates an exit."
+    },
+    {
+      "frame": 2,
+      "nonce": "d10c847c2ef9274c",
+      "decision": "HOLD",
+      "reason": "No explicit condition from the Genome rules (G0.1, G0.2, G0.3) is definitively met for an EXIT. While there are conflicting signals in the fire status (KMDR-against, PROPP-against), the specific criteria for 'multi-family fires AND accelerating loss' (G0.2) or 'giveback/retrace AND trend is intact' (G0.3) are not explicitly confirmed by the provided data alone. Therefore, the default action is to HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "84afb2b6c9f0bf0e",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered because there is a 'giveback 4%' observed in the leg age (2m), suggesting a retrace, while the overall trend is assumed to be intact."
+    },
+    {
+      "frame": 4,
+      "nonce": "c67450c4ed16af1f",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 16%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate evidence of multi-family fires or accelerating loss was present to trigger an EXIT."
+    }
+  ],
+  "pending": {
+    "frame": 5,
+    "nonce": "b03e89cd475c3155"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

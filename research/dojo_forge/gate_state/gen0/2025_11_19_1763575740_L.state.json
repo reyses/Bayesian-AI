@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_11_19_1763575740_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0eeb745aa59eb3ab",
+      "ts": 1784392253.2886696
+    },
+    {
+      "frame": 1,
+      "nonce": "06d57353764246c5",
+      "ts": 1784392440.5674353
+    },
+    {
+      "frame": 2,
+      "nonce": "9ca4ff67b386d92e",
+      "ts": 1784392629.8360178
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0eeb745aa59eb3ab",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a state of relative equilibrium and moderate volatility, suggesting that immediate aggressive action is unwarranted based solely on these metrics. The system does not trigger the conditions for an EXIT (G0.2) or HOLD (G0.1, G0.3) based on the explicit rules provided, but the overall context suggests maintaining the current position while monitoring the momentum and volatility."
+    },
+    {
+      "frame": 1,
+      "nonce": "06d57353764246c5",
+      "decision": "HOLD",
+      "reason": "The provided context explicitly mentions a 'giveback 35%'. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "9ca4ff67b386d92e",
+      "decision": "EXIT",
+      "reason": "The trade environment indicates 'multi-family fires' (HA-with(1m ago), PROPP-with(0m ago)). This condition, combined with the observed price action and volatility, suggests that the conditions for exiting based on accelerating loss are met."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

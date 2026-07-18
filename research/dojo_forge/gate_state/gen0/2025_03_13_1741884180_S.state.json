@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_03_13_1741884180_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6d01b96620353bac",
+      "ts": 1784396063.0254383
+    },
+    {
+      "frame": 1,
+      "nonce": "ccda5392ab8f4843",
+      "ts": 1784396235.5797372
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6d01b96620353bac",
+      "decision": "HOLD",
+      "reason": "The provided data is a complex set of statistical and volatility metrics across multiple timeframes, along with a specific local trading signal. Without an explicit instruction or a clear market event that triggers one of the defined rules (G0.1, G0.2, G0.3), the safest default action based on the provided genome rules is HOLD."
+    },
+    {
+      "frame": 1,
+      "nonce": "ccda5392ab8f4843",
+      "decision": "EXIT",
+      "reason": "The input data indicates multiple firing conditions: KMDR-with(3m ago), HA-with(2m ago), and PROPP-against(1m ago). This satisfies the condition for [G0.2] (multi-family fires) combined with significant negative price movement in the latest bar, suggesting accelerating loss."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

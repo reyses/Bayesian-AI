@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_04_09_1744224460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9406725dc7224ab8",
+      "ts": 1784396674.2996328
+    },
+    {
+      "frame": 1,
+      "nonce": "fc54ebf658b30475",
+      "ts": 1784396837.0320761
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9406725dc7224ab8",
+      "decision": "HOLD",
+      "reason": "The provided data indicates increasing volatility and a strong upward trend in the statistical metrics (positive acceleration in volatility). While there is recent price action noted with a significant swing and giveback in the local context, the overall momentum suggests that existing trends are still intact. The conditions do not immediately trigger the specific exit criteria defined by the Genome rules (e.g., no explicit multi-family fires or adverse excursion on a clean entry were confirmed). Therefore, maintaining the current position is the most prudent action based solely on these indicators."
+    },
+    {
+      "frame": 1,
+      "nonce": "fc54ebf658b30475",
+      "decision": "EXIT",
+      "reason": "Triggered by Genome rule [G0.2]. The context explicitly indicates 'multi-family fires' (KMDR-against, HA-against, PROPP-against) occurred within the last 3 minutes, suggesting accelerating loss conditions."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -392,3 +392,7 @@ docs/memory/memory.db
 tools/telegram_bridge/.env
 tools/telegram_bridge/state/
 scratch/claude_tg_downloads/
+
+# large binaries never in git
+*.gguf
+research/archive/leg_clock/reports/mamba_training_dumps/

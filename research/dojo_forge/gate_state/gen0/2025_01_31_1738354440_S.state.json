@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_01_31_1738354440_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5b92048c2736c392",
+      "ts": 1784395729.511127
+    },
+    {
+      "frame": 1,
+      "nonce": "a59abf39c2501242",
+      "ts": 1784395894.9921014
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5b92048c2736c392",
+      "decision": "HOLD",
+      "reason": "The provided rules (Genome) are conditional statements that require specific market conditions (adverse excursion, multi-family fires, giveback/retrace trends) to trigger a HOLD or EXIT. Since the input data does not explicitly confirm these conditions, and without an explicit instruction to act on the complex numerical output, the default action based on the provided rules is to maintain the current state (HOLD)."
+    },
+    {
+      "frame": 1,
+      "nonce": "a59abf39c2501242",
+      "decision": "EXIT",
+      "reason": "The system detected multi-family fires (KMDR-against, HA-with, PROPP-with) combined with an accelerating loss in price over the observed timeframes, satisfying the condition for EXIT according to rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

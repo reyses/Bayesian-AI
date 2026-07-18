@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_04_08_1744136695_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c142a2a6ae7d0363",
+      "ts": 1784392837.2417877
+    },
+    {
+      "frame": 1,
+      "nonce": "6f875884c0211892",
+      "ts": 1784393030.1699045
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c142a2a6ae7d0363",
+      "decision": "HOLD",
+      "reason": "The provided data describes a specific trading snapshot with defined parameters and conditional triggers. The final instruction indicates a calculated state (`local: px +0.00pts`, `leg age 2m amp 67.5pts giveback 42%`) and a conditional strategy for immediate action based on recent volatility/event indicators (`fires<=3m: HA-with(3m ago), PROPP-with(0m ago)`). Without an explicit instruction to EXIT or HOLD based on the Genome rules, the default action is to maintain the current state, which aligns with the conservative nature of the provided signals."
+    },
+    {
+      "frame": 1,
+      "nonce": "6f875884c0211892",
+      "decision": "EXIT",
+      "reason": "The 5m bar shows extremely high negative price velocity (-38.500) and highly negative price acceleration (-128.250), indicating an accelerating loss. This satisfies the condition for [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

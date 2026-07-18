@@ -1,0 +1,15 @@
+{"ts": 1784397702.1400585, "event": "serve", "frame": 0, "nonce": "9a039d271c2be728"}
+{"ts": 1784397861.5708442, "event": "commit", "frame": 0, "nonce": "9a039d271c2be728", "decision": "HOLD", "reason": "The provided data presents complex statistical metrics across multiple timeframes (30-period, 4h, 1D) alongside immediate local signals. The most critical immediate signal is the contextual note: `fires<=3m: HA-with(1m ago), PROPP-against(1m ago), none-else`. This suggests a high-amplitude event with an opposing probability trend, which warrants caution and a HOLD position until further confirmation or resolution of the recent volatility."}
+{"ts": 1784397861.5756304, "event": "serve", "frame": 1, "nonce": "ced4eb0737cefefd"}
+{"ts": 1784398019.900954, "event": "commit", "frame": 1, "nonce": "ced4eb0737cefefd", "decision": "HOLD", "reason": "The data indicates a 'giveback 88%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784398019.9052377, "event": "serve", "frame": 2, "nonce": "0a1f3da0bc81128d"}
+{"ts": 1784398089.5026426, "event": "commit", "frame": 2, "nonce": "0a1f3da0bc81128d", "decision": "HOLD", "reason": "Failed to parse json"}
+{"ts": 1784398089.5068388, "event": "serve", "frame": 3, "nonce": "232271278497652b"}
+{"ts": 1784398256.2369852, "event": "commit", "frame": 3, "nonce": "232271278497652b", "decision": "HOLD", "reason": "The data indicates a recent price retracement ('giveback 17%'). This aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). While adverse signals ('fires') are present, the immediate action suggested by the retrace is to hold and wait for confirmation of the trend's continuation."}
+{"ts": 1784398256.2401283, "event": "serve", "frame": 4, "nonce": "52a3e3ccbbb45c92"}
+{"ts": 1784398417.5712814, "event": "commit", "frame": 4, "nonce": "52a3e3ccbbb45c92", "decision": "HOLD", "reason": "The data indicates a 'giveback 5%', which satisfies the condition for [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784398417.5760078, "event": "serve", "frame": 5, "nonce": "e389445c73a145f7"}
+{"ts": 1784398580.843667, "event": "commit", "frame": 5, "nonce": "e389445c73a145f7", "decision": "HOLD", "reason": "The input data indicates a 'giveback 9%', suggesting a retrace has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."}
+{"ts": 1784398580.8505366, "event": "serve", "frame": 6, "nonce": "2f988459301987cf"}
+{"ts": 1784398741.4161985, "event": "commit", "frame": 6, "nonce": "2f988459301987cf", "decision": "EXIT", "reason": "Triggered by Genome rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT. The provided data indicates 'fires<=3m: KMDR-against(1m ago), PROPP-against(1m ago)', which constitutes multiple adverse signals (multi-family fires)."}
+{"ts": 1784398741.4219637, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 6, "n_commits": 7}

@@ -1,0 +1,42 @@
+{
+  "episode_id": "2025_04_14_1744660140_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "209eac273c3e5270",
+      "ts": 1784398279.0767386
+    },
+    {
+      "frame": 1,
+      "nonce": "f236550ba5228dca",
+      "ts": 1784398444.1411939
+    },
+    {
+      "frame": 2,
+      "nonce": "68abbf3e190a5eac",
+      "ts": 1784398604.8510027
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "209eac273c3e5270",
+      "decision": "HOLD",
+      "reason": "The provided data presents a complex snapshot of multi-timeframe volatility, price velocity, and specific signal triggers. The final local signal indicates that a recent event (related to 'fires<=3m') has been registered via the PROPP strategy, but the immediate price movement is negligible (+0.00pts). Given the complexity and the presence of historical statistical measures (ldist, Hurst), maintaining a HOLD position allows for further observation of the established multi-family fire conditions before executing a trade."
+    },
+    {
+      "frame": 1,
+      "nonce": "f236550ba5228dca",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 24%' in the local context, which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    }
+  ],
+  "pending": {
+    "frame": 2,
+    "nonce": "68abbf3e190a5eac"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

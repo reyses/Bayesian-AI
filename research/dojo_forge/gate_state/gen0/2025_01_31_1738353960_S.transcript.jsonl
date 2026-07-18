@@ -1,0 +1,9 @@
+{"ts": 1784393511.2469604, "event": "serve", "frame": 0, "nonce": "d7a759a6d0df3839"}
+{"ts": 1784393563.8840344, "event": "commit", "frame": 0, "nonce": "50e57f6d035cbba4", "decision": "HOLD", "reason": "No explicit instruction was provided for a decision. The input consists solely of structured data/metrics. Therefore, the default action is to HOLD, awaiting a specific query or instruction based on the provided 'Genome' rules."}
+{"ts": 1784393563.8947554, "event": "serve", "frame": 1, "nonce": "36a478e26365c4bf"}
+{"ts": 1784393694.0088315, "event": "commit", "frame": 0, "nonce": "d7a759a6d0df3839", "decision": "HOLD", "reason": "No explicit instruction was provided for a decision. The input consists solely of structured data/metrics. Therefore, the default action is to HOLD, awaiting a specific query or instruction based on the provided 'Genome' rules."}
+{"ts": 1784393694.020825, "event": "serve", "frame": 1, "nonce": "2682d3e67de699e1"}
+{"ts": 1784393740.553322, "event": "commit", "frame": 1, "nonce": "36a478e26365c4bf", "decision": "EXIT", "reason": "The local summary indicates 'fires' (KMDR-against and PROPP-against in the last 2m and 1m), suggesting adverse market conditions. Combined with a recent 'giveback 15%', this aligns with the condition for EXIT based on rule [G0.2] (multi-family fires AND accelerating loss)."}
+{"ts": 1784393740.5588737, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}
+{"ts": 1784393872.881951, "event": "commit", "frame": 1, "nonce": "2682d3e67de699e1", "decision": "EXIT", "reason": "The local summary indicates 'fires' (KMDR-against and PROPP-against in the last 2m and 1m), suggesting adverse market conditions. Combined with a recent 'giveback 15%', this aligns with the condition for EXIT based on rule [G0.2] (multi-family fires AND accelerating loss)."}
+{"ts": 1784393872.8867922, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

@@ -1,0 +1,3 @@
+{"ts": 1784388107.425991, "event": "serve", "frame": 0, "nonce": "8720796bbcf5efc6"}
+{"ts": 1784388341.3207242, "event": "commit", "frame": 4, "nonce": "7b3288b58aa2ef14", "decision": "EXIT", "reason": "The system detected multiple family fires (KMDR-against, HA-with, PROPP-with) within the last 3 minutes, which suggests a complex or volatile market structure. This triggers the condition in rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."}
+{"ts": 1784388341.3310072, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 4, "n_commits": 5}

@@ -1,0 +1,42 @@
+{
+  "episode_id": "2025_04_09_1744226810_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "1dac6ce186ac6d5a",
+      "ts": 1784398435.5859346
+    },
+    {
+      "frame": 1,
+      "nonce": "0634159e95346a27",
+      "ts": 1784398595.8596542
+    },
+    {
+      "frame": 2,
+      "nonce": "522a1c6293801c0a",
+      "ts": 1784398756.600089
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "1dac6ce186ac6d5a",
+      "decision": "HOLD",
+      "reason": "The provided data indicates complex, multi-timeframe volatility and momentum dynamics. While there are signals present (e.g., local volatility spikes, directional bias), none of the explicit conditions defined in the Genome rules ([G0.1], [G0.2], [G0.3]) are definitively met to trigger an immediate EXIT. The system is currently in a state requiring observation, aligning with a HOLD strategy until further confirmation or a clear adverse excursion/multi-family fire occurs."
+    },
+    {
+      "frame": 1,
+      "nonce": "0634159e95346a27",
+      "decision": "HOLD",
+      "reason": "The local information explicitly indicates a 'giveback 15%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    }
+  ],
+  "pending": {
+    "frame": 2,
+    "nonce": "522a1c6293801c0a"
+  },
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

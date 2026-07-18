@@ -133,7 +133,9 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
     seg_paths = sorted(glob.glob(os.path.join(MEM_DIR, "agents", "*", "*.md")))
     # research distillation cards (doc 119 swarm): one card per topic flows
     # into shared recall (tier=context, tag=distilled:<topic>)
-    dist_paths = sorted(glob.glob(os.path.join(REPO, "research", "*", "DISTILLED.md")))
+    dist_paths = sorted(
+        glob.glob(os.path.join(REPO, "research", "*", "DISTILLED.md"))
+        + glob.glob(os.path.join(REPO, "research", "archive", "*", "DISTILLED.md")))
     for path in sorted(glob.glob(os.path.join(MEM_DIR, "*.md"))) + seg_paths + dist_paths:
         name = os.path.basename(path)
         rel = os.path.relpath(path, REPO).replace("\\", "/")
