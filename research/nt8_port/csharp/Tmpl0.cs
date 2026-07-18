@@ -47,7 +47,7 @@ namespace Nt8Port
             return l.ToArray();
         }
 
-        struct Ev { public int Row; public long Ts; public double PivAge, Tod; public int Leg; public double[] F; }
+        struct Ev { public int Row; public long Ts; public double PivAge, Tod; public int Leg; public double[] F; public long Tf; }
 
         // debug capture: per fired event (ts, tid, isLong, standardized features)
         public List<(long ts, int tid, bool isLong, double[] xs, double[] raw)> Debug
@@ -82,7 +82,7 @@ namespace Nt8Port
                     if (r < 0 || r < x.Start || !x.Rth[r]) continue;
                     var ev = new Ev {
                         Row = r, Ts = x.Ts[r], PivAge = (r - x.PivI[r]) * 5.0 / 60.0,
-                        Tod = x.Tod[r], Leg = x.Leg[r], F = fv
+                        Tod = x.Tod[r], Leg = x.Leg[r], F = fv, Tf = period
                     };
                     if (cdl[k] != 0) events.Add(ev);
                     if (geo[k] != 0) events.Add(ev);
@@ -102,7 +102,8 @@ namespace Nt8Port
                 int swl = ev.Leg != 0 ? ((ev.Leg > 0) == isLong ? 1 : 0) : 0;
                 o.Add(new Fire {
                     Row = ev.Row, Ts = ev.Ts, IsLong = isLong, Value = conv,
-                    PivotAgeMin = ev.PivAge, SigWithLeg = swl, Tod = ev.Tod, Det = "TMPL0"
+                    PivotAgeMin = ev.PivAge, SigWithLeg = swl, Tod = ev.Tod, Det = "TMPL0",
+                    Tf = ev.Tf
                 });
             }
             return o;

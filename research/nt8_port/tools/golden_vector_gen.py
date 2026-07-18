@@ -190,14 +190,42 @@ def gen_tmpl0(ctx):
     is_long = lf > 0.5
     leg = E['leg'].values
     swl = np.where(leg != 0, ((leg > 0) == is_long).astype(int), 0)
+    tf_secs = E['tf'].map({'1m': 60, '5m': 300, '15m': 900}).values
     out = []
     for k in np.flatnonzero(keep):
         out.append(dict(ts=int(E['ts'].values[k]), is_long=bool(is_long[k]),
                         value=float(conviction[k]),
                         pivot_age_min=float(E['pivot_age_min'].values[k]),
                         sig_with_leg=int(swl[k]), tod=float(E['tod'].values[k]),
-                        day=ctx.day))
+                        tf_secs=int(tf_secs[k]), day=ctx.day))
     return out
+
+
+# --------------------------------------------------------------------------------------
+# 2b. DETERMINISTIC same-bar TMPL0 tie rule (P2 pin, doc 133)
+# --------------------------------------------------------------------------------------
+def resolve_tmpl0_state(tf_arr, conv_arr, dir_arr):
+    """Resolve the f_TMPL0 fire-state for a bar with >=1 TMPL0 sub-fire.
+
+    RULE (doc 133, pinned in BOTH this reference generator AND the C# port so the
+    same-ts ambiguity is removed rather than reverse-engineered from pandas quicksort):
+      1. highest-TF event wins  (900 > 300 > 60 s);
+      2. tie on TF -> the event whose pattern conviction |long_frac-0.5| is LARGER;
+      3. still exactly tied (same TF, same conviction, opposite dirs) -> HOLD PRIOR
+         STATE = 0 (no directional decision this bar; fire-states are per-bar and do
+         not carry, so the prior within-bar default is 0).
+    Order-independent and reproducible: tf is an integer (60/300/900); conviction is
+    |long_frac-0.5| over the SAME frozen 4-dp codebook long_frac on both sides, so the
+    equality tie-break compares bit-identical IEEE doubles.
+    """
+    if len(dir_arr) == 0:
+        return 0
+    best_tf = int(np.max(tf_arr))
+    m1 = tf_arr == best_tf
+    best_conv = float(np.max(conv_arr[m1]))
+    m2 = m1 & (conv_arr == best_conv)
+    dirs = set(int(x) for x in dir_arr[m2])
+    return dirs.pop() if len(dirs) == 1 else 0
 
 
 # --------------------------------------------------------------------------------------
@@ -396,6 +424,11 @@ def aggregate_day(ctx, day, F, zz, model):
         f_det = F['det'].values
         f_P = F['P'].values
         f_topk = np.isin(f_det, topk)
+        # TMPL0 tie-rule inputs (tf_secs / conviction); non-TMPL0 rows -> 0
+        f_tf = (F['tf_secs'].fillna(0).values.astype(np.int64)
+                if 'tf_secs' in F else np.zeros(len(F), dtype=np.int64))
+        f_conv = (F['value'].fillna(0.0).values.astype(float)
+                  if 'value' in F else np.zeros(len(F), dtype=float))
     else:
         f_min = np.array([], dtype=np.int64)
 
@@ -419,10 +452,17 @@ def aggregate_day(ctx, day, F, zz, model):
                 dir_b = f_dir[inb]
                 P_b = f_P[inb]
                 topk_b = f_topk[inb]
+                tf_b = f_tf[inb]
+                conv_b = f_conv[inb]
                 P_any = float(np.nanmax(P_b))
+                # non-TMPL0: last fire's direction wins ties (unchanged, 100% parity)
                 for dd, di in zip(dets_b, dir_b):
-                    if dd in states:
-                        states[dd] = int(di)          # last fire's direction wins ties
+                    if dd in states and dd != 'TMPL0':
+                        states[dd] = int(di)
+                # TMPL0: deterministic same-bar tie rule (P2 pin, doc 133)
+                tm = dets_b == 'TMPL0'
+                if 'TMPL0' in states and tm.any():
+                    states['TMPL0'] = resolve_tmpl0_state(tf_b[tm], conv_b[tm], dir_b[tm])
                 if topk_b.any():
                     n_topk = int(topk_b.sum())
                     P_tk = P_b[topk_b]

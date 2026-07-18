@@ -1,8 +1,8 @@
 {
  "generated_by": "research/nt8_port/tools/golden_vector_gen.py",
- "combiner_n_fires": 1074191,
+ "combiner_n_fires": 1071848,
  "combiner_n_train": 461656,
- "n_streams": 56,
+ "n_streams": 55,
  "K": 22,
  "topk": [
   "RSI06",
@@ -29,8 +29,8 @@
   "NMP9FADEAGAINST"
  ],
  "topk_mass_target": 0.8,
- "total_stream_mass": 3.3024615847543313,
- "total_all_mass": 4.3208511146616075,
+ "total_stream_mass": 3.302461584754333,
+ "total_all_mass": 4.32085111466161,
  "note_grand_total": "grand-total interpretation is degenerate: stream_mass 3.302 < 0.80*all_mass 3.457",
  "stream_ranking": [
   [
@@ -252,17 +252,13 @@
   [
    "SEASON12",
    0.0006
-  ],
-  [
-   "FOOTPRINTIMB",
-   0.0
   ]
  ],
  "excluded_external": [
   "ADX08",
   "FOOTPRINTIMB"
  ],
- "frozen_top_decile_threshold": 0.7339268693710619,
+ "frozen_top_decile_threshold": 0.7339268693710614,
  "top_decile_pctl": 90.0,
  "zz_min_bars_5s": 36,
  "reference_days": [
@@ -296,7 +292,7 @@
    "entries": 76,
    "pivots": 13,
    "min_rev_ticks": 112,
-   "sha": "cac95cb199686b65"
+   "sha": "8f13e8e7587de205"
   },
   {
    "day": "2024_03_06",
@@ -306,7 +302,7 @@
    "entries": 128,
    "pivots": 32,
    "min_rev_ticks": 104,
-   "sha": "596d0fa6f6fa0ee4"
+   "sha": "2b9caeb6b8b76879"
   },
   {
    "day": "2024_04_15",
@@ -316,7 +312,7 @@
    "entries": 132,
    "pivots": 23,
    "min_rev_ticks": 150,
-   "sha": "17ba5d3f8e7c8c2e"
+   "sha": "0c439dce1e558fb8"
   },
   {
    "day": "2024_05_21",
@@ -326,7 +322,7 @@
    "entries": 37,
    "pivots": 5,
    "min_rev_ticks": 118,
-   "sha": "461da1e1a99f198d"
+   "sha": "a13f1be8954dbff7"
   },
   {
    "day": "2024_06_26",
@@ -336,7 +332,7 @@
    "entries": 113,
    "pivots": 19,
    "min_rev_ticks": 119,
-   "sha": "8ef504e5eb3129b1"
+   "sha": "8cac27e419b2c130"
   },
   {
    "day": "2024_08_02",
@@ -346,7 +342,7 @@
    "entries": 222,
    "pivots": 14,
    "min_rev_ticks": 406,
-   "sha": "ae3c444d29fb6563"
+   "sha": "47436c19c7ee2229"
   },
   {
    "day": "2024_09_09",
@@ -356,7 +352,7 @@
    "entries": 127,
    "pivots": 8,
    "min_rev_ticks": 169,
-   "sha": "3f6701655ac8b776"
+   "sha": "ca2c5104cd91c398"
   },
   {
    "day": "2024_10_15",
@@ -366,7 +362,7 @@
    "entries": 162,
    "pivots": 29,
    "min_rev_ticks": 98,
-   "sha": "597deed3f2ab6f72"
+   "sha": "05f49af3ad197086"
   },
   {
    "day": "2024_11_21",
@@ -376,7 +372,7 @@
    "entries": 162,
    "pivots": 19,
    "min_rev_ticks": 162,
-   "sha": "5a49e31a1ac678b7"
+   "sha": "ba5a013b2a9450fd"
   },
   {
    "day": "2024_12_30",
@@ -386,7 +382,7 @@
    "entries": 164,
    "pivots": 15,
    "min_rev_ticks": 215,
-   "sha": "78bf2c1181163baf"
+   "sha": "2594c0ca6aece62e"
   },
   {
    "day": "2025_01_02",
@@ -396,7 +392,7 @@
    "entries": 213,
    "pivots": 25,
    "min_rev_ticks": 203,
-   "sha": "32e3a95cc4585ffe"
+   "sha": "fcc4bab3b7bf3f24"
   },
   {
    "day": "2025_02_20",
@@ -406,7 +402,7 @@
    "entries": 123,
    "pivots": 28,
    "min_rev_ticks": 104,
-   "sha": "a2ee362190a15e57"
+   "sha": "f95d9269b62bd243"
   },
   {
    "day": "2025_04_14",
@@ -416,7 +412,7 @@
    "entries": 215,
    "pivots": 23,
    "min_rev_ticks": 218,
-   "sha": "8375b064092d2827"
+   "sha": "ecf42ab90ae4d55b"
   },
   {
    "day": "2025_05_27",
@@ -426,7 +422,7 @@
    "entries": 53,
    "pivots": 3,
    "min_rev_ticks": 201,
-   "sha": "32570a0a13ebf0fa"
+   "sha": "cd9c30c88591a481"
   },
   {
    "day": "2025_07_16",
@@ -436,7 +432,7 @@
    "entries": 116,
    "pivots": 25,
    "min_rev_ticks": 106,
-   "sha": "d4da576e8ba9c7ce"
+   "sha": "adf2adbf3f91c55d"
   },
   {
    "day": "2025_08_26",
@@ -446,7 +442,7 @@
    "entries": 64,
    "pivots": 22,
    "min_rev_ticks": 82,
-   "sha": "e89912725169a385"
+   "sha": "b461f834f42e8aeb"
   },
   {
    "day": "2025_10_16",
@@ -456,7 +452,7 @@
    "entries": 274,
    "pivots": 40,
    "min_rev_ticks": 167,
-   "sha": "cb1fc4835bf2177e"
+   "sha": "229135805611867f"
   },
   {
    "day": "2025_12_03",
@@ -466,7 +462,7 @@
    "entries": 114,
    "pivots": 8,
    "min_rev_ticks": 287,
-   "sha": "c78f7c0939ec2eff"
+   "sha": "5104dce27cffb3b1"
   },
   {
    "day": "2026_02_03",
@@ -476,7 +472,7 @@
    "entries": 240,
    "pivots": 33,
    "min_rev_ticks": 176,
-   "sha": "e3fb49f8a05434dd"
+   "sha": "79688fa9d0fb82ef"
   },
   {
    "day": "2026_03_19",
@@ -486,7 +482,7 @@
    "entries": 190,
    "pivots": 6,
    "min_rev_ticks": 498,
-   "sha": "46e076938fe935a1"
+   "sha": "38485c915dce79c2"
   }
  ]
 }

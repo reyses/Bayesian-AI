@@ -127,6 +127,28 @@ namespace Nt8Port
             public long BarTs; public Dictionary<string, int> F = new Dictionary<string, int>();
             public string Gov = ""; public int GovDir = 0; public double P = double.NaN;
             public int Entry = 0; public int EntryDir = 0;
+            // native R-trigger zigzag state @ bar close (P2)
+            public int ZzLeg = 0; public int ZzConfirm = 0;
+            public double ZzPivAge = 0.0; public double ZzPivPrice = 0.0;
+            public int LastRow = -1;   // last 5s RTH row of this minute (for zz sampling)
+        }
+
+        // ---- deterministic TMPL0 same-bar tie rule (P2 pin, doc 133) ----
+        // highest-TF wins; tie -> larger conviction |long_frac-0.5|; still tied -> 0 (hold prior).
+        static int ResolveTmpl0(List<(long tf, double conv, int dir)> fs)
+        {
+            if (fs.Count == 0) return 0;
+            long bestTf = long.MinValue; foreach (var e in fs) if (e.tf > bestTf) bestTf = e.tf;
+            double bestConv = double.NegativeInfinity;
+            foreach (var e in fs) if (e.tf == bestTf && e.conv > bestConv) bestConv = e.conv;
+            int dir = 0; bool set = false, tie = false;
+            foreach (var e in fs)
+                if (e.tf == bestTf && e.conv == bestConv)
+                {
+                    if (!set) { dir = e.dir; set = true; }
+                    else if (e.dir != dir) tie = true;
+                }
+            return tie ? 0 : dir;
         }
 
         static List<Bar> ProcessDay(Ctx x, Model model, Tmpl0 tmpl)
@@ -163,36 +185,112 @@ namespace Nt8Port
             var P = new double[nf];
             for (int k = 0; k < nf; k++) P[k] = CompactP(sorted[k], cons[k], model);
 
-            // 3. aggregate to per-1m-bar over RTH
+            // 3. native R-trigger zigzag over the full 5s stream (P2)
+            var zzr = ZigzagRTrigger(x);
+
+            // 4. aggregate to per-1m-bar over RTH
             var barMap = new SortedDictionary<long, Bar>();
             for (int i = 0; i < x.N; i++)
                 if (x.Rth[i] && i >= x.Start)
                 {
                     long T = (x.Ts[i] / 60) * 60;
-                    if (!barMap.ContainsKey(T))
+                    if (!barMap.TryGetValue(T, out var bar))
                     {
-                        var bb = new Bar { BarTs = T };
-                        foreach (var d in model.Topk) bb.F[d] = 0;
-                        barMap[T] = bb;
+                        bar = new Bar { BarTs = T };
+                        foreach (var d in model.Topk) bar.F[d] = 0;
+                        barMap[T] = bar;
                     }
+                    // ascending i -> last assignment is the max RTH row of the minute
+                    bar.LastRow = i;
+                    if (zzr.flip[i] != 0) bar.ZzConfirm = zzr.flip[i];   // last flip in minute wins
                 }
-            // fires in ts order -> last direction wins per (bar,det); gov = max P
+            // fires in ts order -> non-TMPL0: last direction wins; TMPL0: deterministic tie rule.
+            // gov = max P (unchanged, over all top-K fires including TMPL0).
+            var tmplByBar = new Dictionary<long, List<(long tf, double conv, int dir)>>();
             for (int k = 0; k < nf; k++)
             {
                 long T = (sorted[k].Ts / 60) * 60;
                 if (!barMap.TryGetValue(T, out var bar)) continue;   // fire outside RTH bars
                 string det = sorted[k].Det;
-                bar.F[det] = sorted[k].IsLong ? 1 : -1;
+                if (det == "TMPL0")
+                {
+                    if (!tmplByBar.TryGetValue(T, out var lst)) { lst = new List<(long, double, int)>(); tmplByBar[T] = lst; }
+                    lst.Add((sorted[k].Tf, sorted[k].Value, sorted[k].IsLong ? 1 : -1));
+                }
+                else
+                {
+                    bar.F[det] = sorted[k].IsLong ? 1 : -1;
+                }
                 double p = P[k];
                 if (Pd.Fin(p) && (!Pd.Fin(bar.P) || p > bar.P))
                 { bar.P = p; bar.Gov = det; bar.GovDir = sorted[k].IsLong ? 1 : -1; }
             }
             foreach (var bar in barMap.Values)
             {
+                if (bar.F.ContainsKey("TMPL0") && tmplByBar.TryGetValue(bar.BarTs, out var lst))
+                    bar.F["TMPL0"] = ResolveTmpl0(lst);
                 bar.Entry = (Pd.Fin(bar.P) && bar.P >= model.Threshold) ? 1 : 0;
                 bar.EntryDir = bar.Entry == 1 ? bar.GovDir : 0;
+                // sample R-trigger zigzag @ bar close (last 5s RTH row of the minute)
+                int r = bar.LastRow;
+                if (r >= 0)
+                {
+                    bar.ZzLeg = zzr.dir[r];
+                    bar.ZzPivAge = (r - zzr.pivBar[r]) * 5.0 / 60.0;
+                    bar.ZzPivPrice = zzr.pivPx[r];
+                }
             }
             return barMap.Values.ToList();
+        }
+
+        // Native R-trigger zigzag = verbatim port of golden_vector_gen.zigzag_rtrigger
+        // (training/strategies/zigzag.py::ZigzagStrategy): extreme +-R flip, min_bars_5s=36,
+        // R = max(4, round(zz_thr[first_rth]/TICK)); zz_thr = ATR(14 1m)x4 (causal open-anchored).
+        static (int[] dir, int[] flip, int[] pivBar, double[] pivPx, int minRev) ZigzagRTrigger(Ctx x)
+        {
+            const double TICK = Ctx.TICK;
+            const int MIN_BARS_5S = 36;
+            int n = x.N;
+            var priceT = new double[n];
+            for (int i = 0; i < n; i++) priceT[i] = x.C[i] / TICK;
+            int firstRth = x.Start;
+            for (int i = 0; i < n; i++) if (x.Rth[i] && i >= x.Start) { firstRth = i; break; }
+            double thrPts = x.ZzThr[firstRth];
+            if (!Pd.Fin(thrPts))
+                for (int i = firstRth; i < n; i++) if (Pd.Fin(x.ZzThr[i])) { thrPts = x.ZzThr[i]; break; }
+            int minRev = Math.Max(4, (int)Math.Round(thrPts / TICK, MidpointRounding.ToEven));
+
+            var dir = new int[n]; var flip = new int[n];
+            var pivBar = new int[n]; var pivPx = new double[n];
+            int d = 0;
+            double ext = priceT[0]; int extBar = 0;
+            double firstClose = priceT[0];
+            int lastPivBar = 0; double lastPivPx = priceT[0];
+            for (int i = 1; i < n; i++)
+            {
+                double p = priceT[i]; int f = 0;
+                if (d == 0)
+                {
+                    if (p > ext) { ext = p; extBar = i; }
+                    if (p < firstClose && (firstClose - p) >= minRev) { d = -1; ext = p; extBar = i; f = -1; }
+                    else if (p > firstClose && (p - firstClose) >= minRev) { d = 1; ext = p; extBar = i; f = 1; }
+                    if (f != 0) { lastPivBar = i; lastPivPx = firstClose; }   // seed pivot = first close
+                }
+                else if (d == 1)
+                {
+                    if (p >= ext) { ext = p; extBar = i; }
+                    else if ((ext - p) >= minRev && (i - extBar) >= MIN_BARS_5S)
+                    { lastPivBar = extBar; lastPivPx = ext; d = -1; ext = p; extBar = i; f = -1; }
+                }
+                else // d == -1
+                {
+                    if (p <= ext) { ext = p; extBar = i; }
+                    else if ((p - ext) >= minRev && (i - extBar) >= MIN_BARS_5S)
+                    { lastPivBar = extBar; lastPivPx = ext; d = 1; ext = p; extBar = i; f = 1; }
+                }
+                dir[i] = d; flip[i] = f; pivBar[i] = lastPivBar; pivPx[i] = lastPivPx * TICK;
+            }
+            return (dir, flip, pivBar, pivPx, minRev);
         }
 
         static double CompactP(Fire f, int consensus, Model m)
@@ -244,6 +342,10 @@ namespace Nt8Port
                 sb.Append(",\"P_compact\":").Append(Pd.Fin(bar.P) ? bar.P.ToString("R", CultureInfo.InvariantCulture) : "null");
                 sb.Append(",\"entry\":").Append(bar.Entry);
                 sb.Append(",\"entry_dir\":").Append(bar.EntryDir);
+                sb.Append(",\"zz_leg\":").Append(bar.ZzLeg);
+                sb.Append(",\"zz_confirm\":").Append(bar.ZzConfirm);
+                sb.Append(",\"zz_pivot_age_min\":").Append(bar.ZzPivAge.ToString("R", CultureInfo.InvariantCulture));
+                sb.Append(",\"zz_pivot_price\":").Append(bar.ZzPivPrice.ToString("R", CultureInfo.InvariantCulture));
                 sb.Append('}');
             }
             sb.Append("]}");

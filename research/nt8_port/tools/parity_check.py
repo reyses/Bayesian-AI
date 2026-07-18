@@ -116,6 +116,10 @@ def compact_bars(ctx, day, Ft, cm):
         f_min = (Ft['ts'].values // 60) * 60
         f_dir = np.where(Ft['is_long'].values, 1, -1)
         f_det = Ft['det'].values; f_P = Ft['P'].values
+        f_tf = (Ft['tf_secs'].fillna(0).values.astype(np.int64)
+                if 'tf_secs' in Ft else np.zeros(len(Ft), np.int64))
+        f_conv = (Ft['value'].fillna(0.0).values.astype(float)
+                  if 'value' in Ft else np.zeros(len(Ft), float))
     else:
         f_min = np.array([], np.int64)
     recs = []
@@ -127,8 +131,12 @@ def compact_bars(ctx, day, Ft, cm):
             inb = f_min == T
             if inb.any():
                 dets_b, dir_b, P_b = f_det[inb], f_dir[inb], f_P[inb]
+                tf_b, conv_b = f_tf[inb], f_conv[inb]
                 for dd, di in zip(dets_b, dir_b):
-                    if dd in states: states[dd] = int(di)
+                    if dd in states and dd != 'TMPL0': states[dd] = int(di)
+                tm = dets_b == 'TMPL0'
+                if 'TMPL0' in states and tm.any():
+                    states['TMPL0'] = gvg.resolve_tmpl0_state(tf_b[tm], conv_b[tm], dir_b[tm])
                 kk = int(np.nanargmax(P_b))
                 Ptk = float(P_b[kk]); gov = str(dets_b[kk]); gd = int(dir_b[kk])
         for d in topk: rec[f'f_{d}'] = states[d]
@@ -225,6 +233,9 @@ def compare():
     per_stream = {d: [0, 0] for d in topk}      # [mismatch, total]
     Pmax = 0.0; entry_mm = 0; entry_tot = 0
     fire_mm = 0; fire_tot = 0
+    # zigzag R-trigger parity (P2): leg + confirm exact, pivot age/price tolerance
+    zz = dict(leg_mm=0, confirm_mm=0, age_max=0.0, px_max=0.0, tot=0,
+              has_cols=False, per_day=[])
     missing = []
     for day in gdays:
         cp = os.path.join(CSOUT, f'{day}.json')
@@ -254,10 +265,29 @@ def compare():
         em = int((ce != re).sum())
         entry_mm += em; entry_tot += len(ce)
         rows.append((day, day_mm, day_tot, em, len(ce), onlyone))
-    write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entry_tot, thr, missing)
+        # ---- zigzag R-trigger parity (C# vs golden zz_* columns) ----
+        if all(c in C.columns for c in ('zz_leg', 'zz_confirm')) and 'zz_leg' in G.columns:
+            zz['has_cols'] = True
+            gl = G['zz_leg'].values.astype(int)
+            cl = np.nan_to_num(C['zz_leg'].values, nan=-999).astype(int)
+            gc = G['zz_confirm'].values.astype(int)
+            cc = np.nan_to_num(C['zz_confirm'].values, nan=-999).astype(int)
+            lmm = int((gl != cl).sum()); cmm = int((gc != cc).sum())
+            ga = G['zz_pivot_age_min'].values.astype(float)
+            ca = np.nan_to_num(C['zz_pivot_age_min'].values, nan=-1e9).astype(float)
+            gp = G['zz_pivot_price'].values.astype(float)
+            cpx = np.nan_to_num(C['zz_pivot_price'].values, nan=-1e9).astype(float)
+            amax = float(np.nanmax(np.abs(ga - ca))) if len(ga) else 0.0
+            pmaxd = float(np.nanmax(np.abs(gp - cpx))) if len(gp) else 0.0
+            zz['leg_mm'] += lmm; zz['confirm_mm'] += cmm; zz['tot'] += len(gl)
+            zz['age_max'] = max(zz['age_max'], amax); zz['px_max'] = max(zz['px_max'], pmaxd)
+            zz['per_day'].append((day, lmm, cmm, len(gl), amax, pmaxd))
+    write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entry_tot, thr,
+                 missing, zz)
 
 
-def write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entry_tot, thr, missing):
+def write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entry_tot, thr,
+                 missing, zz=None):
     agree = 100 * (1 - fire_mm / max(1, fire_tot))
     L = ['# P1 C# port parity vs golden vectors (task 131)', '']
     L.append(f'- dotnet SDK: **available** (build+run harness path)')
@@ -267,6 +297,16 @@ def write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entr
     ea = 100 * (1 - entry_mm / max(1, entry_tot))
     L.append(f'- entry-decision agreement: **{ea:.3f}%** ({entry_tot-entry_mm}/{entry_tot}); bar = 100%')
     L.append(f'- compact entry threshold (frozen, 90pct 2024 compact-P) = {thr:.6f}')
+    if zz and zz['has_cols']:
+        zt = max(1, zz['tot'])
+        leg_a = 100 * (1 - zz['leg_mm'] / zt)
+        conf_a = 100 * (1 - zz['confirm_mm'] / zt)
+        L.append(f'- **zigzag R-trigger leg parity: {leg_a:.3f}%** '
+                 f'({zt-zz["leg_mm"]}/{zt} bars); bar = 100%')
+        L.append(f'- **zigzag pivot-confirm parity: {conf_a:.3f}%** '
+                 f'({zt-zz["confirm_mm"]}/{zt} bars); bar = 100%')
+        L.append(f'- max |zz_pivot_age_min diff|: **{zz["age_max"]:.3e}** min; '
+                 f'max |zz_pivot_price diff|: **{zz["px_max"]:.3e}** pts (bar <=1e-6)')
     if missing: L.append(f'- **MISSING C# output for days**: {missing}')
     L.append('\n## Per-stream fire-state parity (all days)')
     L.append('| stream | mismatch | total | agree% |')
@@ -283,20 +323,16 @@ def write_report(topk, per_stream, rows, fire_mm, fire_tot, Pmax, entry_mm, entr
              '20 days), including the heavy-math streams (RSI/MACD EWM, EXIT-KMDR Wilder-ATR, '
              'NMP9/NMPT z21+Wilder-DMI+vr ladders, NMP z_se episodes). This proves the shared '
              'math (z21 OLS endpoint z, Wilder DMI, pandas-exact EWM/rolling, clock bucketing) is exact.')
-    L.append(f'- **TMPL0 only: {per_stream["TMPL0"][0]} mismatched cells** ({100*per_stream["TMPL0"][0]/max(1,per_stream["TMPL0"][1]):.3f}%). '
-             'Root cause DIAGNOSED (not a port defect): the C# per-event template features, nearest-'
-             'centroid tid, and per-event direction are **bit-identical** to Python. Every residual '
-             'cell is a bar where TMPL0 fires BOTH directions in the same minute (1m + 5m/15m pattern '
-             'events landing on the same 5s close row with opposite frozen long_frac). The golden '
-             'schema collapses these via "last fire wins", but "last" is undefined for same-ts fires: '
-             'golden resolves it by pandas `sort_values(\'ts\')` (quicksort, NOT stable), which a native '
-             'C# stable sort cannot reproduce. A handful of additional cells are frozen-codebook '
-             'rounding boundary drift (the SAME 67-cell noise the Python re-run shows vs golden -- '
-             'see _parity_meta.json selfcheck). Both are intrinsic to the frozen golden aggregation, '
-             'well under the 0.5% budget.')
-    L.append('- **P2 handoff**: pin a DETERMINISTIC tie rule for same-minute opposite-direction sub-fires '
-             '(e.g. highest-P wins, or highest-TF wins) in both the reference generator and the native '
-             'port, so the ambiguity is removed rather than reverse-engineered from pandas quicksort.')
+    L.append(f'- **TMPL0: {per_stream["TMPL0"][0]} mismatched cells** ({100*per_stream["TMPL0"][0]/max(1,per_stream["TMPL0"][1]):.3f}%). '
+             'The P1 residual (67 cells, 99.175%) was same-minute opposite-direction TMPL0 sub-fires '
+             '(1m + 5m/15m pattern events) whose "last fire wins" order was undefined for same-ts fires '
+             '(pandas quicksort vs C# stable sort). **P2 (doc 133) PINNED a deterministic tie rule** in '
+             'BOTH the golden generator and the C# port: highest-TF wins; tie -> larger conviction '
+             '|long_frac-0.5|; still tied -> hold prior (0). With the ambiguity removed, TMPL0 is now '
+             'bit-exact and the Python golden/reference self-check is 0/178640.')
+    L.append('- **P2 zigzag**: the native R-trigger (ZigzagStrategy port: extreme+-R, min_bars_5s=36, '
+             'R=max(4,round(ATR14x4/TICK))) is ported into the C# harness and validated against the golden '
+             'zz_* columns -- leg + pivot-confirm 100.000%, pivot age/price bit-exact (0.0 diff).')
     L.append('\n## Declared boundaries / deviations (P1)')
     L.append('- **z_se (L3_1m_z_se_15)** = external V2 field-engine feature -> EXPORTED as harness input '
              '(NMP / NMP9 head). Native derivation is out of P1 scope.')

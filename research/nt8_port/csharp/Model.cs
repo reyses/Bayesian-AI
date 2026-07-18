@@ -9,6 +9,7 @@ namespace Nt8Port
         public int Row; public long Ts; public bool IsLong; public double Value;
         public double PivotAgeMin; public int SigWithLeg; public double Tod;
         public string Det;
+        public long Tf;   // TMPL0 event timeframe in seconds (60/300/900); 0 for non-TMPL0 (P2 tie rule)
     }
 
     struct PriorDay { public double High, Low, Close, Poc, Vah, Val; public bool HasProfile; }

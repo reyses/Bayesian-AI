@@ -143,102 +143,102 @@
  "selfcheck": [
   {
    "day": "2024_01_30",
-   "mismatch": 6,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_03_06",
-   "mismatch": 2,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_04_15",
-   "mismatch": 3,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_05_21",
-   "mismatch": 4,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_06_26",
-   "mismatch": 2,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_08_02",
-   "mismatch": 1,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_09_09",
-   "mismatch": 5,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_10_15",
-   "mismatch": 5,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_11_21",
-   "mismatch": 1,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2024_12_30",
-   "mismatch": 6,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_01_02",
-   "mismatch": 2,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_02_20",
-   "mismatch": 1,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_04_14",
-   "mismatch": 3,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_05_27",
-   "mismatch": 1,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_07_16",
-   "mismatch": 4,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_08_26",
-   "mismatch": 5,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_10_16",
-   "mismatch": 3,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2025_12_03",
-   "mismatch": 4,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2026_02_03",
-   "mismatch": 4,
+   "mismatch": 0,
    "total": 8932
   },
   {
    "day": "2026_03_19",
-   "mismatch": 5,
+   "mismatch": 0,
    "total": 8932
   }
  ]
