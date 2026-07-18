@@ -97,6 +97,59 @@ CNN vs physics comparison") is the physics-only pivot. So the V1-mapping loss:
    MTFEXH 0.79 / FREIGHT 0.75 / RIDEAGN 0.61 vs FADE 0.27-0.42) — the three
    LOST tiers are all in or adjacent to the winning family.
 
+## How each tier was STRATIFIED into existence (journal receipts, 04-04 → 04-09)
+**The method was the Shainin Red X process (Moises): contrast the GOOD trades
+against the BAD, find the dominant variable that separates them, and cut a
+tier boundary on it.** Each pass below is one Red X contrast: winners-vs-losers
+→ wick (the universal quality signal); long-holds-vs-quick → velocity 50/100;
+break-even-never-vs-reverting → the 1h AGAINST strata. The tiers ARE the
+accumulated contrast variables. (The same method runs today: the wrong-
+direction dojo is a 100-good-vs-100-bad Shainin contrast, blind, with the
+telescope as the variable search space.)
+
+The 9 didn't arrive at once — each came from a named stratification pass:
+
+1. **04-04 — the tree fracture (machine strata)**: decision tree on 79D entry
+   features fractured raw NMP into **29 tradeable + 77 skip branches** (leaf
+   150: 944 tr 81% WR $6,730; leaf 149: 341 tr 91%; leaf 147 validated 89%;
+   leaf 101: 62 tr 100%). TRADE $32,208 vs SKIP −$29,426 — proof that
+   stratification itself was the edge. The anonymous leaves were then replaced
+   by human-named physics tiers (06d14190 literally "removes tree pipeline").
+2. **04-06 — wick + resonance strata (KILL_SHOT, CASCADE)**: EDA found wick
+   rejection = the universal quality signal → KILL_SHOT validated
+   (5m_wick>0.83 ∧ 15m_wick>0.77 → 96% win-days IS AND OOS, $16/trade); then
+   the amplification ladder: base 486 tr $16 → +1h|z|>1.0 70 tr $19 →
+   +1h|z|>1.5 29 tr $24/trade = **CASCADE** (each aligned TF adds $/trade).
+   Same session: "exits throw away 97% of profit" (peak $98, captured $0.40)
+   and "trend followers hiding inside reversion entries" (43-59% of kill-shot
+   entries never break even; $150+ peak ⇒ 59% permanent) — the observation
+   that spawned the AGAINST/RIDE tiers.
+3. **04-08 — the velocity split (FADE/RIDE × CALM/MOMENTUM)**: "winners hold
+   5× longer (254 vs 52 bars); |velocity|>50 at entry = momentum" → BASE_NMP
+   split into 4 sub-tiers. Measured immediately: FADE_MOMENTUM **$16.7/trade
+   (112 tr)** vs FADE_CALM **$0.3/trade (8,868 tr)** — a 50× per-trade
+   difference the V1 port later erased by absorbing FADEMOM into FADECALM.
+   Same session: oscillation EDA (100% of long-holds cross z=0; exits moved
+   from z-position to amplitude-decay + 3-bar confirmation).
+4. **04-09 — the stratified P&L verdict table (74 OOS days)** — the original
+   per-tier truth, and the baseline the NMP9 port should be read against:
+   | tier | IS | OOS | verdict |
+   |---|---|---|---|
+   | FADE_CALM | $79,392 (79%) | $21,612 (76%) | SOLID |
+   | RIDE_AGAINST | $78,765 (44%) | $18,770 (40%) | surprise winner |
+   | KILL_SHOT | $5,746 (85%) | $960 (88%) | consistent |
+   | FADE_MOMENTUM | $1,584 (67%) | $894 (67%) | small but solid |
+   | FREIGHT_TRAIN | $1,359 (22%) | — | rare |
+   | CASCADE | $822 (91%) | $276 (85%) | rare, high WR |
+   | FADE_AGAINST | −$14,356 (25%) | −$5,032 (24%) | **POISON** |
+   | RIDE_CALM | −$1,760 (31%) | −$352 (27%) | weak |
+   | RIDE_MOMENTUM | −$235 (8%) | −$330 (0%) | dead |
+   Note the 2026-07 league CONFIRMS these strata from the label side: the
+   FADE premise is anti-aligned (0.27-0.42) exactly where FADE_AGAINST was
+   poison, and RIDEAGN aligned 0.61 where RIDE_AGAINST was the surprise
+   winner. The stratification found real structure in 2026-04; the causal
+   harness re-found it in 2026-07.
+
 ## Provenance
 `git show 06d14190:nn_v2/nightmare_blended.py` (2026-04-08). Ported V1
 reference: `blended_engine_2026_04_18` per the pipeline docstring; league port
