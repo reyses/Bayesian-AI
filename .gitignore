@@ -396,3 +396,9 @@ scratch/claude_tg_downloads/
 # large binaries never in git
 *.gguf
 research/archive/leg_clock/reports/mamba_training_dumps/
+
+# NT8 port bulky regenerables
+research/nt8_port/csharp/harness_data/
+research/nt8_port/csharp/out/
+research/nt8_port/csharp/bin/
+research/nt8_port/csharp/obj/
