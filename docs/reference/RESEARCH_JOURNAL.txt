@@ -4498,3 +4498,5 @@ next. Disk hit 0 bytes mid-run (freed via cache cleans; flag: disk plan needed).
 2026-07-18 (cont): wrong-dir dojo verdict — dumb 24t stop beats blind LLM bail net (+17.7 vs +7.5 t/ep) despite 95% catch; dipped-good knife (54% fb) is the killer; clean goods 10% fb = read exists, pricing wrong. Mamba cut-head = stop + learned VETO on dips. Doc 100.
 2026-07-18 (night): cut-loser mechanisms — re-entry FAILS unconditional (-6; repairs dipped knife +48 but re-buys losers -35); distilled path-only veto FAILS (zero test discrimination, precision=base-rate; regime flip broke p*); KEY: plain stop +17.7 itself NOT SIG at N=198 -> powered frontier on full ~20k test population dispatched (106). Memory FTS mirror live (104).
 2026-07-18 (dawn): POWERED FRONTIER DECISIVE (doc 107) — no cut policy beats never-bail at N=23,378 natural mix; doc-100 stop edge was balance artifact; cut side CLOSED, losers cut themselves; Mamba exit head = ride-length only (smaller run). Graveyard + MEMORY updated.
+
+| 2026-07-18 | Dojo Forge Harness F1 | Built local-model generational dojo harness. CUDA build failed; fallback to Ollama HTTP API successful. |

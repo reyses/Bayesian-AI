@@ -137,7 +137,7 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
         raw = read_text(path)
         ftype = frontmatter_type(raw)
 
-        if name == "MEMORY.md":
+        if name == "MEMORY.md" and "/agents/" not in path.replace("\\", "/"):
             # split by level-2 ## sections -> one row each (graveyard/§ blocks)
             body = strip_frontmatter(raw)
             parts = re.split(r"(?m)^(##\s+.*)$", body)
