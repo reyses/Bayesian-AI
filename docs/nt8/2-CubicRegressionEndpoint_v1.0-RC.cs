@@ -273,13 +273,17 @@ namespace NinjaTrader.NinjaScript.Indicators
         #endregion
     
 
+}
+
+}
+
 #region NinjaScript generated code. Neither change nor remove.
 
 namespace NinjaTrader.NinjaScript.Indicators
 {
 	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
 	{
-		private _2_CubicRegressionEndpoint_v10[] cache__2_CubicRegressionEndpoint_v10;
+		private _2_CubicRegressionEndpoint_v10[] cache_2_CubicRegressionEndpoint_v10;
 		public _2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
 		{
 			return _2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
@@ -287,11 +291,11 @@ namespace NinjaTrader.NinjaScript.Indicators
 
 		public _2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
 		{
-			if (cache__2_CubicRegressionEndpoint_v10 != null)
-				for (int idx = 0; idx < cache__2_CubicRegressionEndpoint_v10.Length; idx++)
-					if (cache__2_CubicRegressionEndpoint_v10[idx] != null && cache__2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameType == cubicTimeFrameType && cache__2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameValue == cubicTimeFrameValue && cache__2_CubicRegressionEndpoint_v10[idx].Period == period && cache__2_CubicRegressionEndpoint_v10[idx].EqualsInput(input))
-						return cache__2_CubicRegressionEndpoint_v10[idx];
-			return CacheIndicator<_2_CubicRegressionEndpoint_v10>(new _2_CubicRegressionEndpoint_v10(){ CubicTimeFrameType = cubicTimeFrameType, CubicTimeFrameValue = cubicTimeFrameValue, Period = period }, input, ref cache__2_CubicRegressionEndpoint_v10);
+			if (cache_2_CubicRegressionEndpoint_v10 != null)
+				for (int idx = 0; idx < cache_2_CubicRegressionEndpoint_v10.Length; idx++)
+					if (cache_2_CubicRegressionEndpoint_v10[idx] != null && cache_2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameType == cubicTimeFrameType && cache_2_CubicRegressionEndpoint_v10[idx].CubicTimeFrameValue == cubicTimeFrameValue && cache_2_CubicRegressionEndpoint_v10[idx].Period == period && cache_2_CubicRegressionEndpoint_v10[idx].EqualsInput(input))
+						return cache_2_CubicRegressionEndpoint_v10[idx];
+			return CacheIndicator<_2_CubicRegressionEndpoint_v10>(new _2_CubicRegressionEndpoint_v10(){ CubicTimeFrameType = cubicTimeFrameType, CubicTimeFrameValue = cubicTimeFrameValue, Period = period }, input, ref cache_2_CubicRegressionEndpoint_v10);
 		}
 	}
 }
@@ -305,7 +309,7 @@ namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
 			return indicator._2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
 		}
 
-		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input , BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
 		{
 			return indicator._2_CubicRegressionEndpoint_v10(input, cubicTimeFrameType, cubicTimeFrameValue, period);
 		}
@@ -321,7 +325,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 			return indicator._2_CubicRegressionEndpoint_v10(Input, cubicTimeFrameType, cubicTimeFrameValue, period);
 		}
 
-		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input, BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
+		public Indicators._2_CubicRegressionEndpoint_v10 _2_CubicRegressionEndpoint_v10(ISeries<double> input , BarsPeriodType cubicTimeFrameType, int cubicTimeFrameValue, int period)
 		{
 			return indicator._2_CubicRegressionEndpoint_v10(input, cubicTimeFrameType, cubicTimeFrameValue, period);
 		}
@@ -329,5 +333,3 @@ namespace NinjaTrader.NinjaScript.Strategies
 }
 
 #endregion
-
-}
