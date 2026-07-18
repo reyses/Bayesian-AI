@@ -33,6 +33,8 @@ def main(argv=None) -> int:
     ap.add_argument("query", help="FTS5 MATCH expression, e.g. \"worker background\"")
     ap.add_argument("--limit", type=int, default=15)
     ap.add_argument("--tier", choices=["stable", "context", "volatile"], default=None)
+    ap.add_argument("--tag", default=None,
+                    help="restrict to tags with this prefix, e.g. comms: / code: / report:")
     ap.add_argument("--db", default=DEFAULT_DB)
     ap.add_argument("--full", action="store_true", help="do not truncate text")
     args = ap.parse_args(argv)
@@ -53,6 +55,9 @@ def main(argv=None) -> int:
     if args.tier:
         sql += "AND l.tier = ? "
         params.append(args.tier)
+    if args.tag:
+        sql += "AND l.tag LIKE ? "
+        params.append(args.tag + "%")
     sql += "ORDER BY rank LIMIT ?"
     params.append(args.limit)
 
