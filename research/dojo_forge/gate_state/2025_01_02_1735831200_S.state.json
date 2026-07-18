@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_01_02_1735831200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a3c2e987e2d7e0de",
+      "ts": 1784383096.247017
+    },
+    {
+      "frame": 1,
+      "nonce": "e577061a911f753c",
+      "ts": 1784383139.649326
+    },
+    {
+      "frame": 2,
+      "nonce": "a36b2c0532d79899",
+      "ts": 1784383160.476752
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a3c2e987e2d7e0de",
+      "decision": "HOLD",
+      "reason": ""
+    },
+    {
+      "frame": 1,
+      "nonce": "e577061a911f753c",
+      "decision": "HOLD",
+      "reason": ""
+    },
+    {
+      "frame": 2,
+      "nonce": "a36b2c0532d79899",
+      "decision": "EXIT",
+      "reason": "** The data shows a significant and accelerating shift in market momentum over time.\n\n1.  **Momentum Reversal:** In the initial 5s and 15s frames, there was some fluctuation, but by the 1m frame, the price velocity has sharply accelerated downward (from -8.500 to -35.250), indicating a strong bearish trend is establishing itself.\n2.  **Volatility Spike:** Volatility metrics (`vol_velocity_1b` and `vol_accel_1b`) increased dramatically, suggesting high uncertainty and rapid price movement, which often precedes a sharp reversal or exhaustion of the current move.\n3.  **Reversion Probability Collapse:** The `reversion_prob_30` dropped from +0.908 (15s) to 0.000 (1m), indicating that the market is no longer likely to revert to the mean, suggesting the current trend is strong and sustained.\n\nThe combination of accelerating negative velocity and collapsing reversion probability signals that holding a position based on previous momentum is risky; an exit is warranted to mitigate potential losses or capture the new downward trajectory."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

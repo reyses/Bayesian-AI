@@ -1,0 +1,5 @@
+{"ts": 1784383172.5991216, "event": "serve", "frame": 0, "nonce": "7f9e2110c0a5e752"}
+{"ts": 1784383185.4771154, "event": "commit", "frame": 0, "nonce": "7f9e2110c0a5e752", "decision": "HOLD", "reason": ""}
+{"ts": 1784383185.4809294, "event": "serve", "frame": 1, "nonce": "fc93fed9c404f852"}
+{"ts": 1784383194.7560205, "event": "commit", "frame": 1, "nonce": "fc93fed9c404f852", "decision": "EXIT", "reason": "The data indicates a significant and sharp reversal in momentum. In the 1m bar, price velocity is strongly negative (-1.750) and price acceleration is sharply negative (-12.500), accompanied by high volume velocity (-603.000). This suggests that the previous upward or aggressive movement has stalled and reversed, signaling a potential exit point based on the observed momentum shift (confirmed by the external signal `HA-against(2m ago)`)."}
+{"ts": 1784383194.760219, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

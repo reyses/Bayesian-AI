@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_01_07_1736261820_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ca423117c778ac2c",
+      "ts": 1784385233.1285646
+    },
+    {
+      "frame": 1,
+      "nonce": "ae512ada6e0147c4",
+      "ts": 1784385241.8775654
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ca423117c778ac2c",
+      "decision": "HOLD",
+      "reason": "The provided data is a complex set of technical indicators, velocity metrics, and statistical distributions across multiple timeframes ([750], [4h], [1D]). While the specific context for the model's output is not explicitly requested (e.g., 'Should I buy/sell?'), the final line provides an immediate, localized signal: `local: px +0.00pts | leg age 0m amp 52.5pts giveback 0% | vol(5m) 13.7pts (d n/a) | ER10 0.09 | fires<=3m: HA-with(2m ago), PROPP-with(0m ago), none-else`. This indicates recent activity and specific momentum signals, suggesting a need to maintain the current position rather than exit immediately."
+    },
+    {
+      "frame": 1,
+      "nonce": "ae512ada6e0147c4",
+      "decision": "EXIT",
+      "reason": "The data shows a significant and accelerating downward price move in the most recent 1-minute bar (O-36.00), accompanied by extremely high positive volume acceleration (+3912.000 vol_accel_1b). This indicates strong bearish momentum that is actively developing, suggesting the current setup is likely exhausted or reversing. The local context also flags 'PROPP-against(1m ago)', reinforcing the signal to exit."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

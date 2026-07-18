@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_01_06_1736182040_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ff4d2efc683db08f",
+      "ts": 1784385213.584132
+    },
+    {
+      "frame": 1,
+      "nonce": "1d3ea987a9feba83",
+      "ts": 1784385223.1588166
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ff4d2efc683db08f",
+      "decision": "HOLD",
+      "reason": "The provided data consists of complex technical indicators and real-time signals. Without a specific trading objective, risk tolerance, or external market context, it is impossible to determine an optimal action (HOLD or EXIT). The current state shows moderate volatility across the 4h and 1D frames, with specific momentum and volatility metrics present. Therefore, the safest immediate action based solely on this snapshot is to HOLD and await further confirmation or a defined trading strategy execution."
+    },
+    {
+      "frame": 1,
+      "nonce": "1d3ea987a9feba83",
+      "decision": "EXIT",
+      "reason": "The most recent 1m bar shows strong bearish momentum and high volatility. Price velocity is strongly negative (-6.750), price acceleration is also negative (-6.000), and the body of the candle was significantly down (-6.50). Furthermore, volume acceleration is extremely high (+2557.000), indicating a sharp, high-conviction move. The statistical measures (e.g., ldist_skew=+1.252, ldist_kurtosis=+3.099) confirm that this movement is an extreme event with fat tails and strong skewness. This suggests the current momentum is intense and likely unsustainable for continuation in the current direction."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

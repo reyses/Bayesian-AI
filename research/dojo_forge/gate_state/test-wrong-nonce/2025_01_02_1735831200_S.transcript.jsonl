@@ -1,0 +1,2 @@
+{"ts": 1784385078.0360754, "event": "serve", "frame": 0, "nonce": "6213e199117aa63d"}
+{"ts": 1784385078.0380785, "event": "error", "reason": "nonce mismatch", "expected": "6213e199117aa63d", "got": "deadbeef12345678"}
