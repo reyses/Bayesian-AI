@@ -385,6 +385,9 @@ graceful_stop.flag
 # Mamba per-run transient artifacts (epoch pngs/csvs; keep out of git)
 research/mamba_zigzag_baseline/reports/runs/
 
+# Derived memory FTS mirror (rebuilt idempotently from the markdown; never committed)
+docs/memory/memory.db
+
 # Telegram bridge secrets + runtime state
 tools/telegram_bridge/.env
 tools/telegram_bridge/state/
