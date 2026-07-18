@@ -45,3 +45,15 @@ slowly evolving - genome, teacher weights, Mamba checkpoints, steering rules -
 one loop (play -> score vs dumb baselines on held-out -> distill -> commit ->
 next gen), git as the fossil record, reviewer gates as selection pressure.
 Nothing finished, nothing drifting unmeasured.
+
+## Act 5 - the ACTUARY (added 2026-07-18, Moises)
+The ORIGINAL genesis concept returns: bayesian_brain.py (2026-01-31, HashMap
+StateVector->WinRate, recovered in research/exit_lineage_recovered/) becomes
+the arena bookkeeper - every play by every executor registers
+(state-bucket, action) -> outcome tallies. Three jobs: (1) probability
+register P(outcome|tier x regime x action) with count-based CIs; (2)
+calibration referee (models CLAIM P, the table records what HAPPENED per
+bucket - the glass cockpit quotes both); (3) prior-setter for conditioning
+channels. GUARD (graveyard section 3): registrar + calibrator, NEVER a
+cell-picker - coarse structural buckets only, large-n cells, day-aware
+counts; per-cell selection is the overfit trap.
