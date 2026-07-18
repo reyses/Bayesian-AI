@@ -51,11 +51,36 @@ MTFEXH, MTFBRK, FADECALM.
 | FADE_CALM | ✓ FADECALM | survived (as the default-fade catch-all) |
 | — | + MTFEXH, MTFBRK | ADDED later (blended_engine_2026_04_18, 10 days after) |
 
-**So the break was exactly 3 tiers — the CNN-coupled ones** (RIDE_MOMENTUM,
-RIDE_CALM, FADE_MOMENTUM). The CNN flip head was the unmappable dependency:
-tiers 6-7 don't EXIST without its prediction, and tier 8 was only reachable
-when the CNN declined to fire. The supervised CNN stack was deleted 2026-05-28
-(RL pivot), which orphaned them permanently.
+**CORRECTION (Moises, 2026-07-18): the 9-tier ran WITHOUT the CNN — that was
+the whole point.** The CNN branch was optional (`if self.use_cnn` guard); in
+CNN-free operation tiers 6-7 (RIDE_MOMENTUM/RIDE_CALM) never fire and the
+waterfall falls through to FADE_MOMENTUM/FADE_CALM — an effective **7-tier
+physics-only ladder** (CASCADE, KILL_SHOT, FREIGHT, FADE_AGAINST, RIDE_AGAINST,
+FADE_MOMENTUM, FADE_CALM). Commit b0deb95b (2026-04-10, "physics OOS baseline +
+CNN vs physics comparison") is the physics-only pivot. So the V1-mapping loss:
+- RIDE_MOMENTUM / RIDE_CALM — never reachable CNN-free (definitionally lost).
+- **FADE_MOMENTUM — reachable CNN-free and STILL lost in the V1 port** (the
+  ported list has no FADEMOM; it was absorbed into FADECALM). The one genuinely
+  droppable-by-accident tier.
+
+## The CNN-free ladder ran LIVE — and its story founded the exit program
+- **2026-04-16 live session** (docs/daily/2026-04-16.md): after fixing the
+  frozen-SFE cache bug (live features stale since mid-Feb), the physics tier
+  engine caught its first real signal since February: **"$900 peak PnL on a
+  single trade... gave most of it back — exits are still weak, but
+  architecture works."** Moises live: "we are up to 700" → "OMG its possitive"
+  → "peaked at 900 then gaveback evething." (No giveback protection by design
+  during parity testing.)
+- That $900-peak-full-giveback trade is the founding trauma of the ENTIRE
+  exit/capture program — giveback protection, R-trigger analysis, B9, the
+  capture-ratio budget, and now the dojos all descend from it.
+- **2026-04-17**: per-tier live-aligned table (FADE_CALM 49% WR, +$939 …) —
+  the CNN-free ladder's measured performance.
+- **2026-04-30**: **`BaseNmpRunner_v1.0-RC.cs`** (recovered alongside, from
+  3d765e62) — standalone NATIVE NT8 port of the BASE_NMP tier (the trending-
+  regime specialist; $19,997 / $16.7-per-trade Python sim Jan-Mar 2026,
+  ~$50/day NT8-equivalent; z_se ROCHE=2.0 entry, |z|<0.5 / vr>1.0 exits).
+  This is the "ran it natively on NT8" artifact.
 
 ## Why this matters NOW (2026-07 lens)
 1. **The lost tiers are recoverable without the CNN**: today's calibrated
