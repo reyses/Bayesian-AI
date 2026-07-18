@@ -131,7 +131,10 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
     #   reads all; tag carries the segment owner for scoped retrieval).
     n = 0
     seg_paths = sorted(glob.glob(os.path.join(MEM_DIR, "agents", "*", "*.md")))
-    for path in sorted(glob.glob(os.path.join(MEM_DIR, "*.md"))) + seg_paths:
+    # research distillation cards (doc 119 swarm): one card per topic flows
+    # into shared recall (tier=context, tag=distilled:<topic>)
+    dist_paths = sorted(glob.glob(os.path.join(REPO, "research", "*", "DISTILLED.md")))
+    for path in sorted(glob.glob(os.path.join(MEM_DIR, "*.md"))) + seg_paths + dist_paths:
         name = os.path.basename(path)
         rel = os.path.relpath(path, REPO).replace("\\", "/")
         raw = read_text(path)
@@ -168,6 +171,9 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
         if "/agents/" in norm:
             owner = norm.split("/agents/")[1].split("/")[0]
             tag = f"{owner}:{tag}"
+        elif norm.endswith("/DISTILLED.md") and "/research/" in norm:
+            topic = norm.split("/research/")[1].split("/")[0]
+            tag = f"distilled:{topic}"
         add(
             first_date(body, path),
             tier_for_memory_file(name, ftype),
