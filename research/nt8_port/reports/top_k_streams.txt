@@ -1,0 +1,93 @@
+Base features & Coefs:
+pivot_age_min: 0.0975
+sig_with_leg: 0.4304
+tod: 0.0870
+inter: -0.1402
+consensus: 0.2633
+
+Top K Streams:
+is_RSI06: -0.3643
+is_MACD07: -0.2938
+is_EXITKMDR: -0.2595
+is_TMPL0: 0.2519
+is_ZIGZAG: 0.1929
+is_ATR09: -0.1638
+is_NMP: -0.1296
+is_DOW19: -0.0999
+is_NMP9RIDEAGAINST: 0.0843
+is_ROUND05: 0.0788
+is_NMPTFADECALM: -0.0783
+is_RENKO24: 0.0762
+is_ORB02: 0.0726
+is_VWAP03: -0.0720
+is_CTXER: -0.0604
+is_PIVOT16: -0.0585
+is_SAR23: -0.0581
+is_PTRNENGULF: 0.0560
+is_NMP9RIDECALM: 0.0510
+is_NMPTMTFBRK: 0.0495
+is_TUNNEL20: 0.0466
+is_NMP9FADEAGAINST: 0.0466
+
+Normalization (mu, sd):
+pivot_age_min - mu: 52.1754, sd: 38.3792
+sig_with_leg - mu: 0.5084, sd: 0.4999
+tod - mu: 0.4515, sd: 0.2958
+inter - mu: 26.6785, sd: 38.0839
+consensus - mu: 13.6748, sd: 5.4638
+is_ADX08 - mu: 0.0015, sd: 0.0386
+is_ATR09 - mu: 0.0009, sd: 0.0303
+is_CROSS11 - mu: 0.0005, sd: 0.0227
+is_CTXER - mu: 0.0239, sd: 0.1528
+is_CURVE - mu: 0.0272, sd: 0.1626
+is_DOW19 - mu: 0.0375, sd: 0.1901
+is_EXITKMDR - mu: 0.0224, sd: 0.1481
+is_EXITTIMESTOP - mu: 0.0030, sd: 0.0543
+is_FIB17 - mu: 0.0001, sd: 0.0108
+is_FOOTPRINTIMB - mu: 0.0000, sd: 0.0000
+is_HNS22 - mu: 0.0002, sd: 0.0135
+is_MACD07 - mu: 0.0101, sd: 0.1002
+is_NMP - mu: 0.0108, sd: 0.1034
+is_NMP9CASCADE - mu: 0.0001, sd: 0.0098
+is_NMP9FADEAGAINST - mu: 0.0016, sd: 0.0399
+is_NMP9FADECALM - mu: 0.0008, sd: 0.0282
+is_NMP9FADEMOM - mu: 0.0004, sd: 0.0210
+is_NMP9FREIGHT - mu: 0.0009, sd: 0.0299
+is_NMP9KILLSHOT - mu: 0.0003, sd: 0.0183
+is_NMP9RIDEAGAINST - mu: 0.0043, sd: 0.0653
+is_NMP9RIDECALM - mu: 0.0021, sd: 0.0457
+is_NMP9RIDEMOM - mu: 0.0010, sd: 0.0312
+is_NMPLAMBDA - mu: 0.0114, sd: 0.1061
+is_NMPTCASCADE - mu: 0.0009, sd: 0.0295
+is_NMPTFADEAGN - mu: 0.0012, sd: 0.0350
+is_NMPTFADECALM - mu: 0.0212, sd: 0.1440
+is_NMPTFREIGHT - mu: 0.0020, sd: 0.0451
+is_NMPTKILLSHOT - mu: 0.0029, sd: 0.0540
+is_NMPTMTFBRK - mu: 0.0022, sd: 0.0470
+is_NMPTMTFEXH - mu: 0.0009, sd: 0.0299
+is_NMPTRIDEAGN - mu: 0.0208, sd: 0.1428
+is_OHLC01 - mu: 0.0006, sd: 0.0250
+is_ORB02 - mu: 0.0006, sd: 0.0236
+is_PIVOT16 - mu: 0.0003, sd: 0.0177
+is_PROPTURN - mu: 0.0312, sd: 0.1738
+is_PROPTURNP - mu: 0.1725, sd: 0.3778
+is_PTRNENGULF - mu: 0.0317, sd: 0.1753
+is_PTRNHAMMER - mu: 0.0045, sd: 0.0669
+is_RENKO24 - mu: 0.1626, sd: 0.3690
+is_ROUND05 - mu: 0.0330, sd: 0.1785
+is_RSI06 - mu: 0.0154, sd: 0.1232
+is_SAR23 - mu: 0.0382, sd: 0.1916
+is_SCALP18 - mu: 0.0001, sd: 0.0079
+is_SEASON12 - mu: 0.0005, sd: 0.0232
+is_SQZ04 - mu: 0.0002, sd: 0.0131
+is_TMPL0 - mu: 0.1601, sd: 0.3667
+is_TUNNEL20 - mu: 0.0363, sd: 0.1870
+is_TURNCLIMAX - mu: 0.0026, sd: 0.0506
+is_TURNHA - mu: 0.0536, sd: 0.2252
+is_TURNSWEEP - mu: 0.0023, sd: 0.0475
+is_VA13 - mu: 0.0002, sd: 0.0133
+is_VP01 - mu: 0.0003, sd: 0.0170
+is_VWAP03 - mu: 0.0318, sd: 0.1755
+is_VWMA10 - mu: 0.0006, sd: 0.0236
+is_ZIGZAG - mu: 0.0049, sd: 0.0699
+is_ZONE21 - mu: 0.0030, sd: 0.0545
