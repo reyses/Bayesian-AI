@@ -18,6 +18,16 @@ ORDER = ['ZIGZAG', 'ORB-02', 'SEASON-12', 'VWAP-03', 'OHLC-01', 'PIVOT-16',
          'SAR-23', 'SQZ-04', 'RSI-06', 'MACD-07', 'SCALP-18', 'RENKO-24',
          'FIB-17', 'ZONE-21', 'VP-01', 'VA-13', 'HNS-22', 'CURVE', 'ADX08']
 
+# Auto-discover every other saved rows parquet (NMP/NMPT/NMP9/TMPL0/PROPTURNP/
+# turn-batch/...) so the canonical league always reflects the full roster —
+# 2026-07-18: added so the ExNMP (NMP9) ladder folds into the dossier.
+_covered = {d.replace('-', '') for d in ORDER}
+_extra = sorted(
+    os.path.basename(p)[len('signal_rows_'):-len('.parquet')]
+    for p in glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    '..', 'reports', 'signal_rows_*.parquet')))
+ORDER += [e for e in _extra if e not in _covered]
+
 lblf = {os.path.basename(f)[9:19]: f
         for f in glob.glob(os.path.join(dsp.LBL, 'ai_picks_*_multi.json'))}
 lines = ['# Dossier signal league — direction agreement with AI labels',
@@ -43,4 +53,4 @@ for det in ORDER:
                  f'- P-terciles: {ts}\n- coefs: {r["coefs"]}')
 with open(os.path.join(dsp.REP, 'dossier_signal_league.md'), 'w', encoding='utf-8') as f:
     f.write('\n'.join(lines))
-print('wrote complete 12-stream dossier_signal_league.md')
+print(f'wrote complete {len(ORDER)}-stream dossier_signal_league.md')
