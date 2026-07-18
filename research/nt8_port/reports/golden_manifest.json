@@ -1,0 +1,492 @@
+{
+ "generated_by": "research/nt8_port/tools/golden_vector_gen.py",
+ "combiner_n_fires": 1074191,
+ "combiner_n_train": 461656,
+ "n_streams": 56,
+ "K": 22,
+ "topk": [
+  "RSI06",
+  "MACD07",
+  "EXITKMDR",
+  "TMPL0",
+  "ZIGZAG",
+  "ATR09",
+  "NMP",
+  "DOW19",
+  "NMP9RIDEAGAINST",
+  "ROUND05",
+  "NMPTFADECALM",
+  "RENKO24",
+  "ORB02",
+  "VWAP03",
+  "CTXER",
+  "PIVOT16",
+  "SAR23",
+  "PTRNENGULF",
+  "NMP9RIDECALM",
+  "NMPTMTFBRK",
+  "TUNNEL20",
+  "NMP9FADEAGAINST"
+ ],
+ "topk_mass_target": 0.8,
+ "total_stream_mass": 3.3024615847543313,
+ "total_all_mass": 4.3208511146616075,
+ "note_grand_total": "grand-total interpretation is degenerate: stream_mass 3.302 < 0.80*all_mass 3.457",
+ "stream_ranking": [
+  [
+   "RSI06",
+   0.3643
+  ],
+  [
+   "MACD07",
+   0.2938
+  ],
+  [
+   "EXITKMDR",
+   0.2595
+  ],
+  [
+   "TMPL0",
+   0.2519
+  ],
+  [
+   "ZIGZAG",
+   0.1929
+  ],
+  [
+   "ATR09",
+   0.1638
+  ],
+  [
+   "NMP",
+   0.1296
+  ],
+  [
+   "DOW19",
+   0.0999
+  ],
+  [
+   "NMP9RIDEAGAINST",
+   0.0843
+  ],
+  [
+   "ROUND05",
+   0.0788
+  ],
+  [
+   "NMPTFADECALM",
+   0.0783
+  ],
+  [
+   "RENKO24",
+   0.0762
+  ],
+  [
+   "ORB02",
+   0.0726
+  ],
+  [
+   "VWAP03",
+   0.072
+  ],
+  [
+   "CTXER",
+   0.0604
+  ],
+  [
+   "PIVOT16",
+   0.0585
+  ],
+  [
+   "SAR23",
+   0.0581
+  ],
+  [
+   "PTRNENGULF",
+   0.056
+  ],
+  [
+   "NMP9RIDECALM",
+   0.051
+  ],
+  [
+   "NMPTMTFBRK",
+   0.0495
+  ],
+  [
+   "TUNNEL20",
+   0.0466
+  ],
+  [
+   "NMP9FADEAGAINST",
+   0.0466
+  ],
+  [
+   "NMP9RIDEMOM",
+   0.046
+  ],
+  [
+   "TURNCLIMAX",
+   0.0427
+  ],
+  [
+   "TURNHA",
+   0.0412
+  ],
+  [
+   "NMP9FADEMOM",
+   0.0403
+  ],
+  [
+   "NMP9FREIGHT",
+   0.037
+  ],
+  [
+   "NMP9FADECALM",
+   0.0363
+  ],
+  [
+   "NMP9KILLSHOT",
+   0.034
+  ],
+  [
+   "NMPTFREIGHT",
+   0.0339
+  ],
+  [
+   "ZONE21",
+   0.0338
+  ],
+  [
+   "NMPTMTFEXH",
+   0.0327
+  ],
+  [
+   "NMPTRIDEAGN",
+   0.0317
+  ],
+  [
+   "PROPTURN",
+   0.025
+  ],
+  [
+   "CURVE",
+   0.0249
+  ],
+  [
+   "SCALP18",
+   0.0249
+  ],
+  [
+   "NMPTKILLSHOT",
+   0.0233
+  ],
+  [
+   "NMPTCASCADE",
+   0.0197
+  ],
+  [
+   "PROPTURNP",
+   0.0192
+  ],
+  [
+   "NMP9CASCADE",
+   0.016
+  ],
+  [
+   "TURNSWEEP",
+   0.0139
+  ],
+  [
+   "VWMA10",
+   0.0121
+  ],
+  [
+   "VA13",
+   0.0109
+  ],
+  [
+   "NMPTFADEAGN",
+   0.0102
+  ],
+  [
+   "ADX08",
+   0.0099
+  ],
+  [
+   "FIB17",
+   0.0072
+  ],
+  [
+   "VP01",
+   0.0071
+  ],
+  [
+   "NMPLAMBDA",
+   0.006
+  ],
+  [
+   "CROSS11",
+   0.0055
+  ],
+  [
+   "SQZ04",
+   0.0053
+  ],
+  [
+   "OHLC01",
+   0.0032
+  ],
+  [
+   "HNS22",
+   0.0017
+  ],
+  [
+   "PTRNHAMMER",
+   0.0013
+  ],
+  [
+   "EXITTIMESTOP",
+   0.0006
+  ],
+  [
+   "SEASON12",
+   0.0006
+  ],
+  [
+   "FOOTPRINTIMB",
+   0.0
+  ]
+ ],
+ "excluded_external": [
+  "ADX08",
+  "FOOTPRINTIMB"
+ ],
+ "frozen_top_decile_threshold": 0.7339268693710619,
+ "top_decile_pctl": 90.0,
+ "zz_min_bars_5s": 36,
+ "reference_days": [
+  "2024_01_30",
+  "2024_03_06",
+  "2024_04_15",
+  "2024_05_21",
+  "2024_06_26",
+  "2024_08_02",
+  "2024_09_09",
+  "2024_10_15",
+  "2024_11_21",
+  "2024_12_30",
+  "2025_01_02",
+  "2025_02_20",
+  "2025_04_14",
+  "2025_05_27",
+  "2025_07_16",
+  "2025_08_26",
+  "2025_10_16",
+  "2025_12_03",
+  "2026_02_03",
+  "2026_03_19"
+ ],
+ "day_sanity": [
+  {
+   "day": "2024_01_30",
+   "bars": 406,
+   "fires": 1634,
+   "topk_fires": 1124,
+   "entries": 76,
+   "pivots": 13,
+   "min_rev_ticks": 112,
+   "sha": "cac95cb199686b65"
+  },
+  {
+   "day": "2024_03_06",
+   "bars": 406,
+   "fires": 1979,
+   "topk_fires": 1277,
+   "entries": 128,
+   "pivots": 32,
+   "min_rev_ticks": 104,
+   "sha": "596d0fa6f6fa0ee4"
+  },
+  {
+   "day": "2024_04_15",
+   "bars": 406,
+   "fires": 1958,
+   "topk_fires": 1279,
+   "entries": 132,
+   "pivots": 23,
+   "min_rev_ticks": 150,
+   "sha": "17ba5d3f8e7c8c2e"
+  },
+  {
+   "day": "2024_05_21",
+   "bars": 406,
+   "fires": 1287,
+   "topk_fires": 904,
+   "entries": 37,
+   "pivots": 5,
+   "min_rev_ticks": 118,
+   "sha": "461da1e1a99f198d"
+  },
+  {
+   "day": "2024_06_26",
+   "bars": 406,
+   "fires": 1872,
+   "topk_fires": 1255,
+   "entries": 113,
+   "pivots": 19,
+   "min_rev_ticks": 119,
+   "sha": "8ef504e5eb3129b1"
+  },
+  {
+   "day": "2024_08_02",
+   "bars": 406,
+   "fires": 3089,
+   "topk_fires": 1835,
+   "entries": 222,
+   "pivots": 14,
+   "min_rev_ticks": 406,
+   "sha": "ae3c444d29fb6563"
+  },
+  {
+   "day": "2024_09_09",
+   "bars": 406,
+   "fires": 1987,
+   "topk_fires": 1276,
+   "entries": 127,
+   "pivots": 8,
+   "min_rev_ticks": 169,
+   "sha": "3f6701655ac8b776"
+  },
+  {
+   "day": "2024_10_15",
+   "bars": 406,
+   "fires": 2067,
+   "topk_fires": 1312,
+   "entries": 162,
+   "pivots": 29,
+   "min_rev_ticks": 98,
+   "sha": "597deed3f2ab6f72"
+  },
+  {
+   "day": "2024_11_21",
+   "bars": 406,
+   "fires": 2207,
+   "topk_fires": 1393,
+   "entries": 162,
+   "pivots": 19,
+   "min_rev_ticks": 162,
+   "sha": "5a49e31a1ac678b7"
+  },
+  {
+   "day": "2024_12_30",
+   "bars": 406,
+   "fires": 2272,
+   "topk_fires": 1417,
+   "entries": 164,
+   "pivots": 15,
+   "min_rev_ticks": 215,
+   "sha": "78bf2c1181163baf"
+  },
+  {
+   "day": "2025_01_02",
+   "bars": 406,
+   "fires": 2753,
+   "topk_fires": 1660,
+   "entries": 213,
+   "pivots": 25,
+   "min_rev_ticks": 203,
+   "sha": "32e3a95cc4585ffe"
+  },
+  {
+   "day": "2025_02_20",
+   "bars": 406,
+   "fires": 1861,
+   "topk_fires": 1206,
+   "entries": 123,
+   "pivots": 28,
+   "min_rev_ticks": 104,
+   "sha": "a2ee362190a15e57"
+  },
+  {
+   "day": "2025_04_14",
+   "bars": 406,
+   "fires": 2967,
+   "topk_fires": 1757,
+   "entries": 215,
+   "pivots": 23,
+   "min_rev_ticks": 218,
+   "sha": "8375b064092d2827"
+  },
+  {
+   "day": "2025_05_27",
+   "bars": 406,
+   "fires": 1557,
+   "topk_fires": 1007,
+   "entries": 53,
+   "pivots": 3,
+   "min_rev_ticks": 201,
+   "sha": "32570a0a13ebf0fa"
+  },
+  {
+   "day": "2025_07_16",
+   "bars": 406,
+   "fires": 1977,
+   "topk_fires": 1251,
+   "entries": 116,
+   "pivots": 25,
+   "min_rev_ticks": 106,
+   "sha": "d4da576e8ba9c7ce"
+  },
+  {
+   "day": "2025_08_26",
+   "bars": 406,
+   "fires": 1608,
+   "topk_fires": 1087,
+   "entries": 64,
+   "pivots": 22,
+   "min_rev_ticks": 82,
+   "sha": "e89912725169a385"
+  },
+  {
+   "day": "2025_10_16",
+   "bars": 406,
+   "fires": 3078,
+   "topk_fires": 1858,
+   "entries": 274,
+   "pivots": 40,
+   "min_rev_ticks": 167,
+   "sha": "cb1fc4835bf2177e"
+  },
+  {
+   "day": "2025_12_03",
+   "bars": 406,
+   "fires": 1989,
+   "topk_fires": 1247,
+   "entries": 114,
+   "pivots": 8,
+   "min_rev_ticks": 287,
+   "sha": "c78f7c0939ec2eff"
+  },
+  {
+   "day": "2026_02_03",
+   "bars": 406,
+   "fires": 2634,
+   "topk_fires": 1596,
+   "entries": 240,
+   "pivots": 33,
+   "min_rev_ticks": 176,
+   "sha": "e3fb49f8a05434dd"
+  },
+  {
+   "day": "2026_03_19",
+   "bars": 406,
+   "fires": 2723,
+   "topk_fires": 1630,
+   "entries": 190,
+   "pivots": 6,
+   "min_rev_ticks": 498,
+   "sha": "46e076938fe935a1"
+  }
+ ]
+}
