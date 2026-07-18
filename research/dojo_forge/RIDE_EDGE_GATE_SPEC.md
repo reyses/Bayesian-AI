@@ -146,3 +146,28 @@ cheaply, by design.
 Past the gate: evolve ONE thing per generation (genome XOR teacher XOR Mamba
 ckpt XOR steering XOR priors), freeze the rest, measure, commit. The gate proves
 the edge exists; one-DOF evolution keeps you able to prove what carries it.
+
+---
+# AMENDMENT v2.1 (reviewer adversarial pass, 2026-07-18 — PRE-SCORING, hence legal per section 0)
+1. **METRIC PRE-REGISTERED**: the gate metric is ONE number — per-DAY mean of
+   (episode capture ratio minus same-episode 5m-hold capture ratio), aggregated
+   as the day-level mean with day-block bootstrap CI. No alternates, no
+   median/mode substitution at verdict time (mode/median still REPORTED,
+   never judged on).
+2. **ALPHA FEASIBILITY**: before any scoring, run the Q0 triangle: alpha vs
+   power vs available ride-pool days. If alpha=0.01 is infeasible on the
+   full pool, the pre-registered alpha becomes 0.05 WITH the deflated-Sharpe
+   requirement retained. Whichever alpha Q0 certifies is frozen here by the
+   feasibility artifact (committed alongside).
+3. **LOCKBOX REGIME CHECK**: the lockbox window must span >= 2 of the actuary
+   vol-regime buckets by its own composition (checked at carve time, logged).
+   If the most-recent-contiguous window is regime-pure, extend it backward
+   until it spans, keeping contiguity.
+4. **ATTRITION / INTENT-TO-TREAT**: every episode nominated to a fold is
+   scored. A crashed/timed-out episode counts at its worst-case bound; >5%
+   attrition in any fold invalidates the fold (re-run required).
+5. **LEDGER BRANCH FIXED**: option (b) is THE rule — dev-rotation holdout for
+   all evolutionary looks; the true gate consults the LOCKBOX exactly once.
+   The OBF branch is struck.
+6. Determinism: gate runs use fixed seeds + temperature 0; the gate record
+   includes the harness commit hash and model blob hashes.
