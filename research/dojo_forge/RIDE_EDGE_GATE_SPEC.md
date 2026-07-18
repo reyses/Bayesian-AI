@@ -171,3 +171,16 @@ the edge exists; one-DOF evolution keeps you able to prove what carries it.
    The OBF branch is struck.
 6. Determinism: gate runs use fixed seeds + temperature 0; the gate record
    includes the harness commit hash and model blob hashes.
+
+# AMENDMENT v2.2 (from northstar_review.md pushbacks, 2026-07-18 — PRE-SCORING)
+7. **Student bake-off (extends Q2.5)**: the trivial probe student (linear /
+   tiny GRU) is not merely derisking — it is a CANDIDATE. Mamba must BEAT the
+   probe on the same distillation targets (parity track, day-block CI) to
+   justify its architectural complexity. If the GRU matches Mamba, ship the
+   GRU. ("Why Mamba specifically?" must be answered with a measured delta,
+   not throughput alone.)
+8. **Sim-to-live gap sizing (constrains the downstream RL-polish)**: the
+   offline-teacher -> live-student distribution gap is real; the RL-polish
+   phase is where live microstructure enters and its BUDGET must be sized by
+   a measured gap (paper-trade parity run: distilled-student decisions on
+   live-replayed vs offline-identical days), not assumed "light."
