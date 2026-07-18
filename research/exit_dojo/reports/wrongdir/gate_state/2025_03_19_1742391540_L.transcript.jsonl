@@ -1,0 +1,9 @@
+{"ts": 1784342722.9393678, "event": "serve", "frame": 0, "nonce": "ea0f69d9b154a922"}
+{"ts": 1784342728.6685174, "event": "commit", "frame": 0, "nonce": "ea0f69d9b154a922", "decision": "HOLD", "reason": "at entry, mixed signals, no adverse move yet"}
+{"ts": 1784342733.6871428, "event": "serve", "frame": 1, "nonce": "e5505e81da0e2c8f"}
+{"ts": 1784342737.0303128, "event": "commit", "frame": 1, "nonce": "e5505e81da0e2c8f", "decision": "HOLD", "reason": "px +2.25, slight favorable, thesis intact"}
+{"ts": 1784342739.1531737, "event": "serve", "frame": 2, "nonce": "69fd201b14ed01fa"}
+{"ts": 1784342744.0955179, "event": "commit", "frame": 2, "nonce": "69fd201b14ed01fa", "decision": "HOLD", "reason": "px -9.75, one dip after wick-heavy chop, only 2m in, no trend break yet"}
+{"ts": 1784342746.4041827, "event": "serve", "frame": 3, "nonce": "9ccd1412c5c537a7"}
+{"ts": 1784342752.4097855, "event": "commit", "frame": 3, "nonce": "9ccd1412c5c537a7", "decision": "EXIT", "reason": "px -33.75, giveback 107%, HA+PROPP both against, 15s z_21=-2.38 breakdown -- wrong-direction, bail"}
+{"ts": 1784342757.2103262, "event": "finish", "summary": "Entry drifted in a 2-min chop then broke down hard by t=3m: px -33.75pts, giveback 107% (fully round-tripped the leg's favorable amplitude and then some), with both HA and PROPP fire flipping to against and 15s z_21 hitting -2.38 -- a real momentum breakdown, not a normal dip, so I bailed. Next time watch for the giveback% crossing 100% combined with two independent fire signals flipping against as the trigger rather than waiting for a third confirming bar.", "exit_frame": 3, "n_commits": 4}

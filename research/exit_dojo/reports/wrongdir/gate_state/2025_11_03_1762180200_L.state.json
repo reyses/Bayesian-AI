@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_11_03_1762180200_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "41d2cbfe7e0b0dc3",
+      "ts": 1784339301.9211328
+    },
+    {
+      "frame": 1,
+      "nonce": "738eeb994e55d4cc",
+      "ts": 1784339314.4228601
+    },
+    {
+      "frame": 2,
+      "nonce": "3eff5ecfd2722e46",
+      "ts": 1784339320.529065
+    },
+    {
+      "frame": 3,
+      "nonce": "5c7f5fe5ebf4da4c",
+      "ts": 1784339328.3672378
+    },
+    {
+      "frame": 4,
+      "nonce": "a0a57cfc8f6d1bf4",
+      "ts": 1784339334.608497
+    },
+    {
+      "frame": 5,
+      "nonce": "1c9b4bbced64bcc0",
+      "ts": 1784339340.7076242
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "41d2cbfe7e0b0dc3",
+      "decision": "HOLD",
+      "reason": "at breakeven, first frame, mixed signals, too early to call wrong-direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "738eeb994e55d4cc",
+      "decision": "HOLD",
+      "reason": "price now +5.25pts, giveback down to 1%, momentum with position"
+    },
+    {
+      "frame": 2,
+      "nonce": "3eff5ecfd2722e46",
+      "decision": "HOLD",
+      "reason": "still +5.25pts, giveback rising but price holding gains, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "5c7f5fe5ebf4da4c",
+      "decision": "HOLD",
+      "reason": "px +6.00pts, giveback stable ~23%, ER10 rising, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "a0a57cfc8f6d1bf4",
+      "decision": "HOLD",
+      "reason": "px +4.25pts, giveback still contained ~19%, still positive despite CLIMAX-against fire"
+    },
+    {
+      "frame": 5,
+      "nonce": "1c9b4bbced64bcc0",
+      "decision": "EXIT",
+      "reason": "sharp reversal: px flipped from +4.25 to -21.50 in 1min, giveback 56%, 15s z_se -3.0 extreme, all fires (CLIMAX/HA/PROPP) against -- wrong-direction signature"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through the first 4 minutes while price built a favorable cushion (+4 to +6pts, giveback contained under 25%, ER10 rising) since dips looked like normal chop. At t=5m the trade flipped hard: px went from +4.25 to -21.50 in one minute, giveback jumped to 56%, the 15s bar printed a -3.0 z_se extreme with reversion_prob collapsing to 0, and CLIMAX/HA/PROPP all fired against simultaneously -- a coordinated wrong-direction signature rather than a dip, so I bailed immediately. Next time I'd watch for the combination of a giveback spike above ~40-50% together with multiple against-fires stacking in the same 1-2min window as the earliest confirm, rather than waiting to see the raw point loss."
+}

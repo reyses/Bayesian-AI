@@ -1,0 +1,320 @@
+{
+  "episode_id": "2025_07_31_1753968600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3b8b18ccee528127",
+      "ts": 1784344323.1753392
+    },
+    {
+      "frame": 1,
+      "nonce": "66200e8fb2f1d260",
+      "ts": 1784344334.1887362
+    },
+    {
+      "frame": 2,
+      "nonce": "e98e04c2f561ee4b",
+      "ts": 1784344340.8654592
+    },
+    {
+      "frame": 3,
+      "nonce": "f52d2c0712d7b293",
+      "ts": 1784344347.8058486
+    },
+    {
+      "frame": 4,
+      "nonce": "0b91131525b1df0c",
+      "ts": 1784344354.914311
+    },
+    {
+      "frame": 5,
+      "nonce": "6dfe1a0475f2a23b",
+      "ts": 1784344363.0212162
+    },
+    {
+      "frame": 6,
+      "nonce": "d398f81ff3a4caee",
+      "ts": 1784344370.6088612
+    },
+    {
+      "frame": 7,
+      "nonce": "91be091ece7bdf1e",
+      "ts": 1784344377.618316
+    },
+    {
+      "frame": 8,
+      "nonce": "4a25b45bfab669e8",
+      "ts": 1784344387.4385571
+    },
+    {
+      "frame": 9,
+      "nonce": "96bcb1bfbe662017",
+      "ts": 1784344396.6170514
+    },
+    {
+      "frame": 10,
+      "nonce": "66e47fd513449e11",
+      "ts": 1784344404.49044
+    },
+    {
+      "frame": 11,
+      "nonce": "df7c47137d388ec4",
+      "ts": 1784344414.34262
+    },
+    {
+      "frame": 12,
+      "nonce": "c3e42eaa76b8eec4",
+      "ts": 1784344422.0582519
+    },
+    {
+      "frame": 13,
+      "nonce": "35d252870cb75996",
+      "ts": 1784344429.067671
+    },
+    {
+      "frame": 14,
+      "nonce": "e7c91bf4d824520d",
+      "ts": 1784344436.6147935
+    },
+    {
+      "frame": 15,
+      "nonce": "20632b65aa0e3624",
+      "ts": 1784344445.2701836
+    },
+    {
+      "frame": 16,
+      "nonce": "9d69e1ce69be5e82",
+      "ts": 1784344452.7133956
+    },
+    {
+      "frame": 17,
+      "nonce": "659b51ed56237fe5",
+      "ts": 1784344459.7089477
+    },
+    {
+      "frame": 18,
+      "nonce": "608077b8f4b4f292",
+      "ts": 1784344469.0023723
+    },
+    {
+      "frame": 19,
+      "nonce": "c25b2255bb789af5",
+      "ts": 1784344476.991537
+    },
+    {
+      "frame": 20,
+      "nonce": "e9ce802a036fb81b",
+      "ts": 1784344486.0296853
+    },
+    {
+      "frame": 21,
+      "nonce": "8b4931d6fdd1bab2",
+      "ts": 1784344493.7596693
+    },
+    {
+      "frame": 22,
+      "nonce": "81b6c94edb8a7700",
+      "ts": 1784344501.8105683
+    },
+    {
+      "frame": 23,
+      "nonce": "ea4c79aba936b607",
+      "ts": 1784344508.3873522
+    },
+    {
+      "frame": 24,
+      "nonce": "e7e50fced9cbfbf5",
+      "ts": 1784344515.7572644
+    },
+    {
+      "frame": 25,
+      "nonce": "dc72785b6f209188",
+      "ts": 1784344525.2646227
+    },
+    {
+      "frame": 26,
+      "nonce": "f6d2ae7e525781ee",
+      "ts": 1784344532.972181
+    },
+    {
+      "frame": 27,
+      "nonce": "43917876a0d4f8df",
+      "ts": 1784344540.26416
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3b8b18ccee528127",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "66200e8fb2f1d260",
+      "decision": "HOLD",
+      "reason": "px +41.75 working strongly, giveback 0%, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "e98e04c2f561ee4b",
+      "decision": "HOLD",
+      "reason": "px +75.5, ER10 0.94 strong trend, giveback minimal"
+    },
+    {
+      "frame": 3,
+      "nonce": "f52d2c0712d7b293",
+      "decision": "HOLD",
+      "reason": "px +70 holding gains, minor pullback within noise, giveback 3%"
+    },
+    {
+      "frame": 4,
+      "nonce": "0b91131525b1df0c",
+      "decision": "HOLD",
+      "reason": "px +53.75 still deep in profit, ER10 0.96 trend intact, pullback normal at 15% giveback"
+    },
+    {
+      "frame": 5,
+      "nonce": "6dfe1a0475f2a23b",
+      "decision": "HOLD",
+      "reason": "px recovered to +64.75, giveback improved to 14%, working trade"
+    },
+    {
+      "frame": 6,
+      "nonce": "d398f81ff3a4caee",
+      "decision": "HOLD",
+      "reason": "px new high +84, thesis strongly intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "91be091ece7bdf1e",
+      "decision": "HOLD",
+      "reason": "px +79.5 still near peak, against-fires are minor noise inside a strongly profitable trade"
+    },
+    {
+      "frame": 8,
+      "nonce": "4a25b45bfab669e8",
+      "decision": "HOLD",
+      "reason": "px +75.5 still deep in profit near peak, watching PROPP flip but no structural break yet"
+    },
+    {
+      "frame": 9,
+      "nonce": "96bcb1bfbe662017",
+      "decision": "HOLD",
+      "reason": "px +70.75, consolidating within profitable band, PROPP back with"
+    },
+    {
+      "frame": 10,
+      "nonce": "66e47fd513449e11",
+      "decision": "HOLD",
+      "reason": "px +74.75 holding, ER10 cooling but no reversal toward zero yet, watching against-fires"
+    },
+    {
+      "frame": 11,
+      "nonce": "df7c47137d388ec4",
+      "decision": "HOLD",
+      "reason": "px +73.5 range-bound near highs, giveback only 24%, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "c3e42eaa76b8eec4",
+      "decision": "HOLD",
+      "reason": "px new high +80, thesis strongly intact despite low ER10 (consolidation not reversal)"
+    },
+    {
+      "frame": 13,
+      "nonce": "35d252870cb75996",
+      "decision": "HOLD",
+      "reason": "px +83 new high, ER10 low just means chop at peak not reversal"
+    },
+    {
+      "frame": 14,
+      "nonce": "e7c91bf4d824520d",
+      "decision": "HOLD",
+      "reason": "px surges to +112, big favorable move, giveback low at 10%"
+    },
+    {
+      "frame": 15,
+      "nonce": "20632b65aa0e3624",
+      "decision": "HOLD",
+      "reason": "px +89.5, giveback 28% off recent high, PROPP back with, thesis intact"
+    },
+    {
+      "frame": 16,
+      "nonce": "9d69e1ce69be5e82",
+      "decision": "HOLD",
+      "reason": "px new high +115.75, giveback 1%, thesis very intact"
+    },
+    {
+      "frame": 17,
+      "nonce": "659b51ed56237fe5",
+      "decision": "HOLD",
+      "reason": "px +109.5 near highs, fires all with-trend, giveback only 9%"
+    },
+    {
+      "frame": 18,
+      "nonce": "608077b8f4b4f292",
+      "decision": "HOLD",
+      "reason": "px +95, pullback but still deep in profit, no reversal to zero"
+    },
+    {
+      "frame": 19,
+      "nonce": "c25b2255bb789af5",
+      "decision": "HOLD",
+      "reason": "px +81 still deep in profit, cooling off but not threatening entry level"
+    },
+    {
+      "frame": 20,
+      "nonce": "e9ce802a036fb81b",
+      "decision": "HOLD",
+      "reason": "px recovers to +91, PROPP with-trend again"
+    },
+    {
+      "frame": 21,
+      "nonce": "8b4931d6fdd1bab2",
+      "decision": "HOLD",
+      "reason": "px +73.5, still well in profit, giveback only 10% of local leg"
+    },
+    {
+      "frame": 22,
+      "nonce": "81b6c94edb8a7700",
+      "decision": "HOLD",
+      "reason": "px +80.5, still comfortably in profit, no reversal signal"
+    },
+    {
+      "frame": 23,
+      "nonce": "ea4c79aba936b607",
+      "decision": "HOLD",
+      "reason": "px +57, retraced from peak but still well positive vs entry"
+    },
+    {
+      "frame": 24,
+      "nonce": "e7e50fced9cbfbf5",
+      "decision": "HOLD",
+      "reason": "px +49.25, retracing from +115 peak but still solidly positive; watching closely for further erosion"
+    },
+    {
+      "frame": 25,
+      "nonce": "dc72785b6f209188",
+      "decision": "HOLD",
+      "reason": "px +55.5, stabilized off the low, still comfortably positive"
+    },
+    {
+      "frame": 26,
+      "nonce": "f6d2ae7e525781ee",
+      "decision": "HOLD",
+      "reason": "px +51, thesis intact, no wrong-direction signature"
+    },
+    {
+      "frame": 27,
+      "nonce": "43917876a0d4f8df",
+      "decision": "HOLD",
+      "reason": "px +40.75, still meaningfully positive, no wrong-direction break"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire window -- this SHORT worked from the first minute (px +41.75 by t=1m) and kept expanding to a peak of about +116pts around t=16-17m before giving back roughly two-thirds into the high-40s/low-50s by t=23-27m. At no point did price approach or threaten the entry level (0), so there was never a wrong-direction signature to act on -- the pullbacks were profit-taking/consolidation inside a strongly favorable trade, not reversal. Next time I'd watch for the giveback ratio approaching or exceeding 100% of the CURRENT leg combined with px approaching zero (not just off a local peak) as the real wrong-direction tell, since a leg giveback spike alone (e.g. 133-140% seen mid-episode) didn't correspond to actual risk to the entry level."
+}

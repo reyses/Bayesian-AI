@@ -1,0 +1,309 @@
+{
+  "episode_id": "2025_01_20_1737390780_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c26d602da775e3b2",
+      "ts": 1784336679.8089163
+    },
+    {
+      "frame": 1,
+      "nonce": "c71c32e62f1f9970",
+      "ts": 1784336686.981837
+    },
+    {
+      "frame": 2,
+      "nonce": "cfca258d1fbe8627",
+      "ts": 1784336692.4206948
+    },
+    {
+      "frame": 3,
+      "nonce": "701939e521651915",
+      "ts": 1784336697.3901258
+    },
+    {
+      "frame": 4,
+      "nonce": "ad10c0aed778cdf7",
+      "ts": 1784336703.4945555
+    },
+    {
+      "frame": 5,
+      "nonce": "fb7d1aa1d67570db",
+      "ts": 1784336708.7588298
+    },
+    {
+      "frame": 6,
+      "nonce": "8366caf8eac2457d",
+      "ts": 1784336719.6030731
+    },
+    {
+      "frame": 7,
+      "nonce": "0c406a100535d31c",
+      "ts": 1784336726.6854656
+    },
+    {
+      "frame": 8,
+      "nonce": "2fedb3714d09c3c8",
+      "ts": 1784336732.092852
+    },
+    {
+      "frame": 9,
+      "nonce": "f18e3c905a1e4c9e",
+      "ts": 1784336738.4746993
+    },
+    {
+      "frame": 10,
+      "nonce": "238dc0bdd896e436",
+      "ts": 1784336744.8045547
+    },
+    {
+      "frame": 11,
+      "nonce": "822b70c9490c9d9d",
+      "ts": 1784336751.840356
+    },
+    {
+      "frame": 12,
+      "nonce": "33d38a19b6759607",
+      "ts": 1784336761.4904947
+    },
+    {
+      "frame": 13,
+      "nonce": "9361589905ca1b16",
+      "ts": 1784336767.8565524
+    },
+    {
+      "frame": 14,
+      "nonce": "a9ab326a37c3d5b8",
+      "ts": 1784336773.1402044
+    },
+    {
+      "frame": 15,
+      "nonce": "2626ffaa7f0b770f",
+      "ts": 1784336778.5856721
+    },
+    {
+      "frame": 16,
+      "nonce": "2881166dd06a7be6",
+      "ts": 1784336784.7747858
+    },
+    {
+      "frame": 17,
+      "nonce": "f4bd3efe3fd023ef",
+      "ts": 1784336790.015954
+    },
+    {
+      "frame": 18,
+      "nonce": "d91e76a5c43ddf37",
+      "ts": 1784336796.1308396
+    },
+    {
+      "frame": 19,
+      "nonce": "16cb6995f8147826",
+      "ts": 1784336802.558207
+    },
+    {
+      "frame": 20,
+      "nonce": "a481ab678061c1ef",
+      "ts": 1784336808.2237556
+    },
+    {
+      "frame": 21,
+      "nonce": "49bba3ac42e1931a",
+      "ts": 1784336814.1625638
+    },
+    {
+      "frame": 22,
+      "nonce": "3a57ee19b6b28e63",
+      "ts": 1784336820.0582972
+    },
+    {
+      "frame": 23,
+      "nonce": "379acf13acb9af53",
+      "ts": 1784336826.4635134
+    },
+    {
+      "frame": 24,
+      "nonce": "e85af4a2b7b029a0",
+      "ts": 1784336839.031855
+    },
+    {
+      "frame": 25,
+      "nonce": "c8c5003d3a2186de",
+      "ts": 1784336846.5110912
+    },
+    {
+      "frame": 26,
+      "nonce": "0b9b8e784bd8b6e7",
+      "ts": 1784336852.7036235
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c26d602da775e3b2",
+      "decision": "HOLD",
+      "reason": "entry frame, no adverse move yet, thesis untested"
+    },
+    {
+      "frame": 1,
+      "nonce": "c71c32e62f1f9970",
+      "decision": "HOLD",
+      "reason": "small -0.5pt dip, giveback only 11%, no structural break"
+    },
+    {
+      "frame": 2,
+      "nonce": "cfca258d1fbe8627",
+      "decision": "HOLD",
+      "reason": "back to +0.25, choppy but not breaking down"
+    },
+    {
+      "frame": 3,
+      "nonce": "701939e521651915",
+      "decision": "HOLD",
+      "reason": "-0.75pt, still choppy noise band, no directional break"
+    },
+    {
+      "frame": 4,
+      "nonce": "ad10c0aed778cdf7",
+      "decision": "HOLD",
+      "reason": "+5.5pt, thesis working, strong push in favorable direction"
+    },
+    {
+      "frame": 5,
+      "nonce": "fb7d1aa1d67570db",
+      "decision": "HOLD",
+      "reason": "+6.0pt, trend confirming, no reversal signature"
+    },
+    {
+      "frame": 6,
+      "nonce": "8366caf8eac2457d",
+      "decision": "HOLD",
+      "reason": "+4.0pt, still well in profit, minor pullback from peak"
+    },
+    {
+      "frame": 7,
+      "nonce": "0c406a100535d31c",
+      "decision": "HOLD",
+      "reason": "+4.25pt, holding gains, range-bound consolidation not breakdown"
+    },
+    {
+      "frame": 8,
+      "nonce": "2fedb3714d09c3c8",
+      "decision": "HOLD",
+      "reason": "+8.0pt new high, trend intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "f18e3c905a1e4c9e",
+      "decision": "HOLD",
+      "reason": "+4.5pt, pullback from +8 high but still solidly positive, normal retracement"
+    },
+    {
+      "frame": 10,
+      "nonce": "238dc0bdd896e436",
+      "decision": "HOLD",
+      "reason": "+1.25pt, still above entry despite giveback, watching closely for breakdown below 0"
+    },
+    {
+      "frame": 11,
+      "nonce": "822b70c9490c9d9d",
+      "decision": "HOLD",
+      "reason": "-1.75pt, gave back the gains but only slightly negative, lambda still positive on fast TFs suggesting mean reversion pull, not a clean breakdown yet"
+    },
+    {
+      "frame": 12,
+      "nonce": "33d38a19b6759607",
+      "decision": "HOLD",
+      "reason": "-1.0pt, z_21 stretched to -1.98 with positive lambda suggesting reversion bounce likely, small loss so far"
+    },
+    {
+      "frame": 13,
+      "nonce": "9361589905ca1b16",
+      "decision": "HOLD",
+      "reason": "+3.0pt, bounced back as predicted, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "a9ab326a37c3d5b8",
+      "decision": "HOLD",
+      "reason": "0.0pt, chopping around breakeven, no clean breakdown"
+    },
+    {
+      "frame": 15,
+      "nonce": "2626ffaa7f0b770f",
+      "decision": "HOLD",
+      "reason": "+5.0pt, back to strength, trend resuming"
+    },
+    {
+      "frame": 16,
+      "nonce": "2881166dd06a7be6",
+      "decision": "HOLD",
+      "reason": "+4.25pt, consolidating gains in a healthy range"
+    },
+    {
+      "frame": 17,
+      "nonce": "f4bd3efe3fd023ef",
+      "decision": "HOLD",
+      "reason": "+5.5pt, thesis intact, steady range near highs"
+    },
+    {
+      "frame": 18,
+      "nonce": "d91e76a5c43ddf37",
+      "decision": "HOLD",
+      "reason": "+7.0pt, pushing to new highs, strong trend"
+    },
+    {
+      "frame": 19,
+      "nonce": "16cb6995f8147826",
+      "decision": "HOLD",
+      "reason": "+6.75pt, holding near highs, thesis intact"
+    },
+    {
+      "frame": 20,
+      "nonce": "a481ab678061c1ef",
+      "decision": "HOLD",
+      "reason": "+13.25pt, strong breakout, trend accelerating"
+    },
+    {
+      "frame": 21,
+      "nonce": "49bba3ac42e1931a",
+      "decision": "HOLD",
+      "reason": "+9.0pt, healthy pullback from +13 peak, still well in profit"
+    },
+    {
+      "frame": 22,
+      "nonce": "3a57ee19b6b28e63",
+      "decision": "HOLD",
+      "reason": "+5.25pt, giving back more of the spike but still clearly positive, lambda still positive"
+    },
+    {
+      "frame": 23,
+      "nonce": "379acf13acb9af53",
+      "decision": "HOLD",
+      "reason": "-0.5pt, spike fully round-tripped from +13 high but net still ~breakeven, not yet a losing wrong-direction signature"
+    },
+    {
+      "frame": 24,
+      "nonce": "e85af4a2b7b029a0",
+      "decision": "HOLD",
+      "reason": "0.0pt, breakeven, lambda still net positive on 1m, not confirmed breakdown"
+    },
+    {
+      "frame": 25,
+      "nonce": "c8c5003d3a2186de",
+      "decision": "HOLD",
+      "reason": "+1.75pt, small recovery, still choppy but positive"
+    },
+    {
+      "frame": 26,
+      "nonce": "0b9b8e784bd8b6e7",
+      "decision": "EXIT",
+      "reason": "px -13.5pt, new worst level by far (prior max drawdown was only -1.75), 5s reversion_prob crashed to 0.141 (vs 0.85-0.99 on all prior dips), z_se -2.9 stretched with KMDR confirming continuation not reversal -- this looks like a genuine breakdown, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 26,
+  "finished": true,
+  "summary": "Held through several normal dips (each recovering, reversion_prob staying 0.85-0.99 and lambda staying positive) while the trade ran as high as +13.25pts. Bailed at frame 26 when price suddenly broke to -13.5pts -- a new worst level by far, more than 7x any prior drawdown -- and critically the 5s reversion_prob collapsed to 0.141 (versus 0.85-0.99 on every earlier dip) with KMDR confirming continuation rather than reversal. That combination (unprecedented adverse magnitude + collapsed reversion probability + confirming momentum detector) was the wrong-direction signature, distinct from the shallow high-reversion-prob dips that preceded it. Next time I'd watch reversion_prob_30 on the fast timeframe as the primary discriminator between a normal dip and a real breakdown, rather than raw point count alone."
+}

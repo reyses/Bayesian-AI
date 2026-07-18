@@ -1,0 +1,7 @@
+{"ts": 1784341862.6045103, "event": "serve", "frame": 0, "nonce": "cf7ca034d7194bab"}
+{"ts": 1784341866.5401323, "event": "commit", "frame": 0, "nonce": "cf7ca034d7194bab", "decision": "HOLD", "reason": "entry frame, no adverse move yet"}
+{"ts": 1784341868.7836435, "event": "serve", "frame": 1, "nonce": "dc98ebfef7f555f5"}
+{"ts": 1784341876.3436694, "event": "commit", "frame": 1, "nonce": "dc98ebfef7f555f5", "decision": "HOLD", "reason": "1m in, -20.75pts dip, still early, no confirmed trend reversal"}
+{"ts": 1784341879.036818, "event": "serve", "frame": 2, "nonce": "1554deb26a020118"}
+{"ts": 1784341889.5667572, "event": "commit", "frame": 2, "nonce": "1554deb26a020118", "decision": "EXIT", "reason": "monotonic worsening 0 -> -20.75 -> -38.5pts, giveback 101% of leg amp, trend accelerating against position - wrong direction"}
+{"ts": 1784341894.7340434, "event": "finish", "summary": "Bailed at t=2m (-38.5pts). The tell was a clean monotonic deterioration across all 3 frames (0 -> -20.75 -> -38.5pts) with giveback hitting 101% of the leg's favorable amplitude - the trade never showed any favorable excursion worth defending, it just went straight against entry with accelerating 1m body/velocity in the adverse direction. Would watch for: any frame where price stalls or ticks back favorable before giving back >100% of amplitude, which would argue for a dip-and-hold instead of a same-direction bail.", "exit_frame": 2, "n_commits": 3}

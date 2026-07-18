@@ -1,0 +1,67 @@
+{
+  "episode_id": "2026_02_11_1770820260_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a0ff50e7629dfd2f",
+      "ts": 1784340227.060754
+    },
+    {
+      "frame": 1,
+      "nonce": "dd3f2eafec4ead6f",
+      "ts": 1784340235.3859375
+    },
+    {
+      "frame": 2,
+      "nonce": "0b9fe47c8738f4ef",
+      "ts": 1784340242.4282176
+    },
+    {
+      "frame": 3,
+      "nonce": "f91e0156f67bf48e",
+      "ts": 1784340259.7119198
+    },
+    {
+      "frame": 4,
+      "nonce": "479d2d86bf9b2fb4",
+      "ts": 1784340272.0588276
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a0ff50e7629dfd2f",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "dd3f2eafec4ead6f",
+      "decision": "HOLD",
+      "reason": "small -1.5pt dip, 1m bar closed strong +14.75 with positive lambda, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "0b9fe47c8738f4ef",
+      "decision": "HOLD",
+      "reason": "px -29 giveback 65%, against fires stacking but 1m lower wick shows buyers defending, want one more frame to confirm"
+    },
+    {
+      "frame": 3,
+      "nonce": "f91e0156f67bf48e",
+      "decision": "HOLD",
+      "reason": "px stalled -30, against fires persist but not accelerating further, need one more read"
+    },
+    {
+      "frame": 4,
+      "nonce": "479d2d86bf9b2fb4",
+      "decision": "EXIT",
+      "reason": "px accelerated -30 to -76 in 1min, vol expanding (d+6.8), against-fires persistent, this is wrong-direction not a dip - bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through an initial -29/-30pt dip since against-fires (KMDR/HA/PROPP) were present but price had stalled rather than accelerated. Bailed at frame 4 when price nearly tripled its adverse excursion (-30 to -76pts) in one minute alongside rapidly expanding volatility (5m vol delta +6.8) and collapsing efficiency ratio (ER10 0.06) - that acceleration plus persistent against-fires signaled genuine wrong-direction, not a normal dip. Next time I'd weight the rate-of-change of the adverse excursion (not just its stall) more heavily and treat the ER10 collapse alongside vol expansion as an earlier acceleration warning."
+}

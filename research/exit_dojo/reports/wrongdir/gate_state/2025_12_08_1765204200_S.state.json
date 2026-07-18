@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_12_08_1765204200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c78e8737d608316e",
+      "ts": 1784339599.5546212
+    },
+    {
+      "frame": 1,
+      "nonce": "b2f7ed22c34a0703",
+      "ts": 1784339610.2179794
+    },
+    {
+      "frame": 2,
+      "nonce": "89dc4a852c0223fd",
+      "ts": 1784339634.4584746
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c78e8737d608316e",
+      "decision": "HOLD",
+      "reason": "frame 0, only 5m into leg, thesis not yet invalidated despite against-fires"
+    },
+    {
+      "frame": 1,
+      "nonce": "b2f7ed22c34a0703",
+      "decision": "HOLD",
+      "reason": "big adverse move -47.5pts but mixed fires (KMDR still with-us), want confirmation before committing to bail"
+    },
+    {
+      "frame": 2,
+      "nonce": "89dc4a852c0223fd",
+      "decision": "EXIT",
+      "reason": "3 consecutive frames of 3-vs-1 against-fires (CLIMAX/HA/PROPP vs KMDR), adverse leg amplitude growing 34->48->65pts with only 16% giveback -- persistent trend against position, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Bailed at t=2m after 3 straight frames of a consistent 3-vs-1 against-fire split (CLIMAX/HA/PROPP against vs only KMDR with), price stuck deep negative (-44 to -53pts) with the adverse leg amplitude steadily growing (34.2 -> 48.5 -> 64.8pts) and giveback stuck at only 16%, i.e. the move wasn't retracing. That combination -- persistent multi-signal agreement against the position plus an expanding, non-retracing adverse leg -- read as a genuine wrong-direction trend rather than a normal dip, so I cut it. Next time I'd watch for the giveback% starting to climb (retracement building) or the against-fires flipping/thinning before frame 2-3 as the key differentiator between a real recovery and a compounding loss."
+}

@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_09_08_1757341135_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5a613d557f9c363c",
+      "ts": 1784338751.2019382
+    },
+    {
+      "frame": 1,
+      "nonce": "d1bb482b8b47cded",
+      "ts": 1784338766.8086412
+    },
+    {
+      "frame": 2,
+      "nonce": "0c2dcf53d1f1da17",
+      "ts": 1784338774.4940207
+    },
+    {
+      "frame": 3,
+      "nonce": "729c77d7d178c93a",
+      "ts": 1784338780.4580307
+    },
+    {
+      "frame": 4,
+      "nonce": "7629c2f91c318301",
+      "ts": 1784338786.4549212
+    },
+    {
+      "frame": 5,
+      "nonce": "1689f4b3a971a20d",
+      "ts": 1784338794.1097677
+    },
+    {
+      "frame": 6,
+      "nonce": "b85b620d063c27fe",
+      "ts": 1784338813.9447737
+    },
+    {
+      "frame": 7,
+      "nonce": "f958fa761549efe6",
+      "ts": 1784338823.3611078
+    },
+    {
+      "frame": 8,
+      "nonce": "d906eae80979a217",
+      "ts": 1784338829.9025867
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5a613d557f9c363c",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, reversion_prob high across TFs, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "d1bb482b8b47cded",
+      "decision": "HOLD",
+      "reason": "px +2.5 favorable, amp growing to 55.5, giveback only 5%, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "0c2dcf53d1f1da17",
+      "decision": "HOLD",
+      "reason": "px +5.0 favorable, giveback still low 7%, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "729c77d7d178c93a",
+      "decision": "HOLD",
+      "reason": "px +11.0, giveback 0%, amp growing, strongly favorable"
+    },
+    {
+      "frame": 4,
+      "nonce": "7629c2f91c318301",
+      "decision": "HOLD",
+      "reason": "small dip to -1.0 after +11 peak, 20% giveback is normal pullback, not a trend reversal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "1689f4b3a971a20d",
+      "decision": "HOLD",
+      "reason": "2nd down frame, giveback 35%, watching closely but still within prior amplitude band, not yet confirmed reversal"
+    },
+    {
+      "frame": 6,
+      "nonce": "b85b620d063c27fe",
+      "decision": "HOLD",
+      "reason": "recovering from -8.75 to -4.0, new leg formed, low ER10 suggests chop not a clean reversal trend"
+    },
+    {
+      "frame": 7,
+      "nonce": "f958fa761549efe6",
+      "decision": "HOLD",
+      "reason": "px stable around -3.75 to -4.0, not deteriorating further, chop not trend"
+    },
+    {
+      "frame": 8,
+      "nonce": "d906eae80979a217",
+      "decision": "EXIT",
+      "reason": "px broke to -20.75, more than 2x prior worst adverse excursion (-8.75); fresh leg extending with 0% giveback = sustained one-directional move against the short, not a dip -- this is wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through the entry frame and an early favorable run to +11, then two mild pullback frames (-1, -8.75) that looked like normal give-back within the established amplitude range so I held. The signal that flipped it: after a brief bounce/chop (-4 to -3.75) price broke to -20.75, more than double the prior worst excursion, on a freshly-started leg showing 0% giveback -- i.e. a sustained one-directional move against the short with no internal recovery, not another dip. Next time I'd watch for that exact pattern earlier: a new leg with zero giveback immediately after a chop phase is the tell that the move has stopped mean-reverting and started trending against the position."
+}

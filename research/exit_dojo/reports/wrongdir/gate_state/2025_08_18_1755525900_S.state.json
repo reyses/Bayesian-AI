@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_08_18_1755525900_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "807adc77c653fea8",
+      "ts": 1784344545.7407913
+    },
+    {
+      "frame": 1,
+      "nonce": "77c264b73743c38c",
+      "ts": 1784344557.304608
+    },
+    {
+      "frame": 2,
+      "nonce": "b5194afb5ae54cab",
+      "ts": 1784344563.3851426
+    },
+    {
+      "frame": 3,
+      "nonce": "fc47db830d03241d",
+      "ts": 1784344568.7867334
+    },
+    {
+      "frame": 4,
+      "nonce": "bb15bef420a6bc06",
+      "ts": 1784344581.474855
+    },
+    {
+      "frame": 5,
+      "nonce": "5f81b30016584b6f",
+      "ts": 1784344586.7783132
+    },
+    {
+      "frame": 6,
+      "nonce": "10abf5441fbc5c54",
+      "ts": 1784344592.6860647
+    },
+    {
+      "frame": 7,
+      "nonce": "f3d3572666dfe95f",
+      "ts": 1784344599.385412
+    },
+    {
+      "frame": 8,
+      "nonce": "64240b0172ddeba6",
+      "ts": 1784344604.5881538
+    },
+    {
+      "frame": 9,
+      "nonce": "eb5de9005347923b",
+      "ts": 1784344610.0377614
+    },
+    {
+      "frame": 10,
+      "nonce": "062777ca0377ff7b",
+      "ts": 1784344616.4084768
+    },
+    {
+      "frame": 11,
+      "nonce": "4deb8ce74f6fa2d9",
+      "ts": 1784344621.843494
+    },
+    {
+      "frame": 12,
+      "nonce": "fc44198b40b7fe43",
+      "ts": 1784344627.2997532
+    },
+    {
+      "frame": 13,
+      "nonce": "ed1e43a569e18864",
+      "ts": 1784344635.749103
+    },
+    {
+      "frame": 14,
+      "nonce": "04fc3e8aaaa12500",
+      "ts": 1784344645.8831918
+    },
+    {
+      "frame": 15,
+      "nonce": "15527a012e86bdea",
+      "ts": 1784344651.8164504
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "807adc77c653fea8",
+      "decision": "HOLD",
+      "reason": "frame0 at entry, no adverse move yet, higher-TF context favorable"
+    },
+    {
+      "frame": 1,
+      "nonce": "77c264b73743c38c",
+      "decision": "HOLD",
+      "reason": "px flat, giveback only 13%, no adverse breakout"
+    },
+    {
+      "frame": 2,
+      "nonce": "b5194afb5ae54cab",
+      "decision": "HOLD",
+      "reason": "px +1.75 favorable, giveback stable at 13%"
+    },
+    {
+      "frame": 3,
+      "nonce": "fc47db830d03241d",
+      "decision": "HOLD",
+      "reason": "small -3.5pt dip, tiny vs 46.8pt historical amplitude, likely noise"
+    },
+    {
+      "frame": 4,
+      "nonce": "bb15bef420a6bc06",
+      "decision": "HOLD",
+      "reason": "px +9.00, giveback 0%, thesis working"
+    },
+    {
+      "frame": 5,
+      "nonce": "5f81b30016584b6f",
+      "decision": "HOLD",
+      "reason": "px +11.75, giveback 5%, strong favorable trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "10abf5441fbc5c54",
+      "decision": "HOLD",
+      "reason": "still net +5.25 favorable despite pullback, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "f3d3572666dfe95f",
+      "decision": "HOLD",
+      "reason": "px +15.00, new high, thesis strongly working"
+    },
+    {
+      "frame": 8,
+      "nonce": "64240b0172ddeba6",
+      "decision": "HOLD",
+      "reason": "px +12.75, giveback 32% off high but still solidly favorable"
+    },
+    {
+      "frame": 9,
+      "nonce": "eb5de9005347923b",
+      "decision": "HOLD",
+      "reason": "px +8.50 still favorable though giveback rising to 47%, watching closely"
+    },
+    {
+      "frame": 10,
+      "nonce": "062777ca0377ff7b",
+      "decision": "HOLD",
+      "reason": "px +9.50, giveback reset to 0%, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "4deb8ce74f6fa2d9",
+      "decision": "HOLD",
+      "reason": "px +16.25, new favorable high, thesis strongly intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "fc44198b40b7fe43",
+      "decision": "HOLD",
+      "reason": "px pulled back to +3.75 from +16.25 high but still net favorable; two against-fires noted, watching closely"
+    },
+    {
+      "frame": 13,
+      "nonce": "ed1e43a569e18864",
+      "decision": "HOLD",
+      "reason": "px only -0.75, essentially flat/consolidating after +16 peak, low ER suggests chop not reversal"
+    },
+    {
+      "frame": 14,
+      "nonce": "04fc3e8aaaa12500",
+      "decision": "HOLD",
+      "reason": "px back to +1.75, still favorable, low giveback 8%"
+    },
+    {
+      "frame": 15,
+      "nonce": "15527a012e86bdea",
+      "decision": "HOLD",
+      "reason": "px +7.50, both fires aligned with trade, thesis intact"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire 15-frame window. Price moved favorably early (peaked +16.25pts) and, despite several pullbacks (one brief -3.5pt dip at frame 3, one near-flat -0.75pt dip at frame 13), never showed a sustained break into negative territory relative to the trade's own amplitude (~20-27pt legs) -- each dip was reclaimed within 1-2 frames, consistent with normal chop rather than a wrong-direction reversal. Closed the window at +7.50pts favorable. Next time I'd watch for: a dip that fails to reclaim prior favorable territory within 2-3 frames, or px going net negative concurrently with multiple against-fires stacking (frame 12 had two against-fires but px stayed positive, which is why I didn't bail) -- that combination would be the real wrong-direction tell."
+}

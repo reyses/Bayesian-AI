@@ -1,0 +1,111 @@
+{
+  "episode_id": "2026_02_03_1770132300_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "dde1f39a33d1b3e1",
+      "ts": 1784340119.3216443
+    },
+    {
+      "frame": 1,
+      "nonce": "f93980030aa086e0",
+      "ts": 1784340126.8737524
+    },
+    {
+      "frame": 2,
+      "nonce": "bd355f91aff49533",
+      "ts": 1784340138.9424245
+    },
+    {
+      "frame": 3,
+      "nonce": "208581868dd14dc3",
+      "ts": 1784340149.2449179
+    },
+    {
+      "frame": 4,
+      "nonce": "1a490989e0ee619f",
+      "ts": 1784340160.3006306
+    },
+    {
+      "frame": 5,
+      "nonce": "f59566de00bb8ff1",
+      "ts": 1784340170.9669206
+    },
+    {
+      "frame": 6,
+      "nonce": "7eb1419e1105d65d",
+      "ts": 1784340181.7434776
+    },
+    {
+      "frame": 7,
+      "nonce": "37e280b7bb757c8e",
+      "ts": 1784340189.6637132
+    },
+    {
+      "frame": 8,
+      "nonce": "fecc9d9390226cbf",
+      "ts": 1784340196.175538
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "dde1f39a33d1b3e1",
+      "decision": "HOLD",
+      "reason": "Just entered, px flat at 0, thesis not yet tested"
+    },
+    {
+      "frame": 1,
+      "nonce": "f93980030aa086e0",
+      "decision": "HOLD",
+      "reason": "Early dip -53pts, 36% giveback, still within normal leg noise at t=1m"
+    },
+    {
+      "frame": 2,
+      "nonce": "bd355f91aff49533",
+      "decision": "HOLD",
+      "reason": "Giveback 58%, deep but mixed signals (HA-against vs PROPP-with), waiting for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "208581868dd14dc3",
+      "decision": "HOLD",
+      "reason": "Giveback now 66%, steadily worsening each frame - watching closely, one more frame to confirm before bail"
+    },
+    {
+      "frame": 4,
+      "nonce": "1a490989e0ee619f",
+      "decision": "HOLD",
+      "reason": "px stabilized -75/-78 range, new leg just started at extreme, watching for continuation vs bounce"
+    },
+    {
+      "frame": 5,
+      "nonce": "f59566de00bb8ff1",
+      "decision": "HOLD",
+      "reason": "Stuck -70/-85 range 3 frames, both HA and PROPP now against, but no fresh lows - watching for resolution"
+    },
+    {
+      "frame": 6,
+      "nonce": "7eb1419e1105d65d",
+      "decision": "HOLD",
+      "reason": "px recovering -73.5 to -59.5, HA-with fired, vol contracting - looks like bounce not breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "37e280b7bb757c8e",
+      "decision": "HOLD",
+      "reason": "px continues improving -59.5 to -47.25, both HA and PROPP with thesis now, clear recovery"
+    },
+    {
+      "frame": 8,
+      "nonce": "fecc9d9390226cbf",
+      "decision": "EXIT",
+      "reason": "Recovery to -47 fully failed, 92% giveback erased the bounce, fresh extreme at -80.25 (worst yet), both HA and PROPP against - wrong-direction confirmed, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through an initial dip to -78pts (66% giveback) since early legs of this kind often recover, and price did bounce back to -47pts by t=7m with both HA and PROPP firing with the short thesis. But at t=8m that recovery fully round-tripped (92% giveback of the bounce leg) and price punched to a fresh extreme of -80.25, worse than any prior frame, with both HA and PROPP flipping back against the position simultaneously - a failed-bounce/lower-low pattern that signaled the thesis was actually broken, not just dipping, so I bailed. Next time watch for a bounce that fails to hold and re-tests/exceeds the prior extreme with confirming against-fires on two independent signal families at once - that combination is a stronger wrong-direction tell than depth of drawdown alone."
+}

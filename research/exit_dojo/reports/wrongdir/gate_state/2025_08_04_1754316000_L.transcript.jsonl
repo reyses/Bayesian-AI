@@ -1,0 +1,21 @@
+{"ts": 1784338439.7577646, "event": "serve", "frame": 0, "nonce": "f27720cf98c3b996"}
+{"ts": 1784338446.576732, "event": "commit", "frame": 0, "nonce": "f27720cf98c3b996", "decision": "HOLD", "reason": "short-TF dip only, all higher TFs (5m-1D) strongly positive, giveback modest 18%"}
+{"ts": 1784338448.9978669, "event": "serve", "frame": 1, "nonce": "8927812cb2600e4a"}
+{"ts": 1784338452.837584, "event": "commit", "frame": 1, "nonce": "8927812cb2600e4a", "decision": "HOLD", "reason": "giveback improved to 7%, higher TFs still strongly positive, minor pullback"}
+{"ts": 1784338455.3197134, "event": "serve", "frame": 2, "nonce": "989aee31dee37294"}
+{"ts": 1784338460.5309854, "event": "commit", "frame": 2, "nonce": "989aee31dee37294", "decision": "HOLD", "reason": "px -8.5 still within prior chop range, no against-signal firing, PROPP with-trend"}
+{"ts": 1784338463.6608357, "event": "serve", "frame": 3, "nonce": "8f1cc1b154bb5012"}
+{"ts": 1784338468.2039518, "event": "commit", "frame": 3, "nonce": "8f1cc1b154bb5012", "decision": "HOLD", "reason": "giveback down to 3%, price recovering toward entry, thesis intact"}
+{"ts": 1784338470.595834, "event": "serve", "frame": 4, "nonce": "fbb25f47c7cbda52"}
+{"ts": 1784338481.7139666, "event": "commit", "frame": 4, "nonce": "fbb25f47c7cbda52", "decision": "HOLD", "reason": "new 5s low -13 but 1m bar closed near its high (clsInRng 0.94), looks like a wick/shakeout not breakdown; higher-TF trend still dominant"}
+{"ts": 1784338484.02862, "event": "serve", "frame": 5, "nonce": "3bbb5eca9ebac149"}
+{"ts": 1784338500.7257426, "event": "commit", "frame": 5, "nonce": "3bbb5eca9ebac149", "decision": "HOLD", "reason": "1m bar showed real down momentum (clsInRng 0.06) but local px recovered to -7.75, still within larger 56pt leg range; watching closely"}
+{"ts": 1784338503.0519967, "event": "serve", "frame": 6, "nonce": "928afa41e11c11ea"}
+{"ts": 1784338507.7664418, "event": "commit", "frame": 6, "nonce": "928afa41e11c11ea", "decision": "HOLD", "reason": "price bounced back to -5, 1m bar closed near its high again, 5m lambda still significantly positive"}
+{"ts": 1784338509.9609063, "event": "serve", "frame": 7, "nonce": "9b89d774d56b14e5"}
+{"ts": 1784338513.4707804, "event": "commit", "frame": 7, "nonce": "9b89d774d56b14e5", "decision": "HOLD", "reason": "still ranging -3 to -14, no breakdown, price stabilizing near entry"}
+{"ts": 1784338515.7487917, "event": "serve", "frame": 8, "nonce": "38619cb8f4ff939a"}
+{"ts": 1784338519.2470558, "event": "commit", "frame": 8, "nonce": "38619cb8f4ff939a", "decision": "HOLD", "reason": "still bounded within established -3 to -18 range, no new low made"}
+{"ts": 1784338521.339408, "event": "serve", "frame": 9, "nonce": "bbccc6f5b862d84a"}
+{"ts": 1784338532.6211646, "event": "commit", "frame": 9, "nonce": "bbccc6f5b862d84a", "decision": "EXIT", "reason": "fresh new low -20.25 breaking established range, zero with-signals now vs two against (KMDR+HA), ER10 collapsed to 0.17, lambda significantly negative on 15s"}
+{"ts": 1784338538.3047755, "event": "finish", "summary": "Held through the first ~8 minutes of chop between -3 and -18pts because 1m/5m bars kept closing near their bar-high (repeated rejection wicks) and lambda on 5m/1h stayed significantly positive, consistent with a dip in a strong uptrend. Bailed at t=9m when price broke a fresh new low (-20.25, beyond the established range), the ER10 efficiency ratio collapsed to 0.17 (chop\u2192breakdown), and for the first time zero with-trend signals were firing while two against-trend detectors (KMDR, HA) fired together. Next time I'd watch ER10 and the with/against signal balance more than raw price level -- the loss of any supporting fire alongside a range break was the real tell, not just the pullback depth.", "exit_frame": 9, "n_commits": 10}

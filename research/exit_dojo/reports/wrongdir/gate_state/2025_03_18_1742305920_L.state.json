@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_03_18_1742305920_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "cbe78a3c1f1ad3e5",
+      "ts": 1784337386.1567698
+    },
+    {
+      "frame": 1,
+      "nonce": "2f6c2d49fa81e2a5",
+      "ts": 1784337395.581262
+    },
+    {
+      "frame": 2,
+      "nonce": "655c2f63f6a85c8c",
+      "ts": 1784337417.1558454
+    },
+    {
+      "frame": 3,
+      "nonce": "c9b9aab2ea6d4414",
+      "ts": 1784337424.556942
+    },
+    {
+      "frame": 4,
+      "nonce": "42a5699246bc0c62",
+      "ts": 1784337432.0283098
+    },
+    {
+      "frame": 5,
+      "nonce": "246edd4d67c38bd3",
+      "ts": 1784337439.6751423
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "cbe78a3c1f1ad3e5",
+      "decision": "HOLD",
+      "reason": "entry bar, px flat 0.00, 5s bar strongly green, mixed noise on higher TFs but no confirmed wrong-direction yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "2f6c2d49fa81e2a5",
+      "decision": "HOLD",
+      "reason": "px -38 is a sharp dip but reversion_prob_30 high (0.93), KMDR fires with-trade; want one more frame before calling it wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "655c2f63f6a85c8c",
+      "decision": "HOLD",
+      "reason": "px recovered from -38 to -17.75, ER10 up to 0.55, new leg with only 44% giveback -- bounce looks real, not confirmed wrong-direction"
+    },
+    {
+      "frame": 3,
+      "nonce": "c9b9aab2ea6d4414",
+      "decision": "HOLD",
+      "reason": "chopping in -17 to -38 range, giveback only 31% off new leg high, KMDR still with-trade -- no clean breakdown yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "42a5699246bc0c62",
+      "decision": "HOLD",
+      "reason": "px -27.25, still inside prior chop range; PROPP flipped from against to with-trade, KMDR still with -- no fresh against signal"
+    },
+    {
+      "frame": 5,
+      "nonce": "246edd4d67c38bd3",
+      "decision": "EXIT",
+      "reason": "new low -41 breaking prior range, 1m price_mean_30 has bled down every single frame since entry (19612->19606->19600->19594->19588->19581), vol contracting into the new low (no dip-buying), PROPP against -- persistent downtrend, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Bailed at t=5m, px -41.00 (new low breaking the prior -38 chop low). What tipped it: the 1m price_mean_30 rolling mean bled down monotonically every single frame from entry (19611.9->19606.5->19599.9->19593.9->19587.6->19580.9) -- a persistent grind against the long, not noise. Volatility was also contracting into the new low (5m vol delta -4.6), meaning no dip-buying was showing up to arrest it, and PROPP flipped back to against right at the break. Earlier dips to -38/-27 were dismissed as chop because they stayed inside a range and reverted with ER10 improving and KMDR/PROPP flipping supportive -- this one broke the range with a steadily declining underlying mean, which is the wrong-direction signature. Next time: watch the multi-frame trend of price_mean_30/vwap_30 (not just the instantaneous px) for persistent one-directional drift, and treat vol contraction into a fresh range-break as confirmation rather than a reason to wait for another bounce."
+}

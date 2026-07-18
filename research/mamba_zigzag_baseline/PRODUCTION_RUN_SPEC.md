@@ -59,12 +59,17 @@ Do NOT evaluate the run on turn-timing metrics.
   in any smoke arm — regression-watch only).
 - Seed + [SMOKE] metrics every epoch; parity re-run of gates after ANY env edit.
 
-## 6. Wrong-direction cut (PENDING — doc 100 verdict fills this)
-Placeholder pending the 100-good/100-bad blind Red X result:
-- If agents/conditions BEAT the dumb-stop ROC: encode the winning conditions as
-  reward shaping (credit early bails scaled by damage-avoided) + state emphasis.
-- If the dumb stop wins: the cut-head target is the dumb stop itself (bail at
-  the ROC-optimal X ticks), and the net's job reduces to not-bailing GOOD dips.
+## 6. Wrong-direction cut (RESOLVED — doc 100, 2026-07-18)
+Blind Red X verdict: agents catch 95% of losers but net +7.5 ticks/ep vs the
+dumb 24-tick stop's +17.7 → **the cut-head BASELINE is the dumb stop**
+(bail at ROC-optimal X≈24 ticks / 6pts). The net's ONE learnable margin:
+**veto the stop on recoverable dips** — agents held clean goods at 10%
+false-bail vs 54% on dipped (the information exists in the path; the pricing
+was wrong, not the read). Reward shaping: bail-on-dipped-good penalized by
+forgone ticks; early catch credited by damage-avoided ticks; the veto is the
+skill, not the detection. Candidate state emphasis (stable across BOTH blind
+dojos): adverse extreme + against-fire clustering + giveback dynamics +
+loss-ACCELERATION + ER10.
 
 ## 7. Run gates (before Moises launches)
 1. reward_env synthetic tests green after the ticks conversion (§3).

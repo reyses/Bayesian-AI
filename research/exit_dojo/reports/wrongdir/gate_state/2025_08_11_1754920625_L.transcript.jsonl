@@ -1,0 +1,19 @@
+{"ts": 1784344412.1212437, "event": "serve", "frame": 0, "nonce": "8db245873b87a1a6"}
+{"ts": 1784344419.8540385, "event": "commit", "frame": 0, "nonce": "8db245873b87a1a6", "decision": "HOLD", "reason": "frame 0, at entry level, mixed multi-TF signals, too early to judge"}
+{"ts": 1784344422.6372762, "event": "serve", "frame": 1, "nonce": "c55f4bf8b902063f"}
+{"ts": 1784344427.2868295, "event": "commit", "frame": 1, "nonce": "c55f4bf8b902063f", "decision": "HOLD", "reason": "px +3.25, giveback down to 3%, working in favor"}
+{"ts": 1784344430.277433, "event": "serve", "frame": 2, "nonce": "a4939df6c85a64dc"}
+{"ts": 1784344434.9929242, "event": "commit", "frame": 2, "nonce": "a4939df6c85a64dc", "decision": "HOLD", "reason": "still net positive +1.00, minor pullback from +3.25, no clear break"}
+{"ts": 1784344437.5447996, "event": "serve", "frame": 3, "nonce": "2c86331949465f64"}
+{"ts": 1784344441.1676435, "event": "commit", "frame": 3, "nonce": "2c86331949465f64", "decision": "HOLD", "reason": "px +4.50, closing at highs across 1m-1h, strong favorable momentum"}
+{"ts": 1784344443.5797596, "event": "serve", "frame": 4, "nonce": "907fade4fd3d3f37"}
+{"ts": 1784344447.9263275, "event": "commit", "frame": 4, "nonce": "907fade4fd3d3f37", "decision": "HOLD", "reason": "pulled back from +8.25 high but still +3.25 net, giveback only 13%, normal consolidation"}
+{"ts": 1784344450.3290057, "event": "serve", "frame": 5, "nonce": "0c05b57ee1f805e0"}
+{"ts": 1784344453.7304802, "event": "commit", "frame": 5, "nonce": "0c05b57ee1f805e0", "decision": "HOLD", "reason": "new high +9.00, strong 1m push closing near highs"}
+{"ts": 1784344455.9300086, "event": "serve", "frame": 6, "nonce": "77ec7f7cd106df5f"}
+{"ts": 1784344460.2490602, "event": "commit", "frame": 6, "nonce": "77ec7f7cd106df5f", "decision": "HOLD", "reason": "still +6.25 net, minor pullback from +9 high, no trend break"}
+{"ts": 1784344463.2810256, "event": "serve", "frame": 7, "nonce": "3840c8cbfdca7a7b"}
+{"ts": 1784344486.8824377, "event": "commit", "frame": 7, "nonce": "3840c8cbfdca7a7b", "decision": "HOLD", "reason": "violent 1m wick to -26 but closed back at -2 (rejection/absorption at lows), watching closely for confirmation before bailing"}
+{"ts": 1784344490.45759, "event": "serve", "frame": 8, "nonce": "69e60055f60290cd"}
+{"ts": 1784344498.1015632, "event": "commit", "frame": 8, "nonce": "69e60055f60290cd", "decision": "EXIT", "reason": "confirmed reversal: 2nd consecutive frame of decay (+9 to -8.25 to -11.75), 5m round-trip +11 to -26 closed negative, HA-against fired twice, no rejection this time -- bailing"}
+{"ts": 1784344504.8428764, "event": "finish", "summary": "Entry ran favorably to +9pts by t=6m with strong closes-near-highs across 1m-1h. At t=7m a violent 1m wick to -26 closed back at -2, which looked like a rejection/stop-hunt so I held one more frame. At t=8m the decline continued and accelerated (-8.25 to -11.75), the 5m bar showed the full +11-to-26 round trip closing negative (not near highs), and HA-against fired on consecutive frames -- that second confirming frame of continued decay, not recovery, is what told me this was a genuine wrong-direction break rather than a dip, so I bailed. Next time: weight the SECOND frame after a violent reversal wick more heavily than the wick itself -- a single long wick can be noise/absorption, but a same-direction follow-through frame after it is the real confirmation signal.", "exit_frame": 8, "n_commits": 9}

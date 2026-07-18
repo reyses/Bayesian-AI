@@ -1,0 +1,7 @@
+# exit_code=0 dt=170s
+## STDOUT
+Episode complete â€” held through all 23 frames (t=0 to 22m). Price never went negative from entry: it ran favorably early, peaked around +56pts mid-episode, and despite several sharp pullbacks (one dip to +15.75pts with stacked against-fires from HA/PROPP/KMDR), it kept bouncing back into a +20-45pt favorable zone. No wrong-direction, non-recovering signal ever appeared, so HOLD was correct throughout â€” no EXIT was committed.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

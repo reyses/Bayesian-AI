@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_12_09_1765290720_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5feaa659e462e425",
+      "ts": 1784339600.247493
+    },
+    {
+      "frame": 1,
+      "nonce": "ed4d09ce21d3db19",
+      "ts": 1784339609.0063426
+    },
+    {
+      "frame": 2,
+      "nonce": "110350e008c52c88",
+      "ts": 1784339615.4074419
+    },
+    {
+      "frame": 3,
+      "nonce": "54b4d055a3c5544d",
+      "ts": 1784339622.4489331
+    },
+    {
+      "frame": 4,
+      "nonce": "f45d8841b892dfcf",
+      "ts": 1784339629.7291546
+    },
+    {
+      "frame": 5,
+      "nonce": "c011872259c58ee1",
+      "ts": 1784339637.8154685
+    },
+    {
+      "frame": 6,
+      "nonce": "84384ee5a0b24149",
+      "ts": 1784339645.854801
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5feaa659e462e425",
+      "decision": "HOLD",
+      "reason": "just entered, px 0.00, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "ed4d09ce21d3db19",
+      "decision": "HOLD",
+      "reason": "px +17.75, working in favor, PROPP-with fresh"
+    },
+    {
+      "frame": 2,
+      "nonce": "110350e008c52c88",
+      "decision": "HOLD",
+      "reason": "px -8.25, pulled back from +17.75 but giveback only 33%, single dip not a trend break"
+    },
+    {
+      "frame": 3,
+      "nonce": "54b4d055a3c5544d",
+      "decision": "HOLD",
+      "reason": "px recovered to +1.75, giveback down to 21%, thesis still intact despite fires flipping against"
+    },
+    {
+      "frame": 4,
+      "nonce": "f45d8841b892dfcf",
+      "decision": "HOLD",
+      "reason": "px -19.25, deep pullback but giveback 49%<50%, single 5m bar spike not confirmed trend reversal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "c011872259c58ee1",
+      "decision": "HOLD",
+      "reason": "px recovering to -11.75 from -19.25, new leg giveback only 18%, no confirmed breakdown"
+    },
+    {
+      "frame": 6,
+      "nonce": "84384ee5a0b24149",
+      "decision": "EXIT",
+      "reason": "px -36.25, new adverse low breaking below prior -19.25 dip after only partial recovery -- lower-low pattern = trend continuation against position, giveback 0% shows no reversion in new leg"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Price oscillated between +17.75 and -19.25 in the first 5 minutes with partial recoveries each time (giveback never confirmed a clean breakdown), so I held through the chop. At t=6m price broke to a new adverse low of -36.25, well past the prior -19.25 low, with a fresh 60pt adverse leg showing 0% giveback -- a lower-low pattern signaling the retracement had failed and the move was continuing against the position, so I bailed. Next time I'd watch for the leg making a new adverse extreme beyond its prior local low as the trigger, rather than waiting on absolute point thresholds alone."
+}

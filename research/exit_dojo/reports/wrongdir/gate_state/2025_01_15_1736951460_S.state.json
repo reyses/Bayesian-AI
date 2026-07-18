@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_01_15_1736951460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fcf0fec2c11e4a3b",
+      "ts": 1784336549.1048517
+    },
+    {
+      "frame": 1,
+      "nonce": "49edaa74bb14579f",
+      "ts": 1784336554.8309002
+    },
+    {
+      "frame": 2,
+      "nonce": "fbaac75b8dfe2ce3",
+      "ts": 1784336575.3717144
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fcf0fec2c11e4a3b",
+      "decision": "HOLD",
+      "reason": "frame0 at entry, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "49edaa74bb14579f",
+      "decision": "HOLD",
+      "reason": "sharp -36pt move but only 1min in; vol(5m) only 9.9pts so move is large vs norm, want 1 more frame to confirm before bailing"
+    },
+    {
+      "frame": 2,
+      "nonce": "fbaac75b8dfe2ce3",
+      "decision": "EXIT",
+      "reason": "px -38pts, giveback escalated 74%->84%, two consecutive against-fires (HA+PROPP), vol rising -- confirmed wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Held through frame 0 (at entry) and frame 1 (-36pts, single sharp move, wanted confirmation). By frame 2 the adverse move persisted and worsened (-38pts, giveback rising 74%->84% of the leg's favorable amplitude) with two consecutive against-direction fires (HA-against, PROPP-against) and rising 5m vol -- that pattern of escalating giveback plus repeated against-fires, not just one red bar, is what told me this was wrong-direction rather than a dip, so I bailed. Next time I'd watch giveback% trend and consecutive against-fires as the primary bail trigger, and be willing to bail one bar earlier if both align together."
+}

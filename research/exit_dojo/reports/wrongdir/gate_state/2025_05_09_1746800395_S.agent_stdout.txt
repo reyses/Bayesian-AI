@@ -1,0 +1,7 @@
+# exit_code=0 dt=249s
+## STDOUT
+Held HOLD for all 31 frames â€” the SHORT ran favorable the entire window (0 â†’ peak +142.50 â†’ ending +80.50), with only shallow pullbacks that recovered. No wrong-direction signature appeared, so no EXIT was warranted. Episode finished and logged.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_01_29_1738161720_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c8cba70638612281",
+      "ts": 1784336990.3113225
+    },
+    {
+      "frame": 1,
+      "nonce": "551d89e7f143e79c",
+      "ts": 1784337001.9866831
+    },
+    {
+      "frame": 2,
+      "nonce": "6bd070348cea5e2f",
+      "ts": 1784337007.432465
+    },
+    {
+      "frame": 3,
+      "nonce": "a7e2234f175889a8",
+      "ts": 1784337012.8289254
+    },
+    {
+      "frame": 4,
+      "nonce": "c2a1357de21bf5bd",
+      "ts": 1784337017.1896558
+    },
+    {
+      "frame": 5,
+      "nonce": "245c90bb5e075c4c",
+      "ts": 1784337023.250904
+    },
+    {
+      "frame": 6,
+      "nonce": "551e7cb8fead2663",
+      "ts": 1784337030.1111124
+    },
+    {
+      "frame": 7,
+      "nonce": "08af0362f3cb72ac",
+      "ts": 1784337035.2624485
+    },
+    {
+      "frame": 8,
+      "nonce": "84fdef920a22f804",
+      "ts": 1784337041.8254433
+    },
+    {
+      "frame": 9,
+      "nonce": "6b470e7274f788d4",
+      "ts": 1784337046.7843611
+    },
+    {
+      "frame": 10,
+      "nonce": "9e8fddc96841c9b4",
+      "ts": 1784337051.7326584
+    },
+    {
+      "frame": 11,
+      "nonce": "dba617bdffa33d54",
+      "ts": 1784337059.99333
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c8cba70638612281",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "551d89e7f143e79c",
+      "decision": "HOLD",
+      "reason": "px +1.5, working in favor, no adverse signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "6bd070348cea5e2f",
+      "decision": "HOLD",
+      "reason": "px +4.0, thesis intact, momentum in favor"
+    },
+    {
+      "frame": 3,
+      "nonce": "a7e2234f175889a8",
+      "decision": "HOLD",
+      "reason": "px +11.25, trending further in favor"
+    },
+    {
+      "frame": 4,
+      "nonce": "c2a1357de21bf5bd",
+      "decision": "HOLD",
+      "reason": "px +3.5, still positive, dip off recent peak but not yet against"
+    },
+    {
+      "frame": 5,
+      "nonce": "245c90bb5e075c4c",
+      "decision": "HOLD",
+      "reason": "px -2.0, mild pullback within normal noise band, watching closely"
+    },
+    {
+      "frame": 6,
+      "nonce": "551e7cb8fead2663",
+      "decision": "HOLD",
+      "reason": "px +15.25, new high, prior dip confirmed as noise"
+    },
+    {
+      "frame": 7,
+      "nonce": "08af0362f3cb72ac",
+      "decision": "HOLD",
+      "reason": "px +1.25, still positive despite pullback, choppy but not against"
+    },
+    {
+      "frame": 8,
+      "nonce": "84fdef920a22f804",
+      "decision": "HOLD",
+      "reason": "px +15.25, favorable, choppy but net working"
+    },
+    {
+      "frame": 9,
+      "nonce": "6b470e7274f788d4",
+      "decision": "HOLD",
+      "reason": "px +3.25, no against-fires, supportive signals"
+    },
+    {
+      "frame": 10,
+      "nonce": "9e8fddc96841c9b4",
+      "decision": "HOLD",
+      "reason": "px -6.75, deepest dip yet but consistent with range-chop pattern seen all episode"
+    },
+    {
+      "frame": 11,
+      "nonce": "dba617bdffa33d54",
+      "decision": "EXIT",
+      "reason": "px -23.25, sharp break below entire prior range (-7 to +15), 5s bar closed at its low, HA/PROPP both against, ER10 collapsed to 0.06 -- structure broken, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Held through 10 frames of normal chop between roughly -7 and +15 pts, treating each dip as noise since it kept snapping back to new highs. Bailed at t=11m when price broke to -23.25, a clean break below the entire prior range with the 5s bar closing at its low, HA/PROPP both flipping against, and ER10 collapsing to 0.06 -- that combination read as a genuine structure break rather than another dip. Next time I'd watch for the range-break-plus-efficiency-collapse combo earlier as the wrong-direction tell, rather than waiting for it to compound further before confirming."
+}

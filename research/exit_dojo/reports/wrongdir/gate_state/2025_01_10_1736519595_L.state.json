@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_01_10_1736519595_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "fb9341c867681247",
+      "ts": 1784336549.4220028
+    },
+    {
+      "frame": 1,
+      "nonce": "e155cdb9073daed7",
+      "ts": 1784336557.5496087
+    },
+    {
+      "frame": 2,
+      "nonce": "83697bca1fa46367",
+      "ts": 1784336564.7720194
+    },
+    {
+      "frame": 3,
+      "nonce": "5418e659fc26fa20",
+      "ts": 1784336571.56054
+    },
+    {
+      "frame": 4,
+      "nonce": "bd5307ba14247810",
+      "ts": 1784336578.1275375
+    },
+    {
+      "frame": 5,
+      "nonce": "3ab8b5bd126cbbff",
+      "ts": 1784336592.855158
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "fb9341c867681247",
+      "decision": "HOLD",
+      "reason": "just entered; higher TFs (5m/15m/4h/1D) strongly positive, only short-TF noise negative"
+    },
+    {
+      "frame": 1,
+      "nonce": "e155cdb9073daed7",
+      "decision": "HOLD",
+      "reason": "price +20.5pts, strong upward momentum across 5s/15s/1m, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "83697bca1fa46367",
+      "decision": "HOLD",
+      "reason": "pullback to +0.25pts but not negative; HA-with/PROPP-with fires still favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "5418e659fc26fa20",
+      "decision": "HOLD",
+      "reason": "still +8.25pts, choppy but positive, mixed fires not decisively against"
+    },
+    {
+      "frame": 4,
+      "nonce": "bd5307ba14247810",
+      "decision": "HOLD",
+      "reason": "-11.25pts, within normal volatility band (67pt range legs), not yet a decisive break"
+    },
+    {
+      "frame": 5,
+      "nonce": "3ab8b5bd126cbbff",
+      "decision": "EXIT",
+      "reason": "price broke to -52.25pts from +20 peak, 1m reversion_prob=0.000, positive lambda_hat = trending continuation against us, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Entry popped to +20.5pts then chopped and rolled over; the decisive tell was frame 5 (t=5m) where price broke to -52.25pts from the +20.5 peak with 1m reversion_prob_30 collapsing to 0.000 and lambda_hat turning positive (trend-continuation, not mean-reversion) while moving against the position -- that combination said the move was compounding, not dipping, so I bailed. Next time: watch reversion_prob_30 hitting 0 combined with a positive-signed lambda_hat against position direction as the primary wrong-direction trigger, rather than reacting to raw point giveback alone."
+}

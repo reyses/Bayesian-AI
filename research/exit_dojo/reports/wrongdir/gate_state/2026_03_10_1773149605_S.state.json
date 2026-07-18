@@ -1,0 +1,177 @@
+{
+  "episode_id": "2026_03_10_1773149605_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9786de2de06313b6",
+      "ts": 1784366559.6345856
+    },
+    {
+      "frame": 1,
+      "nonce": "5ebe8588621af54b",
+      "ts": 1784366576.904977
+    },
+    {
+      "frame": 2,
+      "nonce": "cee297dc9bc18ab7",
+      "ts": 1784366584.2155113
+    },
+    {
+      "frame": 3,
+      "nonce": "e4227b9400c36088",
+      "ts": 1784366594.0373824
+    },
+    {
+      "frame": 4,
+      "nonce": "0a6f204ea8aaf119",
+      "ts": 1784366601.4511917
+    },
+    {
+      "frame": 5,
+      "nonce": "5ef8b5ebbd791985",
+      "ts": 1784366609.5629258
+    },
+    {
+      "frame": 6,
+      "nonce": "d1191bf53e246eee",
+      "ts": 1784366618.1691666
+    },
+    {
+      "frame": 7,
+      "nonce": "b52cb9fd847b50df",
+      "ts": 1784366627.2742503
+    },
+    {
+      "frame": 8,
+      "nonce": "4600aa4863b6032b",
+      "ts": 1784366636.975022
+    },
+    {
+      "frame": 9,
+      "nonce": "57ef8fb7ed12e322",
+      "ts": 1784366644.241166
+    },
+    {
+      "frame": 10,
+      "nonce": "9b309bf94ab56cc3",
+      "ts": 1784366652.108755
+    },
+    {
+      "frame": 11,
+      "nonce": "e063730c5f0ba223",
+      "ts": 1784366659.625071
+    },
+    {
+      "frame": 12,
+      "nonce": "9a058c0f21b6b405",
+      "ts": 1784366668.1594715
+    },
+    {
+      "frame": 13,
+      "nonce": "9e77e97d7a7255fe",
+      "ts": 1784366676.3590965
+    },
+    {
+      "frame": 14,
+      "nonce": "e2d4f4d772ef7f31",
+      "ts": 1784366685.670061
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9786de2de06313b6",
+      "decision": "HOLD",
+      "reason": "frame0: entry just triggered, px flat at 0, no confirmed wrong-direction move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "5ebe8588621af54b",
+      "decision": "HOLD",
+      "reason": "px +11 favorable, HA/PROPP firing with, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "cee297dc9bc18ab7",
+      "decision": "HOLD",
+      "reason": "px still +11 favorable despite rising giveback; not yet against"
+    },
+    {
+      "frame": 3,
+      "nonce": "e4227b9400c36088",
+      "decision": "HOLD",
+      "reason": "px improved to +20.75, giveback dropped to 20%, PROPP with"
+    },
+    {
+      "frame": 4,
+      "nonce": "0a6f204ea8aaf119",
+      "decision": "HOLD",
+      "reason": "px +13, giveback only 12%, still favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "5ef8b5ebbd791985",
+      "decision": "HOLD",
+      "reason": "px +5, still favorable though eroding, giveback 51% but no negative print yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "d1191bf53e246eee",
+      "decision": "HOLD",
+      "reason": "px +8.25, recovered slightly, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "b52cb9fd847b50df",
+      "decision": "HOLD",
+      "reason": "px +2, barely positive, HA and PROPP both against - watching closely but not negative yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "4600aa4863b6032b",
+      "decision": "HOLD",
+      "reason": "px surged to +23.75, PROPP with, thesis working"
+    },
+    {
+      "frame": 9,
+      "nonce": "57ef8fb7ed12e322",
+      "decision": "HOLD",
+      "reason": "px +55.25, strong favorable move, HA and PROPP both with"
+    },
+    {
+      "frame": 10,
+      "nonce": "9b309bf94ab56cc3",
+      "decision": "HOLD",
+      "reason": "px +52.50, still strongly favorable, thesis clearly working"
+    },
+    {
+      "frame": 11,
+      "nonce": "e063730c5f0ba223",
+      "decision": "HOLD",
+      "reason": "px pulled back to +16 from +52.5 but still favorable, not negative"
+    },
+    {
+      "frame": 12,
+      "nonce": "9a058c0f21b6b405",
+      "decision": "HOLD",
+      "reason": "px +16.25 still favorable despite CLIMAX/HA/PROPP all against - watching for confirmed reversal"
+    },
+    {
+      "frame": 13,
+      "nonce": "9e77e97d7a7255fe",
+      "decision": "HOLD",
+      "reason": "px +4.5, weak but still positive, no confirmed wrong-direction print"
+    },
+    {
+      "frame": 14,
+      "nonce": "e2d4f4d772ef7f31",
+      "decision": "EXIT",
+      "reason": "px flipped negative (-8.25) after monotonic decay from +55 peak over 5 frames, giveback 111%, CLIMAX/HA against - thesis broken, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Held through the first 13 frames as price ran up to a +55pt peak around t=10m and stayed favorable through normal chop. Bailed at t=14m when price fully round-tripped and printed the first negative excursion (-8.25pts) after a monotonic 5-frame decay from the peak (55->52->16->16->4.5->-8.25) with giveback exceeding 100% and CLIMAX/HA momentum both firing against - that pattern (sustained decay + first negative print, not a single-bar dip) is what signaled the entry thesis had broken. Next time I'd watch for 2-3 consecutive frames of shrinking favorable excursion plus giveback >100% as the earlier warning rather than waiting for the actual negative print."
+}

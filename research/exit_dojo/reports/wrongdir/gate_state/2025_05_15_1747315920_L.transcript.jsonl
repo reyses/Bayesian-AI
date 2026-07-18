@@ -1,0 +1,13 @@
+{"ts": 1784337855.32992, "event": "serve", "frame": 0, "nonce": "aa7cbb76933833d7"}
+{"ts": 1784337860.4356177, "event": "commit", "frame": 0, "nonce": "aa7cbb76933833d7", "decision": "HOLD", "reason": "Just entered, local px flat, too early to judge"}
+{"ts": 1784337863.3568118, "event": "serve", "frame": 1, "nonce": "b3832f5bf858823b"}
+{"ts": 1784337867.298944, "event": "commit", "frame": 1, "nonce": "b3832f5bf858823b", "decision": "HOLD", "reason": "Recovered to +14.5pts, momentum positive, thesis working"}
+{"ts": 1784337869.628873, "event": "serve", "frame": 2, "nonce": "d57d3aa539e8c4d2"}
+{"ts": 1784337873.8409994, "event": "commit", "frame": 2, "nonce": "d57d3aa539e8c4d2", "decision": "HOLD", "reason": "Still +8.25pts, normal pullback from peak, 1m still positive"}
+{"ts": 1784337875.9774284, "event": "serve", "frame": 3, "nonce": "3a822b22605be22d"}
+{"ts": 1784337878.9305203, "event": "commit", "frame": 3, "nonce": "3a822b22605be22d", "decision": "HOLD", "reason": "New high +19.25pts, thesis working well"}
+{"ts": 1784337881.487955, "event": "serve", "frame": 4, "nonce": "4517bb8e57aed16c"}
+{"ts": 1784337889.214449, "event": "commit", "frame": 4, "nonce": "4517bb8e57aed16c", "decision": "HOLD", "reason": "Sharp 5s dip to -5.25 but 1m/5m closes still +16.50, looks like pullback not reversal"}
+{"ts": 1784337891.72062, "event": "serve", "frame": 5, "nonce": "bcd324c5a0beff9e"}
+{"ts": 1784337896.8167143, "event": "commit", "frame": 5, "nonce": "bcd324c5a0beff9e", "decision": "EXIT", "reason": "Px -20, giveback 74% of peak amp, all 4 fires now against -- reversal not a dip"}
+{"ts": 1784337903.462019, "event": "finish", "summary": "Trade ran to +19.25pts by t=3m looking healthy, but by t=4-5m it round-tripped fast: local px fell from +19.25 to -5.25 to -20.00 (giveback 74% of the 45.5pt leg amplitude) with all four fire signals (KMDR, CLIMAX, HA, PROPP) flipping to against within the last couple minutes. I held through the first dip since 1m/5m closes were still positive, but the second leg down with unanimous against-signals and a 74% giveback was the wrong-direction confirmation, so I bailed. Next time: watch for the combination of >2 fires flipping against simultaneously plus giveback crossing ~50-70% of leg amplitude as the earliest reliable wrong-direction tell, rather than waiting for price to go fully negative.", "exit_frame": 5, "n_commits": 6}

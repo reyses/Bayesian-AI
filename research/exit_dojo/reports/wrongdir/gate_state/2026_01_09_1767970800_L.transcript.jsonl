@@ -1,0 +1,15 @@
+{"ts": 1784365352.1029875, "event": "serve", "frame": 0, "nonce": "7006ebdd82ac88fc"}
+{"ts": 1784365357.471342, "event": "commit", "frame": 0, "nonce": "7006ebdd82ac88fc", "decision": "HOLD", "reason": "fresh entry, higher TFs (1h/4h) show strong positive momentum and positive lambda_t, thesis intact"}
+{"ts": 1784365361.0482693, "event": "serve", "frame": 1, "nonce": "a321c01066b22da4"}
+{"ts": 1784365370.8515139, "event": "commit", "frame": 1, "nonce": "a321c01066b22da4", "decision": "HOLD", "reason": "sharp pullback (-11.75, 65% giveback) but only 5m into trade with a single against-fire; higher-TF lambda_t still positive, watching for confirmation before bailing"}
+{"ts": 1784365373.498892, "event": "serve", "frame": 2, "nonce": "9ca24ac3c4a93d7d"}
+{"ts": 1784365381.71704, "event": "commit", "frame": 2, "nonce": "9ca24ac3c4a93d7d", "decision": "HOLD", "reason": "drawdown deepening (-20.5, 67% giveback), lambda_t negative and ER10 dropping to 0.10 -- watching one more frame to confirm before bailing"}
+{"ts": 1784365384.3995492, "event": "serve", "frame": 3, "nonce": "5a60f5d689218c74"}
+{"ts": 1784365389.649674, "event": "commit", "frame": 3, "nonce": "5a60f5d689218c74", "decision": "HOLD", "reason": "sharp V-recovery to +21.75, giveback collapsed to 2%, HA now with-direction -- confirms it was a dip not a reversal"}
+{"ts": 1784365392.1567528, "event": "serve", "frame": 4, "nonce": "0ba5993ac1417273"}
+{"ts": 1784365398.606052, "event": "commit", "frame": 4, "nonce": "0ba5993ac1417273", "decision": "HOLD", "reason": "back to -9.75 but within normal chop range seen already, HA still with-direction, no clean breakdown signature"}
+{"ts": 1784365401.8585758, "event": "serve", "frame": 5, "nonce": "d14cd022aa1cb4d1"}
+{"ts": 1784365408.9128587, "event": "commit", "frame": 5, "nonce": "d14cd022aa1cb4d1", "decision": "HOLD", "reason": "px -19.5, giveback 65% similar to frame2 which then bounced; but now BOTH HA and PROPP fire against together (new) -- watching next frame closely"}
+{"ts": 1784365411.7254639, "event": "serve", "frame": 6, "nonce": "427dcb108161f326"}
+{"ts": 1784365418.1310885, "event": "commit", "frame": 6, "nonce": "427dcb108161f326", "decision": "EXIT", "reason": "new low -34.0, giveback 78% (worse than any prior dip), lambda_t strongly negative across 5s/1m -- breaking beyond the established chop range, bailing"}
+{"ts": 1784365423.8930123, "event": "finish", "summary": "Held through two earlier dips (-11.75 and -20.5) that both recovered sharply, since those stayed within an established chop range and single-signal against-fires. Bailed at t=6m when price made a NEW low of -34.0pts with giveback hitting a fresh high of 78% (beyond the prior 65-67% dips) and lambda_t turned strongly negative across the 5s/1m timeframes -- that combination (new-low breach + max giveback + broad negative slope) read as the leg genuinely breaking down rather than another dip. Next time I'd watch for the new-low-beyond-prior-range signature specifically, since the earlier same-magnitude giveback level (65-67%) was not itself predictive -- it bounced twice before it didn't.", "exit_frame": 6, "n_commits": 7}

@@ -1,0 +1,485 @@
+{
+  "episode_id": "2025_09_18_1758203980_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3494a0f06fe9b987",
+      "ts": 1784363402.7055733
+    },
+    {
+      "frame": 1,
+      "nonce": "92592742d221e5b9",
+      "ts": 1784363408.7420902
+    },
+    {
+      "frame": 2,
+      "nonce": "4d6e945d37ecd3ea",
+      "ts": 1784363414.9440763
+    },
+    {
+      "frame": 3,
+      "nonce": "3f4d2c431d1b2477",
+      "ts": 1784363420.7554278
+    },
+    {
+      "frame": 4,
+      "nonce": "9abf77c04c899f30",
+      "ts": 1784363427.82146
+    },
+    {
+      "frame": 5,
+      "nonce": "2bad2c093b793b6d",
+      "ts": 1784363435.3609247
+    },
+    {
+      "frame": 6,
+      "nonce": "00748ddaf5d2fddc",
+      "ts": 1784363441.0059226
+    },
+    {
+      "frame": 7,
+      "nonce": "67b6010de42a8afe",
+      "ts": 1784363447.590368
+    },
+    {
+      "frame": 8,
+      "nonce": "d2cd3d689f4b3393",
+      "ts": 1784363455.1748493
+    },
+    {
+      "frame": 9,
+      "nonce": "e93253c6a2ddb2ec",
+      "ts": 1784363460.3075259
+    },
+    {
+      "frame": 10,
+      "nonce": "403fa5546eab1801",
+      "ts": 1784363466.2923155
+    },
+    {
+      "frame": 11,
+      "nonce": "4a19728d9cd9468c",
+      "ts": 1784363472.9923103
+    },
+    {
+      "frame": 12,
+      "nonce": "4f7ad5f1a2e98dcf",
+      "ts": 1784363479.5667655
+    },
+    {
+      "frame": 13,
+      "nonce": "ada80b43436641b3",
+      "ts": 1784363486.6687663
+    },
+    {
+      "frame": 14,
+      "nonce": "1eaee1ff2bacf20b",
+      "ts": 1784363494.6435468
+    },
+    {
+      "frame": 15,
+      "nonce": "9db4077ca02a13b1",
+      "ts": 1784363505.034438
+    },
+    {
+      "frame": 16,
+      "nonce": "5688ee1f4648bdc8",
+      "ts": 1784363511.2213209
+    },
+    {
+      "frame": 17,
+      "nonce": "34371b52de9215a8",
+      "ts": 1784363516.6825206
+    },
+    {
+      "frame": 18,
+      "nonce": "880ebc01ae106be7",
+      "ts": 1784363523.1344595
+    },
+    {
+      "frame": 19,
+      "nonce": "13091a1b5c6b799b",
+      "ts": 1784363529.1746728
+    },
+    {
+      "frame": 20,
+      "nonce": "5976a6059aef0fda",
+      "ts": 1784363537.8664396
+    },
+    {
+      "frame": 21,
+      "nonce": "9e6131bf687748bc",
+      "ts": 1784363543.3849194
+    },
+    {
+      "frame": 22,
+      "nonce": "079faa1860ee2bf0",
+      "ts": 1784363549.0274003
+    },
+    {
+      "frame": 23,
+      "nonce": "59ac18803b2aeac9",
+      "ts": 1784363554.8023634
+    },
+    {
+      "frame": 24,
+      "nonce": "2de35b35d4f186b5",
+      "ts": 1784363565.6547773
+    },
+    {
+      "frame": 25,
+      "nonce": "b7cf34cd5e3819d9",
+      "ts": 1784363572.3945236
+    },
+    {
+      "frame": 26,
+      "nonce": "9fc12f9dc25f296d",
+      "ts": 1784363577.988496
+    },
+    {
+      "frame": 27,
+      "nonce": "b46ac96c0dbfbff7",
+      "ts": 1784363584.2859502
+    },
+    {
+      "frame": 28,
+      "nonce": "580d0f7f3eba7b32",
+      "ts": 1784363590.3128357
+    },
+    {
+      "frame": 29,
+      "nonce": "d58596a95c04b201",
+      "ts": 1784363596.3374736
+    },
+    {
+      "frame": 30,
+      "nonce": "cb8b692fb38b95ab",
+      "ts": 1784363602.4358995
+    },
+    {
+      "frame": 31,
+      "nonce": "f05457842e981177",
+      "ts": 1784363609.2391496
+    },
+    {
+      "frame": 32,
+      "nonce": "81ef068f1e638aea",
+      "ts": 1784363614.8917649
+    },
+    {
+      "frame": 33,
+      "nonce": "bed528654b496684",
+      "ts": 1784363620.7347717
+    },
+    {
+      "frame": 34,
+      "nonce": "fab5665c72a7e843",
+      "ts": 1784363628.3702583
+    },
+    {
+      "frame": 35,
+      "nonce": "93945f9eb92a6c08",
+      "ts": 1784363636.9067333
+    },
+    {
+      "frame": 36,
+      "nonce": "4bce4d9871c28aab",
+      "ts": 1784363643.6313114
+    },
+    {
+      "frame": 37,
+      "nonce": "cea768c665e6eee4",
+      "ts": 1784363652.4260688
+    },
+    {
+      "frame": 38,
+      "nonce": "8b1829c7590748bc",
+      "ts": 1784363659.4809215
+    },
+    {
+      "frame": 39,
+      "nonce": "db42ea244ace427a",
+      "ts": 1784363665.3694
+    },
+    {
+      "frame": 40,
+      "nonce": "569c501e2a830c26",
+      "ts": 1784363671.2905407
+    },
+    {
+      "frame": 41,
+      "nonce": "4f30bab235991228",
+      "ts": 1784363678.9745426
+    },
+    {
+      "frame": 42,
+      "nonce": "34b518ab7ce91024",
+      "ts": 1784363690.7299845
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3494a0f06fe9b987",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "92592742d221e5b9",
+      "decision": "HOLD",
+      "reason": "px +9.5, strong bullish momentum across TFs, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "4d6e945d37ecd3ea",
+      "decision": "HOLD",
+      "reason": "minor pullback to -0.75 from +9.5, normal dip, 1m body still positive"
+    },
+    {
+      "frame": 3,
+      "nonce": "3f4d2c431d1b2477",
+      "decision": "HOLD",
+      "reason": "recovered to +9.5, dip resolved favorably, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "9abf77c04c899f30",
+      "decision": "HOLD",
+      "reason": "px +20.75, extending strongly, thesis working well"
+    },
+    {
+      "frame": 5,
+      "nonce": "2bad2c093b793b6d",
+      "decision": "HOLD",
+      "reason": "px +26.0, new high, giveback 0%, thesis strongly intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "00748ddaf5d2fddc",
+      "decision": "HOLD",
+      "reason": "px +31.0, new high, trend continuing strongly"
+    },
+    {
+      "frame": 7,
+      "nonce": "67b6010de42a8afe",
+      "decision": "HOLD",
+      "reason": "px +37.25, new high, giveback 0%, thesis working"
+    },
+    {
+      "frame": 8,
+      "nonce": "d2cd3d689f4b3393",
+      "decision": "HOLD",
+      "reason": "px +40.75, new high, giveback only 5%, trend intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "e93253c6a2ddb2ec",
+      "decision": "HOLD",
+      "reason": "px +41.25, marginal new high, giveback low, still working"
+    },
+    {
+      "frame": 10,
+      "nonce": "403fa5546eab1801",
+      "decision": "HOLD",
+      "reason": "px +46.5, new high, ER10 high, trend intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "4a19728d9cd9468c",
+      "decision": "HOLD",
+      "reason": "px +62.5, sharp acceleration higher, giveback 0%, strongly working"
+    },
+    {
+      "frame": 12,
+      "nonce": "4f7ad5f1a2e98dcf",
+      "decision": "HOLD",
+      "reason": "px +58.25, minor pullback from peak, giveback 3%, thesis intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "ada80b43436641b3",
+      "decision": "HOLD",
+      "reason": "px +53.0, pullback from +62.5 peak but still deep in profit, giveback 11%, normal consolidation"
+    },
+    {
+      "frame": 14,
+      "nonce": "1eaee1ff2bacf20b",
+      "decision": "HOLD",
+      "reason": "px +47.75, still well positive despite pullback from peak, new leg starting"
+    },
+    {
+      "frame": 15,
+      "nonce": "9db4077ca02a13b1",
+      "decision": "HOLD",
+      "reason": "px +48.5, stabilizing, still deep profit, no wrong-direction signal"
+    },
+    {
+      "frame": 16,
+      "nonce": "5688ee1f4648bdc8",
+      "decision": "HOLD",
+      "reason": "px +55.25, bounced back higher, thesis intact, deep profit"
+    },
+    {
+      "frame": 17,
+      "nonce": "34371b52de9215a8",
+      "decision": "HOLD",
+      "reason": "px +58.25, near highs, thesis intact"
+    },
+    {
+      "frame": 18,
+      "nonce": "880ebc01ae106be7",
+      "decision": "HOLD",
+      "reason": "px +59.5, near high, thesis intact"
+    },
+    {
+      "frame": 19,
+      "nonce": "13091a1b5c6b799b",
+      "decision": "HOLD",
+      "reason": "px +68.75, new episode high, trend continuing"
+    },
+    {
+      "frame": 20,
+      "nonce": "5976a6059aef0fda",
+      "decision": "HOLD",
+      "reason": "px +70.5, new high, giveback 0%, trend fully intact"
+    },
+    {
+      "frame": 21,
+      "nonce": "9e6131bf687748bc",
+      "decision": "HOLD",
+      "reason": "px +78.25, new high, strong 5m body, thesis intact"
+    },
+    {
+      "frame": 22,
+      "nonce": "079faa1860ee2bf0",
+      "decision": "HOLD",
+      "reason": "px +78.75, new high, thesis intact"
+    },
+    {
+      "frame": 23,
+      "nonce": "59ac18803b2aeac9",
+      "decision": "HOLD",
+      "reason": "px +57.5, sharp pullback from +83 high but still deep in profit, watching closely for confirmation"
+    },
+    {
+      "frame": 24,
+      "nonce": "2de35b35d4f186b5",
+      "decision": "HOLD",
+      "reason": "px +63.25, recovering off local low, still deep profit, thesis intact"
+    },
+    {
+      "frame": 25,
+      "nonce": "b7cf34cd5e3819d9",
+      "decision": "HOLD",
+      "reason": "px +63.5, stable in high-60s range, thesis intact"
+    },
+    {
+      "frame": 26,
+      "nonce": "9fc12f9dc25f296d",
+      "decision": "HOLD",
+      "reason": "px +81.5, near episode high, thesis strongly intact"
+    },
+    {
+      "frame": 27,
+      "nonce": "b46ac96c0dbfbff7",
+      "decision": "HOLD",
+      "reason": "px +85.5, new episode high, strong 1m body, thesis intact"
+    },
+    {
+      "frame": 28,
+      "nonce": "580d0f7f3eba7b32",
+      "decision": "HOLD",
+      "reason": "px +84.75, 1m closed at new high +88, thesis intact"
+    },
+    {
+      "frame": 29,
+      "nonce": "d58596a95c04b201",
+      "decision": "HOLD",
+      "reason": "px +83.75, minor pullback near highs, thesis intact"
+    },
+    {
+      "frame": 30,
+      "nonce": "cb8b692fb38b95ab",
+      "decision": "HOLD",
+      "reason": "px +88.25, new episode high, giveback 0%, thesis fully intact"
+    },
+    {
+      "frame": 31,
+      "nonce": "f05457842e981177",
+      "decision": "HOLD",
+      "reason": "px +99.25, new episode high approaching +100, thesis strongly intact"
+    },
+    {
+      "frame": 32,
+      "nonce": "81ef068f1e638aea",
+      "decision": "HOLD",
+      "reason": "px +104.5, new episode high, thesis strongly intact"
+    },
+    {
+      "frame": 33,
+      "nonce": "bed528654b496684",
+      "decision": "HOLD",
+      "reason": "px +99.25, mild pullback from +110 high, still deep profit, thesis intact"
+    },
+    {
+      "frame": 34,
+      "nonce": "fab5665c72a7e843",
+      "decision": "HOLD",
+      "reason": "px +91.25, consolidating well above entry, giveback 34% off leg high but absolute profit huge, thesis intact"
+    },
+    {
+      "frame": 35,
+      "nonce": "93945f9eb92a6c08",
+      "decision": "HOLD",
+      "reason": "px +86.25, still deeply positive, thesis intact"
+    },
+    {
+      "frame": 36,
+      "nonce": "4bce4d9871c28aab",
+      "decision": "HOLD",
+      "reason": "px +83.0, consolidating well off the +110.5 peak but still deep in profit, no reversal confirmed"
+    },
+    {
+      "frame": 37,
+      "nonce": "cea768c665e6eee4",
+      "decision": "HOLD",
+      "reason": "px +79.75, holding well in consolidation range, thesis intact"
+    },
+    {
+      "frame": 38,
+      "nonce": "8b1829c7590748bc",
+      "decision": "HOLD",
+      "reason": "px +76.0, still well positive, consolidating, thesis intact"
+    },
+    {
+      "frame": 39,
+      "nonce": "db42ea244ace427a",
+      "decision": "HOLD",
+      "reason": "px +75.25, still solidly positive, no reversal confirmed"
+    },
+    {
+      "frame": 40,
+      "nonce": "569c501e2a830c26",
+      "decision": "HOLD",
+      "reason": "px +67.0, gradual grind lower off peak but still deep in profit, no sharp reversal"
+    },
+    {
+      "frame": 41,
+      "nonce": "4f30bab235991228",
+      "decision": "HOLD",
+      "reason": "px +66.25, sustained pullback from peak but still deep in profit vs entry, thesis (long direction) intact"
+    },
+    {
+      "frame": 42,
+      "nonce": "34b518ab7ce91024",
+      "decision": "HOLD",
+      "reason": "px +64.5, stable, deep in profit, thesis intact through end of episode"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire episode. The long entry worked immediately and extended almost monotonically from +9.5 to a peak near +110.5 by t=32-36m, then gave back to a still-strongly-positive +64.5 by t=42m. There was no point where the entry looked wrong-direction: every pullback stayed well above breakeven and each dip was followed by fresh highs or stabilization, never a sustained push toward zero or negative. Next time I'd watch for a pullback that actually threatens to erase the bulk of realized gains (not just off a local peak) combined with persistent negative 1m/5m body plus falling ER10/hurst as the real wrong-direction tell, rather than reacting to normal giveback in a strong trend."
+}

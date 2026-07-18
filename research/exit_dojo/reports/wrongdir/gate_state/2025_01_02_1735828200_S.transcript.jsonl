@@ -1,0 +1,7 @@
+{"ts": 1784340868.4194505, "event": "serve", "frame": 0, "nonce": "a677c28d438f169c"}
+{"ts": 1784340886.4688623, "event": "commit", "frame": 0, "nonce": "a677c28d438f169c", "decision": "HOLD", "reason": "entry frame, px flat at 0, no adverse move yet"}
+{"ts": 1784340888.528792, "event": "serve", "frame": 1, "nonce": "3f664abdad1e12cb"}
+{"ts": 1784340898.3059483, "event": "commit", "frame": 1, "nonce": "3f664abdad1e12cb", "decision": "HOLD", "reason": "px only -6.5, small dip; watching CLIMAX/PROPP-against fires and 45% giveback closely"}
+{"ts": 1784340900.7732038, "event": "serve", "frame": 2, "nonce": "7b25cc99c86c1171"}
+{"ts": 1784340905.8086202, "event": "commit", "frame": 2, "nonce": "7b25cc99c86c1171", "decision": "EXIT", "reason": "px deteriorated -6.5->-22.25 in 1min, giveback 76% of leg amp, 3 against-fires (CLIMAX/HA/PROPP) stacked - wrong-direction, bail"}
+{"ts": 1784340910.5867777, "event": "finish", "summary": "Held through the entry bar and a small -6.5pt dip since good trades often dip first. Bailed at t=2m when price accelerated to -22.25pts against entry, giveback of the prior favorable leg jumped 45%->76% in one minute, and three independent against-fires (CLIMAX, HA, PROPP) stacked simultaneously - a fast, multi-signal reversal rather than normal noise. Next time I'd watch for the combination of accelerating adverse velocity plus stacked against-fires as the earliest reliable wrong-direction tell, rather than waiting on giveback percentage alone.", "exit_frame": 2, "n_commits": 3}

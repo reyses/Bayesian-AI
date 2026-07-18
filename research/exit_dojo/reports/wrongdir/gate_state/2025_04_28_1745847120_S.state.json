@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_04_28_1745847120_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "892afbce17d1edbc",
+      "ts": 1784337597.3985193
+    },
+    {
+      "frame": 1,
+      "nonce": "35a5d58c4d4133ad",
+      "ts": 1784337604.8367352
+    },
+    {
+      "frame": 2,
+      "nonce": "90be8212ef25905f",
+      "ts": 1784337610.5098825
+    },
+    {
+      "frame": 3,
+      "nonce": "61e217cb5d9232ad",
+      "ts": 1784337615.5734735
+    },
+    {
+      "frame": 4,
+      "nonce": "917021321646b14f",
+      "ts": 1784337621.0684469
+    },
+    {
+      "frame": 5,
+      "nonce": "9ec15884d549a117",
+      "ts": 1784337630.017408
+    },
+    {
+      "frame": 6,
+      "nonce": "fd66a7fe5416a4d3",
+      "ts": 1784337635.381386
+    },
+    {
+      "frame": 7,
+      "nonce": "a2cf7fdc64ab8056",
+      "ts": 1784337641.4711354
+    },
+    {
+      "frame": 8,
+      "nonce": "c67f2a53d9a207c2",
+      "ts": 1784337653.1764865
+    },
+    {
+      "frame": 9,
+      "nonce": "1e5bb83da40d1058",
+      "ts": 1784337659.354164
+    },
+    {
+      "frame": 10,
+      "nonce": "2611186c7190a119",
+      "ts": 1784337675.2994332
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "892afbce17d1edbc",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat 0.00, no wrong-direction signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "35a5d58c4d4133ad",
+      "decision": "HOLD",
+      "reason": "px +7.00, fires mostly with-direction, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "90be8212ef25905f",
+      "decision": "HOLD",
+      "reason": "px +28.75, strong favorable move, thesis clearly working"
+    },
+    {
+      "frame": 3,
+      "nonce": "61e217cb5d9232ad",
+      "decision": "HOLD",
+      "reason": "px +46.00, momentum accelerating in favor, low giveback 9%"
+    },
+    {
+      "frame": 4,
+      "nonce": "917021321646b14f",
+      "decision": "HOLD",
+      "reason": "pullback from +46 to +21.75, giveback 35%, but still solidly favorable; watching for further erosion"
+    },
+    {
+      "frame": 5,
+      "nonce": "9ec15884d549a117",
+      "decision": "HOLD",
+      "reason": "px recovered to +32.00 from dip, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "fd66a7fe5416a4d3",
+      "decision": "HOLD",
+      "reason": "px +37.25, giveback shrinking to 22%, trade healthy"
+    },
+    {
+      "frame": 7,
+      "nonce": "a2cf7fdc64ab8056",
+      "decision": "HOLD",
+      "reason": "px +29.50, giveback 44% but still well favorable, no breakdown yet"
+    },
+    {
+      "frame": 8,
+      "nonce": "c67f2a53d9a207c2",
+      "decision": "HOLD",
+      "reason": "px +45.50, back near highs, thesis strongly intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "1e5bb83da40d1058",
+      "decision": "HOLD",
+      "reason": "sharp giveback to -1.50 (near breakeven), all fires against, but within noise band (vol5m~9.8pts); watching closely for confirmation"
+    },
+    {
+      "frame": 10,
+      "nonce": "2611186c7190a119",
+      "decision": "EXIT",
+      "reason": "confirmed breakdown: px -21.75 and accelerating against (45.5->-1.5->-21.75), all fires against, bailing before further compounding"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Held through a strong favorable run (peaked +46, later +45.5 again) and through normal giveback/dip cycles up to ~44% giveback since price kept recovering to new local highs. Bailed at t=10m once price round-tripped the entire gain in two consecutive bars (+45.5 -> -1.5 -> -21.75) with KMDR/HA/PROPP all firing against and no recovery bar in between -- that acceleration through breakeven into a growing negative, rather than a bounce off a dip, was the wrong-direction signature. Next time I'd watch for the same pattern earlier: a full round-trip of a multi-bar leg's gain within 1-2 bars plus unanimous against-fires is a much stronger tell than giveback% alone, since giveback% stayed noisy (bouncing 9%-64%) throughout the good part of the trade."
+}

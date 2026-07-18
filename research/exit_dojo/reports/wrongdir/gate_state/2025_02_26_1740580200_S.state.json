@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_02_26_1740580200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8c3bcae8d850390e",
+      "ts": 1784337188.210498
+    },
+    {
+      "frame": 1,
+      "nonce": "2e4b447dd924a51c",
+      "ts": 1784337198.8415804
+    },
+    {
+      "frame": 2,
+      "nonce": "a3772ca66c5fa6bf",
+      "ts": 1784337206.1290264
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8c3bcae8d850390e",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, too early to judge, large-TF context mixed but local giveback moderate"
+    },
+    {
+      "frame": 1,
+      "nonce": "2e4b447dd924a51c",
+      "decision": "HOLD",
+      "reason": "px +25.25pts favorable, giveback 0%, thesis working despite against-fires"
+    },
+    {
+      "frame": 2,
+      "nonce": "a3772ca66c5fa6bf",
+      "decision": "EXIT",
+      "reason": "91% giveback of the 49pt favorable swing in under 2min, CLIMAX-against + KMDR-against fired, 1m bar showing violent against-velocity -- treating as the turn, bailing before it compounds"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Entry was briefly working (+25.25pts favorable at t=1m, giveback 0%), but by t=2m the leg round-tripped violently -- 91% giveback of the 49.2pt favorable amplitude in under a minute, with CLIMAX-against and KMDR-against firing together and the 1m bar showing a huge against-direction velocity/accel spike. Bailed at only -2.50pts rather than waiting for a deeper red because the speed and completeness of the giveback (not just the sign) was the wrong-direction tell. Next time: watch giveback% crossing ~75-90% combined with a CLIMAX fire as the earliest reliable turn signature, even while price is still only marginally negative."
+}

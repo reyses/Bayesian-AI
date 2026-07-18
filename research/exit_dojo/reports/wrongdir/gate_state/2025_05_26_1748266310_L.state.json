@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_05_26_1748266310_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2812881047d35c06",
+      "ts": 1784343174.9860961
+    },
+    {
+      "frame": 1,
+      "nonce": "074d13e20c61ef83",
+      "ts": 1784343188.9769654
+    },
+    {
+      "frame": 2,
+      "nonce": "4b21f278a6f98f87",
+      "ts": 1784343194.7309172
+    },
+    {
+      "frame": 3,
+      "nonce": "03fa98ef1d01f664",
+      "ts": 1784343200.9970446
+    },
+    {
+      "frame": 4,
+      "nonce": "5b5f2c85b6a63bad",
+      "ts": 1784343206.2975304
+    },
+    {
+      "frame": 5,
+      "nonce": "7af1cde15f73e1fa",
+      "ts": 1784343211.5876515
+    },
+    {
+      "frame": 6,
+      "nonce": "b987538b966b26f0",
+      "ts": 1784343218.005994
+    },
+    {
+      "frame": 7,
+      "nonce": "71bc2017779a7940",
+      "ts": 1784343226.167552
+    },
+    {
+      "frame": 8,
+      "nonce": "f569d3a4d2c19adb",
+      "ts": 1784343231.6733427
+    },
+    {
+      "frame": 9,
+      "nonce": "c59660ddf5a5cc93",
+      "ts": 1784343240.103075
+    },
+    {
+      "frame": 10,
+      "nonce": "15892353f1e803cb",
+      "ts": 1784343246.1343493
+    },
+    {
+      "frame": 11,
+      "nonce": "c16cf7ff3e3057d5",
+      "ts": 1784343251.9079046
+    },
+    {
+      "frame": 12,
+      "nonce": "13c3ddd48ec3a134",
+      "ts": 1784343258.6043851
+    },
+    {
+      "frame": 13,
+      "nonce": "822891f6703d0926",
+      "ts": 1784343264.3304458
+    },
+    {
+      "frame": 14,
+      "nonce": "b417263834a8c173",
+      "ts": 1784343269.338427
+    },
+    {
+      "frame": 15,
+      "nonce": "303971dde57ff19c",
+      "ts": 1784343275.5816207
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2812881047d35c06",
+      "decision": "HOLD",
+      "reason": "frame 0 at entry, px flat 0.00, no post-entry move yet to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "074d13e20c61ef83",
+      "decision": "HOLD",
+      "reason": "px +7.50, trade working, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "4b21f278a6f98f87",
+      "decision": "HOLD",
+      "reason": "px +17.25, strong continued follow-through, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "03fa98ef1d01f664",
+      "decision": "HOLD",
+      "reason": "px +18.75, giveback low at 3%, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "5b5f2c85b6a63bad",
+      "decision": "HOLD",
+      "reason": "px +22.75, new highs, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "7af1cde15f73e1fa",
+      "decision": "HOLD",
+      "reason": "px +17.50, pullback from peak but still strongly positive, normal dip"
+    },
+    {
+      "frame": 6,
+      "nonce": "b987538b966b26f0",
+      "decision": "HOLD",
+      "reason": "px +16.25, consolidation after strong run, still deeply profitable, mixed fires"
+    },
+    {
+      "frame": 7,
+      "nonce": "71bc2017779a7940",
+      "decision": "HOLD",
+      "reason": "px +18.75, recovering from dip, giveback improved, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "f569d3a4d2c19adb",
+      "decision": "HOLD",
+      "reason": "px +17.75, consolidating sideways, still strongly favorable"
+    },
+    {
+      "frame": 9,
+      "nonce": "c59660ddf5a5cc93",
+      "decision": "HOLD",
+      "reason": "px +18.25, stable consolidation, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "15892353f1e803cb",
+      "decision": "HOLD",
+      "reason": "px +16.00, stable range, no against-fires, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "c16cf7ff3e3057d5",
+      "decision": "HOLD",
+      "reason": "px +17.25, still well in profit, no against-fires"
+    },
+    {
+      "frame": 12,
+      "nonce": "13c3ddd48ec3a134",
+      "decision": "HOLD",
+      "reason": "px +16.00, holding gains, no against-fires"
+    },
+    {
+      "frame": 13,
+      "nonce": "822891f6703d0926",
+      "decision": "HOLD",
+      "reason": "px +23.00, new high, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "b417263834a8c173",
+      "decision": "HOLD",
+      "reason": "px +15.50, still well in profit, favorable fire"
+    },
+    {
+      "frame": 15,
+      "nonce": "303971dde57ff19c",
+      "decision": "HOLD",
+      "reason": "px +21.50, strong push, giveback tiny"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the whole window. Thesis was intact from frame 1 onward: after a flat entry frame, price moved favorably almost immediately and stayed strongly positive (roughly +16 to +23 pts) through all 15 frames, with only shallow pullbacks (giveback rarely above ~25-45% of a small recent leg, never threatening to erase the position) and no sustained run of against-direction fires. Nothing here read as wrong-direction -- it read as a strong trending winner with normal consolidation dips, so I never bailed. Next time I'd watch for a stretch of consecutive against-fires (KMDR/PROPP/CLIMAX) coinciding with giveback crossing ~50%+ of the total leg amplitude (not just the latest micro-leg) as the actual bail trigger, since isolated against-fires here kept resolving in the position's favor."
+}

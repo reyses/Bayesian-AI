@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_08_25_1756128600_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "664e36a17ea8324f",
+      "ts": 1784338663.958581
+    },
+    {
+      "frame": 1,
+      "nonce": "30bd6e425b8f88ce",
+      "ts": 1784338676.2036636
+    },
+    {
+      "frame": 2,
+      "nonce": "b6113e242825d524",
+      "ts": 1784338685.1920328
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "664e36a17ea8324f",
+      "decision": "HOLD",
+      "reason": "frame0: price at entry, no adverse move yet, thesis untested"
+    },
+    {
+      "frame": 1,
+      "nonce": "30bd6e425b8f88ce",
+      "decision": "HOLD",
+      "reason": "1m: -6.25pts pullback, mixed fires (CLIMAX-against but PROPP-with), still early/noisy"
+    },
+    {
+      "frame": 2,
+      "nonce": "b6113e242825d524",
+      "decision": "EXIT",
+      "reason": "px -36.25pts, giveback 114% (past leg origin), 3/4 fires against (CLIMAX/HA/PROPP-against) - wrong-direction confirmed, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Held through frame 0 (flat) and frame 1 (-6.25pts, mixed against/with fires, too early to judge). By frame 2 price had fallen to -36.25pts, giveback 114% (fully erased the original favorable leg and gone net negative beyond it), with 3 of 4 recent fires against the position (CLIMAX-against, HA-against, PROPP-against) vs only 1 with. That combination of full giveback plus a majority-against fire cluster read as thesis broken, not a normal dip, so bailed immediately. Next time: watch giveback crossing 100% combined with a majority-against fire cluster as the core wrong-direction signature; would also want to check if the against-fires were accelerating (2 in the same frame) as an early-warning cue before the full giveback happens."
+}

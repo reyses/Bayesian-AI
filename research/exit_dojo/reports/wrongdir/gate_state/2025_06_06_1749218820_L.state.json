@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_06_06_1749218820_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5a816dd14437ada3",
+      "ts": 1784338126.4330783
+    },
+    {
+      "frame": 1,
+      "nonce": "d7876781ce15a658",
+      "ts": 1784338134.9964662
+    },
+    {
+      "frame": 2,
+      "nonce": "3168ec8f572fdfa5",
+      "ts": 1784338142.2838283
+    },
+    {
+      "frame": 3,
+      "nonce": "3d9421f246745916",
+      "ts": 1784338149.4486446
+    },
+    {
+      "frame": 4,
+      "nonce": "0d5af4034a2ff366",
+      "ts": 1784338156.6000934
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5a816dd14437ada3",
+      "decision": "HOLD",
+      "reason": "frame0: price back at entry (0.00), early noise, no clear wrong-direction signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "d7876781ce15a658",
+      "decision": "HOLD",
+      "reason": "small pullback to -2.75, 22% giveback, still within normal noise band, no trend break"
+    },
+    {
+      "frame": 2,
+      "nonce": "3168ec8f572fdfa5",
+      "decision": "HOLD",
+      "reason": "price -2.0, oscillating in same small band as prior frames, not breaking down further"
+    },
+    {
+      "frame": 3,
+      "nonce": "3d9421f246745916",
+      "decision": "HOLD",
+      "reason": "price recovered to +3.50, best level yet, giveback down to 10%, thesis working"
+    },
+    {
+      "frame": 4,
+      "nonce": "0d5af4034a2ff366",
+      "decision": "EXIT",
+      "reason": "sharp break to -11.75, more than 3x worse than prior range (-2.75 to +3.5), giveback 53%, both HA and PROPP now firing against -- structure broken"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through 4 minutes of normal chop (range roughly -2.75 to +3.5, giveback fluctuating 10-26%) since none of it broke the established range. At t=4m price broke sharply to -11.75, more than 3x worse than any prior excursion, giveback jumped to 53%, and both HA and PROPP fired against simultaneously for the first time -- a real structure break, not a dip. Bailed there. Next time: watch for the combination of (1) a new price extreme well outside the established chop range plus (2) multiple signal fires flipping against at once -- that confluence is what separated this from the earlier harmless pullbacks."
+}

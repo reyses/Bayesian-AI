@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_08_19_1755610260_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "b94663c57bb0de49",
+      "ts": 1784338593.2522085
+    },
+    {
+      "frame": 1,
+      "nonce": "dba73175aa3136a0",
+      "ts": 1784338604.6659617
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "b94663c57bb0de49",
+      "decision": "HOLD",
+      "reason": "px flat at entry, mtf momentum still positive (15s/1m/5m/4h/1D all green), only 1h lagging; giveback 45% but too early to call wrong-direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "dba73175aa3136a0",
+      "decision": "EXIT",
+      "reason": "px flipped to -27.75, giveback 137% (fully erased the favorable leg and beyond), 3 against-fires (CLIMAX/HA/PROPP) vs 1 with-fire, z_21 negative across 5s/15s/1m -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Frame 0 was flat at entry with mixed-but-mostly-positive MTF momentum, so I held despite an early 45% giveback flag. Frame 1 showed a hard flip to -27.75pts (137% giveback, fully erasing the favorable excursion and then some), with 3 against-fires (CLIMAX/HA/PROPP) against only 1 with-fire and negative z_21 across 5s/15s/1m -- that combination of a full round-trip past 100% giveback plus multi-signal against-consensus is what told me this was wrong-direction rather than a normal dip, so I bailed. Next time I'd watch giveback% crossing 100% as a hard trigger and weight fire consensus (against-count vs with-count) more than any single TF's momentum reading."
+}

@@ -1,0 +1,45 @@
+{
+  "episode_id": "2026_01_14_1768401260_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "144b65e8e010587a",
+      "ts": 1784339816.0753949
+    },
+    {
+      "frame": 1,
+      "nonce": "959e6e65bcfee90d",
+      "ts": 1784339844.0125473
+    },
+    {
+      "frame": 2,
+      "nonce": "82bd68c92481c81b",
+      "ts": 1784339858.6990666
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "144b65e8e010587a",
+      "decision": "HOLD",
+      "reason": "Price at breakeven, daily trend strongly positive (+118); despite 93% giveback of a 101pt rally and negative 5m/15m lambda, still just a pullback at 6m age -- watching for confirmation before bailing"
+    },
+    {
+      "frame": 1,
+      "nonce": "959e6e65bcfee90d",
+      "decision": "HOLD",
+      "reason": "Price only -0.25pts despite giveback stat; 5m and 1m bars closed near top of range (clsInRng 0.93/0.80) showing a sharp recovery bounce off the spike low -- price action contradicts the against-fires, thesis still plausible"
+    },
+    {
+      "frame": 2,
+      "nonce": "82bd68c92481c81b",
+      "decision": "EXIT",
+      "reason": "Real loss now (-45.5pts), 1m bar closed at the very bottom of its range (clsInRng 0.01), 15s lambda strongly negative and significant (t=-4.98), and three against-fires (CLIMAX/KMDR/PROPP) stacked in the last 1-2min -- confluence of price + momentum + turn-detectors all against the long, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Held through an initial breakeven wobble and a sharp V-shaped bounce (5m/1m bars closing near their highs), since price action didn't confirm the against-fires yet. Bailed at frame 2 once the picture flipped decisively: a real -45.5pt loss, the 1m bar closing at the absolute bottom of its range, significant negative 15s momentum (lambda t=-4.98), and three independent turn-detectors (CLIMAX/KMDR/PROPP) firing against the long within the prior 1-2 minutes. Next time I'd watch for that same stacking of close-in-range-extreme plus multi-detector against-fires as the earliest reliable wrong-direction confirmation, rather than reacting to any single fire or a giveback stat in isolation."
+}

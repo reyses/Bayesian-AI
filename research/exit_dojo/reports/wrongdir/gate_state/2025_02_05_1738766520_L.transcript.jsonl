@@ -1,0 +1,25 @@
+{"ts": 1784336880.6003103, "event": "serve", "frame": 0, "nonce": "ccdd1d8635779c76"}
+{"ts": 1784336889.6179724, "event": "commit", "frame": 0, "nonce": "ccdd1d8635779c76", "decision": "HOLD", "reason": "Entry frame; against-fires present but too early to judge, thesis not yet disproven"}
+{"ts": 1784336891.7493956, "event": "serve", "frame": 1, "nonce": "eb0565b1797f1642"}
+{"ts": 1784336897.7541556, "event": "commit", "frame": 1, "nonce": "eb0565b1797f1642", "decision": "HOLD", "reason": "Small adverse dip to -9.5pts, 1m bar shows recovery off the low, not enough to call wrong-direction"}
+{"ts": 1784336900.0662956, "event": "serve", "frame": 2, "nonce": "c4a8c5bb9ea1b759"}
+{"ts": 1784336904.0592635, "event": "commit", "frame": 2, "nonce": "c4a8c5bb9ea1b759", "decision": "HOLD", "reason": "Price recovered back to near breakeven (-1.75), 5s/15s bars turned positive, thesis intact"}
+{"ts": 1784336906.3333251, "event": "serve", "frame": 3, "nonce": "3ccc68fd2c7ac95c"}
+{"ts": 1784336910.9003787, "event": "commit", "frame": 3, "nonce": "3ccc68fd2c7ac95c", "decision": "HOLD", "reason": "Price now slightly positive, HA and PROPP firing with, thesis intact"}
+{"ts": 1784336913.091364, "event": "serve", "frame": 4, "nonce": "ffa50f00ef9842e8"}
+{"ts": 1784336917.495452, "event": "commit", "frame": 4, "nonce": "ffa50f00ef9842e8", "decision": "HOLD", "reason": "px +3.0, no against-fires now, HA/PROPP both with, thesis working"}
+{"ts": 1784336920.2414093, "event": "serve", "frame": 5, "nonce": "ba4b3d6e6495dc6e"}
+{"ts": 1784336926.2215524, "event": "commit", "frame": 5, "nonce": "ba4b3d6e6495dc6e", "decision": "HOLD", "reason": "Dipped to -9.25 but within prior chop range (-9.5 earlier recovered fine), 1m bar still closed positive intrabar"}
+{"ts": 1784336929.0373774, "event": "serve", "frame": 6, "nonce": "37713976f684035b"}
+{"ts": 1784336932.3575873, "event": "commit", "frame": 6, "nonce": "37713976f684035b", "decision": "HOLD", "reason": "px +5.0, new high for the trade, thesis intact despite against fires"}
+{"ts": 1784336934.9365907, "event": "serve", "frame": 7, "nonce": "6f6f622a0dd82ebe"}
+{"ts": 1784336938.2609398, "event": "commit", "frame": 7, "nonce": "6f6f622a0dd82ebe", "decision": "HOLD", "reason": "px +7.25, new high, giveback 0%, thesis working well"}
+{"ts": 1784336941.048171, "event": "serve", "frame": 8, "nonce": "e4cc0ed4e9c3ccb7"}
+{"ts": 1784336944.5490196, "event": "commit", "frame": 8, "nonce": "e4cc0ed4e9c3ccb7", "decision": "HOLD", "reason": "px +2.75, still positive, HA/PROPP with, normal pullback from +7.25 high"}
+{"ts": 1784336946.5485997, "event": "serve", "frame": 9, "nonce": "b4a08c8319789572"}
+{"ts": 1784336951.2656693, "event": "commit", "frame": 9, "nonce": "b4a08c8319789572", "decision": "HOLD", "reason": "px +3.75 still positive despite all 3 fires against; new favorable high 33pts just made, normal pullback"}
+{"ts": 1784336953.3532977, "event": "serve", "frame": 10, "nonce": "d49e681036d2f57f"}
+{"ts": 1784336959.6474204, "event": "commit", "frame": 10, "nonce": "d49e681036d2f57f", "decision": "HOLD", "reason": "px -12.25, new low and 70% giveback -- watching closely but single bar swings have reversed before; not yet confirmed breakdown"}
+{"ts": 1784336962.5920799, "event": "serve", "frame": 11, "nonce": "983d6a714461a9fd"}
+{"ts": 1784336973.1268153, "event": "commit", "frame": 11, "nonce": "983d6a714461a9fd", "decision": "EXIT", "reason": "px -14.50, new session low breaking prior -9.5/-12.25 lows, giveback 98% of the leg's favorable amplitude, z_21 -2.2 and vol expanding -- thesis broken, bailing"}
+{"ts": 1784336978.679329, "event": "finish", "summary": "Held through normal chop (dips to -9.5, -12.25 that had recovered before, and favorable pushes up to +7.25/+13.75) since each prior adverse excursion resolved back toward breakeven or positive. Bailed at -14.50 when price broke below all prior lows, giveback reached 98% of the leg's favorable amplitude, z_21 turned -2.2, and 5m volatility expanded -- that combination (new lows + near-total giveback + widening vol) signaled the thesis had failed rather than just dipping. Next time I'd watch for the first lower-low breaking the prior chop range as the earlier warning rather than waiting for giveback to approach 100%.", "exit_frame": 11, "n_commits": 12}

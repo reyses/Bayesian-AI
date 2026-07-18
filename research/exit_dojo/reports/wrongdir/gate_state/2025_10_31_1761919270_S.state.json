@@ -1,0 +1,100 @@
+{
+  "episode_id": "2025_10_31_1761919270_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a4755026f4e1ac71",
+      "ts": 1784339136.449846
+    },
+    {
+      "frame": 1,
+      "nonce": "fe8f5a601c2b9252",
+      "ts": 1784339143.961765
+    },
+    {
+      "frame": 2,
+      "nonce": "aecd2d3bfc1a9dbd",
+      "ts": 1784339152.920327
+    },
+    {
+      "frame": 3,
+      "nonce": "9843c74a0c26ee4b",
+      "ts": 1784339161.8927388
+    },
+    {
+      "frame": 4,
+      "nonce": "2228a81597ff4f40",
+      "ts": 1784339170.6123936
+    },
+    {
+      "frame": 5,
+      "nonce": "049541a3d44c51f8",
+      "ts": 1784339177.6179805
+    },
+    {
+      "frame": 6,
+      "nonce": "1987bc3553cf3a6e",
+      "ts": 1784339184.4294007
+    },
+    {
+      "frame": 7,
+      "nonce": "d6c9de492b45e36b",
+      "ts": 1784339208.4856963
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a4755026f4e1ac71",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "fe8f5a601c2b9252",
+      "decision": "HOLD",
+      "reason": "early dip, higher-TF closes still near flat/positive, no giveback yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "aecd2d3bfc1a9dbd",
+      "decision": "HOLD",
+      "reason": "px stabilizing off worst level, lambda still mildly reverting, giveback only 16%"
+    },
+    {
+      "frame": 3,
+      "nonce": "9843c74a0c26ee4b",
+      "decision": "HOLD",
+      "reason": "px flipped positive (+2.5), recovered 73% of the adverse excursion -- thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "2228a81597ff4f40",
+      "decision": "HOLD",
+      "reason": "px now +19.75, strong favorable move, thesis clearly working"
+    },
+    {
+      "frame": 5,
+      "nonce": "049541a3d44c51f8",
+      "decision": "HOLD",
+      "reason": "px still +7.5, pulled back from peak but well above entry, normal profit-taking dip"
+    },
+    {
+      "frame": 6,
+      "nonce": "1987bc3553cf3a6e",
+      "decision": "HOLD",
+      "reason": "sharp reversal to -15 but this instrument has shown big whipsaws before recovering; ER10 near-zero = chop not clean trend against"
+    },
+    {
+      "frame": 7,
+      "nonce": "d6c9de492b45e36b",
+      "decision": "EXIT",
+      "reason": "px deteriorating for 2 straight frames (-15->-18.5), giveback 83% of the whole favorable leg, HA+PROPP both against -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 7,
+  "finished": true,
+  "summary": "Held through an initial dip and a strong favorable swing to +19.75pts, but bailed at -18.5pts when price erased the entire favorable leg and kept deteriorating for two consecutive frames (giveback 83%) with both HA and PROPP against-fires confirming. Next time I'd watch for the point where a pullback stops being 'noise inside a winning leg' and becomes a full round-trip through breakeven into new lows -- that transition, especially with consecutive against-fires, is the earlier and cheaper signal versus waiting for a third confirming frame."
+}

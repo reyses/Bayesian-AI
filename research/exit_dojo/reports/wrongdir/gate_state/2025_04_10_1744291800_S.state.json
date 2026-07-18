@@ -1,0 +1,287 @@
+{
+  "episode_id": "2025_04_10_1744291800_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d032f65a76995cbc",
+      "ts": 1784342765.7254646
+    },
+    {
+      "frame": 1,
+      "nonce": "aa767c3ffca5e62c",
+      "ts": 1784342777.069507
+    },
+    {
+      "frame": 2,
+      "nonce": "2dd6d28b9cc1d0b6",
+      "ts": 1784342792.2053378
+    },
+    {
+      "frame": 3,
+      "nonce": "42af3292fd090662",
+      "ts": 1784342799.030724
+    },
+    {
+      "frame": 4,
+      "nonce": "211f506c850edc0b",
+      "ts": 1784342809.0846763
+    },
+    {
+      "frame": 5,
+      "nonce": "1968c097c2f9e5a9",
+      "ts": 1784342816.63729
+    },
+    {
+      "frame": 6,
+      "nonce": "abacc074a34ff3c9",
+      "ts": 1784342825.0498078
+    },
+    {
+      "frame": 7,
+      "nonce": "a8ba9912be7e730a",
+      "ts": 1784342832.495578
+    },
+    {
+      "frame": 8,
+      "nonce": "6d0ad7d88fe435fa",
+      "ts": 1784342839.3275297
+    },
+    {
+      "frame": 9,
+      "nonce": "01e516b78071b22c",
+      "ts": 1784342847.380543
+    },
+    {
+      "frame": 10,
+      "nonce": "4f6ca027a6d5c17b",
+      "ts": 1784342854.9254482
+    },
+    {
+      "frame": 11,
+      "nonce": "ea38fdbd485bd5a1",
+      "ts": 1784342861.23521
+    },
+    {
+      "frame": 12,
+      "nonce": "11a4da9fae7c4b35",
+      "ts": 1784342872.8780327
+    },
+    {
+      "frame": 13,
+      "nonce": "d6375ca44019018d",
+      "ts": 1784342878.9918828
+    },
+    {
+      "frame": 14,
+      "nonce": "e25cdbc92c0580ae",
+      "ts": 1784342885.4061322
+    },
+    {
+      "frame": 15,
+      "nonce": "c074022060350b0d",
+      "ts": 1784342893.648886
+    },
+    {
+      "frame": 16,
+      "nonce": "902e097a6b4a82e6",
+      "ts": 1784342899.7072444
+    },
+    {
+      "frame": 17,
+      "nonce": "ea49e139b97d9727",
+      "ts": 1784342907.9508042
+    },
+    {
+      "frame": 18,
+      "nonce": "9bf51711c5ad20f7",
+      "ts": 1784342917.0411956
+    },
+    {
+      "frame": 19,
+      "nonce": "17e242481207b8c0",
+      "ts": 1784342925.116303
+    },
+    {
+      "frame": 20,
+      "nonce": "25155207bb564ad8",
+      "ts": 1784342933.137728
+    },
+    {
+      "frame": 21,
+      "nonce": "8d8fc34b668d5602",
+      "ts": 1784342941.5038257
+    },
+    {
+      "frame": 22,
+      "nonce": "f64fc423a27f1e18",
+      "ts": 1784342949.2523267
+    },
+    {
+      "frame": 23,
+      "nonce": "954aa9089229c78c",
+      "ts": 1784342955.8536706
+    },
+    {
+      "frame": 24,
+      "nonce": "650fcd0f247435fd",
+      "ts": 1784342963.565431
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d032f65a76995cbc",
+      "decision": "HOLD",
+      "reason": "frame0: price still at entry level, no adverse move yet, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "aa767c3ffca5e62c",
+      "decision": "HOLD",
+      "reason": "adverse move to -51pts w/ 52% giveback but only 4m in; CLIMAX-against fired which often precedes reversion, watching next frame"
+    },
+    {
+      "frame": 2,
+      "nonce": "2dd6d28b9cc1d0b6",
+      "decision": "HOLD",
+      "reason": "price recovered to +32.25pts, giveback back to 0%, thesis intact and working"
+    },
+    {
+      "frame": 3,
+      "nonce": "42af3292fd090662",
+      "decision": "HOLD",
+      "reason": "choppy whipsaw, already recovered once to +32pts this episode, not a clean one-way adverse trend yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "211f506c850edc0b",
+      "decision": "HOLD",
+      "reason": "px -46.75, within prior chop range, PROPP flipped against but ER10 very low (0.11) = no clean trend yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "1968c097c2f9e5a9",
+      "decision": "HOLD",
+      "reason": "px -56.25, new local low but all 4 fire signals now against; watching for confirmation before bailing"
+    },
+    {
+      "frame": 6,
+      "nonce": "abacc074a34ff3c9",
+      "decision": "HOLD",
+      "reason": "leg reset, px improved to -44.75, HA flipped back to with; still range-bound chop not a clean breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "a8ba9912be7e730a",
+      "decision": "HOLD",
+      "reason": "px improving to -24, giveback down to 17%, HA and PROPP both flipped with -- thesis recovering"
+    },
+    {
+      "frame": 8,
+      "nonce": "6d0ad7d88fe435fa",
+      "decision": "HOLD",
+      "reason": "px +31.00, fully favorable now, thesis clearly intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "01e516b78071b22c",
+      "decision": "HOLD",
+      "reason": "px -30.25, within established chop band, PROPP-with fired, pattern keeps oscillating not trending"
+    },
+    {
+      "frame": 10,
+      "nonce": "4f6ca027a6d5c17b",
+      "decision": "HOLD",
+      "reason": "px near flat at -1.00, essentially breakeven, no directional break"
+    },
+    {
+      "frame": 11,
+      "nonce": "ea38fdbd485bd5a1",
+      "decision": "HOLD",
+      "reason": "px +53.25, new episode high, giveback 2%, thesis strongly working"
+    },
+    {
+      "frame": 12,
+      "nonce": "11a4da9fae7c4b35",
+      "decision": "HOLD",
+      "reason": "px +42.75, still solidly favorable, giveback only 7%"
+    },
+    {
+      "frame": 13,
+      "nonce": "d6375ca44019018d",
+      "decision": "HOLD",
+      "reason": "px +81.00, new episode high, low giveback 5%, strong thesis confirmation"
+    },
+    {
+      "frame": 14,
+      "nonce": "e25cdbc92c0580ae",
+      "decision": "HOLD",
+      "reason": "px +64.00, still well favorable despite some giveback, thesis intact"
+    },
+    {
+      "frame": 15,
+      "nonce": "c074022060350b0d",
+      "decision": "HOLD",
+      "reason": "px +57.25, still favorable, PROPP-with, giveback moderate but well above entry"
+    },
+    {
+      "frame": 16,
+      "nonce": "902e097a6b4a82e6",
+      "decision": "HOLD",
+      "reason": "px +19.00, still net favorable despite pullback from the +81 peak, no break below entry"
+    },
+    {
+      "frame": 17,
+      "nonce": "ea49e139b97d9727",
+      "decision": "HOLD",
+      "reason": "px -12.00, small dip after +81 peak, consistent with the episode's repeated chop pattern not a clean breakdown yet"
+    },
+    {
+      "frame": 18,
+      "nonce": "9bf51711c5ad20f7",
+      "decision": "HOLD",
+      "reason": "px -20.50, still within historical chop range for this episode, no new extreme"
+    },
+    {
+      "frame": 19,
+      "nonce": "17e242481207b8c0",
+      "decision": "HOLD",
+      "reason": "px -17.25, improved slightly, PROPP-with fired, still within normal chop"
+    },
+    {
+      "frame": 20,
+      "nonce": "25155207bb564ad8",
+      "decision": "HOLD",
+      "reason": "px -15.25, mild dip, giveback only 10%, PROPP-with, no confirmed breakdown"
+    },
+    {
+      "frame": 21,
+      "nonce": "8d8fc34b668d5602",
+      "decision": "HOLD",
+      "reason": "px -45.25, within historical range seen before (worst was -56), PROPP-with, this episode chops hard both ways"
+    },
+    {
+      "frame": 22,
+      "nonce": "f64fc423a27f1e18",
+      "decision": "HOLD",
+      "reason": "px recovering to -12.50, ER10 jumped to 0.64, HA-with -- momentum turning back favorable"
+    },
+    {
+      "frame": 23,
+      "nonce": "954aa9089229c78c",
+      "decision": "HOLD",
+      "reason": "px +41.00, favorable again, HA-with and PROPP-with confirming"
+    },
+    {
+      "frame": 24,
+      "nonce": "650fcd0f247435fd",
+      "decision": "HOLD",
+      "reason": "px +30.50, favorable, giveback 0%, thesis intact through to the end of the replay"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the whole 24-frame window. The trade whipsawed hard (roughly -56 to +81pts) in a repeating chop pattern rather than trending decisively against the entry -- every adverse excursion stayed within the range already seen and was followed by a recovery back through zero into favorable territory (peaks at +32, +53, +81, +64, +41, +30), so nothing ever confirmed a one-way wrong-direction move. Next time I'd watch for adverse excursions that set a NEW extreme beyond all prior lows combined with ER10 staying persistently low and all four fire signals (KMDR/CLIMAX/HA/PROPP) agreeing against for multiple consecutive frames -- that combination never appeared here, but would be the actual wrong-direction signature to bail on."
+}

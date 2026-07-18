@@ -41,7 +41,12 @@ import argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOJO_ROOT = os.path.abspath(os.path.join(HERE, '..'))
-FULL_RUN_DIR = os.path.join(DOJO_ROOT, 'reports', 'full_run')
+# Run directory is the full-run sandbox by DEFAULT (byte-for-byte the original behavior).
+# DOJO_RUN_DIR (additive, doc 099) lets a sibling run -- e.g. the wrong-direction dojo --
+# reuse this EXACT gate (nonce/serve/commit logic identical) against its own packets +
+# gate_state, without forking the security-critical serving code. The fleet subprocess
+# sets it in the child env; the agent's gate calls inherit it automatically.
+FULL_RUN_DIR = os.environ.get('DOJO_RUN_DIR') or os.path.join(DOJO_ROOT, 'reports', 'full_run')
 PACKETS_DIR = os.path.join(FULL_RUN_DIR, 'packets')
 GATE_STATE_DIR = os.path.join(FULL_RUN_DIR, 'gate_state')
 

@@ -1,0 +1,276 @@
+{
+  "episode_id": "2026_03_02_1772462280_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "25514e327291e848",
+      "ts": 1784340640.8175697
+    },
+    {
+      "frame": 1,
+      "nonce": "d241898f40522b0d",
+      "ts": 1784340658.0383837
+    },
+    {
+      "frame": 2,
+      "nonce": "4e76408645a1856a",
+      "ts": 1784340669.3660653
+    },
+    {
+      "frame": 3,
+      "nonce": "0c88dab9c06f8804",
+      "ts": 1784340680.9343436
+    },
+    {
+      "frame": 4,
+      "nonce": "797003ae88930e04",
+      "ts": 1784340701.1259775
+    },
+    {
+      "frame": 5,
+      "nonce": "32f16881de71013b",
+      "ts": 1784340707.821601
+    },
+    {
+      "frame": 6,
+      "nonce": "ab806ac0a3f2416e",
+      "ts": 1784340715.4884334
+    },
+    {
+      "frame": 7,
+      "nonce": "1c5a6d8d6f87234b",
+      "ts": 1784340725.3080988
+    },
+    {
+      "frame": 8,
+      "nonce": "774641f4b0c06539",
+      "ts": 1784340733.2007406
+    },
+    {
+      "frame": 9,
+      "nonce": "da3c4a93dded0b66",
+      "ts": 1784340739.213494
+    },
+    {
+      "frame": 10,
+      "nonce": "13625a07e0170538",
+      "ts": 1784340746.402679
+    },
+    {
+      "frame": 11,
+      "nonce": "fe536a09633aae0f",
+      "ts": 1784340752.1623979
+    },
+    {
+      "frame": 12,
+      "nonce": "4c65eb28db6a3686",
+      "ts": 1784340757.8985565
+    },
+    {
+      "frame": 13,
+      "nonce": "2369e2a69ae5cf0e",
+      "ts": 1784340763.8284843
+    },
+    {
+      "frame": 14,
+      "nonce": "6e3e7145a43dc584",
+      "ts": 1784340771.3614128
+    },
+    {
+      "frame": 15,
+      "nonce": "e6c581cfbd643b7f",
+      "ts": 1784340780.7348979
+    },
+    {
+      "frame": 16,
+      "nonce": "9982c56abefb5547",
+      "ts": 1784340789.51315
+    },
+    {
+      "frame": 17,
+      "nonce": "9cd0e04a06f0fb3f",
+      "ts": 1784340796.808683
+    },
+    {
+      "frame": 18,
+      "nonce": "781de2dd8070b200",
+      "ts": 1784340802.1944046
+    },
+    {
+      "frame": 19,
+      "nonce": "a83dbf2b2425e51f",
+      "ts": 1784340809.5023203
+    },
+    {
+      "frame": 20,
+      "nonce": "8fa4e68e527761e3",
+      "ts": 1784340815.242713
+    },
+    {
+      "frame": 21,
+      "nonce": "30a2517ae85effe4",
+      "ts": 1784340826.5661197
+    },
+    {
+      "frame": 22,
+      "nonce": "a7047a827b56dee9",
+      "ts": 1784340833.436409
+    },
+    {
+      "frame": 23,
+      "nonce": "0c3506afb6ae9122",
+      "ts": 1784340841.0887754
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "25514e327291e848",
+      "decision": "HOLD",
+      "reason": "entry flat at 0, higher TFs show strong prior uptrend into entry; against-fires noted but no adverse price yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "d241898f40522b0d",
+      "decision": "HOLD",
+      "reason": "-20.5pts is a minor giveback (16%) vs 266.8pt leg amplitude; 1m bar shows upper-wick rejection but no trend break yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "4e76408645a1856a",
+      "decision": "HOLD",
+      "reason": "PROPP flipped to with, lambda_21 positive+significant on 1m/15s (trend-supportive regime), giveback 29% still within normal dip range"
+    },
+    {
+      "frame": 3,
+      "nonce": "0c88dab9c06f8804",
+      "decision": "HOLD",
+      "reason": "sharp 1m down candle but price stalling around -36, still within normal chop; watching next frame for continuation vs stall"
+    },
+    {
+      "frame": 4,
+      "nonce": "797003ae88930e04",
+      "decision": "HOLD",
+      "reason": "price recovered from -36 to -11.75, giveback down to 9%, PROPP with, bounce confirms thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "32f16881de71013b",
+      "decision": "HOLD",
+      "reason": "price -18.25, choppy consolidation (ER10 0.40, vol contracting), HA+PROPP both with, no fresh against fires"
+    },
+    {
+      "frame": 6,
+      "nonce": "ab806ac0a3f2416e",
+      "decision": "HOLD",
+      "reason": "oscillating -10 to -40 range for 6min, not breaking below the -45.5 low set at frame3; HA+PROPP with, choppy consolidation not breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "1c5a6d8d6f87234b",
+      "decision": "HOLD",
+      "reason": "still oscillating in -10/-40 band, ER10 near zero = pure chop not a directional breakdown, no new low set"
+    },
+    {
+      "frame": 8,
+      "nonce": "774641f4b0c06539",
+      "decision": "HOLD",
+      "reason": "price flipped positive to +13.75, full recovery from the -45 dip, thesis confirmed intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "da3c4a93dded0b66",
+      "decision": "HOLD",
+      "reason": "still positive at +8.00, price holding gains above entry despite chop"
+    },
+    {
+      "frame": 10,
+      "nonce": "13625a07e0170538",
+      "decision": "HOLD",
+      "reason": "price up to +23.75, uptrend resuming, PROPP with"
+    },
+    {
+      "frame": 11,
+      "nonce": "fe536a09633aae0f",
+      "decision": "HOLD",
+      "reason": "price holding gains at +23.50, still net positive since entry"
+    },
+    {
+      "frame": 12,
+      "nonce": "4c65eb28db6a3686",
+      "decision": "HOLD",
+      "reason": "new high +38.25, giveback only 4%, trade clearly working now"
+    },
+    {
+      "frame": 13,
+      "nonce": "2369e2a69ae5cf0e",
+      "decision": "HOLD",
+      "reason": "pullback from +38 to +24.50 but still solidly positive, PROPP with, normal pullback within uptrend"
+    },
+    {
+      "frame": 14,
+      "nonce": "6e3e7145a43dc584",
+      "decision": "HOLD",
+      "reason": "pulled back to +1.00 (43% giveback), fresh against fires stacking, but still non-negative; watching closely for a break below zero"
+    },
+    {
+      "frame": 15,
+      "nonce": "e6c581cfbd643b7f",
+      "decision": "HOLD",
+      "reason": "price back to -20.50, still shallower than the -45.5 low already recovered from at frame3; whipsaw pattern established, not a new breakdown"
+    },
+    {
+      "frame": 16,
+      "nonce": "9982c56abefb5547",
+      "decision": "HOLD",
+      "reason": "price -19.25, stable vs prior frame, PROPP flipped back to with, still within chop range not a breakdown"
+    },
+    {
+      "frame": 17,
+      "nonce": "9cd0e04a06f0fb3f",
+      "decision": "HOLD",
+      "reason": "price back to +3.50, positive, PROPP with"
+    },
+    {
+      "frame": 18,
+      "nonce": "781de2dd8070b200",
+      "decision": "HOLD",
+      "reason": "price -2.75, essentially flat, continued chop within established -45/+48 range, no sustained breakdown"
+    },
+    {
+      "frame": 19,
+      "nonce": "a83dbf2b2425e51f",
+      "decision": "HOLD",
+      "reason": "price +1.25, HA+PROPP both with, vol contracting"
+    },
+    {
+      "frame": 20,
+      "nonce": "8fa4e68e527761e3",
+      "decision": "HOLD",
+      "reason": "price -5.75, small giveback within a now-tighter volatility band, no clean breakdown"
+    },
+    {
+      "frame": 21,
+      "nonce": "30a2517ae85effe4",
+      "decision": "HOLD",
+      "reason": "price +8.00, positive, vol contracting further, thesis remains intact"
+    },
+    {
+      "frame": 22,
+      "nonce": "a7047a827b56dee9",
+      "decision": "HOLD",
+      "reason": "price -2.50, minor, tight consolidation continues, vol very contracted"
+    },
+    {
+      "frame": 23,
+      "nonce": "0c3506afb6ae9122",
+      "decision": "HOLD",
+      "reason": "price -27.75, within the established whipsaw range (max dip seen was -45.5 and fully recovered), no clean directional breakdown all episode"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire episode. This entry showed extreme whipsaw for all 23 frames -- price oscillated repeatedly between roughly -45 and +48 pts with no sustained one-directional breakdown; every deep dip (frame 3's -45.5, frame 14's dip) fully recovered within 1-4 frames, and against-signal fires (KMDR/CLIMAX/HA/PROPP) kept flipping sign rather than stacking persistently in one direction. Never saw the signature of a genuine wrong-direction entry (a new low breaking the prior swing low with against-fires compounding and no bounce), so judged the thesis intact throughout and held to the window's end. Next time I'd watch for a decisive break below the established range low (not just matching it) combined with 3+ against-fires all fresh in the same frame as the disqualifying signal to bail on."
+}

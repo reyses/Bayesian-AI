@@ -1,0 +1,15 @@
+{"ts": 1784343708.2430627, "event": "serve", "frame": 0, "nonce": "40247b8d2f6fb152"}
+{"ts": 1784343716.0455854, "event": "commit", "frame": 0, "nonce": "40247b8d2f6fb152", "decision": "HOLD", "reason": "early frame, mixed signals across TFs, giveback high but only 3m in, thesis not yet disproven"}
+{"ts": 1784343718.4861116, "event": "serve", "frame": 1, "nonce": "749b7ac4c0d57b71"}
+{"ts": 1784343722.1980462, "event": "commit", "frame": 1, "nonce": "749b7ac4c0d57b71", "decision": "HOLD", "reason": "px now +17.75, giveback 0%, thesis working, no wrong-direction signal"}
+{"ts": 1784343724.2662525, "event": "serve", "frame": 2, "nonce": "bd6c25e320785d4a"}
+{"ts": 1784343727.9034076, "event": "commit", "frame": 2, "nonce": "bd6c25e320785d4a", "decision": "HOLD", "reason": "still favorable +20.75, modest giveback 34% off a 25.8pt peak, thesis intact"}
+{"ts": 1784343730.3214781, "event": "serve", "frame": 3, "nonce": "0fb0064f49ce249a"}
+{"ts": 1784343734.5811095, "event": "commit", "frame": 3, "nonce": "0fb0064f49ce249a", "decision": "HOLD", "reason": "still +14.25 favorable, giveback rising to 47% but still net positive, watching closely"}
+{"ts": 1784343736.7006886, "event": "serve", "frame": 4, "nonce": "ff97c9c2441f4dfc"}
+{"ts": 1784343746.9306111, "event": "commit", "frame": 4, "nonce": "ff97c9c2441f4dfc", "decision": "HOLD", "reason": "still net positive +3.25 but giveback 82% off peak is a warning sign, watching for a flip negative"}
+{"ts": 1784343750.8160572, "event": "serve", "frame": 5, "nonce": "f4a9e8488b0e093b"}
+{"ts": 1784343763.4854813, "event": "commit", "frame": 5, "nonce": "f4a9e8488b0e093b", "decision": "HOLD", "reason": "first negative print (-2.25) after a run to +20-30, looks like a whipsaw dip not a confirmed reversal, giveback only 11% on new leg"}
+{"ts": 1784343765.580539, "event": "serve", "frame": 6, "nonce": "ba67ca0f17994e87"}
+{"ts": 1784343782.1016774, "event": "commit", "frame": 6, "nonce": "ba67ca0f17994e87", "decision": "EXIT", "reason": "px trend +20.75->+14.25->+3.25->-2.25->-7.50, monotonic decline through zero into negative, full round-trip of the favorable move, HA-against firing repeatedly -- wrong-direction confirmed, bailing"}
+{"ts": 1784343787.8709168, "event": "finish", "summary": "Entry ran favorably to a peak near +20-25pts by t=2-3m, then decayed steadily: +14.25 -> +3.25 -> -2.25 -> -7.50 over the following four frames, a full round-trip through zero with HA-against firing repeatedly and no fresh favorable leg forming -- that monotonic multi-frame decline (not a single dip) is what told me the entry's edge was gone and I bailed at -7.50. Next time I'd watch for the SAME pattern: a strong initial favorable leg giving back >80% and then continuing to print new session lows/negatives across 2+ consecutive frames, rather than waiting for a bigger round number of loss, since by the time it's clearly negative for multiple frames in a row it has already stopped being a normal dip.", "exit_frame": 6, "n_commits": 7}

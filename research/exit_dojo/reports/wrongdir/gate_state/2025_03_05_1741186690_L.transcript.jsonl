@@ -1,0 +1,43 @@
+{"ts": 1784342558.3476856, "event": "serve", "frame": 0, "nonce": "5ea6f7c0f572adf7"}
+{"ts": 1784342567.7916925, "event": "commit", "frame": 0, "nonce": "5ea6f7c0f572adf7", "decision": "HOLD", "reason": "at breakeven 2m in, giveback 34% of amp but higher TFs still strongly favorable; too early to call wrong-direction"}
+{"ts": 1784342570.2816172, "event": "serve", "frame": 1, "nonce": "cc113a3e4dcd11b8"}
+{"ts": 1784342574.651262, "event": "commit", "frame": 1, "nonce": "cc113a3e4dcd11b8", "decision": "HOLD", "reason": "px moved to +15.75, thesis working, no wrong-direction signal"}
+{"ts": 1784342576.9301648, "event": "serve", "frame": 2, "nonce": "e98dc4392544339f"}
+{"ts": 1784342580.3324213, "event": "commit", "frame": 2, "nonce": "e98dc4392544339f", "decision": "HOLD", "reason": "px surged to +153.75, strongly favorable, thesis clearly working"}
+{"ts": 1784342582.4773195, "event": "serve", "frame": 3, "nonce": "b44ea54f75edfefd"}
+{"ts": 1784342586.5435433, "event": "commit", "frame": 3, "nonce": "b44ea54f75edfefd", "decision": "HOLD", "reason": "px +114.75, still strongly favorable, small giveback (10%) of a big amp move"}
+{"ts": 1784342588.5455585, "event": "serve", "frame": 4, "nonce": "fa42118a052291c3"}
+{"ts": 1784342592.6484978, "event": "commit", "frame": 4, "nonce": "fa42118a052291c3", "decision": "HOLD", "reason": "px +95.25 still strongly favorable despite pullback; giveback 28% normal profit-taking dip, not a reversal"}
+{"ts": 1784342594.948082, "event": "serve", "frame": 5, "nonce": "64e1fb7adf3e8216"}
+{"ts": 1784342598.1898, "event": "commit", "frame": 5, "nonce": "64e1fb7adf3e8216", "decision": "HOLD", "reason": "px +102.50, giveback improved to 20%, thesis intact"}
+{"ts": 1784342600.2794402, "event": "serve", "frame": 6, "nonce": "fde63af3c62a8d91"}
+{"ts": 1784342603.6365669, "event": "commit", "frame": 6, "nonce": "fde63af3c62a8d91", "decision": "HOLD", "reason": "px +141.25, new local high, thesis working well"}
+{"ts": 1784342606.569807, "event": "serve", "frame": 7, "nonce": "24d2fe6a2ae54f84"}
+{"ts": 1784342610.2117686, "event": "commit", "frame": 7, "nonce": "24d2fe6a2ae54f84", "decision": "HOLD", "reason": "px +124.50, still solidly favorable, minor giveback"}
+{"ts": 1784342613.0049658, "event": "serve", "frame": 8, "nonce": "2db55100eaa20450"}
+{"ts": 1784342617.1376302, "event": "commit", "frame": 8, "nonce": "2db55100eaa20450", "decision": "HOLD", "reason": "px +126.50, consolidating well above breakeven, no reversal signature"}
+{"ts": 1784342619.2897065, "event": "serve", "frame": 9, "nonce": "f2da431646eb4abd"}
+{"ts": 1784342622.4749377, "event": "commit", "frame": 9, "nonce": "f2da431646eb4abd", "decision": "HOLD", "reason": "px +155.25, new local high, trend continuing favorably"}
+{"ts": 1784342624.7322967, "event": "serve", "frame": 10, "nonce": "2989d8c450f484e4"}
+{"ts": 1784342628.1713097, "event": "commit", "frame": 10, "nonce": "2989d8c450f484e4", "decision": "HOLD", "reason": "px +158.75, ER10 rising, trend still favorable despite against-fires"}
+{"ts": 1784342630.229639, "event": "serve", "frame": 11, "nonce": "282f07f524dd503c"}
+{"ts": 1784342633.4723291, "event": "commit", "frame": 11, "nonce": "282f07f524dd503c", "decision": "HOLD", "reason": "px +151.25, minor pullback within an established uptrend, still well favorable"}
+{"ts": 1784342635.7941775, "event": "serve", "frame": 12, "nonce": "4d8d454198dc3f6c"}
+{"ts": 1784342640.075236, "event": "commit", "frame": 12, "nonce": "4d8d454198dc3f6c", "decision": "HOLD", "reason": "px +130.25, still deep favorable despite 3 against-fires and 41% giveback; watching closely but not wrong-direction yet"}
+{"ts": 1784342643.1220791, "event": "serve", "frame": 13, "nonce": "a2b15c7c1bdc012a"}
+{"ts": 1784342646.7219346, "event": "commit", "frame": 13, "nonce": "a2b15c7c1bdc012a", "decision": "HOLD", "reason": "px +126.00, holding steady well into favorable territory"}
+{"ts": 1784342649.0292509, "event": "serve", "frame": 14, "nonce": "316c9d8943681998"}
+{"ts": 1784342652.0818644, "event": "commit", "frame": 14, "nonce": "316c9d8943681998", "decision": "HOLD", "reason": "px +102.75, pulled back from highs but still comfortably favorable, giveback modest at 9%"}
+{"ts": 1784342654.5660503, "event": "serve", "frame": 15, "nonce": "1cadd7b83ecd1738"}
+{"ts": 1784342657.7416828, "event": "commit", "frame": 15, "nonce": "1cadd7b83ecd1738", "decision": "HOLD", "reason": "px +138.25, rebounded to near recent highs, both fires with-direction"}
+{"ts": 1784342660.3734717, "event": "serve", "frame": 16, "nonce": "1ed071197b3dbe40"}
+{"ts": 1784342664.7642975, "event": "commit", "frame": 16, "nonce": "1ed071197b3dbe40", "decision": "HOLD", "reason": "px +100.25, still well favorable, giveback low at 6%, thesis intact"}
+{"ts": 1784342666.7785587, "event": "serve", "frame": 17, "nonce": "23739da62e1422f0"}
+{"ts": 1784342669.7386024, "event": "commit", "frame": 17, "nonce": "23739da62e1422f0", "decision": "HOLD", "reason": "px +114.50, range-bound but firmly favorable, no wrong-direction break"}
+{"ts": 1784342671.8890438, "event": "serve", "frame": 18, "nonce": "359996ffe70ebe1d"}
+{"ts": 1784342675.0911307, "event": "commit", "frame": 18, "nonce": "359996ffe70ebe1d", "decision": "HOLD", "reason": "px +103.50, stable well-favorable range, thesis intact"}
+{"ts": 1784342677.162425, "event": "serve", "frame": 19, "nonce": "33e8850a6689a320"}
+{"ts": 1784342684.4491446, "event": "commit", "frame": 19, "nonce": "33e8850a6689a320", "decision": "HOLD", "reason": "px +67.75, drifted down from highs but still solidly positive vs entry, not wrong-direction"}
+{"ts": 1784342687.126456, "event": "serve", "frame": 20, "nonce": "ddba234c6289480f"}
+{"ts": 1784342690.5169713, "event": "commit", "frame": 20, "nonce": "ddba234c6289480f", "decision": "HOLD", "reason": "px +88.50, rebounded off the recent dip, still solidly favorable"}
+{"ts": 1784342700.153498, "event": "finish", "summary": "Held the entire episode. Price ran favorable almost immediately (from breakeven to +150-160pts by t=9-10m) and never came close to breakeven again, oscillating roughly +65 to +160pts through t=20m with normal pullback/rebound cycles (giveback 0-73% off local legs but never approaching the entry). No sustained directional break against the position ever appeared -- every dip was followed by a rebound, and the higher-TF context (5m/15m/1h/4h) stayed favorable throughout. Nothing here looked wrong-direction; it read as a working long with ordinary chop. Next time I'd watch for a close that actually revisits/undercuts entry (px approaching 0 or negative) or a giveback that keeps compounding across consecutive legs without a rebound -- neither happened here.", "exit_frame": null, "n_commits": 21}

@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_12_03_1764772260_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "364b5a853586c69d",
+      "ts": 1784339600.1206603
+    },
+    {
+      "frame": 1,
+      "nonce": "1460d865c13687bd",
+      "ts": 1784339619.3753135
+    },
+    {
+      "frame": 2,
+      "nonce": "1b4bb08eca70cc0c",
+      "ts": 1784339631.8114824
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "364b5a853586c69d",
+      "decision": "HOLD",
+      "reason": "just entered, flat at breakeven, thesis not yet tested"
+    },
+    {
+      "frame": 1,
+      "nonce": "1460d865c13687bd",
+      "decision": "HOLD",
+      "reason": "1m in, -19.75pts dip, still early/normal noise range"
+    },
+    {
+      "frame": 2,
+      "nonce": "1b4bb08eca70cc0c",
+      "decision": "EXIT",
+      "reason": "px accelerated -19.75->-59.5 in 1min, both HA and PROPP now fire against, giveback dropped to 0% (no reversion, move extending against us) -- wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Entry was flat at t=0, dipped -19.75pts by t=1m which I held as normal noise. By t=2m price accelerated to -59.5pts (3x the prior dip in one minute), both HA and PROPP fire signals flipped from with/mixed to against, and leg giveback collapsed to 0% -- i.e. the adverse move stopped mean-reverting and was extending cleanly against the position. That combination (accelerating adverse velocity + both directional fires against + zero giveback) read as wrong-direction, not a normal dip, so I bailed at frame 2. Next time I'd watch giveback% specifically: high giveback on an adverse leg (like the initial 53-62%) signals the counter-move is itself fading and the position may recover, while a drop to 0% giveback alongside multiple against-fires is the tell that the adverse leg is now the dominant, persisting move."
+}

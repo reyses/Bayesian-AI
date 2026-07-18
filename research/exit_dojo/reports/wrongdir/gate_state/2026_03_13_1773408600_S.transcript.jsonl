@@ -1,0 +1,21 @@
+{"ts": 1784340867.1578543, "event": "serve", "frame": 0, "nonce": "01c4ec7f6f0b96b9"}
+{"ts": 1784340872.221975, "event": "commit", "frame": 0, "nonce": "01c4ec7f6f0b96b9", "decision": "HOLD", "reason": "frame0: entry just placed, price 0 to +30pts favorable across TFs, no adverse signal yet"}
+{"ts": 1784340877.048087, "event": "serve", "frame": 1, "nonce": "292f27510c7fb598"}
+{"ts": 1784340881.229132, "event": "commit", "frame": 1, "nonce": "292f27510c7fb598", "decision": "HOLD", "reason": "frame1: still +4.25pts favorable, mixed fires but no confirmed reversal, thesis intact"}
+{"ts": 1784340883.503332, "event": "serve", "frame": 2, "nonce": "bcf81181fba2f503"}
+{"ts": 1784340888.1435502, "event": "commit", "frame": 2, "nonce": "bcf81181fba2f503", "decision": "HOLD", "reason": "frame2: px decayed to +0.75, all fires now against, but still not negative -- watching closely"}
+{"ts": 1784340890.3915834, "event": "serve", "frame": 3, "nonce": "33c93c15ae0d7689"}
+{"ts": 1784340894.3047235, "event": "commit", "frame": 3, "nonce": "33c93c15ae0d7689", "decision": "HOLD", "reason": "frame3: px recovered to +4.75, new leg started fresh 0% giveback, thesis intact"}
+{"ts": 1784340896.4066482, "event": "serve", "frame": 4, "nonce": "f4a4432a506b35a9"}
+{"ts": 1784340901.2570522, "event": "commit", "frame": 4, "nonce": "f4a4432a506b35a9", "decision": "HOLD", "reason": "frame4: first dip to -3.5pts, single bar, CLIMAX fired with us -- watching for continuation before bailing"}
+{"ts": 1784340903.3998249, "event": "serve", "frame": 5, "nonce": "1ee340c51cff169b"}
+{"ts": 1784340906.495701, "event": "commit", "frame": 5, "nonce": "1ee340c51cff169b", "decision": "HOLD", "reason": "frame5: recovered to +9.75pts, new high, HA now with us, thesis intact"}
+{"ts": 1784340908.6665003, "event": "serve", "frame": 6, "nonce": "1c64b739c74cb9da"}
+{"ts": 1784340914.2524009, "event": "commit", "frame": 6, "nonce": "1c64b739c74cb9da", "decision": "HOLD", "reason": "frame6: strong push to +49.5pts, all fires with us, thesis clearly intact"}
+{"ts": 1784340916.6593451, "event": "serve", "frame": 7, "nonce": "54c0aa5317a0a212"}
+{"ts": 1784340920.283392, "event": "commit", "frame": 7, "nonce": "54c0aa5317a0a212", "decision": "HOLD", "reason": "frame7: still +48pts, minor pullback from peak but well within noise, thesis intact"}
+{"ts": 1784340923.647524, "event": "serve", "frame": 8, "nonce": "7fb5ffad6ebf732c"}
+{"ts": 1784340929.1153939, "event": "commit", "frame": 8, "nonce": "7fb5ffad6ebf732c", "decision": "HOLD", "reason": "frame8: pulled back from +48 to +11, 53% giveback, all fires against -- still net positive, watching for break of zero"}
+{"ts": 1784340931.342498, "event": "serve", "frame": 9, "nonce": "d410eec8b37444b1"}
+{"ts": 1784340937.693584, "event": "commit", "frame": 9, "nonce": "d410eec8b37444b1", "decision": "EXIT", "reason": "frame9: full reversal from +49.5 peak to -17.5, 78% giveback, all fires against, ER10 collapsed to 0.05 -- wrong-direction confirmed, bailing"}
+{"ts": 1784340943.4138627, "event": "finish", "summary": "Held through an early dip and a strong +49.5pt favorable excursion, but the leg fully round-tripped: by t=9m price had reversed to -17.5pts (78% giveback of the leg's amplitude), with CLIMAX/HA/PROPP order-flow fires all flipping against the position simultaneously and ER10 collapsing to 0.05 (no persistence left). That combination -- a large favorable move giving back nearly all of itself while multiple independent fire families agree against us -- is what told me the thesis had failed rather than just dipped, so I bailed. Next time I'd watch for the giveback-percentage crossing ~75-80% of leg amplitude combined with 2+ fires against as the earlier trigger, rather than waiting for price to actually cross back through zero.", "exit_frame": 9, "n_commits": 10}

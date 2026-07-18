@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_01_27_1737988200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "70be3d097955efc9",
+      "ts": 1784336679.6479604
+    },
+    {
+      "frame": 1,
+      "nonce": "2311fbd844d5f68e",
+      "ts": 1784336692.288544
+    },
+    {
+      "frame": 2,
+      "nonce": "e0c7448789869d4e",
+      "ts": 1784336728.4307883
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "70be3d097955efc9",
+      "decision": "HOLD",
+      "reason": "entry frame, price at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "2311fbd844d5f68e",
+      "decision": "HOLD",
+      "reason": "large adverse move -71.5pts in 1m but want confirmation before bailing, checking next frame"
+    },
+    {
+      "frame": 2,
+      "nonce": "e0c7448789869d4e",
+      "decision": "EXIT",
+      "reason": "px -145.5 and accelerating (was -71.5 at t=1m), giveback 0% means no bounce at all, ER10 jumped to 0.51 (strong trend), 1m z_se +4.2 sigma against -- clear wrong-direction breakout, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Bailed at t=2m. The move against the short accelerated rather than dipped-and-recovered: -71.5pts at 1m doubled to -145.5pts at 2m, giveback stayed 0% (no bounce at any point), ER10 jumped from 0.02 to 0.51 (efficient/trending, not choppy), and the 1m z_se hit +4.2 sigma against the position with lambda momentum confirming continuation. Two of three recent fires (HA-against, PROPP-against) were against the position the whole way. Next time I'd watch for the same signature earlier: a same-direction acceleration across 5s/15s/1m closes with zero giveback in the first 1-2 minutes is a strong tell, versus a genuine dip which usually shows partial retracement/wicks back in favor before continuing."
+}

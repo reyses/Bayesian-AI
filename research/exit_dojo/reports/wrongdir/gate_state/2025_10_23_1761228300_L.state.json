@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_10_23_1761228300_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "e83268fd04122dcb",
+      "ts": 1784339084.321337
+    },
+    {
+      "frame": 1,
+      "nonce": "d4666d52fe8b066b",
+      "ts": 1784339092.5668883
+    },
+    {
+      "frame": 2,
+      "nonce": "5e6aa643eb6b0166",
+      "ts": 1784339100.5471194
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "e83268fd04122dcb",
+      "decision": "HOLD",
+      "reason": "entry frame, price flat at 0, short-TF momentum positive, no wrong-direction signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "d4666d52fe8b066b",
+      "decision": "HOLD",
+      "reason": "dip to -8.25 but 1m/5m closes still positive, giveback high on small amplitude leg, too early to call wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "5e6aa643eb6b0166",
+      "decision": "EXIT",
+      "reason": "px -12.25, giveback 104% (fully erased leg + net negative), HA-against and KMDR-against both firing, ER10 rising (more directional against us) -- wrong-direction signature, bail now"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Entry started flat, dipped modestly by t=1m (still within normal chop), then by t=2m fully reversed: giveback hit 104% (net negative beyond the initial favorable excursion), with HA-against and KMDR-against both active and rising ER10 signaling a genuine directional move against the position rather than noise. Bailed at that point rather than waiting for further compounding. Next time: watch for giveback crossing 100% combined with 2+ against-fires as the core wrong-direction signature; a single against-fire or sub-100% giveback on a small-amplitude leg is more likely normal dip/chop and worth holding through."
+}

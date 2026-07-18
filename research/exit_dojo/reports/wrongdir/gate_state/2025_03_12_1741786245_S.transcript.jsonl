@@ -1,0 +1,9 @@
+{"ts": 1784337386.6364539, "event": "serve", "frame": 0, "nonce": "ffa1c69ff2577a7c"}
+{"ts": 1784337399.281932, "event": "commit", "frame": 0, "nonce": "ffa1c69ff2577a7c", "decision": "HOLD", "reason": "frame0: px flat at entry, no giveback yet, too early to judge"}
+{"ts": 1784337402.1824758, "event": "serve", "frame": 1, "nonce": "80fdcd15f591b076"}
+{"ts": 1784337409.157982, "event": "commit", "frame": 1, "nonce": "80fdcd15f591b076", "decision": "HOLD", "reason": "px -15.75, giveback only 20%, 1m still favorable, normal early dip"}
+{"ts": 1784337411.3692558, "event": "serve", "frame": 2, "nonce": "0a9cc08fcbc95651"}
+{"ts": 1784337418.2505355, "event": "commit", "frame": 2, "nonce": "0a9cc08fcbc95651", "decision": "HOLD", "reason": "px roughly flat -16.25 vs -15.75, giveback 26% mild, no runaway yet"}
+{"ts": 1784337420.7405083, "event": "serve", "frame": 3, "nonce": "149f451d4dbbfef0"}
+{"ts": 1784337434.2649045, "event": "commit", "frame": 3, "nonce": "149f451d4dbbfef0", "decision": "EXIT", "reason": "px collapsed -16->-63 in 1min, new leg low (giveback 0%=fresh extreme), ER10 rising to 0.54, PROPP-against fired: accelerating wrong-direction breakout, not a dip"}
+{"ts": 1784337439.626987, "event": "finish", "summary": "Held through the first two minutes as px drifted mildly negative (-15.75 -> -16.25, giveback 20-26%) which looked like normal chop, not a breakdown. Bailed at t=3m when px collapsed to -63.00 (a fresh leg extreme, giveback reset to 0%), ER10 jumped to 0.54 (strengthening trend efficiency), and PROPP fired against the position -- that combination read as an accelerating wrong-direction move rather than a dip. Next time I'd watch for the ER10 ramp + fresh-extreme giveback-reset combo earlier as the tell that a dip has turned into a real breakdown.", "exit_frame": 3, "n_commits": 4}

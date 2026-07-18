@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_02_18_1739889720_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9bd94a4c1859b69f",
+      "ts": 1784337109.4196842
+    },
+    {
+      "frame": 1,
+      "nonce": "5ede9da2ec904130",
+      "ts": 1784337119.9402168
+    },
+    {
+      "frame": 2,
+      "nonce": "56d0eb2413ce7f19",
+      "ts": 1784337130.8406925
+    },
+    {
+      "frame": 3,
+      "nonce": "4cda5204619b66ae",
+      "ts": 1784337163.320873
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9bd94a4c1859b69f",
+      "decision": "HOLD",
+      "reason": "frame0: just entered, px flat at 0, mixed fires (HA against but KMDR/PROPP with), no evidence yet of wrong-direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "5ede9da2ec904130",
+      "decision": "HOLD",
+      "reason": "px -6.25 (~1.2sigma on 5s), still within normal noise band, fires mixed (HA-with now), too early to call wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "56d0eb2413ce7f19",
+      "decision": "HOLD",
+      "reason": "px -20.25, sharp accel drop, 0% giveback on fresh down-leg -- concerning but reversion_prob high across TFs and could be a flush/wick; watching one more frame before bailing"
+    },
+    {
+      "frame": 3,
+      "nonce": "4cda5204619b66ae",
+      "decision": "EXIT",
+      "reason": "px -26.5 and worsening for 3 straight frames, down-leg amp 37.5pts with only 10% giveback, extreme z (15s z_close_vs_high -4.1), persistent HA-against fires -- this is a genuine breakdown not a dip, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Entered flat, dipped to -6 (normal noise), then accelerated to -20 and -26.5 over the next two minutes with the down-leg amplitude growing to 37.5pts while only giving back 10% -- a persistent, worsening move rather than a wick. Extreme 15s z-scores (z_close_vs_high -4.1) and repeated HA-against fires confirmed this was a genuine breakdown, not a dip that would resolve favorably, so I bailed at -26.5. Next time: watch giveback% on the active leg as the key tell -- as long as it stays near 0% while amplitude grows, the leg is not mean-reverting and the entry thesis is broken."
+}

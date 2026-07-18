@@ -1,0 +1,122 @@
+{
+  "episode_id": "2026_03_13_1773408600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "01c4ec7f6f0b96b9",
+      "ts": 1784340867.1578543
+    },
+    {
+      "frame": 1,
+      "nonce": "292f27510c7fb598",
+      "ts": 1784340877.0460865
+    },
+    {
+      "frame": 2,
+      "nonce": "bcf81181fba2f503",
+      "ts": 1784340883.5001376
+    },
+    {
+      "frame": 3,
+      "nonce": "33c93c15ae0d7689",
+      "ts": 1784340890.3858142
+    },
+    {
+      "frame": 4,
+      "nonce": "f4a4432a506b35a9",
+      "ts": 1784340896.3945637
+    },
+    {
+      "frame": 5,
+      "nonce": "1ee340c51cff169b",
+      "ts": 1784340903.3920946
+    },
+    {
+      "frame": 6,
+      "nonce": "1c64b739c74cb9da",
+      "ts": 1784340908.6612387
+    },
+    {
+      "frame": 7,
+      "nonce": "54c0aa5317a0a212",
+      "ts": 1784340916.6593451
+    },
+    {
+      "frame": 8,
+      "nonce": "7fb5ffad6ebf732c",
+      "ts": 1784340923.640645
+    },
+    {
+      "frame": 9,
+      "nonce": "d410eec8b37444b1",
+      "ts": 1784340931.342498
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "01c4ec7f6f0b96b9",
+      "decision": "HOLD",
+      "reason": "frame0: entry just placed, price 0 to +30pts favorable across TFs, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "292f27510c7fb598",
+      "decision": "HOLD",
+      "reason": "frame1: still +4.25pts favorable, mixed fires but no confirmed reversal, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "bcf81181fba2f503",
+      "decision": "HOLD",
+      "reason": "frame2: px decayed to +0.75, all fires now against, but still not negative -- watching closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "33c93c15ae0d7689",
+      "decision": "HOLD",
+      "reason": "frame3: px recovered to +4.75, new leg started fresh 0% giveback, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "f4a4432a506b35a9",
+      "decision": "HOLD",
+      "reason": "frame4: first dip to -3.5pts, single bar, CLIMAX fired with us -- watching for continuation before bailing"
+    },
+    {
+      "frame": 5,
+      "nonce": "1ee340c51cff169b",
+      "decision": "HOLD",
+      "reason": "frame5: recovered to +9.75pts, new high, HA now with us, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "1c64b739c74cb9da",
+      "decision": "HOLD",
+      "reason": "frame6: strong push to +49.5pts, all fires with us, thesis clearly intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "54c0aa5317a0a212",
+      "decision": "HOLD",
+      "reason": "frame7: still +48pts, minor pullback from peak but well within noise, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "7fb5ffad6ebf732c",
+      "decision": "HOLD",
+      "reason": "frame8: pulled back from +48 to +11, 53% giveback, all fires against -- still net positive, watching for break of zero"
+    },
+    {
+      "frame": 9,
+      "nonce": "d410eec8b37444b1",
+      "decision": "EXIT",
+      "reason": "frame9: full reversal from +49.5 peak to -17.5, 78% giveback, all fires against, ER10 collapsed to 0.05 -- wrong-direction confirmed, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Held through an early dip and a strong +49.5pt favorable excursion, but the leg fully round-tripped: by t=9m price had reversed to -17.5pts (78% giveback of the leg's amplitude), with CLIMAX/HA/PROPP order-flow fires all flipping against the position simultaneously and ER10 collapsing to 0.05 (no persistence left). That combination -- a large favorable move giving back nearly all of itself while multiple independent fire families agree against us -- is what told me the thesis had failed rather than just dipped, so I bailed. Next time I'd watch for the giveback-percentage crossing ~75-80% of leg amplitude combined with 2+ fires against as the earlier trigger, rather than waiting for price to actually cross back through zero."
+}

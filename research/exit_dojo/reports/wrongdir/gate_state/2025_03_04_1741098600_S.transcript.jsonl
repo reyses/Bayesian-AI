@@ -1,0 +1,19 @@
+{"ts": 1784337293.23636, "event": "serve", "frame": 0, "nonce": "4c5f8f9b7f175dfd"}
+{"ts": 1784337298.5520325, "event": "commit", "frame": 0, "nonce": "4c5f8f9b7f175dfd", "decision": "HOLD", "reason": "Entry frame, price at 0, no post-entry adverse move yet"}
+{"ts": 1784337300.5153363, "event": "serve", "frame": 1, "nonce": "7c6854daa8ac7e00"}
+{"ts": 1784337306.5978882, "event": "commit", "frame": 1, "nonce": "7c6854daa8ac7e00", "decision": "HOLD", "reason": "1m in, -34pts giveback 34%, single adverse bar; too early to call wrong-direction"}
+{"ts": 1784337309.0525014, "event": "serve", "frame": 2, "nonce": "18fc66bcab6c6ab9"}
+{"ts": 1784337312.8227348, "event": "commit", "frame": 2, "nonce": "18fc66bcab6c6ab9", "decision": "HOLD", "reason": "Recovered from -34 to -0.5, giveback 0%; dip resolved, thesis intact"}
+{"ts": 1784337314.9623277, "event": "serve", "frame": 3, "nonce": "97d9094b7b47310d"}
+{"ts": 1784337318.0159507, "event": "commit", "frame": 3, "nonce": "97d9094b7b47310d", "decision": "HOLD", "reason": "px now +14.5, trade working in our favor"}
+{"ts": 1784337321.6740968, "event": "serve", "frame": 4, "nonce": "dfbb79d7f0849545"}
+{"ts": 1784337325.1305547, "event": "commit", "frame": 4, "nonce": "dfbb79d7f0849545", "decision": "HOLD", "reason": "Still net positive at +6.5, minor pullback within a working trade"}
+{"ts": 1784337327.5815482, "event": "serve", "frame": 5, "nonce": "cb147f9ce9a8c5b4"}
+{"ts": 1784337332.4315035, "event": "commit", "frame": 5, "nonce": "cb147f9ce9a8c5b4", "decision": "HOLD", "reason": "Small pullback to -3.25, within established chop range, no clean breakdown yet"}
+{"ts": 1784337334.5068479, "event": "serve", "frame": 6, "nonce": "659e952fe1924d7a"}
+{"ts": 1784337337.8533185, "event": "commit", "frame": 6, "nonce": "659e952fe1924d7a", "decision": "HOLD", "reason": "New leg, -7.5pts modest, still within noise band seen so far"}
+{"ts": 1784337340.0111885, "event": "serve", "frame": 7, "nonce": "0c94af3955f91b61"}
+{"ts": 1784337359.3746874, "event": "commit", "frame": 7, "nonce": "0c94af3955f91b61", "decision": "HOLD", "reason": "Sharp -61 excursion, largest yet, but PROPP now fires WITH us (reversion signal); need one more frame to confirm before bailing"}
+{"ts": 1784337361.71324, "event": "serve", "frame": 8, "nonce": "43cfe88ebe73970e"}
+{"ts": 1784337367.500042, "event": "commit", "frame": 8, "nonce": "43cfe88ebe73970e", "decision": "EXIT", "reason": "Accelerating adverse move -34->-61->-97, new lows each frame, vol expanding, PROPP flipped back against; genuine breakdown not a dip -- bail"}
+{"ts": 1784337373.5691054, "event": "finish", "summary": "Held through an early -34pt dip that fully recovered to +14.5 by t=3m, consistent with normal chop -- correctly did not knife that one. But starting at t=7m the adverse excursion broke to a new low (-61) that had never occurred before, and by t=8m it accelerated to -97 with expanding 5m volatility (d+10) and ER10 collapsing to 0.08, i.e. a real directional break rather than mean-reverting noise. Bailed at -97 rather than waiting for a bounce. Next time: watch for the pattern of 'new low beyond the established chop range + rising volatility' as the wrong-direction tell, and don't wait for a second confirming frame once that combination shows -- the extra frame cost ~36pts here.", "exit_frame": 8, "n_commits": 9}

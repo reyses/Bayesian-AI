@@ -1,0 +1,309 @@
+{
+  "episode_id": "2025_04_23_1745415420_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ec23847073dd6a69",
+      "ts": 1784342773.5120006
+    },
+    {
+      "frame": 1,
+      "nonce": "de7e94bc12608e45",
+      "ts": 1784342785.5280921
+    },
+    {
+      "frame": 2,
+      "nonce": "97de94cd1b0722d3",
+      "ts": 1784342792.262562
+    },
+    {
+      "frame": 3,
+      "nonce": "8b3c0bf8eb3a631f",
+      "ts": 1784342798.4677875
+    },
+    {
+      "frame": 4,
+      "nonce": "7198a575b9d8bcf7",
+      "ts": 1784342811.3223784
+    },
+    {
+      "frame": 5,
+      "nonce": "df7da4e96d58bb4e",
+      "ts": 1784342817.7029274
+    },
+    {
+      "frame": 6,
+      "nonce": "3d157d75fe4bcb62",
+      "ts": 1784342823.9978776
+    },
+    {
+      "frame": 7,
+      "nonce": "72f84164dfdacb78",
+      "ts": 1784342830.3576906
+    },
+    {
+      "frame": 8,
+      "nonce": "a8d8fce5e1f9cd5f",
+      "ts": 1784342836.8073595
+    },
+    {
+      "frame": 9,
+      "nonce": "b612dd1748f42fbd",
+      "ts": 1784342843.3194184
+    },
+    {
+      "frame": 10,
+      "nonce": "85b0205000712366",
+      "ts": 1784342849.1114633
+    },
+    {
+      "frame": 11,
+      "nonce": "f6890b175f7e364a",
+      "ts": 1784342855.8861506
+    },
+    {
+      "frame": 12,
+      "nonce": "d4550c0e16773550",
+      "ts": 1784342861.397313
+    },
+    {
+      "frame": 13,
+      "nonce": "cd380f740feb8f1e",
+      "ts": 1784342867.3607094
+    },
+    {
+      "frame": 14,
+      "nonce": "050ae5fe3c4e0025",
+      "ts": 1784342874.4640887
+    },
+    {
+      "frame": 15,
+      "nonce": "09db8cade0b083f4",
+      "ts": 1784342880.057302
+    },
+    {
+      "frame": 16,
+      "nonce": "5665df7e3ebc50e2",
+      "ts": 1784342889.1755419
+    },
+    {
+      "frame": 17,
+      "nonce": "8f375576582da4fa",
+      "ts": 1784342897.257367
+    },
+    {
+      "frame": 18,
+      "nonce": "752318f60229885c",
+      "ts": 1784342904.2760038
+    },
+    {
+      "frame": 19,
+      "nonce": "29f448d0a9a6adcd",
+      "ts": 1784342912.258543
+    },
+    {
+      "frame": 20,
+      "nonce": "d4407a01c33bf195",
+      "ts": 1784342917.83298
+    },
+    {
+      "frame": 21,
+      "nonce": "2b1af88a50f77a87",
+      "ts": 1784342925.0754378
+    },
+    {
+      "frame": 22,
+      "nonce": "f8588ef8522258dc",
+      "ts": 1784342931.2122476
+    },
+    {
+      "frame": 23,
+      "nonce": "31f654ebba6d4a41",
+      "ts": 1784342937.620531
+    },
+    {
+      "frame": 24,
+      "nonce": "5fcc72d90fe5e457",
+      "ts": 1784342942.8172052
+    },
+    {
+      "frame": 25,
+      "nonce": "37cc8e844b901c67",
+      "ts": 1784342948.716524
+    },
+    {
+      "frame": 26,
+      "nonce": "7bf2e5b94df493ea",
+      "ts": 1784342955.8287559
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ec23847073dd6a69",
+      "decision": "HOLD",
+      "reason": "flat at entry, longer TFs show strong up-momentum into entry, dip is short-term noise"
+    },
+    {
+      "frame": 1,
+      "nonce": "de7e94bc12608e45",
+      "decision": "HOLD",
+      "reason": "px +162.75, strong positive momentum on 15s/5s, thesis clearly working"
+    },
+    {
+      "frame": 2,
+      "nonce": "97de94cd1b0722d3",
+      "decision": "HOLD",
+      "reason": "still +93pts, pullback from peak but well in profit, 1m still strongly positive"
+    },
+    {
+      "frame": 3,
+      "nonce": "8b3c0bf8eb3a631f",
+      "decision": "HOLD",
+      "reason": "px decaying (162->93->55) and against-fires stacking, but still net positive and 1m z_se still +1.7; watching closely"
+    },
+    {
+      "frame": 4,
+      "nonce": "7198a575b9d8bcf7",
+      "decision": "HOLD",
+      "reason": "px recovered to +70.25, new leg giveback only 22%, still net positive"
+    },
+    {
+      "frame": 5,
+      "nonce": "df7da4e96d58bb4e",
+      "decision": "HOLD",
+      "reason": "px climbing again to +104.50, giveback only 5%, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "3d157d75fe4bcb62",
+      "decision": "HOLD",
+      "reason": "px +80, both recent fires are with-direction, giveback moderate 31%, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "72f84164dfdacb78",
+      "decision": "HOLD",
+      "reason": "px +122.25 new local high, giveback 0%, fires with-direction"
+    },
+    {
+      "frame": 8,
+      "nonce": "a8d8fce5e1f9cd5f",
+      "decision": "HOLD",
+      "reason": "px +107.75, giveback 22%, fires with-direction, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "b612dd1748f42fbd",
+      "decision": "HOLD",
+      "reason": "px +129.50 new high, giveback 3%, thesis strongly intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "85b0205000712366",
+      "decision": "HOLD",
+      "reason": "px +134.75 new high, giveback 0%, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "f6890b175f7e364a",
+      "decision": "HOLD",
+      "reason": "px +142.75 new high, giveback 4%, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "d4550c0e16773550",
+      "decision": "HOLD",
+      "reason": "px +144.25, giveback low 8%, thesis intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "cd380f740feb8f1e",
+      "decision": "HOLD",
+      "reason": "px +152.50 new high, giveback 1%, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "050ae5fe3c4e0025",
+      "decision": "HOLD",
+      "reason": "px +155.25 new high, 5m strongly positive, thesis intact"
+    },
+    {
+      "frame": 15,
+      "nonce": "09db8cade0b083f4",
+      "decision": "HOLD",
+      "reason": "px +182.00 new high, giveback 0%, thesis strongly intact"
+    },
+    {
+      "frame": 16,
+      "nonce": "5665df7e3ebc50e2",
+      "decision": "HOLD",
+      "reason": "pullback from +182 to +120 (32% giveback), 3 against-fires stacking, but still deeply positive after repeated new highs; watching for further deterioration"
+    },
+    {
+      "frame": 17,
+      "nonce": "8f375576582da4fa",
+      "decision": "HOLD",
+      "reason": "px stabilized +126.50, 15s lambda strongly positive t=3.65, still deeply in profit"
+    },
+    {
+      "frame": 18,
+      "nonce": "752318f60229885c",
+      "decision": "HOLD",
+      "reason": "px +98, gradual erosion from +182 peak but still well positive, new leg just started"
+    },
+    {
+      "frame": 19,
+      "nonce": "29f448d0a9a6adcd",
+      "decision": "HOLD",
+      "reason": "px +81.25, giveback low 8%, still comfortably positive"
+    },
+    {
+      "frame": 20,
+      "nonce": "d4407a01c33bf195",
+      "decision": "HOLD",
+      "reason": "px recovering to +99, 5s/15s momentum turning positive again"
+    },
+    {
+      "frame": 21,
+      "nonce": "2b1af88a50f77a87",
+      "decision": "HOLD",
+      "reason": "px +103.75 stable, still solidly positive"
+    },
+    {
+      "frame": 22,
+      "nonce": "f8588ef8522258dc",
+      "decision": "HOLD",
+      "reason": "px +106.75 stable, giveback 0% on fresh leg, thesis intact"
+    },
+    {
+      "frame": 23,
+      "nonce": "31f654ebba6d4a41",
+      "decision": "HOLD",
+      "reason": "px +89, still solidly positive, thesis intact"
+    },
+    {
+      "frame": 24,
+      "nonce": "5fcc72d90fe5e457",
+      "decision": "HOLD",
+      "reason": "px +115.00, all TFs positive, thesis intact"
+    },
+    {
+      "frame": 25,
+      "nonce": "37cc8e844b901c67",
+      "decision": "HOLD",
+      "reason": "px +100.25, still solidly positive despite pullback from 1m high of +213"
+    },
+    {
+      "frame": 26,
+      "nonce": "7bf2e5b94df493ea",
+      "decision": "HOLD",
+      "reason": "px +103.50, still solidly positive, thesis intact through episode end"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire 26-frame window. Price never went negative from entry after frame 0 -- it repeatedly made new highs (peaking near +182pts around t=15m) and every pullback stayed a partial giveback of an already-large favorable leg (never round-tripped to flat), with fires flipping between against/with each cycle but no sustained multi-frame against-only breakdown. This was a genuinely working long, not a wrong-direction entry; the multi-TF momentum (1m/5m/15m/1h) stayed net positive throughout. Next time I'd watch for a giveback approaching 100% combined with against-fires stacking 3+ in a row AND price actually crossing back toward/through zero -- that combination never occurred here, which is why I never saw a bail signal."
+}

@@ -1,0 +1,11 @@
+{"ts": 1784344008.2453265, "event": "serve", "frame": 0, "nonce": "54c4f99f0bfd8d52"}
+{"ts": 1784344020.0796163, "event": "commit", "frame": 0, "nonce": "54c4f99f0bfd8d52", "decision": "HOLD", "reason": "frame0 at breakeven, entry just placed, mixed signals, too early to judge"}
+{"ts": 1784344022.7796454, "event": "serve", "frame": 1, "nonce": "5756fb15d570c100"}
+{"ts": 1784344026.4752889, "event": "commit", "frame": 1, "nonce": "5756fb15d570c100", "decision": "HOLD", "reason": "small dip -1.25pts, mixed fires, giveback modest, still within noise"}
+{"ts": 1784344028.6994169, "event": "serve", "frame": 2, "nonce": "7cf255c36418e6a6"}
+{"ts": 1784344056.1979456, "event": "commit", "frame": 2, "nonce": "7cf255c36418e6a6", "decision": "HOLD", "reason": "px -12 accelerating against but reversion_prob still >0.8 across TFs on 15m z_se stretch; giveback 37% of a 43pt leg not yet extreme, want confirmation"}
+{"ts": 1784344060.596387, "event": "serve", "frame": 3, "nonce": "eab5d08260110066"}
+{"ts": 1784344065.6234858, "event": "commit", "frame": 3, "nonce": "eab5d08260110066", "decision": "HOLD", "reason": "px -11.75 roughly flat vs prior frame (-12.00), not accelerating further, watching for stabilization"}
+{"ts": 1784344068.2886775, "event": "serve", "frame": 4, "nonce": "7e534ca0a50719cd"}
+{"ts": 1784344077.6551082, "event": "commit", "frame": 4, "nonce": "7e534ca0a50719cd", "decision": "EXIT", "reason": "px accelerated from -11.75 to -23.25 in 1min, new adverse leg just broke (age 0m, giveback 0%), closes pinned near unfavorable extreme -- wrong-direction confirmed, bailing"}
+{"ts": 1784344083.0308197, "event": "finish", "summary": "Held through an initial -1 to -12pt dip (frames 0-3) since reversion_prob stayed >0.9 and the adverse move wasn't accelerating. Bailed at frame 4 when px jumped from -11.75 to -23.25 in one minute with a brand-new adverse leg (age 0m, giveback 0%) and closes pinned at the unfavorable extreme -- that acceleration + fresh-leg-against-us combo read as genuine wrong-direction, not noise. Next time: watch for the leg-age reset to 0 with giveback 0% as an early tell that a new against-us swing is forming, and react to px rate-of-change relative to vol(5m), not just absolute px level.", "exit_frame": 4, "n_commits": 5}

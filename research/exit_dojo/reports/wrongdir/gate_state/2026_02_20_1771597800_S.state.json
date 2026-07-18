@@ -1,0 +1,34 @@
+{
+  "episode_id": "2026_02_20_1771597800_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9e8fdae0b6471026",
+      "ts": 1784340441.5749884
+    },
+    {
+      "frame": 1,
+      "nonce": "8c0624dc221da6c9",
+      "ts": 1784340449.2370026
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9e8fdae0b6471026",
+      "decision": "HOLD",
+      "reason": "Multi-TF favorable at entry, local px flat after 31pt favorable swing with 40% giveback -- normal early dip, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "8c0624dc221da6c9",
+      "decision": "EXIT",
+      "reason": "85% giveback of the 51pt favorable swing, now -19pts, CLIMAX-against+PROPP-against both firing, ER10 collapsed to 0.03 -- and higher-TF (15m/1h/4h/1D) was already unfavorable at entry, i.e. shorting into a higher-TF uptrend. Bail now."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Bailed at frame 1 (t=1m). The tell was a fast, near-total giveback (85%) of the initial 51pt favorable swing combined with two independent against-fires (CLIMAX-against, PROPP-against) firing simultaneously and ER10 collapsing to 0.03, meaning the move had no clean directional efficiency left -- pure chop/reversal, not a dip. Compounding that, the higher timeframes (15m/1h/4h/1D) were already unfavorable at entry, so this short was fighting a higher-TF uptrend from the start, which made the fast reversal more credible as wrong-direction rather than noise. Next time I'd watch for the combination of rapid giveback-percentage + multiple against-fires stacking within the same 1-2min window as the primary bail trigger, and treat higher-TF context misalignment at entry as a lower bar for pulling the trigger on the first real against-signal."
+}

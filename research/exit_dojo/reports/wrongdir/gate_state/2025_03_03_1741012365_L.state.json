@@ -1,0 +1,78 @@
+{
+  "episode_id": "2025_03_03_1741012365_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "048d666349498dbc",
+      "ts": 1784337293.2698514
+    },
+    {
+      "frame": 1,
+      "nonce": "87e103d599e72eaf",
+      "ts": 1784337307.8972242
+    },
+    {
+      "frame": 2,
+      "nonce": "654b516f32bc9584",
+      "ts": 1784337316.255489
+    },
+    {
+      "frame": 3,
+      "nonce": "7c07a63d84d76cc3",
+      "ts": 1784337322.2784948
+    },
+    {
+      "frame": 4,
+      "nonce": "562cd861c1cd0c90",
+      "ts": 1784337328.7749324
+    },
+    {
+      "frame": 5,
+      "nonce": "fac78278d08cd19b",
+      "ts": 1784337340.4235375
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "048d666349498dbc",
+      "decision": "HOLD",
+      "reason": "back at breakeven after a round-trip dip; too early to call wrong-direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "87e103d599e72eaf",
+      "decision": "HOLD",
+      "reason": "price now +7.75, working in our favor, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "654b516f32bc9584",
+      "decision": "HOLD",
+      "reason": "small pullback to -1.5, only 23% giveback, normal noise"
+    },
+    {
+      "frame": 3,
+      "nonce": "7c07a63d84d76cc3",
+      "decision": "HOLD",
+      "reason": "px -11.25 but giveback only 27% of the 75.8pt amplitude, still noisy chop not a clean reversal"
+    },
+    {
+      "frame": 4,
+      "nonce": "562cd861c1cd0c90",
+      "decision": "HOLD",
+      "reason": "giveback climbing to 48%, watching closely but not yet a confirmed break"
+    },
+    {
+      "frame": 5,
+      "nonce": "fac78278d08cd19b",
+      "decision": "EXIT",
+      "reason": "px broke to a fresh low -47.5, monotonic decay over last 4 frames with strong significant negative momentum (lambda_t_12=-6.0), wrong-direction confirmed"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 5,
+  "finished": true,
+  "summary": "Held through an early round-trip and a brief +7.75 push, but from t=2m onward price degraded almost monotonically (-1.5 -> -11.25 -> -20.5 -> -47.5) with giveback climbing to 48%+ and strong significant negative short-horizon momentum (lambda_t_12 as low as -6.0), so I bailed at the fresh -47.5 low rather than wait for further compounding. Next time I'd watch for that combination earlier: consecutive frames of new lows plus rising giveback% plus a significant negative lambda_t is the wrong-direction signature, not just any single red frame."
+}

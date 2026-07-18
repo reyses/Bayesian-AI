@@ -514,30 +514,49 @@ def main():
                     help='write selection.json + selection_table.md only; build no packets')
     ap.add_argument('--only', default=None,
                     help='comma-separated eids to build (subset; selection/table still full)')
+    ap.add_argument('--selection', default=None,
+                    help='external selection.json (e.g. wrongdir) to build packets FROM; '
+                         'skips select_full_run + selection writers (doc 099 reuse path)')
+    ap.add_argument('--outdir', default=None,
+                    help='override output dir; packets/ + truth/ are created under it '
+                         '(default: reports/full_run/)')
     args = ap.parse_args()
 
-    os.makedirs(FULL_RUN_DIR, exist_ok=True)
+    # --outdir redirects the packet/truth targets (additive; default keeps full_run) ----
+    global PACKETS_DIR, TRUTH_DIR
+    out_root = os.path.abspath(args.outdir) if args.outdir else FULL_RUN_DIR
+    PACKETS_DIR = os.path.join(out_root, 'packets')
+    TRUTH_DIR = os.path.join(out_root, 'truth')
+    os.makedirs(out_root, exist_ok=True)
     os.makedirs(PACKETS_DIR, exist_ok=True)
     os.makedirs(TRUTH_DIR, exist_ok=True)
 
-    targets = dict(BUCKET_TARGETS)
-    if args.n_target:
-        scale = args.n_target / sum(BUCKET_TARGETS.values())
-        targets = {k: int(round(v * scale)) for k, v in BUCKET_TARGETS.items()}
+    # --selection: consume an externally-built manifest (wrongdir), build packets only ---
+    if args.selection:
+        with open(args.selection, encoding='utf-8') as f:
+            ext = json.load(f)
+        selected = ext['episodes']
+        print(f'[select] external selection: {len(selected)} episodes from {args.selection}; '
+              f'building into {out_root} (no selection writers)')
+    else:
+        targets = dict(BUCKET_TARGETS)
+        if args.n_target:
+            scale = args.n_target / sum(BUCKET_TARGETS.values())
+            targets = {k: int(round(v * scale)) for k, v in BUCKET_TARGETS.items()}
 
-    print(f'[select] scanning for {sum(targets.values())} episodes {targets} seed={args.seed} ...')
-    selected, meta = select_full_run(seed=args.seed, targets=targets)
-    print(f"[select] chose {len(selected)} episodes; chop_tol=+-{int(meta['chop_tol'])}pt; "
-          f"shortfalls={meta['shortfalls'] or 'none'}")
+        print(f'[select] scanning for {sum(targets.values())} episodes {targets} seed={args.seed} ...')
+        selected, meta = select_full_run(seed=args.seed, targets=targets)
+        print(f"[select] chose {len(selected)} episodes; chop_tol=+-{int(meta['chop_tol'])}pt; "
+              f"shortfalls={meta['shortfalls'] or 'none'}")
 
-    write_selection_table(selected, meta)
-    with open(SELECTION_JSON, 'w', encoding='utf-8') as f:
-        json.dump(dict(meta=meta, episodes=[_manifest_row(s) for s in selected]), f, indent=2)
-    print(f'[select] wrote {SELECTION_TABLE}\n[select] wrote {SELECTION_JSON}')
+        write_selection_table(selected, meta)
+        with open(SELECTION_JSON, 'w', encoding='utf-8') as f:
+            json.dump(dict(meta=meta, episodes=[_manifest_row(s) for s in selected]), f, indent=2)
+        print(f'[select] wrote {SELECTION_TABLE}\n[select] wrote {SELECTION_JSON}')
 
-    if args.select_only:
-        print('[select-only] done (no packets built).')
-        return
+        if args.select_only:
+            print('[select-only] done (no packets built).')
+            return
 
     featcols, tf_groups = build_featcols()
     aux_data = eb.load_aux_data()

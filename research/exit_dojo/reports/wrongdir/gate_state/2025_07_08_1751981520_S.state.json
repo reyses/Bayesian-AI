@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_07_08_1751981520_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0973a835d4831900",
+      "ts": 1784343738.161796
+    },
+    {
+      "frame": 1,
+      "nonce": "f5ef4fe9528727c9",
+      "ts": 1784343747.6616094
+    },
+    {
+      "frame": 2,
+      "nonce": "534156ee094a746e",
+      "ts": 1784343754.1653025
+    },
+    {
+      "frame": 3,
+      "nonce": "099107080a23d9b0",
+      "ts": 1784343761.2651298
+    },
+    {
+      "frame": 4,
+      "nonce": "2a9ee95ad51ed918",
+      "ts": 1784343767.347882
+    },
+    {
+      "frame": 5,
+      "nonce": "692a1d8234bc3a71",
+      "ts": 1784343774.69984
+    },
+    {
+      "frame": 6,
+      "nonce": "402f72813bdb4c6d",
+      "ts": 1784343780.848879
+    },
+    {
+      "frame": 7,
+      "nonce": "8ab7bc0e5014ead0",
+      "ts": 1784343788.6990583
+    },
+    {
+      "frame": 8,
+      "nonce": "ebd4ef07b8859083",
+      "ts": 1784343795.890525
+    },
+    {
+      "frame": 9,
+      "nonce": "95af19d0da1f499e",
+      "ts": 1784343804.8663766
+    },
+    {
+      "frame": 10,
+      "nonce": "4100df4f5970cc94",
+      "ts": 1784343839.641968
+    },
+    {
+      "frame": 11,
+      "nonce": "98d58f72eb42ad2c",
+      "ts": 1784343847.2649477
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0973a835d4831900",
+      "decision": "HOLD",
+      "reason": "Entry frame, no post-entry price action yet; thesis intact by default"
+    },
+    {
+      "frame": 1,
+      "nonce": "f5ef4fe9528727c9",
+      "decision": "HOLD",
+      "reason": "px +5.75, working in favor, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "534156ee094a746e",
+      "decision": "HOLD",
+      "reason": "px +4.00, still favorable, minor giveback 5%, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "099107080a23d9b0",
+      "decision": "HOLD",
+      "reason": "px +15.50, strong favorable move, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "2a9ee95ad51ed918",
+      "decision": "HOLD",
+      "reason": "px +9.50, still favorable despite pullback from peak, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "692a1d8234bc3a71",
+      "decision": "HOLD",
+      "reason": "px +9.50 steady, giveback improved to 9%, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "402f72813bdb4c6d",
+      "decision": "HOLD",
+      "reason": "px +12.50, new leg giveback 0%, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "8ab7bc0e5014ead0",
+      "decision": "HOLD",
+      "reason": "px +20.00, new high, thesis intact despite small-leg giveback"
+    },
+    {
+      "frame": 8,
+      "nonce": "ebd4ef07b8859083",
+      "decision": "HOLD",
+      "reason": "px +27.50, new high, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "95af19d0da1f499e",
+      "decision": "HOLD",
+      "reason": "Sharp giveback from +27.5 to +3.25 but still net favorable; watching for confirmation before bailing"
+    },
+    {
+      "frame": 10,
+      "nonce": "4100df4f5970cc94",
+      "decision": "HOLD",
+      "reason": "px recovered to +12.50 from +3.25, confirms dip not reversal, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "98d58f72eb42ad2c",
+      "decision": "EXIT",
+      "reason": "Full round-trip from +27.5 peak to -1.00: failed bounce (12.5->-1), 3 consecutive against-fires (CLIMAX/HA/PROPP), ER10 collapsed to 0.15 -- structure broken, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Held through the initial favorable run (0 to +27.5pts by t=8m) since the thesis was clearly working. Bailed at t=11m when price fully round-tripped to -1.00pts: a failed bounce (12.5->-1 after the 27.5->3.25 crash) with three consecutive against-fires (CLIMAX/HA/PROPP) and ER10 collapsing to 0.15 signaled the trend structure had broken, not just dipped. Next time: watch for lower-highs-into-negative after a large giveback as the wrong-direction tell, distinct from a single dip that still holds a positive floor."
+}

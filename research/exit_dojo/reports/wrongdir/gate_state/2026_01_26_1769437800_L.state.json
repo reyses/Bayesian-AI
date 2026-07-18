@@ -1,0 +1,34 @@
+{
+  "episode_id": "2026_01_26_1769437800_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "b3f67d5c0f86825f",
+      "ts": 1784365560.666657
+    },
+    {
+      "frame": 1,
+      "nonce": "98e0f3894b68ba5d",
+      "ts": 1784365568.9435189
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "b3f67d5c0f86825f",
+      "decision": "HOLD",
+      "reason": "frame 0, just entered, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "98e0f3894b68ba5d",
+      "decision": "EXIT",
+      "reason": "px -30.75, giveback 95% of leg amp, triple against-fires (CLIMAX/HA/PROPP) simultaneously -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Frame 0 showed a normal pre-entry dip with no adverse move yet, so held. Frame 1 (t=1m) flipped hard: price at -30.75pts, the leg had given back 95% of its 42pt favorable amplitude, and three independent against-fires (CLIMAX, HA, PROPP) all triggered simultaneously in the same bar -- a coincident multi-signal reversal rather than routine noise, so I bailed. Next time I'd watch for this same signature: near-total giveback of an early favorable swing paired with multiple independent detectors firing against in the same 0-1min window, since that combination looks like a real regime flip rather than a dip to hold through."
+}

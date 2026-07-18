@@ -1,0 +1,9 @@
+{"ts": 1784340226.4948368, "event": "serve", "frame": 0, "nonce": "043a779d1b1dc234"}
+{"ts": 1784340230.5846987, "event": "commit", "frame": 0, "nonce": "043a779d1b1dc234", "decision": "HOLD", "reason": "just entered, px flat at 0, no adverse move yet"}
+{"ts": 1784340232.5113013, "event": "serve", "frame": 1, "nonce": "069a3bf641544ddd"}
+{"ts": 1784340235.9364486, "event": "commit", "frame": 1, "nonce": "069a3bf641544ddd", "decision": "HOLD", "reason": "small -7pt dip, 13% giveback, within normal noise, thesis intact"}
+{"ts": 1784340237.961645, "event": "serve", "frame": 2, "nonce": "ec510d347bb80700"}
+{"ts": 1784340241.0154414, "event": "commit", "frame": 2, "nonce": "ec510d347bb80700", "decision": "HOLD", "reason": "recovered to +1pt, dip reversed, thesis intact"}
+{"ts": 1784340243.0800414, "event": "serve", "frame": 3, "nonce": "7014db2682755331"}
+{"ts": 1784340247.2368429, "event": "commit", "frame": 3, "nonce": "7014db2682755331", "decision": "EXIT", "reason": "px cratered to -121.75pts, giveback 126% (past full leg amplitude), CLIMAX/HA/PROPP all flipped against -- wrong-direction, bail now"}
+{"ts": 1784340252.3263474, "event": "finish", "summary": "Held through a normal-looking -7pt then +1pt wobble in the first two minutes, which looked like ordinary noise with thesis intact. At t=3m price cratered to -121.75pts (giveback 126%, exceeding the entire prior leg amplitude), with CLIMAX, HA, and PROPP fire signals all flipping against the position simultaneously -- a decisive, multi-signal wrong-direction confirmation, so I bailed immediately. Next time I'd watch for that same signature: a giveback ratio blowing past 100% of leg amplitude combined with multiple independent fire families flipping against in the same frame, rather than waiting for further confirmation once that combination appears.", "exit_frame": 3, "n_commits": 4}

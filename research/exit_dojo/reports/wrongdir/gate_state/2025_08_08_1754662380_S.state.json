@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_08_08_1754662380_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "86c86a9c50c91eaf",
+      "ts": 1784338593.1413858
+    },
+    {
+      "frame": 1,
+      "nonce": "5a1aa32bebd2b196",
+      "ts": 1784338605.898142
+    },
+    {
+      "frame": 2,
+      "nonce": "5e3c0d89e640cff1",
+      "ts": 1784338613.5000603
+    },
+    {
+      "frame": 3,
+      "nonce": "b7c4ce024da9f0e9",
+      "ts": 1784338618.822025
+    },
+    {
+      "frame": 4,
+      "nonce": "5aba479eb7858517",
+      "ts": 1784338624.1806922
+    },
+    {
+      "frame": 5,
+      "nonce": "b9052e8fa6a61da0",
+      "ts": 1784338632.174384
+    },
+    {
+      "frame": 6,
+      "nonce": "498fe455bfe6e582",
+      "ts": 1784338641.086858
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "86c86a9c50c91eaf",
+      "decision": "HOLD",
+      "reason": "px at breakeven, mixed signals, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "5a1aa32bebd2b196",
+      "decision": "HOLD",
+      "reason": "px +0.50, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "5e3c0d89e640cff1",
+      "decision": "HOLD",
+      "reason": "px +12.25, trade working, HA-with fires"
+    },
+    {
+      "frame": 3,
+      "nonce": "b7c4ce024da9f0e9",
+      "decision": "HOLD",
+      "reason": "px +23.00, giveback 0%, PROPP flipped with"
+    },
+    {
+      "frame": 4,
+      "nonce": "5aba479eb7858517",
+      "decision": "HOLD",
+      "reason": "px +13.75, normal pullback off +23 peak, still well positive"
+    },
+    {
+      "frame": 5,
+      "nonce": "b9052e8fa6a61da0",
+      "decision": "HOLD",
+      "reason": "px +3.50 still positive, but giveback 41% and both HA/PROPP now against - watching closely"
+    },
+    {
+      "frame": 6,
+      "nonce": "498fe455bfe6e582",
+      "decision": "EXIT",
+      "reason": "px turned negative -6.50, consistent 4-frame decline from +23 peak, HA+PROPP both against - wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Held through the first 3 frames as the trade ran favorably to +23pts. Bailed at t=6m once price gave back the entire gain and turned negative (-6.50), after a consistent 4-frame monotonic decline (+23 -> +13.75 -> +3.50 -> -6.50) accompanied by both HA and PROPP fires flipping and staying against the position. Next time I'd watch for the giveback% crossing ~40% combined with two independent against-fires stacking as the earlier, cheaper bail signal rather than waiting for price to actually cross zero."
+}

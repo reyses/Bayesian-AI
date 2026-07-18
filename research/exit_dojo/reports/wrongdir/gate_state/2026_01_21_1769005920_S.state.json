@@ -1,0 +1,166 @@
+{
+  "episode_id": "2026_01_21_1769005920_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5be1e510ff1934e9",
+      "ts": 1784339962.6295931
+    },
+    {
+      "frame": 1,
+      "nonce": "1377f264ca0376e4",
+      "ts": 1784339969.20166
+    },
+    {
+      "frame": 2,
+      "nonce": "4a66cd14a3037733",
+      "ts": 1784339975.3912048
+    },
+    {
+      "frame": 3,
+      "nonce": "023bc9131d2492bd",
+      "ts": 1784339982.2984765
+    },
+    {
+      "frame": 4,
+      "nonce": "2ca199df21816204",
+      "ts": 1784339989.1369247
+    },
+    {
+      "frame": 5,
+      "nonce": "98488b78dc6d4660",
+      "ts": 1784339995.208878
+    },
+    {
+      "frame": 6,
+      "nonce": "c8341ee3b3b0fab0",
+      "ts": 1784340010.1662116
+    },
+    {
+      "frame": 7,
+      "nonce": "487d2d19eeb55722",
+      "ts": 1784340024.1514454
+    },
+    {
+      "frame": 8,
+      "nonce": "a5c07d30ff1644d6",
+      "ts": 1784340037.2805474
+    },
+    {
+      "frame": 9,
+      "nonce": "969bc72c77512b1d",
+      "ts": 1784340045.532399
+    },
+    {
+      "frame": 10,
+      "nonce": "ea62e29cc28c062d",
+      "ts": 1784340051.6543045
+    },
+    {
+      "frame": 11,
+      "nonce": "0eb20d2bf45d79ba",
+      "ts": 1784340058.7619765
+    },
+    {
+      "frame": 12,
+      "nonce": "c763b0b021fd5409",
+      "ts": 1784340066.6029747
+    },
+    {
+      "frame": 13,
+      "nonce": "925dba5fe45dba84",
+      "ts": 1784340081.361938
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5be1e510ff1934e9",
+      "decision": "HOLD",
+      "reason": "just entered, flat, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "1377f264ca0376e4",
+      "decision": "HOLD",
+      "reason": "price +17.25pts favorable, PROPP-with fire, giveback low"
+    },
+    {
+      "frame": 2,
+      "nonce": "4a66cd14a3037733",
+      "decision": "HOLD",
+      "reason": "still +4.75pts favorable, minor pullback, giveback only 4%"
+    },
+    {
+      "frame": 3,
+      "nonce": "023bc9131d2492bd",
+      "decision": "HOLD",
+      "reason": "px back to +15.75pts, PROPP-with, ER10 rising 0.60, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "2ca199df21816204",
+      "decision": "HOLD",
+      "reason": "px +11.75pts, giveback 5%, still net favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "98488b78dc6d4660",
+      "decision": "HOLD",
+      "reason": "px +16pts, ER10 climbing to 0.68, momentum in our favor"
+    },
+    {
+      "frame": 6,
+      "nonce": "c8341ee3b3b0fab0",
+      "decision": "HOLD",
+      "reason": "5s dipped to -14.25 but 1m close still +15.75; giveback 39% notable but not confirmed reversal yet"
+    },
+    {
+      "frame": 7,
+      "nonce": "487d2d19eeb55722",
+      "decision": "HOLD",
+      "reason": "px improved -14.25 to -9.25, PROPP-with just fired, choppy not one-way breakdown"
+    },
+    {
+      "frame": 8,
+      "nonce": "a5c07d30ff1644d6",
+      "decision": "HOLD",
+      "reason": "px recovered to -3.00, near breakeven, PROPP-with, new leg starting"
+    },
+    {
+      "frame": 9,
+      "nonce": "969bc72c77512b1d",
+      "decision": "HOLD",
+      "reason": "px +36.50pts, HA-with + PROPP-with both firing, strong favorable move"
+    },
+    {
+      "frame": 10,
+      "nonce": "ea62e29cc28c062d",
+      "decision": "HOLD",
+      "reason": "px +31.75pts, still strongly favorable, minor pullback from +36.5"
+    },
+    {
+      "frame": 11,
+      "nonce": "0eb20d2bf45d79ba",
+      "decision": "HOLD",
+      "reason": "px +2.00pts still non-negative, new leg 0% giveback"
+    },
+    {
+      "frame": 12,
+      "nonce": "c763b0b021fd5409",
+      "decision": "HOLD",
+      "reason": "px -19.25 deeper dip, both HA+PROPP against and ER10 near 0, but prior dips of similar size all recovered - watching next frame closely"
+    },
+    {
+      "frame": 13,
+      "nonce": "925dba5fe45dba84",
+      "decision": "EXIT",
+      "reason": "3 consecutive worsening frames (+2 to -19.25 to -31.25), giveback 83%, fresh low breaking prior recovery pattern -- bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 13,
+  "finished": true,
+  "summary": "Held through several dip-and-recover cycles (e.g. -14 -> +16, -19 -> +36.5) since each prior pullback reversed within 1-2 frames. Bailed at t=13m after three consecutive worsening frames (+2 -> -19.25 -> -31.25) with giveback climbing to 83% and a fresh low that broke the established recovery pattern -- that consecutive-decay signature (not a single red bar) is what flagged wrong-direction. Next time I'd weight run-length of consecutive adverse closes more explicitly rather than judging each frame mostly in isolation, and treat a fresh amplitude-adjusted low as a stronger tell than giveback% alone."
+}

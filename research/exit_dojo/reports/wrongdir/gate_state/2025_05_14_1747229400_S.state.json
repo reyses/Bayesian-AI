@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_05_14_1747229400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2d15b9977300caea",
+      "ts": 1784337697.094755
+    },
+    {
+      "frame": 1,
+      "nonce": "655e368e4499e93c",
+      "ts": 1784337703.9474134
+    },
+    {
+      "frame": 2,
+      "nonce": "ade0770719e31ee4",
+      "ts": 1784337725.5305953
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2d15b9977300caea",
+      "decision": "HOLD",
+      "reason": "price +10.75 favorable at entry, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "655e368e4499e93c",
+      "decision": "HOLD",
+      "reason": "sharp dip to -11.5 but only 1 data point, watching for confirmation before bailing"
+    },
+    {
+      "frame": 2,
+      "nonce": "ade0770719e31ee4",
+      "decision": "EXIT",
+      "reason": "px -21.25, giveback 92% of amplitude, both HA and PROPP now firing against, ER10 collapsed to 0.12 - confirmed wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Entry ran favorably to +10.75 in the first minute but then round-tripped hard, crossing to -11.5 by t=1m and -21.25 by t=2m, giving back 92% of the leg's amplitude while ER10 collapsed from 0.64 to 0.12 (efficiency draining, no clean directional recovery) and both HA and PROPP fired against the position simultaneously. That convergence of a full round-trip through breakeven, collapsing trend efficiency, and dual against-signals is what confirmed wrong-direction rather than a normal dip, so I bailed at frame 2. Next time I'd watch giveback% crossing ~90% combined with ER10 falling below ~0.2 as the earliest reliable dual-confirmation signal, rather than waiting on price alone."
+}

@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_04_01_1743514390_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "058ac82552ad335b",
+      "ts": 1784342723.3531933
+    },
+    {
+      "frame": 1,
+      "nonce": "e80061ba963e7683",
+      "ts": 1784342730.6197975
+    },
+    {
+      "frame": 2,
+      "nonce": "c6604dfe6165f730",
+      "ts": 1784342742.8642685
+    },
+    {
+      "frame": 3,
+      "nonce": "1cfdf22577a1ef2b",
+      "ts": 1784342753.4716997
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "058ac82552ad335b",
+      "decision": "HOLD",
+      "reason": "frame 0, entry just opened, px flat, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "e80061ba963e7683",
+      "decision": "HOLD",
+      "reason": "1m in, -45.5pts dip but early; lambda_hat still positive multi-TF, could be normal pullback"
+    },
+    {
+      "frame": 2,
+      "nonce": "c6604dfe6165f730",
+      "decision": "HOLD",
+      "reason": "deep giveback 66% but lambda_hat still positive on 1m/5m (t=1.9/3.65), z stretched negative suggests reversion setup, watching closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "1cfdf22577a1ef2b",
+      "decision": "EXIT",
+      "reason": "giveback hit 90% of leg amplitude, reversion_prob_30(1m) collapsed to 0.38 from 0.93+, z extended -5.8 vs high, HA+CLIMAX both against -- thesis broken, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Held through the first 2 minutes as a normal dip (lambda_hat stayed positive multi-TF, suggesting expected upward reversion). By t=3m the giveback reached 90% of the leg's favorable amplitude, the 1m reversion_prob_30 collapsed from ~0.93 to 0.38, and z_close_vs_high_30 stretched to -5.8 with both HA and CLIMAX firing against -- the reversion thesis had clearly failed, so bailed. Next time: watch reversion_prob_30 collapse and giveback crossing ~70-80% as the earlier, cleaner trigger rather than waiting for 90%."
+}

@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_03_20_1742477400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8b5d0d465c83517e",
+      "ts": 1784337386.1881652
+    },
+    {
+      "frame": 1,
+      "nonce": "0a33a54bbf597e8e",
+      "ts": 1784337394.7034411
+    },
+    {
+      "frame": 2,
+      "nonce": "cae3245726c61c1b",
+      "ts": 1784337401.7409666
+    },
+    {
+      "frame": 3,
+      "nonce": "6c07a25c98f41abf",
+      "ts": 1784337430.5485253
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8b5d0d465c83517e",
+      "decision": "HOLD",
+      "reason": "just entered, px=0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "0a33a54bbf597e8e",
+      "decision": "HOLD",
+      "reason": "px +9.25, working in our favor"
+    },
+    {
+      "frame": 2,
+      "nonce": "cae3245726c61c1b",
+      "decision": "HOLD",
+      "reason": "sharp adverse swing but only 2m in, need to see if it persists"
+    },
+    {
+      "frame": 3,
+      "nonce": "6c07a25c98f41abf",
+      "decision": "EXIT",
+      "reason": "px accelerating adverse -20.75->-57.25 in 1min, giveback 143%, HA-against+PROPP-against firing, thesis broken"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Held through the first minute while price was favorable (+9.25) and through an initial adverse dip to -20.75 since it was only 2 minutes in. Bailed at t=3m when price accelerated to -57.25 (giveback 143% of the leg's amplitude) with HA-against and PROPP-against both firing and ER10 collapsing to 0.09 -- the move was no longer a dip, it was a compounding reversal against the entry thesis. Next time: watch for giveback exceeding 100% combined with multiple against-fires in the same minute as the earliest hard bail trigger, rather than waiting for absolute point loss to grow further."
+}

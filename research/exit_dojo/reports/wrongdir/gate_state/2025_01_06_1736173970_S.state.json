@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_01_06_1736173970_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d48836d472043688",
+      "ts": 1784336548.962152
+    },
+    {
+      "frame": 1,
+      "nonce": "83e24f86f93797a2",
+      "ts": 1784336558.2633512
+    },
+    {
+      "frame": 2,
+      "nonce": "eed81842f8af1e1f",
+      "ts": 1784336567.7323678
+    },
+    {
+      "frame": 3,
+      "nonce": "37ea985ea68683bb",
+      "ts": 1784336573.6128292
+    },
+    {
+      "frame": 4,
+      "nonce": "fb201cab079a68c2",
+      "ts": 1784336583.066625
+    },
+    {
+      "frame": 5,
+      "nonce": "f4568c16e6b5f111",
+      "ts": 1784336593.9217374
+    },
+    {
+      "frame": 6,
+      "nonce": "84fbc0920edb4a0e",
+      "ts": 1784336612.1097198
+    },
+    {
+      "frame": 7,
+      "nonce": "b7bc35878de130e8",
+      "ts": 1784336618.2408488
+    },
+    {
+      "frame": 8,
+      "nonce": "89cc5046f9617967",
+      "ts": 1784336623.6749928
+    },
+    {
+      "frame": 9,
+      "nonce": "31cf7cb953815911",
+      "ts": 1784336631.1736553
+    },
+    {
+      "frame": 10,
+      "nonce": "b70f215f44058645",
+      "ts": 1784336655.5565152
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d48836d472043688",
+      "decision": "HOLD",
+      "reason": "frame0 t=0m too early, multi-TF bias still favorable, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "83e24f86f93797a2",
+      "decision": "HOLD",
+      "reason": "dip to -25.5pts (19% of amp), but 1m still closes positive, lambda still mean-reverting, only 1 against-fire"
+    },
+    {
+      "frame": 2,
+      "nonce": "eed81842f8af1e1f",
+      "decision": "HOLD",
+      "reason": "px stable ~-27, giveback improved to 3%, 15s lambda strongly mean-reverting, all fires back to with-trend"
+    },
+    {
+      "frame": 3,
+      "nonce": "37ea985ea68683bb",
+      "decision": "HOLD",
+      "reason": "px improved to -19.5, 5m z_21 extreme +2.39 favorable extension supporting reversion thesis"
+    },
+    {
+      "frame": 4,
+      "nonce": "fb201cab079a68c2",
+      "decision": "HOLD",
+      "reason": "px oscillating -20 to -27 range, no breakdown, fires with-trend, ER10 cooling to 0.34"
+    },
+    {
+      "frame": 5,
+      "nonce": "f4568c16e6b5f111",
+      "decision": "HOLD",
+      "reason": "new low -46.5 (fresh extension not a giveback-from-peak), only 1 against-fire, still early in leg, watching next frame closely"
+    },
+    {
+      "frame": 6,
+      "nonce": "84fbc0920edb4a0e",
+      "decision": "HOLD",
+      "reason": "recovered from -46.5 low to -29.75, all fires with-trend again, confirms prior low was a spike not a breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "b7bc35878de130e8",
+      "decision": "HOLD",
+      "reason": "continued improvement to -23.25, chop range holding, no breakdown"
+    },
+    {
+      "frame": 8,
+      "nonce": "89cc5046f9617967",
+      "decision": "HOLD",
+      "reason": "second excursion to ~-47, matches prior pattern that recovered, fires all with-trend, giveback low (3%) meaning fresh not blown-through"
+    },
+    {
+      "frame": 9,
+      "nonce": "31cf7cb953815911",
+      "decision": "HOLD",
+      "reason": "deeper low -55.25, vol expanding, 2 fires against now - elevated risk but lambda still strongly mean-reverting on 5s/1m; watching next frame for confirmation before bailing"
+    },
+    {
+      "frame": 10,
+      "nonce": "b70f215f44058645",
+      "decision": "EXIT",
+      "reason": "progressive deeper lows each cycle (-25->-46->-55->-62), ER10 rising to 0.59 (trend not chop), 1m bar closes at 0.98 of range near adverse extreme - genuine wrong-direction continuation, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Bailed at t=10m (px -62.0pts) after the drawdown stopped oscillating and started making progressively deeper adverse lows each cycle (-25 -> -46 -> -55 -> -62) with ER10 rising to 0.59 and the 1m bar closing at 0.98 of its range near the adverse extreme -- a shift from noisy chop to real directional continuation against the short. Held through the first two excursions to -46/-47 because they fully or partially recovered and lambda stayed mean-reverting, but by frame 10 the pattern of non-recovering deeper lows plus rising trend efficiency signaled the fade thesis had failed. Next time: watch for the transition from 'new low then recovery' to 'new low then no recovery, deeper again next bar' as the key wrong-direction tell, and weight ER10 trending up alongside close-near-adverse-extreme more heavily."
+}

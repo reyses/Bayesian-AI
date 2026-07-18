@@ -1,0 +1,111 @@
+{
+  "episode_id": "2026_01_27_1769524440_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "48e2a85cea4058b6",
+      "ts": 1784340118.6769745
+    },
+    {
+      "frame": 1,
+      "nonce": "8dac2039ac17c7ec",
+      "ts": 1784340125.3778965
+    },
+    {
+      "frame": 2,
+      "nonce": "84b142937dc6f984",
+      "ts": 1784340132.4472022
+    },
+    {
+      "frame": 3,
+      "nonce": "ef386e98bfcec039",
+      "ts": 1784340138.815627
+    },
+    {
+      "frame": 4,
+      "nonce": "cf8f44b0e40b7b61",
+      "ts": 1784340144.2126455
+    },
+    {
+      "frame": 5,
+      "nonce": "d65fd1622c7453be",
+      "ts": 1784340152.3533835
+    },
+    {
+      "frame": 6,
+      "nonce": "59447ec30f37021c",
+      "ts": 1784340159.895048
+    },
+    {
+      "frame": 7,
+      "nonce": "60e652e7ef181d09",
+      "ts": 1784340169.383362
+    },
+    {
+      "frame": 8,
+      "nonce": "02bb5e3ffe347935",
+      "ts": 1784340179.188467
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "48e2a85cea4058b6",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "8dac2039ac17c7ec",
+      "decision": "HOLD",
+      "reason": "px only -0.5pts, noise-level dip, no clear against signal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "84b142937dc6f984",
+      "decision": "HOLD",
+      "reason": "px +18.75, trade working strongly, no wrong-direction signal"
+    },
+    {
+      "frame": 3,
+      "nonce": "ef386e98bfcec039",
+      "decision": "HOLD",
+      "reason": "px +32.5, strong favorable move continuing"
+    },
+    {
+      "frame": 4,
+      "nonce": "cf8f44b0e40b7b61",
+      "decision": "HOLD",
+      "reason": "px +44.25, momentum strongly favorable, zero giveback"
+    },
+    {
+      "frame": 5,
+      "nonce": "d65fd1622c7453be",
+      "decision": "HOLD",
+      "reason": "px +43.75, minor 10% giveback off highs, still deeply favorable"
+    },
+    {
+      "frame": 6,
+      "nonce": "59447ec30f37021c",
+      "decision": "HOLD",
+      "reason": "px +33.75, still deeply favorable despite modest pullback"
+    },
+    {
+      "frame": 7,
+      "nonce": "60e652e7ef181d09",
+      "decision": "HOLD",
+      "reason": "px +15.25, sharp giveback from +44 peak and against-fires stacking, but still solidly favorable -- watching closely"
+    },
+    {
+      "frame": 8,
+      "nonce": "02bb5e3ffe347935",
+      "decision": "EXIT",
+      "reason": "px flipped to -2.75, erasing the entire +44pt favorable move in ~2min; CLIMAX/HA/PROPP all against for 3 straight frames -- genuine wrong-direction reversal, not a normal dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "The trade ran hugely favorable (up to +44.25pts by t=4m) then reversed sharply, giving back the entire gain and printing negative (-2.75pts) by t=8m -- a genuine round-trip failure, not a normal dip. The tell was the combination of magnitude (full round-trip through the peak into negative territory within 2 minutes) plus persistence: CLIMAX-against, HA-against, and PROPP-against all fired and kept firing across three consecutive frames rather than a single blip. I held through the first pullback (t=7m, still +15.25) since it was still strongly favorable, but bailed the moment px crossed to negative with stacked against-signals. Next time I'd watch for the same signature earlier -- the against-fires actually started at t=7m while price was still positive, so a faster read of stacking against-fires (even while still in profit) could trim the giveback further before it round-trips to negative."
+}

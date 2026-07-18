@@ -1,0 +1,13 @@
+{"ts": 1784338750.9065459, "event": "serve", "frame": 0, "nonce": "4c7a069edbb61d2b"}
+{"ts": 1784338756.4537752, "event": "commit", "frame": 0, "nonce": "4c7a069edbb61d2b", "decision": "HOLD", "reason": "entry frame, px flat, no adverse move yet"}
+{"ts": 1784338759.104452, "event": "serve", "frame": 1, "nonce": "97753e9098a9d49f"}
+{"ts": 1784338762.7258081, "event": "commit", "frame": 1, "nonce": "97753e9098a9d49f", "decision": "HOLD", "reason": "px +37.25pts, working strongly, giveback only 5%"}
+{"ts": 1784338765.4683783, "event": "serve", "frame": 2, "nonce": "83967cc15896ee4d"}
+{"ts": 1784338769.226076, "event": "commit", "frame": 2, "nonce": "83967cc15896ee4d", "decision": "HOLD", "reason": "px +45.5pts, still extending, giveback modest 10%"}
+{"ts": 1784338771.2588897, "event": "serve", "frame": 3, "nonce": "72b7d6737e83a31a"}
+{"ts": 1784338775.9556773, "event": "commit", "frame": 3, "nonce": "72b7d6737e83a31a", "decision": "HOLD", "reason": "pulled back to +15.75 from +45.5 (giveback 38%) but still positive, treating as dip not reversal yet"}
+{"ts": 1784338778.725874, "event": "serve", "frame": 4, "nonce": "26c8579e35768a47"}
+{"ts": 1784338791.8741732, "event": "commit", "frame": 4, "nonce": "26c8579e35768a47", "decision": "HOLD", "reason": "eroded to -0.25 (58% giveback) from +45.5 peak, KMDR/HA against signals stacking -- watching next frame closely for confirmation"}
+{"ts": 1784338794.1097677, "event": "serve", "frame": 5, "nonce": "d39437099c2fff21"}
+{"ts": 1784338800.5347905, "event": "commit", "frame": 5, "nonce": "d39437099c2fff21", "decision": "EXIT", "reason": "px -15.00, 4th consecutive frame of decay from +45.5 peak (+45.5->+15.75->-0.25->-15.00), HA/PROPP against signals stacking -- this is a genuine reversal not a dip, bailing"}
+{"ts": 1784338805.3943806, "event": "finish", "summary": "Trade surged fast to +45.5pts by t=2m then decayed on 4 straight frames (+45.5 -> +15.75 -> -0.25 -> -15.00), crossing from strong profit through breakeven into a loss with KMDR/HA/PROPP-against fires stacking multiple frames in a row -- a steady monotonic erosion rather than a single-bar dip, so I bailed at -15.00 once it confirmed the thesis had flipped. Next time: watch for the FIRST against-fire cluster right at the giveback>50% mark as the earlier, cheaper exit point instead of waiting for price to cross into negative territory.", "exit_frame": 5, "n_commits": 6}

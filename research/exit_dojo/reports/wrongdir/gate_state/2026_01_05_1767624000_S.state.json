@@ -1,0 +1,67 @@
+{
+  "episode_id": "2026_01_05_1767624000_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "92f953e5012de351",
+      "ts": 1784339676.324281
+    },
+    {
+      "frame": 1,
+      "nonce": "575fec80186e20f6",
+      "ts": 1784339682.8482153
+    },
+    {
+      "frame": 2,
+      "nonce": "7d1e46eb6b0339a0",
+      "ts": 1784339689.4686308
+    },
+    {
+      "frame": 3,
+      "nonce": "b02f0e20a706afa0",
+      "ts": 1784339701.805042
+    },
+    {
+      "frame": 4,
+      "nonce": "d1d73efe69cd14a4",
+      "ts": 1784339712.267168
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "92f953e5012de351",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "575fec80186e20f6",
+      "decision": "HOLD",
+      "reason": "px +20.25 working, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "7d1e46eb6b0339a0",
+      "decision": "HOLD",
+      "reason": "single dip to -9.25 after +20 peak, giveback only 21%, thesis not broken yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "b02f0e20a706afa0",
+      "decision": "HOLD",
+      "reason": "px recovering -9.25->-3.50, still near flat, giving one more frame before judging wrong-direction"
+    },
+    {
+      "frame": 4,
+      "nonce": "d1d73efe69cd14a4",
+      "decision": "EXIT",
+      "reason": "px broke to -20.75, new adverse leg amp 55.8pts, ER10 collapsed to 0.26, KMDR/CLIMAX/HA all against -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "After an initial +20.25pt favorable move at t=1m, price whipsawed back through entry and kept deteriorating: -9.25 (t=2m), -3.50 (t=3m, looked like a recovering dip), then broke down hard to -20.75 (t=4m) with a fresh 55.8pt adverse leg and ER10 collapsing from 0.75 to 0.26. KMDR, CLIMAX, and HA fires all flipped and stayed against the position for 3 consecutive frames while only one weak PROPP-with fire remained, so I judged the thesis broken and bailed rather than wait for further compounding. Next time I'd watch for the ER10 trend (efficiency ratio) combined with 2+ consecutive against-fires as the earliest confirmation, rather than waiting for price to actually break the prior adverse extreme."
+}

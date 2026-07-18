@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_10_13_1760362390_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ccc33f5f375671da",
+      "ts": 1784338948.676666
+    },
+    {
+      "frame": 1,
+      "nonce": "eec2fb6be11bd835",
+      "ts": 1784338962.6481206
+    },
+    {
+      "frame": 2,
+      "nonce": "54a8db4a8a5b2537",
+      "ts": 1784338969.2664118
+    },
+    {
+      "frame": 3,
+      "nonce": "e47109323710bf29",
+      "ts": 1784338976.658542
+    },
+    {
+      "frame": 4,
+      "nonce": "52769a7a1f4f5fca",
+      "ts": 1784338987.5481398
+    },
+    {
+      "frame": 5,
+      "nonce": "3268f7e7e04beae8",
+      "ts": 1784338993.851138
+    },
+    {
+      "frame": 6,
+      "nonce": "e5db586cbe222e5b",
+      "ts": 1784339001.1401052
+    },
+    {
+      "frame": 7,
+      "nonce": "0bd406da9fa78c2f",
+      "ts": 1784339007.449025
+    },
+    {
+      "frame": 8,
+      "nonce": "a6e26eb9be06f9f7",
+      "ts": 1784339013.2340033
+    },
+    {
+      "frame": 9,
+      "nonce": "486d08a6be504b28",
+      "ts": 1784339019.5201535
+    },
+    {
+      "frame": 10,
+      "nonce": "6951bfa5f7016d03",
+      "ts": 1784339026.3284364
+    },
+    {
+      "frame": 11,
+      "nonce": "365c720d942d6c5b",
+      "ts": 1784339055.5336099
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ccc33f5f375671da",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "eec2fb6be11bd835",
+      "decision": "HOLD",
+      "reason": "px +0.25, still slightly favorable, only 1m in"
+    },
+    {
+      "frame": 2,
+      "nonce": "54a8db4a8a5b2537",
+      "decision": "HOLD",
+      "reason": "px +45.75, strong favorable move, thesis working"
+    },
+    {
+      "frame": 3,
+      "nonce": "e47109323710bf29",
+      "decision": "HOLD",
+      "reason": "px +64.75, trend intact, giveback minimal"
+    },
+    {
+      "frame": 4,
+      "nonce": "52769a7a1f4f5fca",
+      "decision": "HOLD",
+      "reason": "px +53 after peak +65, normal pullback giveback 12%, still deeply favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "3268f7e7e04beae8",
+      "decision": "HOLD",
+      "reason": "px +44.75, still deeply favorable despite giveback 23%, PROPP firing with"
+    },
+    {
+      "frame": 6,
+      "nonce": "e5db586cbe222e5b",
+      "decision": "HOLD",
+      "reason": "px +43.25, stable favorable range, no breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "0bd406da9fa78c2f",
+      "decision": "HOLD",
+      "reason": "px +47.75, ticking up again, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "a6e26eb9be06f9f7",
+      "decision": "HOLD",
+      "reason": "px +37.25, still comfortably favorable, giveback modest"
+    },
+    {
+      "frame": 9,
+      "nonce": "486d08a6be504b28",
+      "decision": "HOLD",
+      "reason": "px +45.00, holding steady in favorable zone"
+    },
+    {
+      "frame": 10,
+      "nonce": "6951bfa5f7016d03",
+      "decision": "HOLD",
+      "reason": "sharp reversal erased +65 gain to -3.75, near breakeven not a real loss yet, watching next frame closely for continuation"
+    },
+    {
+      "frame": 11,
+      "nonce": "365c720d942d6c5b",
+      "decision": "EXIT",
+      "reason": "px now -11.25 and worsening (was -3.75 last frame), full round-trip from +65 peak with HA/PROPP against firing repeatedly, reversal is continuing not just a dip -- bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "The trade ran strongly favorable (+45 to +65pts) for the first ~7 minutes, then whipsawed hard: it round-tripped the entire favorable excursion in about 3 minutes, going from +45 to -3.75 to -11.25, with HA-against and PROPP-against firing repeatedly and ER10 collapsing to 0.12 (trend efficiency gone). I held through the first negative print since it was only marginally red, but bailed once the second consecutive frame confirmed continued deterioration rather than a bounce -- a full giveback of a large favorable move plus continuing adverse drift is a stronger wrong-direction signature than a normal dip. Next time I'd watch the speed/magnitude of the round-trip (a >100% giveback of peak favorable excursion within a few minutes) as an earlier bail trigger rather than waiting for a second confirming red frame."
+}

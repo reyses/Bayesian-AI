@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_07_17_1752759240_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f6520fe7e50e3439",
+      "ts": 1784338278.0608978
+    },
+    {
+      "frame": 1,
+      "nonce": "91f9837f2d28a449",
+      "ts": 1784338291.5971804
+    },
+    {
+      "frame": 2,
+      "nonce": "d650379e41be82b4",
+      "ts": 1784338299.9339125
+    },
+    {
+      "frame": 3,
+      "nonce": "594081ba62cc657d",
+      "ts": 1784338309.462433
+    },
+    {
+      "frame": 4,
+      "nonce": "eaa365a0205ee294",
+      "ts": 1784338317.1067784
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f6520fe7e50e3439",
+      "decision": "HOLD",
+      "reason": "flat at entry, no adverse excursion yet despite against-fires"
+    },
+    {
+      "frame": 1,
+      "nonce": "91f9837f2d28a449",
+      "decision": "HOLD",
+      "reason": "mild pullback to -5.75, giveback 35% but mixed fires, not decisive yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "d650379e41be82b4",
+      "decision": "HOLD",
+      "reason": "monotonic erosion -5.75->-13.25, giveback 48%, but still within one leg's range, watching next frame closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "594081ba62cc657d",
+      "decision": "HOLD",
+      "reason": "sharp recovery -13.25->-3.00, giveback back down to 10%, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "eaa365a0205ee294",
+      "decision": "EXIT",
+      "reason": "new adverse low -19.00 breaking prior -13.25 trough, fresh leg 0% giveback (purely against), 3 against-fires stacked -- wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Price oscillated near breakeven/mild-adverse for the first three frames (0, -5.75, -13.25 then a recovery to -3.00), which read like normal dip-and-recover noise so I held. Frame 4 broke that pattern: price pushed to a new adverse low of -19.00 (beyond the prior -13.25 trough) on a freshly-started leg with 0% giveback -- meaning the new leg was purely against the position with no counter-move -- plus 3 of 4 recent signal fires (KMDR, CLIMAX, PROPP) against and falling 5m volatility, so I bailed rather than waiting for the loss to compound. Next time I'd watch specifically for 'new leg entirely against, 0% giveback' as the tell that a dip has become a trend, versus a same-leg pullback that still has two-sided giveback texture."
+}

@@ -1,0 +1,37 @@
+{"ts": 1784362615.4329731, "event": "serve", "frame": 0, "nonce": "e41c102c377a4718"}
+{"ts": 1784362621.6655426, "event": "commit", "frame": 0, "nonce": "e41c102c377a4718", "decision": "HOLD", "reason": "Frame0: price back at entry level after early dip, no clear wrong-direction signal yet"}
+{"ts": 1784362624.577069, "event": "serve", "frame": 1, "nonce": "ab64e44647586dd8"}
+{"ts": 1784362629.047474, "event": "commit", "frame": 1, "nonce": "ab64e44647586dd8", "decision": "HOLD", "reason": "Small -2.5pt dip, 13% giveback only, thesis intact"}
+{"ts": 1784362631.1374466, "event": "serve", "frame": 2, "nonce": "337b4c203c44cfd8"}
+{"ts": 1784362634.57559, "event": "commit", "frame": 2, "nonce": "337b4c203c44cfd8", "decision": "HOLD", "reason": "Price recovered to +3.0, giveback 0%, working"}
+{"ts": 1784362636.874775, "event": "serve", "frame": 3, "nonce": "f057675f0fd9a5f9"}
+{"ts": 1784362641.447546, "event": "commit", "frame": 3, "nonce": "f057675f0fd9a5f9", "decision": "HOLD", "reason": "Choppy but bounded, -1.5pt dip, no sustained breakdown"}
+{"ts": 1784362644.7360995, "event": "serve", "frame": 4, "nonce": "e639f4c274e27489"}
+{"ts": 1784362647.9447815, "event": "commit", "frame": 4, "nonce": "e639f4c274e27489", "decision": "HOLD", "reason": "Recovered to +2.75, giveback down to 8%, clean"}
+{"ts": 1784362651.7377625, "event": "serve", "frame": 5, "nonce": "92d9151e7c77dcc0"}
+{"ts": 1784362656.110055, "event": "commit", "frame": 5, "nonce": "92d9151e7c77dcc0", "decision": "HOLD", "reason": "Steady +3.0, giveback shrinking to 4%, working well"}
+{"ts": 1784362659.5393288, "event": "serve", "frame": 6, "nonce": "8945dc5306314eab"}
+{"ts": 1784362664.079385, "event": "commit", "frame": 6, "nonce": "8945dc5306314eab", "decision": "HOLD", "reason": "Strong breakout to +13.25, giveback 0%, thesis clearly working"}
+{"ts": 1784362666.6508813, "event": "serve", "frame": 7, "nonce": "cac7a352c5981f1d"}
+{"ts": 1784362670.348427, "event": "commit", "frame": 7, "nonce": "cac7a352c5981f1d", "decision": "HOLD", "reason": "Still +11.5, minor pullback from peak, trend intact"}
+{"ts": 1784362673.4706678, "event": "serve", "frame": 8, "nonce": "fa0f1b911ca87add"}
+{"ts": 1784362678.547749, "event": "commit", "frame": 8, "nonce": "fa0f1b911ca87add", "decision": "HOLD", "reason": "Range-bound +11-17, giveback 11%, still well in profit"}
+{"ts": 1784362680.810189, "event": "serve", "frame": 9, "nonce": "255203b16f3d1701"}
+{"ts": 1784362684.2493665, "event": "commit", "frame": 9, "nonce": "255203b16f3d1701", "decision": "HOLD", "reason": "New high +17.25, giveback 4%, thesis strongly intact"}
+{"ts": 1784362686.918314, "event": "serve", "frame": 10, "nonce": "a4c66c4dc585ccf4"}
+{"ts": 1784362690.7136343, "event": "commit", "frame": 10, "nonce": "a4c66c4dc585ccf4", "decision": "HOLD", "reason": "New high +18.5, giveback 2%, strong uptrend continues"}
+{"ts": 1784362692.9903286, "event": "serve", "frame": 11, "nonce": "5e2dfa430493581d"}
+{"ts": 1784362696.4618897, "event": "commit", "frame": 11, "nonce": "5e2dfa430493581d", "decision": "HOLD", "reason": "New high +26.0, giveback 0%, strong trend continuation"}
+{"ts": 1784362698.6378067, "event": "serve", "frame": 12, "nonce": "3ac83fdb749dbe13"}
+{"ts": 1784362701.931202, "event": "commit", "frame": 12, "nonce": "3ac83fdb749dbe13", "decision": "HOLD", "reason": "New high area +27.75, giveback 1%, momentum strong"}
+{"ts": 1784362704.090574, "event": "serve", "frame": 13, "nonce": "31d344f5d3f7dda6"}
+{"ts": 1784362709.0164654, "event": "commit", "frame": 13, "nonce": "31d344f5d3f7dda6", "decision": "HOLD", "reason": "New high +31.5, giveback 2%, sustained uptrend"}
+{"ts": 1784362711.4764059, "event": "serve", "frame": 14, "nonce": "8773fd78ba856dfb"}
+{"ts": 1784362714.9439468, "event": "commit", "frame": 14, "nonce": "8773fd78ba856dfb", "decision": "HOLD", "reason": "Holding near highs +31.25, giveback 0%, thesis intact"}
+{"ts": 1784362717.2825127, "event": "serve", "frame": 15, "nonce": "b6002665dbf26a55"}
+{"ts": 1784362728.5636625, "event": "commit", "frame": 15, "nonce": "b6002665dbf26a55", "decision": "HOLD", "reason": "Sharp pullback from +33.75 peak to +18, 31% giveback but still deep in profit, likely profit-taking not reversal"}
+{"ts": 1784362731.2014694, "event": "serve", "frame": 16, "nonce": "c7948c5380775eb3"}
+{"ts": 1784362741.9950051, "event": "commit", "frame": 16, "nonce": "c7948c5380775eb3", "decision": "HOLD", "reason": "Steep pullback continues but still +13.25 in profit, not wrong-direction yet, watching closely"}
+{"ts": 1784362744.4446645, "event": "serve", "frame": 17, "nonce": "eba17dd2b1072ba6"}
+{"ts": 1784362762.4284613, "event": "commit", "frame": 17, "nonce": "eba17dd2b1072ba6", "decision": "EXIT", "reason": "4 straight frames of accelerating giveback, 84% of peak gain erased, ER10 collapsed to 0.23, vol expanding - momentum has reversed, bail before it turns negative"}
+{"ts": 1784362768.2651813, "event": "finish", "summary": "Held through a strong run from entry to a +33.75pt peak around t=14-15m, since the trend was clean (rising highs, giveback near 0%, ER10 near 0.8). Bailed at t=17m once the pullback became a persistent, accelerating collapse -- four consecutive frames erasing 84% of the peak gain (down to +5.25), ER10 dropping to 0.23 (trend efficiency gone), and 5m volatility expanding rather than contracting. Next time I'd watch for the combination of ER10 falling below ~0.3 alongside 2+ consecutive frames of giveback >30% as the earlier trigger to bail sooner and preserve more of the gain, rather than waiting for near-full round-trip.", "exit_frame": 17, "n_commits": 18}

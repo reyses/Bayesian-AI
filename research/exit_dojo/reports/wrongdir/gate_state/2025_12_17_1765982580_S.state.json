@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_12_17_1765982580_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "27464510774d10da",
+      "ts": 1784339676.9998581
+    },
+    {
+      "frame": 1,
+      "nonce": "d4f609cbc034418a",
+      "ts": 1784339684.2961364
+    },
+    {
+      "frame": 2,
+      "nonce": "087e9d2a0c7af617",
+      "ts": 1784339690.4727309
+    },
+    {
+      "frame": 3,
+      "nonce": "e182a47ab30d47aa",
+      "ts": 1784339701.403073
+    },
+    {
+      "frame": 4,
+      "nonce": "05f1d849a3d371f3",
+      "ts": 1784339708.8163333
+    },
+    {
+      "frame": 5,
+      "nonce": "4165c01c3f515f5a",
+      "ts": 1784339717.5349836
+    },
+    {
+      "frame": 6,
+      "nonce": "1f4b7a6b47fcb9c5",
+      "ts": 1784339723.5503867
+    },
+    {
+      "frame": 7,
+      "nonce": "a1b0299426746d0c",
+      "ts": 1784339729.7820923
+    },
+    {
+      "frame": 8,
+      "nonce": "7a61720bbc32d751",
+      "ts": 1784339744.0886226
+    },
+    {
+      "frame": 9,
+      "nonce": "f6ceb2f78d509978",
+      "ts": 1784339750.2752469
+    },
+    {
+      "frame": 10,
+      "nonce": "f03cce376015ffbe",
+      "ts": 1784339756.5285878
+    },
+    {
+      "frame": 11,
+      "nonce": "ddcd9593eca7b010",
+      "ts": 1784339762.9353535
+    },
+    {
+      "frame": 12,
+      "nonce": "8d66bc9f5fb9ac73",
+      "ts": 1784339769.2832575
+    },
+    {
+      "frame": 13,
+      "nonce": "4b61897331fccdbc",
+      "ts": 1784339776.0662043
+    },
+    {
+      "frame": 14,
+      "nonce": "41bc756358dec009",
+      "ts": 1784339781.8373525
+    },
+    {
+      "frame": 15,
+      "nonce": "2be16c4c578e48ec",
+      "ts": 1784339792.2517326
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "27464510774d10da",
+      "decision": "HOLD",
+      "reason": "entry bar, no adverse move yet, thesis untested"
+    },
+    {
+      "frame": 1,
+      "nonce": "d4f609cbc034418a",
+      "decision": "HOLD",
+      "reason": "px +5.25, working in favor, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "087e9d2a0c7af617",
+      "decision": "HOLD",
+      "reason": "sharp dip to -20 but only 2m in, single dip, watching for continuation before bailing"
+    },
+    {
+      "frame": 3,
+      "nonce": "e182a47ab30d47aa",
+      "decision": "HOLD",
+      "reason": "recovered strongly to +30.5, dip was noise, thesis confirmed intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "05f1d849a3d371f3",
+      "decision": "HOLD",
+      "reason": "px +50.25, strong continuation in favor, thesis clearly intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "4165c01c3f515f5a",
+      "decision": "HOLD",
+      "reason": "px +49.5, still strongly favorable, PROPP-with, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "1f4b7a6b47fcb9c5",
+      "decision": "HOLD",
+      "reason": "px +47.75, holding near peak favorable, minor giveback only"
+    },
+    {
+      "frame": 7,
+      "nonce": "a1b0299426746d0c",
+      "decision": "HOLD",
+      "reason": "retraced from +47 to +10 but still net favorable; pullback after extended move, not yet wrong-direction"
+    },
+    {
+      "frame": 8,
+      "nonce": "7a61720bbc32d751",
+      "decision": "HOLD",
+      "reason": "still net positive +14.25, choppy but not reversed against entry"
+    },
+    {
+      "frame": 9,
+      "nonce": "f6ceb2f78d509978",
+      "decision": "HOLD",
+      "reason": "px +11, holding gains, PROPP-with, no wrong-direction signal"
+    },
+    {
+      "frame": 10,
+      "nonce": "f03cce376015ffbe",
+      "decision": "HOLD",
+      "reason": "px stable +12, still favorable, PROPP-with"
+    },
+    {
+      "frame": 11,
+      "nonce": "ddcd9593eca7b010",
+      "decision": "HOLD",
+      "reason": "px improved to +27.75, HA and PROPP now with, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "8d66bc9f5fb9ac73",
+      "decision": "HOLD",
+      "reason": "px +38.25, trending back up, both fires with, thesis intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "4b61897331fccdbc",
+      "decision": "HOLD",
+      "reason": "px +14.25, still net favorable, choppy but not against entry"
+    },
+    {
+      "frame": 14,
+      "nonce": "41bc756358dec009",
+      "decision": "HOLD",
+      "reason": "small dip to -5.25, mild compared to prior -20 dip that fully recovered; not yet a wrong-direction break"
+    },
+    {
+      "frame": 15,
+      "nonce": "2be16c4c578e48ec",
+      "decision": "EXIT",
+      "reason": "sustained deterioration from -5.25 to -31.75 over 2 consecutive frames, giveback overshooting leg amplitude 244%, HA-against confirms wrong-direction break"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 15,
+  "finished": true,
+  "summary": "Held through repeated large whipsaws (a -20pt dip at t=2m and a -37pt retrace at t=7m) that both fully recovered back to strongly favorable levels (+30 to +50pts), so early dips alone were treated as noise, not reversal. Bailed at t=15m after two consecutive frames of renewed deterioration (-5.25 then -31.75) with giveback overshooting the current leg's amplitude and HA/PROPP flipping against, which read as a genuine wrong-direction break rather than another dip-and-recover cycle. Next time I'd watch for the amplitude-overshoot signature (giveback>100% of leg amp) earlier as the key discriminator between a normal pullback and an actual reversal, since raw px sign alone was noisy throughout this episode."
+}

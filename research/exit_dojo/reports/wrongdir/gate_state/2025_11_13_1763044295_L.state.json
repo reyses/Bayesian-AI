@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_11_13_1763044295_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3957c19c1cdae6f8",
+      "ts": 1784339452.8362997
+    },
+    {
+      "frame": 1,
+      "nonce": "889eaad551f7ed7c",
+      "ts": 1784339460.9811785
+    },
+    {
+      "frame": 2,
+      "nonce": "32699712136fe5f2",
+      "ts": 1784339467.7018757
+    },
+    {
+      "frame": 3,
+      "nonce": "0135f094aab0b43a",
+      "ts": 1784339473.3304222
+    },
+    {
+      "frame": 4,
+      "nonce": "964783aca9b49c13",
+      "ts": 1784339480.020697
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3957c19c1cdae6f8",
+      "decision": "HOLD",
+      "reason": "Higher TFs (5m/15m/1h/4h/1D) all deeply favorable, just a small 5s/15s pullback near entry; thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "889eaad551f7ed7c",
+      "decision": "HOLD",
+      "reason": "Still near breakeven (-2.75), 1m bar closed strong +15.75, just noise/chop not a directional break"
+    },
+    {
+      "frame": 2,
+      "nonce": "32699712136fe5f2",
+      "decision": "HOLD",
+      "reason": "Bounced back to +17.50, 5s/15s bars closing strong positive; thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "0135f094aab0b43a",
+      "decision": "HOLD",
+      "reason": "Pulled back to -12.25 but 1m bar still closed positive +2.50; normal chop within recent range, not a trend break"
+    },
+    {
+      "frame": 4,
+      "nonce": "964783aca9b49c13",
+      "decision": "EXIT",
+      "reason": "px collapsed to -56.50, giveback 343% of leg amp, 1m/5m bars both closed strongly negative with accelerating downward velocity -- this is a decisive break, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through initial chop since higher timeframes (5m-1D) were all deeply favorable and 5s/15s dips kept recovering. Bailed at t=4m when price collapsed to -56.50 with giveback 343% of the leg's amplitude and both 1m and 5m bars closing strongly negative with accelerating downward velocity -- that combination (magnitude + multi-TF confirmation + acceleration) marked a genuine trend break rather than a dip. Next time I'd watch giveback% crossing ~100% combined with 5m bar-range/velocity acceleration as the earliest reliable wrong-direction tell, rather than waiting on single-bar closes alone."
+}

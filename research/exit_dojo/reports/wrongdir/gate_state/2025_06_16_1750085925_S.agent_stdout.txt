@@ -1,0 +1,8 @@
+# exit_code=0 dt=126s
+## STDOUT
+Bailed at t=3m (px -21.0pts). The signature: four straight frames of monotonic adverse drift with no bounce, giveback crossing 131% (price broke past entry into new unfavorable territory, not just dipping within the original favorable swing), ER10 collapsing to 0.08, and HA-against + PROPP-against both firing together. Episode closed and finish report filed.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

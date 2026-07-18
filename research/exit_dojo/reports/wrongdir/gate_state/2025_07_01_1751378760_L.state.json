@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_07_01_1751378760_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7c3a2fb65e7f9020",
+      "ts": 1784338278.011426
+    },
+    {
+      "frame": 1,
+      "nonce": "f2761b5de5512a29",
+      "ts": 1784338287.6104674
+    },
+    {
+      "frame": 2,
+      "nonce": "9471c72da1272b8a",
+      "ts": 1784338307.2837582
+    },
+    {
+      "frame": 3,
+      "nonce": "f274ac5f50ab02f8",
+      "ts": 1784338319.2302082
+    },
+    {
+      "frame": 4,
+      "nonce": "04e8312a109469bf",
+      "ts": 1784338327.0144944
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7c3a2fb65e7f9020",
+      "decision": "HOLD",
+      "reason": "Entry frame, px flat at 0, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "f2761b5de5512a29",
+      "decision": "HOLD",
+      "reason": "Dip to -7.75pts w/ 120% giveback, but only 5m in, 1m bar closed near highs (+1.50); watching for confirmation before bailing"
+    },
+    {
+      "frame": 2,
+      "nonce": "9471c72da1272b8a",
+      "decision": "HOLD",
+      "reason": "Stabilized around -8pts, 1m closed near low w/ HA-against fire; watching one more frame for continuation vs bounce"
+    },
+    {
+      "frame": 3,
+      "nonce": "f274ac5f50ab02f8",
+      "decision": "HOLD",
+      "reason": "Recovering: px improved -8.25->-5.50, giveback down to 83%, 5s/15s bars bullish"
+    },
+    {
+      "frame": 4,
+      "nonce": "04e8312a109469bf",
+      "decision": "EXIT",
+      "reason": "Fresh down-leg 20.2pts w/ only 1% giveback, PROPP+HA both against, lambda significantly positive (trend continuation) at 5s/15s -- breakdown not a dip, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through an early -8pt dip (t=1-2m) that partially recovered to -5.5pts (t=3m), consistent with normal noise. Bailed at t=4m when a fresh down-leg formed (20.2pt amplitude, only 1% giveback -- i.e. no bounce yet), PROPP and HA both fired against the position, and lambda_hat turned significantly positive (trend-continuation, not mean-reversion) on 5s/15s simultaneously, pushing local px to -15.75. That combo -- fresh strong leg + near-zero giveback + multi-TF trending lambda + two independent fire signals against -- read as a genuine breakdown rather than a dip. Next time I'd watch giveback% resetting near 0 on a NEW leg after an already-adverse move as the key tell, since a recovering leg (frame 3) showing rising giveback% is the opposite, healthy signature."
+}

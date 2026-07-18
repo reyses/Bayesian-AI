@@ -1,0 +1,155 @@
+{
+  "episode_id": "2026_01_22_1769094130_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "bc43230556df0174",
+      "ts": 1784339962.334466
+    },
+    {
+      "frame": 1,
+      "nonce": "a884f1cda3f6a202",
+      "ts": 1784339973.2960627
+    },
+    {
+      "frame": 2,
+      "nonce": "8b6ee11a86913311",
+      "ts": 1784339982.6474469
+    },
+    {
+      "frame": 3,
+      "nonce": "245b92c2a13c65fa",
+      "ts": 1784339989.23157
+    },
+    {
+      "frame": 4,
+      "nonce": "98ebaba3770386fa",
+      "ts": 1784339995.4047291
+    },
+    {
+      "frame": 5,
+      "nonce": "b0eec158b7df44bd",
+      "ts": 1784340001.354195
+    },
+    {
+      "frame": 6,
+      "nonce": "63cd30370fb84fee",
+      "ts": 1784340007.9114172
+    },
+    {
+      "frame": 7,
+      "nonce": "a979ebc5dc9ecd2a",
+      "ts": 1784340014.5292997
+    },
+    {
+      "frame": 8,
+      "nonce": "7a541f26b9f840e8",
+      "ts": 1784340021.0093255
+    },
+    {
+      "frame": 9,
+      "nonce": "f6024da1365a8a28",
+      "ts": 1784340027.0965364
+    },
+    {
+      "frame": 10,
+      "nonce": "c0fa5086c949516c",
+      "ts": 1784340039.4894776
+    },
+    {
+      "frame": 11,
+      "nonce": "fa9ee87ddb8d0b7e",
+      "ts": 1784340045.3225126
+    },
+    {
+      "frame": 12,
+      "nonce": "d4f214f6dec6564f",
+      "ts": 1784340052.529579
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "bc43230556df0174",
+      "decision": "HOLD",
+      "reason": "at breakeven, entry frame, no confirmed adverse move yet despite against-fires"
+    },
+    {
+      "frame": 1,
+      "nonce": "a884f1cda3f6a202",
+      "decision": "HOLD",
+      "reason": "small -6.5pt dip only, 1min in, normal noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "8b6ee11a86913311",
+      "decision": "HOLD",
+      "reason": "-9.25pts, PROPP flipped with-trend, still shallow dip"
+    },
+    {
+      "frame": 3,
+      "nonce": "245b92c2a13c65fa",
+      "decision": "HOLD",
+      "reason": "px recovering to -4.00 from -9.25, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "98ebaba3770386fa",
+      "decision": "HOLD",
+      "reason": "px flipped positive +3.00, trade working"
+    },
+    {
+      "frame": 5,
+      "nonce": "b0eec158b7df44bd",
+      "decision": "HOLD",
+      "reason": "chopping in -9 to +3 range, no trend against us, HA/PROPP with-trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "63cd30370fb84fee",
+      "decision": "HOLD",
+      "reason": "px +4.00, still positive, chop continues but no directional break against"
+    },
+    {
+      "frame": 7,
+      "nonce": "a979ebc5dc9ecd2a",
+      "decision": "HOLD",
+      "reason": "px -4.00, choppy range-bound (ER10 0.08), no new low made"
+    },
+    {
+      "frame": 8,
+      "nonce": "7a541f26b9f840e8",
+      "decision": "HOLD",
+      "reason": "px -2.25, still contained in established range, no breakdown"
+    },
+    {
+      "frame": 9,
+      "nonce": "f6024da1365a8a28",
+      "decision": "HOLD",
+      "reason": "px -3.00, still oscillating in established range, no new low breached"
+    },
+    {
+      "frame": 10,
+      "nonce": "c0fa5086c949516c",
+      "decision": "HOLD",
+      "reason": "px +1.00, near flat, no adverse trend"
+    },
+    {
+      "frame": 11,
+      "nonce": "fa9ee87ddb8d0b7e",
+      "decision": "HOLD",
+      "reason": "px -5.75, within established chop range, HA-with signal"
+    },
+    {
+      "frame": 12,
+      "nonce": "d4f214f6dec6564f",
+      "decision": "EXIT",
+      "reason": "decisive break below prior 12min range (-9 max) to -16.5/-23.75 print, HA-against, real trend break not chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Price chopped in a shallow -9 to +4 band for the first 11 minutes with alternating KMDR/HA/PROPP fires on both sides, consistent with a dip that keeps recovering, so I held. At t=12m the 5s bar broke decisively below the entire prior range (low -27, close -23.75, 1m close -17.75, local px -16.50) with HA firing against -- more than double any prior adverse excursion in one bar, which read as a structural break rather than noise, so I bailed. Next time I'd watch for the first close that clears the established range by >1.5x the prior max adverse excursion as the trigger, rather than waiting through repeated smaller pokes."
+}

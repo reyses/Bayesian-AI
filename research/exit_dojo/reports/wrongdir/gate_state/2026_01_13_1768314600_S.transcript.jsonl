@@ -1,0 +1,11 @@
+{"ts": 1784339816.6248684, "event": "serve", "frame": 0, "nonce": "1b532b99d2ccd002"}
+{"ts": 1784339821.1969874, "event": "commit", "frame": 0, "nonce": "1b532b99d2ccd002", "decision": "HOLD", "reason": "just entered, px flat at 0, no adverse move yet"}
+{"ts": 1784339828.308868, "event": "serve", "frame": 1, "nonce": "3b111942661e4312"}
+{"ts": 1784339839.100715, "event": "commit", "frame": 1, "nonce": "3b111942661e4312", "decision": "HOLD", "reason": "px -11.25, giveback 58% but only 3m in, CLIMAX-against is a warning not confirmation yet; watching next frame"}
+{"ts": 1784339841.5916865, "event": "serve", "frame": 2, "nonce": "8426833746cc00dc"}
+{"ts": 1784339846.5505927, "event": "commit", "frame": 2, "nonce": "8426833746cc00dc", "decision": "HOLD", "reason": "px improved -11.25->-8.75, giveback eased 58%->29%, thesis still intact"}
+{"ts": 1784339849.2153943, "event": "serve", "frame": 3, "nonce": "6589a7395beb69d2"}
+{"ts": 1784339856.1042013, "event": "commit", "frame": 3, "nonce": "6589a7395beb69d2", "decision": "HOLD", "reason": "px stable ~-9.5, giveback still easing 29%->22%, vol decaying, no acceleration against"}
+{"ts": 1784339858.4698691, "event": "serve", "frame": 4, "nonce": "bfd5ca14bd525a86"}
+{"ts": 1784339871.5202525, "event": "commit", "frame": 4, "nonce": "bfd5ca14bd525a86", "decision": "EXIT", "reason": "new adverse extreme -15.75 (worse than prior -11.25 low), 4-way confluence KMDR/CLIMAX/HA/PROPP all against, fresh leg forming against us -> wrong-direction confirmed, bail"}
+{"ts": 1784339877.2350004, "event": "finish", "summary": "Price chopped between -8 and -16 pts for the first 4 minutes, twice easing back toward breakeven (giveback 58%->29%->22%) which argued for holding through a normal dip. At t=4m price broke to a new adverse extreme (-15.75, worse than the prior -11.25 low) on a fresh leg with zero giveback cushion, and four independent against-signals (KMDR, CLIMAX, HA, PROPP) fired in confluence -- that combination of a new low plus multi-signal agreement is what flipped this from 'normal dip' to 'wrong-direction,' so I bailed. Next time I'd watch for the SECOND failed recovery attempt (not just one dip) paired with signal confluence as the real trigger, rather than reacting to any single against-fire in isolation.", "exit_frame": 4, "n_commits": 5}

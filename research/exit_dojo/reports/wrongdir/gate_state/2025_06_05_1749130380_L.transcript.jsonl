@@ -1,0 +1,17 @@
+{"ts": 1784338029.2429109, "event": "serve", "frame": 0, "nonce": "e53ce2ba1204c36d"}
+{"ts": 1784338042.9174197, "event": "commit", "frame": 0, "nonce": "e53ce2ba1204c36d", "decision": "HOLD", "reason": "frame0: at breakeven after giveback, but multi-TF closes (5m/15m/1h) still positive; too early to call wrong-direction"}
+{"ts": 1784338045.114934, "event": "serve", "frame": 1, "nonce": "841864a543de4613"}
+{"ts": 1784338048.597469, "event": "commit", "frame": 1, "nonce": "841864a543de4613", "decision": "HOLD", "reason": "px recovered to +18.25, giveback improved 128%->87%, thesis intact"}
+{"ts": 1784338050.9838605, "event": "serve", "frame": 2, "nonce": "a2babdc819c864e4"}
+{"ts": 1784338054.7812576, "event": "commit", "frame": 2, "nonce": "a2babdc819c864e4", "decision": "HOLD", "reason": "px +25.50, giveback down to 17%, HA flipped to with-trend, thesis strengthening"}
+{"ts": 1784338057.0007102, "event": "serve", "frame": 3, "nonce": "5baa9e6c4076fe38"}
+{"ts": 1784338062.0910058, "event": "commit", "frame": 3, "nonce": "5baa9e6c4076fe38", "decision": "HOLD", "reason": "px +13.00, still solidly positive, minor pullback from +25.5, giveback still low"}
+{"ts": 1784338064.2081108, "event": "serve", "frame": 4, "nonce": "1e3bcc41be327636"}
+{"ts": 1784338068.167891, "event": "commit", "frame": 4, "nonce": "1e3bcc41be327636", "decision": "HOLD", "reason": "px +14, holding steady, giveback still low 14%, consolidating not reversing"}
+{"ts": 1784338070.4296203, "event": "serve", "frame": 5, "nonce": "a45c3c9c66f61047"}
+{"ts": 1784338073.851087, "event": "commit", "frame": 5, "nonce": "a45c3c9c66f61047", "decision": "HOLD", "reason": "px +11.5, consolidating in +11-25 range, giveback low 12%, no breakdown"}
+{"ts": 1784338076.363004, "event": "serve", "frame": 6, "nonce": "5ca65cd4a1aceb81"}
+{"ts": 1784338095.1802497, "event": "commit", "frame": 6, "nonce": "5ca65cd4a1aceb81", "decision": "HOLD", "reason": "px dipped to -10, first close below entry, but 1m bar still closed +10.75, lambda/reversion_prob still favor upside, watching closely"}
+{"ts": 1784338097.5734754, "event": "serve", "frame": 7, "nonce": "52cf0215977f9941"}
+{"ts": 1784338109.1043863, "event": "commit", "frame": 7, "nonce": "52cf0215977f9941", "decision": "EXIT", "reason": "px collapsed -10->-42 in 1min, velocity/accel strongly negative across 5s/15s/1m, z_se stretched -2.4 to -2.5 (breakdown not noise), vol expanding +6.8, ER10 rising to 0.36 (efficient trend not chop) -- wrong-direction, bailing"}
+{"ts": 1784338115.643527, "event": "finish", "summary": "Held through the first 6 minutes of normal oscillation (+11 to +25, one shallow dip to -10 that still looked like noise given positive lambda/reversion_prob and an intact 1m close). Bailed at t=7m when price collapsed from -10 to -42 in a single minute with accelerating negative velocity on 5s/15s/1m, z_se stretching to -2.4/-2.5 (a real breakdown, not mean-reverting noise), expanding volatility, and rising ER10 (0.16->0.36, chop turning into an efficient down-trend) -- the combination of acceleration + vol expansion + rising trend-efficiency is what separates a dip from a wrong-direction move. Next time I'd watch for that ER10 inflection plus the velocity/accel sign-flip earlier, since the pure price-giveback number alone (0% at -10) was misleadingly calm.", "exit_frame": 7, "n_commits": 8}

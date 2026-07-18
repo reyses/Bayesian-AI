@@ -1,0 +1,188 @@
+{
+  "episode_id": "2026_01_16_1768573800_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "336d23350f40c348",
+      "ts": 1784339962.7089615
+    },
+    {
+      "frame": 1,
+      "nonce": "88f3293e529fbe07",
+      "ts": 1784339971.5480604
+    },
+    {
+      "frame": 2,
+      "nonce": "6447140e7a9864f2",
+      "ts": 1784339978.0180776
+    },
+    {
+      "frame": 3,
+      "nonce": "e51cde4ad29007ff",
+      "ts": 1784339987.504857
+    },
+    {
+      "frame": 4,
+      "nonce": "dca78c724c394c64",
+      "ts": 1784339995.5416422
+    },
+    {
+      "frame": 5,
+      "nonce": "84bbf8f0ee8092b8",
+      "ts": 1784340002.0228925
+    },
+    {
+      "frame": 6,
+      "nonce": "43d4cc34be656745",
+      "ts": 1784340009.6686943
+    },
+    {
+      "frame": 7,
+      "nonce": "7de57ac99e8aacef",
+      "ts": 1784340015.5961251
+    },
+    {
+      "frame": 8,
+      "nonce": "d6023bfd3debfa4e",
+      "ts": 1784340021.1722639
+    },
+    {
+      "frame": 9,
+      "nonce": "0bae8c6f0661078d",
+      "ts": 1784340028.8808582
+    },
+    {
+      "frame": 10,
+      "nonce": "29c322250409590b",
+      "ts": 1784340034.5876377
+    },
+    {
+      "frame": 11,
+      "nonce": "39d28b72eb6ddf82",
+      "ts": 1784340040.032896
+    },
+    {
+      "frame": 12,
+      "nonce": "d6abdc1bb799d898",
+      "ts": 1784340048.260584
+    },
+    {
+      "frame": 13,
+      "nonce": "22a41f0b72ad363d",
+      "ts": 1784340061.7464845
+    },
+    {
+      "frame": 14,
+      "nonce": "3e1288586cd4891a",
+      "ts": 1784340078.6254787
+    },
+    {
+      "frame": 15,
+      "nonce": "dc5f8688a195e92a",
+      "ts": 1784340091.8986712
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "336d23350f40c348",
+      "decision": "HOLD",
+      "reason": "frame 0 at entry, no adverse move yet, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "88f3293e529fbe07",
+      "decision": "HOLD",
+      "reason": "+43.5pts, all TFs green, momentum with trade, PROPP-with fire"
+    },
+    {
+      "frame": 2,
+      "nonce": "6447140e7a9864f2",
+      "decision": "HOLD",
+      "reason": "pullback from +43.5 to +13.25 (42% giveback) but still positive, 1m bar still strongly green, normal consolidation after impulsive move"
+    },
+    {
+      "frame": 3,
+      "nonce": "e51cde4ad29007ff",
+      "decision": "HOLD",
+      "reason": "still +9.75 above entry though giveback now 77% and ER10 dropping; not negative yet, watching closely"
+    },
+    {
+      "frame": 4,
+      "nonce": "dca78c724c394c64",
+      "decision": "HOLD",
+      "reason": "recovered to +22.75, giveback improved to 39%, 5s bar strong green, PROPP-with fire"
+    },
+    {
+      "frame": 5,
+      "nonce": "84bbf8f0ee8092b8",
+      "decision": "HOLD",
+      "reason": "+16.5pts, new leg started giveback down to 16%, HA-with and PROPP-with fires, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "43d4cc34be656745",
+      "decision": "HOLD",
+      "reason": "+23.5pts, 5m TF lambda positive across windows, PROPP-with fire, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "7de57ac99e8aacef",
+      "decision": "HOLD",
+      "reason": "+29.25pts, new local high, HA-with fire, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "d6023bfd3debfa4e",
+      "decision": "HOLD",
+      "reason": "+15.75pts, still within normal oscillation band this trade has shown all episode, no structural break"
+    },
+    {
+      "frame": 9,
+      "nonce": "0bae8c6f0661078d",
+      "decision": "HOLD",
+      "reason": "+32.5pts new local high, PROPP-with fire, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "29c322250409590b",
+      "decision": "HOLD",
+      "reason": "+19pts, HA-with and PROPP-with fires confirm trend, giveback only 25%"
+    },
+    {
+      "frame": 11,
+      "nonce": "39d28b72eb6ddf82",
+      "decision": "HOLD",
+      "reason": "faded to +4.75 but still positive, 5m lambda strongly positive (t=4.3) macro trend intact despite short-TF against fires"
+    },
+    {
+      "frame": 12,
+      "nonce": "d6abdc1bb799d898",
+      "decision": "HOLD",
+      "reason": "round-tripped back to breakeven (+0.00) after peaking +32, concerning but not negative yet, watching for confirmed break below zero"
+    },
+    {
+      "frame": 13,
+      "nonce": "22a41f0b72ad363d",
+      "decision": "HOLD",
+      "reason": "first negative print -2.75 after round-trip from +32, small magnitude, but 1m momentum has gone flat/negative unlike prior dips - watching next frame closely for confirmation"
+    },
+    {
+      "frame": 14,
+      "nonce": "3e1288586cd4891a",
+      "decision": "HOLD",
+      "reason": "-4.50pts, still small vs 43.5pt amplitude seen earlier, 1m lambda ticking positive again (bounce attempt), not a decisive breakdown yet"
+    },
+    {
+      "frame": 15,
+      "nonce": "dc5f8688a195e92a",
+      "decision": "EXIT",
+      "reason": "decisive break to -15pts, new down-leg with 37pt amplitude, past the noise band that held all episode - bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 15,
+  "finished": true,
+  "summary": "Held through the first ~14 minutes of a choppy but net-positive long that repeatedly oscillated 0 to +40pts and always recovered, since higher-TF lambda stayed positive through every dip. Bailed at t=15m when price broke to -15pts on a fresh down-leg with 37pts amplitude, decisively past the noise band the trade had respected all episode, with 1m z_se deeply negative and no supporting higher-TF lambda left. Next time: watch for the round-trip-to-breakeven (t=12m, giveback>150%) as the earlier warning that higher-TF momentum had evaporated, rather than waiting for the second leg down to confirm."
+}

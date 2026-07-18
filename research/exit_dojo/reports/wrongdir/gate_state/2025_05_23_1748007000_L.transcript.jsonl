@@ -1,0 +1,39 @@
+{"ts": 1784337856.3785257, "event": "serve", "frame": 0, "nonce": "af6c8a64c7a00ec1"}
+{"ts": 1784337867.4772394, "event": "commit", "frame": 0, "nonce": "af6c8a64c7a00ec1", "decision": "HOLD", "reason": "frame0, just entered, px flat 0.00, too early to judge despite mixed HTF stretch"}
+{"ts": 1784337869.640948, "event": "serve", "frame": 1, "nonce": "c2ecac2c15b08b54"}
+{"ts": 1784337880.9986503, "event": "commit", "frame": 1, "nonce": "c2ecac2c15b08b54", "decision": "HOLD", "reason": "px -27.75 but 5m/15m bars show strong recovery bodies underneath; only 21% giveback of a 92pt leg, whipsaw not confirmed breakdown yet"}
+{"ts": 1784337883.5560005, "event": "serve", "frame": 2, "nonce": "14e00d74fe6a0cbc"}
+{"ts": 1784337887.451168, "event": "commit", "frame": 2, "nonce": "14e00d74fe6a0cbc", "decision": "HOLD", "reason": "px recovered -27.75 -> -9.75, PROPP-with fired, thesis intact"}
+{"ts": 1784337889.8202689, "event": "serve", "frame": 3, "nonce": "58512dbcd9baabf8"}
+{"ts": 1784337893.0430636, "event": "commit", "frame": 3, "nonce": "58512dbcd9baabf8", "decision": "HOLD", "reason": "px turned positive +11.75, giveback reset to 0%, thesis working"}
+{"ts": 1784337895.3709736, "event": "serve", "frame": 4, "nonce": "b0718ea6632b8933"}
+{"ts": 1784337898.4902155, "event": "commit", "frame": 4, "nonce": "b0718ea6632b8933", "decision": "HOLD", "reason": "px +52.50, strong follow-through, giveback 0%, thesis clearly working"}
+{"ts": 1784337903.2942684, "event": "serve", "frame": 5, "nonce": "0c8b429deb8f1bc6"}
+{"ts": 1784337906.5602252, "event": "commit", "frame": 5, "nonce": "0c8b429deb8f1bc6", "decision": "HOLD", "reason": "px +62.00, trending in favor, minor 8% giveback, PROPP-with confirms"}
+{"ts": 1784337908.9465141, "event": "serve", "frame": 6, "nonce": "e652f93002f85d87"}
+{"ts": 1784337912.1480181, "event": "commit", "frame": 6, "nonce": "e652f93002f85d87", "decision": "HOLD", "reason": "px +76.25, new leg high, giveback 1%, strong trend intact"}
+{"ts": 1784337914.2781107, "event": "serve", "frame": 7, "nonce": "c0f9cf4c163c083c"}
+{"ts": 1784337920.0418227, "event": "commit", "frame": 7, "nonce": "c0f9cf4c163c083c", "decision": "HOLD", "reason": "px +89.25, new leg high, giveback 5%, trend continues strongly"}
+{"ts": 1784337922.3529463, "event": "serve", "frame": 8, "nonce": "b125e033be821c20"}
+{"ts": 1784337926.7113307, "event": "commit", "frame": 8, "nonce": "b125e033be821c20", "decision": "HOLD", "reason": "px pulled back to +68.75 from +89 peak, 13% giveback after strong run, normal pullback not breakdown"}
+{"ts": 1784337929.9021463, "event": "serve", "frame": 9, "nonce": "271a901f17dd202b"}
+{"ts": 1784337933.6584918, "event": "commit", "frame": 9, "nonce": "271a901f17dd202b", "decision": "HOLD", "reason": "px +74.75, giveback 9%, still consolidating well above entry, no breakdown"}
+{"ts": 1784337935.7956662, "event": "serve", "frame": 10, "nonce": "6089d3af85ab3280"}
+{"ts": 1784337940.5934553, "event": "commit", "frame": 10, "nonce": "6089d3af85ab3280", "decision": "HOLD", "reason": "px +58.00, still well positive despite multiple against-fires; new leg starting but no breakdown below prior structure yet"}
+{"ts": 1784337942.7945118, "event": "serve", "frame": 11, "nonce": "097eefcd83bd2de5"}
+{"ts": 1784337946.738521, "event": "commit", "frame": 11, "nonce": "097eefcd83bd2de5", "decision": "HOLD", "reason": "px +58.50, stable, still deep in profit despite against-fires, thesis intact"}
+{"ts": 1784337949.6319017, "event": "serve", "frame": 12, "nonce": "6472af9a625354de"}
+{"ts": 1784337953.6169229, "event": "commit", "frame": 12, "nonce": "6472af9a625354de", "decision": "HOLD", "reason": "px +65.75, still deep in profit, local giveback is against a small recent leg not the overall trend"}
+{"ts": 1784337955.9821332, "event": "serve", "frame": 13, "nonce": "d57e12e553a8d207"}
+{"ts": 1784337959.558038, "event": "commit", "frame": 13, "nonce": "d57e12e553a8d207", "decision": "HOLD", "reason": "px +40.75, faded from the +89 peak but still well positive, no sign of full reversal below entry"}
+{"ts": 1784337962.0434072, "event": "serve", "frame": 14, "nonce": "a29ce87aecb4acbe"}
+{"ts": 1784337973.2800586, "event": "commit", "frame": 14, "nonce": "a29ce87aecb4acbe", "decision": "HOLD", "reason": "px +20.75, steady multi-frame decay from +89 peak but still positive, PROPP-with just fired; watching closely for a flip negative"}
+{"ts": 1784337975.712702, "event": "serve", "frame": 15, "nonce": "6b8ae9d6b2b1bf32"}
+{"ts": 1784337979.2377443, "event": "commit", "frame": 15, "nonce": "6b8ae9d6b2b1bf32", "decision": "HOLD", "reason": "px bounced back to +37.75 from +20.75, still positive, choppy but not trending to zero"}
+{"ts": 1784337981.4023237, "event": "serve", "frame": 16, "nonce": "67c79113445d7433"}
+{"ts": 1784337988.7211342, "event": "commit", "frame": 16, "nonce": "67c79113445d7433", "decision": "HOLD", "reason": "px eroded to +8.25, near flat, ER10 near zero (chop); still technically positive, watching next frame for a flip negative"}
+{"ts": 1784337991.1636999, "event": "serve", "frame": 17, "nonce": "7893e0c9a7c25f79"}
+{"ts": 1784337995.6384509, "event": "commit", "frame": 17, "nonce": "7893e0c9a7c25f79", "decision": "HOLD", "reason": "px +9.75, holding barely positive, still above entry, no confirmed breakdown"}
+{"ts": 1784337998.1519983, "event": "serve", "frame": 18, "nonce": "d25fc0a36c2c7503"}
+{"ts": 1784338010.727702, "event": "commit", "frame": 18, "nonce": "d25fc0a36c2c7503", "decision": "EXIT", "reason": "px flipped negative -10.75 after full round-trip giveback from +89 peak; 1m z_se_30 -2.245 confirms continued downside pressure, bail now"}
+{"ts": 1784338018.2047114, "event": "finish", "summary": "Held through a strong favorable run to +89pts (peak leg age ~10m), then watched a steady multi-frame decay (89->75->68->58->40->21->8->10->-11) as PROPP/KMDR/HA against-fires accumulated and 1m z_se_30 stretched to -2.2 to -2.6. Bailed the moment price crossed back to negative, since a full round-trip giveback of the entire favorable excursion signaled the reversal was real rather than a normal dip. Next time I'd watch for the erosion pattern earlier (e.g. 3+ consecutive frames of lower highs after a peak) rather than waiting for the sign flip, to lock in more of the unrealized gain before it round-trips to a loss.", "exit_frame": 18, "n_commits": 19}

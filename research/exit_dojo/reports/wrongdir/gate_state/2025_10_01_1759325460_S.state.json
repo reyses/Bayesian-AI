@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_10_01_1759325460_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "eb390f0e63245bbb",
+      "ts": 1784338865.3710823
+    },
+    {
+      "frame": 1,
+      "nonce": "951a37130deff526",
+      "ts": 1784338873.8379087
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "eb390f0e63245bbb",
+      "decision": "HOLD",
+      "reason": "Just opened, px flat at entry; wide-field bars are pre-entry context, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "951a37130deff526",
+      "decision": "EXIT",
+      "reason": "px -49.5pts, giveback 126% of leg amplitude, CLIMAX-against + HA-against fires -- entry thesis broken, wrong-direction, bail now"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Bailed at t=1m: local px had swung to -49.5pts with giveback 126% (price fully erased the leg that justified entry and kept going), and CLIMAX-against + HA-against fired together within the same minute -- that combination read as the entry thesis broken, not a normal dip. Next time I'd watch for giveback crossing ~100% of leg amplitude paired with an against-direction climax/HA fire as the earliest reliable wrong-direction tell, rather than waiting for price to stabilize."
+}

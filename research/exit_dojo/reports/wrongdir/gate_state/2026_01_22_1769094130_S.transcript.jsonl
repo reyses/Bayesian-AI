@@ -1,0 +1,27 @@
+{"ts": 1784339962.3502445, "event": "serve", "frame": 0, "nonce": "bc43230556df0174"}
+{"ts": 1784339970.883562, "event": "commit", "frame": 0, "nonce": "bc43230556df0174", "decision": "HOLD", "reason": "at breakeven, entry frame, no confirmed adverse move yet despite against-fires"}
+{"ts": 1784339973.2960627, "event": "serve", "frame": 1, "nonce": "a884f1cda3f6a202"}
+{"ts": 1784339977.2507842, "event": "commit", "frame": 1, "nonce": "a884f1cda3f6a202", "decision": "HOLD", "reason": "small -6.5pt dip only, 1min in, normal noise"}
+{"ts": 1784339982.6564767, "event": "serve", "frame": 2, "nonce": "8b6ee11a86913311"}
+{"ts": 1784339986.302189, "event": "commit", "frame": 2, "nonce": "8b6ee11a86913311", "decision": "HOLD", "reason": "-9.25pts, PROPP flipped with-trend, still shallow dip"}
+{"ts": 1784339989.23157, "event": "serve", "frame": 3, "nonce": "245b92c2a13c65fa"}
+{"ts": 1784339992.9481142, "event": "commit", "frame": 3, "nonce": "245b92c2a13c65fa", "decision": "HOLD", "reason": "px recovering to -4.00 from -9.25, thesis intact"}
+{"ts": 1784339995.4082994, "event": "serve", "frame": 4, "nonce": "98ebaba3770386fa"}
+{"ts": 1784339998.7929933, "event": "commit", "frame": 4, "nonce": "98ebaba3770386fa", "decision": "HOLD", "reason": "px flipped positive +3.00, trade working"}
+{"ts": 1784340001.3584003, "event": "serve", "frame": 5, "nonce": "b0eec158b7df44bd"}
+{"ts": 1784340005.6485932, "event": "commit", "frame": 5, "nonce": "b0eec158b7df44bd", "decision": "HOLD", "reason": "chopping in -9 to +3 range, no trend against us, HA/PROPP with-trend"}
+{"ts": 1784340007.9114172, "event": "serve", "frame": 6, "nonce": "63cd30370fb84fee"}
+{"ts": 1784340012.1497324, "event": "commit", "frame": 6, "nonce": "63cd30370fb84fee", "decision": "HOLD", "reason": "px +4.00, still positive, chop continues but no directional break against"}
+{"ts": 1784340014.5292997, "event": "serve", "frame": 7, "nonce": "a979ebc5dc9ecd2a"}
+{"ts": 1784340018.202432, "event": "commit", "frame": 7, "nonce": "a979ebc5dc9ecd2a", "decision": "HOLD", "reason": "px -4.00, choppy range-bound (ER10 0.08), no new low made"}
+{"ts": 1784340021.0133445, "event": "serve", "frame": 8, "nonce": "7a541f26b9f840e8"}
+{"ts": 1784340024.6141837, "event": "commit", "frame": 8, "nonce": "7a541f26b9f840e8", "decision": "HOLD", "reason": "px -2.25, still contained in established range, no breakdown"}
+{"ts": 1784340027.1095674, "event": "serve", "frame": 9, "nonce": "f6024da1365a8a28"}
+{"ts": 1784340037.1564934, "event": "commit", "frame": 9, "nonce": "f6024da1365a8a28", "decision": "HOLD", "reason": "px -3.00, still oscillating in established range, no new low breached"}
+{"ts": 1784340039.495147, "event": "serve", "frame": 10, "nonce": "c0fa5086c949516c"}
+{"ts": 1784340042.8945193, "event": "commit", "frame": 10, "nonce": "c0fa5086c949516c", "decision": "HOLD", "reason": "px +1.00, near flat, no adverse trend"}
+{"ts": 1784340045.325362, "event": "serve", "frame": 11, "nonce": "fa9ee87ddb8d0b7e"}
+{"ts": 1784340049.1854353, "event": "commit", "frame": 11, "nonce": "fa9ee87ddb8d0b7e", "decision": "HOLD", "reason": "px -5.75, within established chop range, HA-with signal"}
+{"ts": 1784340052.534101, "event": "serve", "frame": 12, "nonce": "d4f214f6dec6564f"}
+{"ts": 1784340063.4479167, "event": "commit", "frame": 12, "nonce": "d4f214f6dec6564f", "decision": "EXIT", "reason": "decisive break below prior 12min range (-9 max) to -16.5/-23.75 print, HA-against, real trend break not chop"}
+{"ts": 1784340069.0136545, "event": "finish", "summary": "Price chopped in a shallow -9 to +4 band for the first 11 minutes with alternating KMDR/HA/PROPP fires on both sides, consistent with a dip that keeps recovering, so I held. At t=12m the 5s bar broke decisively below the entire prior range (low -27, close -23.75, 1m close -17.75, local px -16.50) with HA firing against -- more than double any prior adverse excursion in one bar, which read as a structural break rather than noise, so I bailed. Next time I'd watch for the first close that clears the established range by >1.5x the prior max adverse excursion as the trigger, rather than waiting through repeated smaller pokes.", "exit_frame": 12, "n_commits": 13}

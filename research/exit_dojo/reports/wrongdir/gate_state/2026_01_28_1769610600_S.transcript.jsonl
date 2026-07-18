@@ -1,0 +1,9 @@
+{"ts": 1784340119.0205295, "event": "serve", "frame": 0, "nonce": "df1ff34b56ce3024"}
+{"ts": 1784340123.218009, "event": "commit", "frame": 0, "nonce": "df1ff34b56ce3024", "decision": "HOLD", "reason": "at entry, no adverse move yet"}
+{"ts": 1784340126.0097423, "event": "serve", "frame": 1, "nonce": "1b59e52398988371"}
+{"ts": 1784340132.0273166, "event": "commit", "frame": 1, "nonce": "1b59e52398988371", "decision": "HOLD", "reason": "1m in, -14pts dip but z_21/lambda mixed, not decisively wrong yet"}
+{"ts": 1784340134.8855846, "event": "serve", "frame": 2, "nonce": "7844f73254f0ebba"}
+{"ts": 1784340150.2157047, "event": "commit", "frame": 2, "nonce": "7844f73254f0ebba", "decision": "HOLD", "reason": "giveback 91%% and fires-against building, want one more frame to confirm before bailing"}
+{"ts": 1784340153.2161467, "event": "serve", "frame": 3, "nonce": "d7a9a6c62e99eed9"}
+{"ts": 1784340164.3305829, "event": "commit", "frame": 3, "nonce": "d7a9a6c62e99eed9", "decision": "EXIT", "reason": "giveback blew past 100%% to 188%%, px -38.5 and worsening each frame, vol expanding against -- wrong-direction breakdown, not a dip"}
+{"ts": 1784340170.4184296, "event": "finish", "summary": "Held through frames 0-2 as the initial -14 to -21pt dip with mixed lambda/z signals looked like normal chop, not a broken thesis. Bailed at frame 3 when giveback blew past 100%% to 188%% (px -38.5, worsening every single frame since entry) with expanding 5m vol against the position -- that combination (monotonic adverse price + giveback>100%% + vol expansion) is the wrong-direction signature, distinct from a dip that later recovers. Next time: watch giveback crossing 100%% as the hard trigger rather than waiting for a third confirming frame, since the price path here was monotonically against from frame 1 onward.", "exit_frame": 3, "n_commits": 4}

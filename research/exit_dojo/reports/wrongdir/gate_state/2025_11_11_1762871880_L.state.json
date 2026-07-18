@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_11_11_1762871880_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "98bd10f271674d8a",
+      "ts": 1784339453.0380573
+    },
+    {
+      "frame": 1,
+      "nonce": "1c04969a7305caa6",
+      "ts": 1784339459.9273398
+    },
+    {
+      "frame": 2,
+      "nonce": "ce2b267ddad2f867",
+      "ts": 1784339467.1370971
+    },
+    {
+      "frame": 3,
+      "nonce": "c1b12ddf12ef4f1b",
+      "ts": 1784339474.8691545
+    },
+    {
+      "frame": 4,
+      "nonce": "16bd1f8e58099777",
+      "ts": 1784339483.9994829
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "98bd10f271674d8a",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, mixed TF signals, no wrong-direction signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "1c04969a7305caa6",
+      "decision": "HOLD",
+      "reason": "px still +3.25 net positive despite giveback; fires against but no confirmed reversal yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "ce2b267ddad2f867",
+      "decision": "HOLD",
+      "reason": "px dipped to -6.75, giveback 53%, but mixed fires (HA-with); watching for confirmation before bailing"
+    },
+    {
+      "frame": 3,
+      "nonce": "c1b12ddf12ef4f1b",
+      "decision": "HOLD",
+      "reason": "px -9.00 but leg amp grew to 30.5 (new favorable extreme made), giveback actually eased to 32%; still choppy not confirmed reversal"
+    },
+    {
+      "frame": 4,
+      "nonce": "16bd1f8e58099777",
+      "decision": "EXIT",
+      "reason": "3 consecutive frames of monotonic deterioration (-6.75,-9,-13.5), amp stalled at 30.5 (no new favorable high), consistent HA/PROPP-against fires, ER10 dropped to 0.10 -- wrong-direction confirmed, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Price went briefly positive then reversed, worsening monotonically for three straight frames (-6.75 -> -9.00 -> -13.50) while the leg's favorable amplitude stalled at 30.5 (no new favorable high), and HA/PROPP fires flipped consistently against the position with ER10 collapsing to 0.10 (choppy, non-trending against us) -- bailed on frame 4 as wrong-direction confirmed. Next time watch for the combination of a stalled amplitude ceiling plus 3+ consecutive worsening frames as the earliest reliable signature, rather than waiting for price to go deeply negative."
+}

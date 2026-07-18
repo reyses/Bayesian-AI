@@ -1,0 +1,7 @@
+# exit_code=0 dt=193s
+## STDOUT
+Held the full window â€” this SHORT entry never went negative after the first minute, running from +4pts to a peak near +90pts with several sharp-looking pullbacks (giveback spikes to 100â€“165%) that always resolved favorably. No wrong-direction signal ever appeared, so HOLD was correct throughout; ended at +18pts net favorable.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

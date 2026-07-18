@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_04_03_1743687295_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "404e0065ab179601",
+      "ts": 1784337469.0889518
+    },
+    {
+      "frame": 1,
+      "nonce": "49ed63e97fd3cee6",
+      "ts": 1784337477.3248258
+    },
+    {
+      "frame": 2,
+      "nonce": "0256cf42a1804f36",
+      "ts": 1784337486.6979241
+    },
+    {
+      "frame": 3,
+      "nonce": "6cee4e3f5db9724e",
+      "ts": 1784337500.5291457
+    },
+    {
+      "frame": 4,
+      "nonce": "300bbc3903053870",
+      "ts": 1784337506.3847656
+    },
+    {
+      "frame": 5,
+      "nonce": "20b1b25a12f748d4",
+      "ts": 1784337512.9031603
+    },
+    {
+      "frame": 6,
+      "nonce": "d77aa5958da78ef8",
+      "ts": 1784337518.5293727
+    },
+    {
+      "frame": 7,
+      "nonce": "a250a642aee13bf9",
+      "ts": 1784337532.359396
+    },
+    {
+      "frame": 8,
+      "nonce": "b915dd5278aef63e",
+      "ts": 1784337546.7068279
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "404e0065ab179601",
+      "decision": "HOLD",
+      "reason": "px back at entry after 200pt dip; recovery in progress, ER10 0.78 trending, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "49ed63e97fd3cee6",
+      "decision": "HOLD",
+      "reason": "1m/5m bars closed near entry(+0.5), just 5s-noise dip to -33; ER10 0.90 still trending, PROPP-with still firing"
+    },
+    {
+      "frame": 2,
+      "nonce": "0256cf42a1804f36",
+      "decision": "HOLD",
+      "reason": "px -41.5, giveback only 16% of 190pt leg amplitude; still within normal pullback range, not a clean breakdown"
+    },
+    {
+      "frame": 3,
+      "nonce": "6cee4e3f5db9724e",
+      "decision": "HOLD",
+      "reason": "px recovering to -26.75 from -41.5, still choppy range-bound, no clean breakdown despite mixed HA-against/PROPP-with fires"
+    },
+    {
+      "frame": 4,
+      "nonce": "300bbc3903053870",
+      "decision": "HOLD",
+      "reason": "px recovered to -5.25, nearly back to entry, momentum clearly turning back favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "20b1b25a12f748d4",
+      "decision": "HOLD",
+      "reason": "px now +7.75, back into favorable territory, HA-with/PROPP-with confirming, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "d77aa5958da78ef8",
+      "decision": "HOLD",
+      "reason": "sharp snapback to -52.25 but still inside established -55/-65 range from earlier wicks, not a new low breakdown; choppy but range-bound"
+    },
+    {
+      "frame": 7,
+      "nonce": "a250a642aee13bf9",
+      "decision": "HOLD",
+      "reason": "1m closed fresh low -52.5 but already recovering intra-frame to -37.5; ER10 near-zero=pure chop not a directional breakdown, watching closely"
+    },
+    {
+      "frame": 8,
+      "nonce": "b915dd5278aef63e",
+      "decision": "EXIT",
+      "reason": "structure broken: each recovery leg tops lower (best was only +7.75) while each selloff leg makes a deeper low (-87.5 wick, fresh episode low); ER10 near zero = no trend to ride, just deepening lower-lows -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Held through the first 6 minutes of noisy chop since price kept round-tripping back toward entry (best excursion +7.75) and stayed within an established range. Bailed at t=8m once the structure clearly broke: recovery legs topped out lower each time while selloff legs printed deeper lows (fresh episode low at -87.5 on the 15s wick, 1m low -68.75), and ER10 collapsed near zero showing no trend to ride -- classic lower-highs/lower-lows wrong-direction signature for a long. Next time I'd weight the sequence of leg highs/lows more than any single frame's px level, since the giveback% alone was noisy and didn't flag the deteriorating structure as early as the swing-high/swing-low comparison did."
+}

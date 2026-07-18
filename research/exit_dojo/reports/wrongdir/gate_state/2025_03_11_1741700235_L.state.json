@@ -1,0 +1,287 @@
+{
+  "episode_id": "2025_03_11_1741700235_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2b4b0006af49eb8a",
+      "ts": 1784342558.9564576
+    },
+    {
+      "frame": 1,
+      "nonce": "4ad13139b096e35d",
+      "ts": 1784342591.659359
+    },
+    {
+      "frame": 2,
+      "nonce": "d7625905ceeecaa7",
+      "ts": 1784342600.8500519
+    },
+    {
+      "frame": 3,
+      "nonce": "29e4d8d94e727dd8",
+      "ts": 1784342609.6071
+    },
+    {
+      "frame": 4,
+      "nonce": "326efa7a24748631",
+      "ts": 1784342617.1587334
+    },
+    {
+      "frame": 5,
+      "nonce": "8ee84fa0805c74ff",
+      "ts": 1784342624.896979
+    },
+    {
+      "frame": 6,
+      "nonce": "0d0e729b8d0b9593",
+      "ts": 1784342635.6136591
+    },
+    {
+      "frame": 7,
+      "nonce": "02cd259fbc133c74",
+      "ts": 1784342643.0988786
+    },
+    {
+      "frame": 8,
+      "nonce": "09866d6aaed33d63",
+      "ts": 1784342654.2791922
+    },
+    {
+      "frame": 9,
+      "nonce": "911424e7eaf8ede2",
+      "ts": 1784342661.9844453
+    },
+    {
+      "frame": 10,
+      "nonce": "b41c9239d1366eb2",
+      "ts": 1784342674.0518243
+    },
+    {
+      "frame": 11,
+      "nonce": "6186d4d6dd4495c2",
+      "ts": 1784342683.2375734
+    },
+    {
+      "frame": 12,
+      "nonce": "2a8e303dac93ad20",
+      "ts": 1784342691.9161859
+    },
+    {
+      "frame": 13,
+      "nonce": "ddc13820f625595e",
+      "ts": 1784342699.6101913
+    },
+    {
+      "frame": 14,
+      "nonce": "96007b2aada88c7c",
+      "ts": 1784342706.8338146
+    },
+    {
+      "frame": 15,
+      "nonce": "ec0736dce714feb8",
+      "ts": 1784342714.071928
+    },
+    {
+      "frame": 16,
+      "nonce": "5ccfe874c0ee8d32",
+      "ts": 1784342723.121363
+    },
+    {
+      "frame": 17,
+      "nonce": "1451997f4b02c751",
+      "ts": 1784342732.8760748
+    },
+    {
+      "frame": 18,
+      "nonce": "b880d0f1023e8239",
+      "ts": 1784342742.838287
+    },
+    {
+      "frame": 19,
+      "nonce": "ccde65c9b0f60822",
+      "ts": 1784342764.8800955
+    },
+    {
+      "frame": 20,
+      "nonce": "71e1d33bd11de3fa",
+      "ts": 1784342774.6438687
+    },
+    {
+      "frame": 21,
+      "nonce": "12aef342a04486a7",
+      "ts": 1784342781.4385598
+    },
+    {
+      "frame": 22,
+      "nonce": "416acbeed0dfb89a",
+      "ts": 1784342789.9396434
+    },
+    {
+      "frame": 23,
+      "nonce": "78062dedac00aa40",
+      "ts": 1784342797.9112618
+    },
+    {
+      "frame": 24,
+      "nonce": "7fbe9d4406163f8e",
+      "ts": 1784342808.7612574
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2b4b0006af49eb8a",
+      "decision": "HOLD",
+      "reason": "early leg (3m), mixed TF signals, giveback high but only one against-fire; want more confirmation before bailing"
+    },
+    {
+      "frame": 1,
+      "nonce": "4ad13139b096e35d",
+      "decision": "HOLD",
+      "reason": "strong recovery: all TF closes positive, amp 119pts with only 8% giveback, thesis intact despite against-fires"
+    },
+    {
+      "frame": 2,
+      "nonce": "d7625905ceeecaa7",
+      "decision": "HOLD",
+      "reason": "px +15.25, giveback still low at 10%, PROPP flipped with-trade; minor 1m pullback not a reversal"
+    },
+    {
+      "frame": 3,
+      "nonce": "29e4d8d94e727dd8",
+      "decision": "HOLD",
+      "reason": "px +30.50, amp growing to 137.5 with only 7% giveback, all short-TF closes strongly positive"
+    },
+    {
+      "frame": 4,
+      "nonce": "326efa7a24748631",
+      "decision": "HOLD",
+      "reason": "px +29.50 holding steady, giveback low at 12%, no structural reversal"
+    },
+    {
+      "frame": 5,
+      "nonce": "8ee84fa0805c74ff",
+      "decision": "HOLD",
+      "reason": "pullback to -6.75, giveback jumped to 40% but off a large 144pt amp; lambda still positive on 1m/15s, treating as dip not reversal yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "0d0e729b8d0b9593",
+      "decision": "HOLD",
+      "reason": "recovered to px +20.50, giveback back down to 17%, confirms prior dip was noise not reversal"
+    },
+    {
+      "frame": 7,
+      "nonce": "02cd259fbc133c74",
+      "decision": "HOLD",
+      "reason": "px +30.75 near session high, new leg giveback is off a small 25.5pt amp, majority fires with-trade"
+    },
+    {
+      "frame": 8,
+      "nonce": "09866d6aaed33d63",
+      "decision": "HOLD",
+      "reason": "still solidly positive at +15.25, consistent with prior chop-and-hold pattern, no structural break"
+    },
+    {
+      "frame": 9,
+      "nonce": "911424e7eaf8ede2",
+      "decision": "HOLD",
+      "reason": "px -8.75, similar magnitude to prior dip that recovered; all 3 fires now against is new and concerning, watching closely next frame"
+    },
+    {
+      "frame": 10,
+      "nonce": "b41c9239d1366eb2",
+      "decision": "HOLD",
+      "reason": "recovered again to +25.75, prior all-against alignment was a false alarm, thesis remains intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "6186d4d6dd4495c2",
+      "decision": "HOLD",
+      "reason": "px +53.50 new session high, strong follow-through across 5s/15s/1m closes"
+    },
+    {
+      "frame": 12,
+      "nonce": "2a8e303dac93ad20",
+      "decision": "HOLD",
+      "reason": "px +63.25, extending new high, both fires with-trade, strong trend confirmed"
+    },
+    {
+      "frame": 13,
+      "nonce": "ddc13820f625595e",
+      "decision": "HOLD",
+      "reason": "px +87.25, fresh leg 0% giveback, trend continuing to extend in favor"
+    },
+    {
+      "frame": 14,
+      "nonce": "96007b2aada88c7c",
+      "decision": "HOLD",
+      "reason": "px +82.00, giveback only 7% of 102pt amp, price action overrides against-fires here"
+    },
+    {
+      "frame": 15,
+      "nonce": "ec0736dce714feb8",
+      "decision": "HOLD",
+      "reason": "px +72.50, giveback still tiny at 6%, no reversal signature"
+    },
+    {
+      "frame": 16,
+      "nonce": "5ccfe874c0ee8d32",
+      "decision": "HOLD",
+      "reason": "pulled back to +41.25 from +95 peak, giveback 41% but still deeply positive, both against-fires noted but not yet a break"
+    },
+    {
+      "frame": 17,
+      "nonce": "1451997f4b02c751",
+      "decision": "HOLD",
+      "reason": "retracement continues to +22.75 from +95 peak but still net positive, ER10 near zero signals chop not reversal yet"
+    },
+    {
+      "frame": 18,
+      "nonce": "b880d0f1023e8239",
+      "decision": "HOLD",
+      "reason": "sharp retrace from +95 peak to +8, largest round-trip yet, but still net positive and prior similar-shaped pullbacks all recovered; watching next frame for confirmation of break vs bounce"
+    },
+    {
+      "frame": 19,
+      "nonce": "ccde65c9b0f60822",
+      "decision": "HOLD",
+      "reason": "bounced off the low, px +11.50, stayed above breakeven, giveback down to 1%, no negative print"
+    },
+    {
+      "frame": 20,
+      "nonce": "71e1d33bd11de3fa",
+      "decision": "HOLD",
+      "reason": "px +19.25, stable above breakeven, only one weak against-fire"
+    },
+    {
+      "frame": 21,
+      "nonce": "12aef342a04486a7",
+      "decision": "HOLD",
+      "reason": "px +22.25, still range-bound positive, no new lows made"
+    },
+    {
+      "frame": 22,
+      "nonce": "416acbeed0dfb89a",
+      "decision": "HOLD",
+      "reason": "px +27.50 ticking up, both fires now with-trade, consistent chop-in-uptrend pattern"
+    },
+    {
+      "frame": 23,
+      "nonce": "78062dedac00aa40",
+      "decision": "HOLD",
+      "reason": "dipped to -8.25, similar magnitude to two prior dips that both fully recovered; both fires still with-trade despite the dip"
+    },
+    {
+      "frame": 24,
+      "nonce": "7fbe9d4406163f8e",
+      "decision": "HOLD",
+      "reason": "surged back to +90.00, near session high, confirming the -8.25 dip was noise, both fires with-trade"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held throughout. This LONG entry never showed a genuine wrong-direction signature: every pullback (even the sharpest, a full round-trip from +95 to +8 around t=18-19m) stayed above or barely dipped below breakeven and was quickly recovered, with amplitude repeatedly making new highs (53->102->recovering to +90 by the end). Against-fires (KMDR/HA/PROPP) frequently appeared but were inconsistently aligned and never persisted alongside a structural breakdown in price -- momentum/lambda stayed mixed-to-positive on the faster TFs throughout. Next time I'd watch for a giveback that pushes price to a NEW low below the prior dip's low (not just matching it) combined with ALL three fires aligned against AND a sustained negative lambda_hat on the 1m/5m -- that combination never occurred here, which is why I never bailed."
+}

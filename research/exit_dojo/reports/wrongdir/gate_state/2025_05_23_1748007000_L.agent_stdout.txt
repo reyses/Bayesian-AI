@@ -1,0 +1,8 @@
+# exit_code=0 dt=259s
+## STDOUT
+Episode complete. Summary: held through a strong run to +89pts, then bailed at frame 18 once the price fully round-tripped back to negative (-10.75) after a steady multi-frame decay accompanied by accumulating against-fires and a stretched 1m z-score. The entry thesis held for most of the trade â€” the exit was triggered specifically by confirmation that the reversal was real (full giveback into negative territory), not a premature bail on a normal dip.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

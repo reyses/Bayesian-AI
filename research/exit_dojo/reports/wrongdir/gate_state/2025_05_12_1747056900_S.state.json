@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_05_12_1747056900_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "73dd2184973aebb0",
+      "ts": 1784337696.956887
+    },
+    {
+      "frame": 1,
+      "nonce": "a68c0cf39173da7f",
+      "ts": 1784337707.4946747
+    },
+    {
+      "frame": 2,
+      "nonce": "2211445be24c91f6",
+      "ts": 1784337714.3204076
+    },
+    {
+      "frame": 3,
+      "nonce": "b319c424e4302f0a",
+      "ts": 1784337720.0827427
+    },
+    {
+      "frame": 4,
+      "nonce": "8c57c5895126ce45",
+      "ts": 1784337726.4496164
+    },
+    {
+      "frame": 5,
+      "nonce": "f6bbb67976ac74bd",
+      "ts": 1784337732.457469
+    },
+    {
+      "frame": 6,
+      "nonce": "ccf1c2585be84c6d",
+      "ts": 1784337738.3946116
+    },
+    {
+      "frame": 7,
+      "nonce": "9efdfd65bc2fb39c",
+      "ts": 1784337747.2256703
+    },
+    {
+      "frame": 8,
+      "nonce": "15305f5daf353ceb",
+      "ts": 1784337754.500479
+    },
+    {
+      "frame": 9,
+      "nonce": "91b188f5eb90e70c",
+      "ts": 1784337760.0649486
+    },
+    {
+      "frame": 10,
+      "nonce": "c3d2d4dc1f543c07",
+      "ts": 1784337765.7673485
+    },
+    {
+      "frame": 11,
+      "nonce": "c9639afbfc93edea",
+      "ts": 1784337772.1896822
+    },
+    {
+      "frame": 12,
+      "nonce": "67ccb16210e160b8",
+      "ts": 1784337779.3391764
+    },
+    {
+      "frame": 13,
+      "nonce": "3170d3dd96462849",
+      "ts": 1784337786.7064674
+    },
+    {
+      "frame": 14,
+      "nonce": "ae50e1467e0e2baa",
+      "ts": 1784337793.511364
+    },
+    {
+      "frame": 15,
+      "nonce": "7470b9400beac029",
+      "ts": 1784337801.3865967
+    },
+    {
+      "frame": 16,
+      "nonce": "aa241a8bb45a7964",
+      "ts": 1784337808.2734342
+    },
+    {
+      "frame": 17,
+      "nonce": "80141b8aa7c56683",
+      "ts": 1784337814.4465249
+    },
+    {
+      "frame": 18,
+      "nonce": "f0a81c3c7314b066",
+      "ts": 1784337820.199289
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "73dd2184973aebb0",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat 0.00, no adverse move yet despite 3 against-fires noted"
+    },
+    {
+      "frame": 1,
+      "nonce": "a68c0cf39173da7f",
+      "decision": "HOLD",
+      "reason": "small dip -10pts, giveback only 12% of amp, early leg age 5m, watching"
+    },
+    {
+      "frame": 2,
+      "nonce": "2211445be24c91f6",
+      "decision": "HOLD",
+      "reason": "recovered to +8.75pts, giveback down to 3%, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "b319c424e4302f0a",
+      "decision": "HOLD",
+      "reason": "px +14.75pts, giveback 0%, PROPP now firing with-direction, thesis working"
+    },
+    {
+      "frame": 4,
+      "nonce": "8c57c5895126ce45",
+      "decision": "HOLD",
+      "reason": "px +27.75pts, trend expanding in our favor, minor giveback 2%"
+    },
+    {
+      "frame": 5,
+      "nonce": "f6bbb67976ac74bd",
+      "decision": "HOLD",
+      "reason": "px pulled back to +11.75 from +27.75, still positive, giveback 8% is normal noise"
+    },
+    {
+      "frame": 6,
+      "nonce": "ccf1c2585be84c6d",
+      "decision": "HOLD",
+      "reason": "px flat -0.50 after peak +27.75, all 4 signals now against - watching closely, not yet decisively wrong"
+    },
+    {
+      "frame": 7,
+      "nonce": "9efdfd65bc2fb39c",
+      "decision": "HOLD",
+      "reason": "px surged to new high +28.00pts, giveback 0%, HA and PROPP now with-direction, thesis strongly intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "15305f5daf353ceb",
+      "decision": "HOLD",
+      "reason": "px +51.25pts, new high, giveback only 2%, strong favorable trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "91b188f5eb90e70c",
+      "decision": "HOLD",
+      "reason": "px +35.00pts, minor pullback from +51 peak, giveback 10%, still deep in favorable territory"
+    },
+    {
+      "frame": 10,
+      "nonce": "c3d2d4dc1f543c07",
+      "decision": "HOLD",
+      "reason": "px +24.25pts, still well positive, giveback 16% within normal range for this amplitude"
+    },
+    {
+      "frame": 11,
+      "nonce": "c9639afbfc93edea",
+      "decision": "HOLD",
+      "reason": "px still +12.25pts positive; new leg started (age 0m) with lower ER10 0.24 - watching for chop but not yet wrong-direction"
+    },
+    {
+      "frame": 12,
+      "nonce": "67ccb16210e160b8",
+      "decision": "HOLD",
+      "reason": "px +35.75pts, up strongly from prior frame, HA and PROPP with-direction, thesis intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "3170d3dd96462849",
+      "decision": "HOLD",
+      "reason": "px holding +35.00pts, consistent with prior frame, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "ae50e1467e0e2baa",
+      "decision": "HOLD",
+      "reason": "px retraced to +16.50 from +35 but still clearly positive; ER10 low (choppy) but no sign of full reversal"
+    },
+    {
+      "frame": 15,
+      "nonce": "7470b9400beac029",
+      "decision": "HOLD",
+      "reason": "px still positive +9.25pts despite choppy ER10~0, no decisive reversal signal"
+    },
+    {
+      "frame": 16,
+      "nonce": "aa241a8bb45a7964",
+      "decision": "HOLD",
+      "reason": "px +4.25pts, still barely positive amid chop, no clean break against"
+    },
+    {
+      "frame": 17,
+      "nonce": "80141b8aa7c56683",
+      "decision": "HOLD",
+      "reason": "px near flat +1.00pts but never went negative; thesis still not invalidated"
+    },
+    {
+      "frame": 18,
+      "nonce": "f0a81c3c7314b066",
+      "decision": "EXIT",
+      "reason": "first genuine breach of breakeven in 18min: px -19.50pts, fresh 1m down-push (41.2pt leg amp), no with-direction signals confirming support - bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Held through 18 minutes of chop with multiple 8-16% givebacks that all recovered (peak +51.25pts at t=8m), since price stayed favorable-signed throughout and against-signals (KMDR/CLIMAX/HA/PROPP) kept flipping to with-direction on recoveries. Bailed at t=18m when price finally breached breakeven for the first time (-19.50pts) on a fresh, fast 1-minute down-push with no with-direction signal confirming support. Next time I'd watch for the combination of (1) first breakeven breach after a sustained favorable run and (2) a fresh single-bar leg with large amplitude relative to recent legs, as the earliest reliable wrong-direction tell rather than reacting to interim against-fires that kept getting overridden by price action."
+}

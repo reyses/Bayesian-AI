@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_01_06_1736173970_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d7f5f3766cb82962",
+      "ts": 1784336051.827131
+    },
+    {
+      "frame": 1,
+      "nonce": "dc80d8763c5baa88",
+      "ts": 1784336063.7723005
+    },
+    {
+      "frame": 2,
+      "nonce": "ee0d569970cdb6ef",
+      "ts": 1784336072.5245125
+    },
+    {
+      "frame": 3,
+      "nonce": "eed54232d8a67a17",
+      "ts": 1784336081.5243711
+    },
+    {
+      "frame": 4,
+      "nonce": "5b152e00862197da",
+      "ts": 1784336088.873582
+    },
+    {
+      "frame": 5,
+      "nonce": "8639aa0fa8c28b70",
+      "ts": 1784336095.5114894
+    },
+    {
+      "frame": 6,
+      "nonce": "1c1405233070bccd",
+      "ts": 1784336110.6107943
+    },
+    {
+      "frame": 7,
+      "nonce": "07fccc850277423f",
+      "ts": 1784336117.6846197
+    },
+    {
+      "frame": 8,
+      "nonce": "d714743583713de9",
+      "ts": 1784336123.6388755
+    },
+    {
+      "frame": 9,
+      "nonce": "401fac0295583745",
+      "ts": 1784336133.284702
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d7f5f3766cb82962",
+      "decision": "HOLD",
+      "reason": "entry frame, px=0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "dc80d8763c5baa88",
+      "decision": "HOLD",
+      "reason": "small dip -25.5pts 1min in, giveback only 9%, too early to call wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "ee0d569970cdb6ef",
+      "decision": "HOLD",
+      "reason": "px stable -25 to -27, giveback down to 3%, fires mostly with position"
+    },
+    {
+      "frame": 3,
+      "nonce": "eed54232d8a67a17",
+      "decision": "HOLD",
+      "reason": "px improving -26.75 to -19.50, ER10 rising to 0.57, still consolidating not breaking down"
+    },
+    {
+      "frame": 4,
+      "nonce": "5b152e00862197da",
+      "decision": "HOLD",
+      "reason": "px oscillating -19 to -27 range, no breakdown, fires with position"
+    },
+    {
+      "frame": 5,
+      "nonce": "8639aa0fa8c28b70",
+      "decision": "HOLD",
+      "reason": "new low -46.5 breaking prior range, watching closely but one frame isn't confirmation yet"
+    },
+    {
+      "frame": 6,
+      "nonce": "1c1405233070bccd",
+      "decision": "HOLD",
+      "reason": "recovered from -46.5 to -29.75, dip was temporary, fires with position"
+    },
+    {
+      "frame": 7,
+      "nonce": "07fccc850277423f",
+      "decision": "HOLD",
+      "reason": "px -23.25 holding in established range, no new breakdown"
+    },
+    {
+      "frame": 8,
+      "nonce": "d714743583713de9",
+      "decision": "HOLD",
+      "reason": "px -47 retests prior swing low (-46.5), not breaking further, all fires with position"
+    },
+    {
+      "frame": 9,
+      "nonce": "401fac0295583745",
+      "decision": "EXIT",
+      "reason": "new adverse extreme -55.25 breaking prior -47 support, amp expanding, HA+PROPP both turn against for first time - deteriorating lower-lows pattern"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Held through two prior dip-and-recover cycles (-26.75 recovering to -19.5, then -46.5 recovering to -23.25) since fires stayed 'with' the position and range held. Bailed at t=9m when price broke a new adverse extreme (-55.25pts) through the prior -47 double-bottom support, amp expanded to 164pts, and HA+PROPP fires both flipped 'against' simultaneously for the first time -- a genuine lower-lows deterioration rather than another dip. Next time: watch for the combination of (a) breaking a prior local support/extreme rather than just retesting it, and (b) multiple fire signals flipping against together -- single-signal disagreement inside an established range was noise, but a new low plus concurrent against-signals was the real wrong-direction tell."
+}

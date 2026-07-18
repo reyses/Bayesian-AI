@@ -1,0 +1,8 @@
+# exit_code=0 dt=98s
+## STDOUT
+Episode closed. Summary: entry ran to +47.5pts favorable by t=3m, then fully round-tripped through breakeven by t=4m and kept deteriorating into a fresh adverse extreme of -52.75pts (giveback 139% of the leg amplitude) by t=6m, with both HA and PROPP fires flipping against for three consecutive frames â€” I exited there as the wrong-direction signature.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

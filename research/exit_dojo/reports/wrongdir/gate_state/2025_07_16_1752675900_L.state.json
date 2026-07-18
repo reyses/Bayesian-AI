@@ -1,0 +1,342 @@
+{
+  "episode_id": "2025_07_16_1752675900_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7a0e203f48662e0f",
+      "ts": 1784344090.3940492
+    },
+    {
+      "frame": 1,
+      "nonce": "9adfb918ca463c5b",
+      "ts": 1784344098.5475197
+    },
+    {
+      "frame": 2,
+      "nonce": "4612aab8aee08ea1",
+      "ts": 1784344108.4043958
+    },
+    {
+      "frame": 3,
+      "nonce": "1630082d1afb0362",
+      "ts": 1784344125.082422
+    },
+    {
+      "frame": 4,
+      "nonce": "d63bbfa6859fb360",
+      "ts": 1784344136.8403735
+    },
+    {
+      "frame": 5,
+      "nonce": "ae4d64de77d83494",
+      "ts": 1784344145.1602898
+    },
+    {
+      "frame": 6,
+      "nonce": "41fca586e89a1675",
+      "ts": 1784344152.5482814
+    },
+    {
+      "frame": 7,
+      "nonce": "255107a66f4f86bf",
+      "ts": 1784344158.704905
+    },
+    {
+      "frame": 8,
+      "nonce": "e48245ec55cff139",
+      "ts": 1784344164.8352518
+    },
+    {
+      "frame": 9,
+      "nonce": "582d61b6a09c5e3f",
+      "ts": 1784344171.9446034
+    },
+    {
+      "frame": 10,
+      "nonce": "1283c738c69e31b0",
+      "ts": 1784344178.7913554
+    },
+    {
+      "frame": 11,
+      "nonce": "ccf464231aa48b2f",
+      "ts": 1784344191.918894
+    },
+    {
+      "frame": 12,
+      "nonce": "39d818ccd1d430f8",
+      "ts": 1784344199.6451254
+    },
+    {
+      "frame": 13,
+      "nonce": "6000c80d088d32fa",
+      "ts": 1784344208.370517
+    },
+    {
+      "frame": 14,
+      "nonce": "f753fc58c29bcaf4",
+      "ts": 1784344214.616395
+    },
+    {
+      "frame": 15,
+      "nonce": "7d76ea4128398e24",
+      "ts": 1784344221.367022
+    },
+    {
+      "frame": 16,
+      "nonce": "d99ce22fab6924b6",
+      "ts": 1784344229.0278738
+    },
+    {
+      "frame": 17,
+      "nonce": "98f2622887736cdd",
+      "ts": 1784344235.840869
+    },
+    {
+      "frame": 18,
+      "nonce": "1812932a7aabee47",
+      "ts": 1784344246.4307187
+    },
+    {
+      "frame": 19,
+      "nonce": "af8d8d32f2c27643",
+      "ts": 1784344255.8156352
+    },
+    {
+      "frame": 20,
+      "nonce": "049c99fe471a2925",
+      "ts": 1784344262.1088984
+    },
+    {
+      "frame": 21,
+      "nonce": "5d7ca278b703c7c7",
+      "ts": 1784344272.4006968
+    },
+    {
+      "frame": 22,
+      "nonce": "7ac34a390b1181ab",
+      "ts": 1784344278.724116
+    },
+    {
+      "frame": 23,
+      "nonce": "7a88d9d86ddb1d9f",
+      "ts": 1784344284.7711735
+    },
+    {
+      "frame": 24,
+      "nonce": "3812d7389aebe6d5",
+      "ts": 1784344290.8046474
+    },
+    {
+      "frame": 25,
+      "nonce": "04c95244305eab68",
+      "ts": 1784344297.097659
+    },
+    {
+      "frame": 26,
+      "nonce": "3c79a2f99cb00eb9",
+      "ts": 1784344303.6977818
+    },
+    {
+      "frame": 27,
+      "nonce": "f7cf625bfb034ee1",
+      "ts": 1784344313.5559087
+    },
+    {
+      "frame": 28,
+      "nonce": "8d1976990f6c9307",
+      "ts": 1784344320.4813993
+    },
+    {
+      "frame": 29,
+      "nonce": "b453d6e82cceb643",
+      "ts": 1784344328.9327548
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7a0e203f48662e0f",
+      "decision": "HOLD",
+      "reason": "just entered, px flat 0.00, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9adfb918ca463c5b",
+      "decision": "HOLD",
+      "reason": "dip to -17, but 1m/5m bars recovering upward (body+velocity positive), too early to call wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "4612aab8aee08ea1",
+      "decision": "HOLD",
+      "reason": "px -20, still early (t=2m), decel of adverse move vs frame1, watching lambda_1m turning positive (trend not yet confirmed)"
+    },
+    {
+      "frame": 3,
+      "nonce": "1630082d1afb0362",
+      "decision": "HOLD",
+      "reason": "sharp recovery -20 to -7.75, 5s/1m bars bullish accel, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "d63bbfa6859fb360",
+      "decision": "HOLD",
+      "reason": "px -12.50, chopping within prior range (worst was -20), 1m bar still net positive body"
+    },
+    {
+      "frame": 5,
+      "nonce": "ae4d64de77d83494",
+      "decision": "HOLD",
+      "reason": "px -1.75, near flat, strong bullish momentum on 5s/15s z_se, giveback 82% of adverse leg already recovered"
+    },
+    {
+      "frame": 6,
+      "nonce": "41fca586e89a1675",
+      "decision": "HOLD",
+      "reason": "px +19.75, now favorable, strong bullish push across 5s/15s/1m/5m/15m, thesis working"
+    },
+    {
+      "frame": 7,
+      "nonce": "255107a66f4f86bf",
+      "decision": "HOLD",
+      "reason": "px +7.50, still favorable, normal giveback off local peak, 1m bar strongly bullish"
+    },
+    {
+      "frame": 8,
+      "nonce": "e48245ec55cff139",
+      "decision": "HOLD",
+      "reason": "px +14.50, still solidly favorable, minor pullback only 14% giveback"
+    },
+    {
+      "frame": 9,
+      "nonce": "582d61b6a09c5e3f",
+      "decision": "HOLD",
+      "reason": "px +14.25, stable favorable, no adverse structure forming"
+    },
+    {
+      "frame": 10,
+      "nonce": "1283c738c69e31b0",
+      "decision": "HOLD",
+      "reason": "px pulled back to +0.50 from +14.25, but 1m bar still net positive close near high, not a clean breakdown yet"
+    },
+    {
+      "frame": 11,
+      "nonce": "ccf464231aa48b2f",
+      "decision": "HOLD",
+      "reason": "px -6.00, shallow pullback vs prior -20 drawdown that fully recovered, still within normal chop"
+    },
+    {
+      "frame": 12,
+      "nonce": "39d818ccd1d430f8",
+      "decision": "HOLD",
+      "reason": "px -2.50, near flat, still shallow chop not a breakdown"
+    },
+    {
+      "frame": 13,
+      "nonce": "6000c80d088d32fa",
+      "decision": "HOLD",
+      "reason": "px +4.00, back into positive territory, still chopping around breakeven"
+    },
+    {
+      "frame": 14,
+      "nonce": "f753fc58c29bcaf4",
+      "decision": "HOLD",
+      "reason": "px -8.25, within established chop band, no breakdown structure"
+    },
+    {
+      "frame": 15,
+      "nonce": "7d76ea4128398e24",
+      "decision": "HOLD",
+      "reason": "px +0.50, flat consolidation, vol shrinking, no directional break"
+    },
+    {
+      "frame": 16,
+      "nonce": "d99ce22fab6924b6",
+      "decision": "HOLD",
+      "reason": "px -1.50, ER10~0 pure chop, no direction break either way"
+    },
+    {
+      "frame": 17,
+      "nonce": "98f2622887736cdd",
+      "decision": "HOLD",
+      "reason": "px -14.25, similar depth to earlier -20 dip that fully recovered; 1m bar still net bullish body+close"
+    },
+    {
+      "frame": 18,
+      "nonce": "1812932a7aabee47",
+      "decision": "HOLD",
+      "reason": "px -8.50, recovering off -14.25/-17.75 lows already, still range-bound chop"
+    },
+    {
+      "frame": 19,
+      "nonce": "af8d8d32f2c27643",
+      "decision": "HOLD",
+      "reason": "px -12.50, within same -10 to -20 chop band we've oscillated in for a while, no new low"
+    },
+    {
+      "frame": 20,
+      "nonce": "049c99fe471a2925",
+      "decision": "HOLD",
+      "reason": "px -1.00, near flat, still range-bound"
+    },
+    {
+      "frame": 21,
+      "nonce": "5d7ca278b703c7c7",
+      "decision": "HOLD",
+      "reason": "px -2.00, tight chop continues near breakeven, 21m in and no directional break"
+    },
+    {
+      "frame": 22,
+      "nonce": "7ac34a390b1181ab",
+      "decision": "HOLD",
+      "reason": "px -0.75, near flat, continued chop"
+    },
+    {
+      "frame": 23,
+      "nonce": "7a88d9d86ddb1d9f",
+      "decision": "HOLD",
+      "reason": "px +6.00, favorable, small drift positive"
+    },
+    {
+      "frame": 24,
+      "nonce": "3812d7389aebe6d5",
+      "decision": "HOLD",
+      "reason": "px +12.00, trending favorable, thesis working"
+    },
+    {
+      "frame": 25,
+      "nonce": "04c95244305eab68",
+      "decision": "HOLD",
+      "reason": "px +13.00, favorable and stable, thesis intact"
+    },
+    {
+      "frame": 26,
+      "nonce": "3c79a2f99cb00eb9",
+      "decision": "HOLD",
+      "reason": "px +18.75, new local high, strong bullish 5m/1m/15s momentum, thesis working well"
+    },
+    {
+      "frame": 27,
+      "nonce": "f7cf625bfb034ee1",
+      "decision": "HOLD",
+      "reason": "px +13.00, minor pullback from +18.75 peak, still solidly favorable"
+    },
+    {
+      "frame": 28,
+      "nonce": "8d1976990f6c9307",
+      "decision": "HOLD",
+      "reason": "px +14.00, stable favorable, vol shrinking (consolidation at highs)"
+    },
+    {
+      "frame": 29,
+      "nonce": "b453d6e82cceb643",
+      "decision": "EXIT",
+      "reason": "violent reversal: 5s bar closed +23.00 but local px now -13.25, ~36pt round-trip in under a minute wiping the entire favorable move net negative - blow-off-top signature, bailing before it compounds"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 29,
+  "finished": true,
+  "summary": "Held through many normal chop dips (down to -20pts multiple times) that always recovered, and the trade built a strong uptrend into a local peak near +23-25pts by t=29m. Bailed at frame 29 when the local price snapshot showed a violent ~36pt round-trip reversal to -13.25 within under a minute of the +23.00 5s-bar close, wiping the entire favorable move net negative - a blow-off-top/reversal signature distinct from the prior shallow chop. Next time: watch for reversal speed/magnitude relative to the trade's own established chop band, not just absolute price level; a fast full-giveback-plus-negative after a fresh high is a stronger wrong-direction tell than a slow drift."
+}

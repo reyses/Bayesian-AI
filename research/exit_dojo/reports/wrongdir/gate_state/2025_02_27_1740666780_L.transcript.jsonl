@@ -1,0 +1,15 @@
+{"ts": 1784337189.625957, "event": "serve", "frame": 0, "nonce": "9997e8434257f408"}
+{"ts": 1784337195.5471132, "event": "commit", "frame": 0, "nonce": "9997e8434257f408", "decision": "HOLD", "reason": "px back to 0 despite 1m dip to -30; early frame, thesis intact"}
+{"ts": 1784337198.2938707, "event": "serve", "frame": 1, "nonce": "83877ef9f82dd285"}
+{"ts": 1784337202.0232573, "event": "commit", "frame": 1, "nonce": "83877ef9f82dd285", "decision": "HOLD", "reason": "recovered to +3, 1m bar bounced strongly off -20.75 low, thesis intact"}
+{"ts": 1784337204.5622325, "event": "serve", "frame": 2, "nonce": "50074128688d4d3a"}
+{"ts": 1784337207.99669, "event": "commit", "frame": 2, "nonce": "50074128688d4d3a", "decision": "HOLD", "reason": "still slightly positive, choppy but not breaking down, fires with-trend"}
+{"ts": 1784337210.230055, "event": "serve", "frame": 3, "nonce": "b32e01d8cb713039"}
+{"ts": 1784337213.5656972, "event": "commit", "frame": 3, "nonce": "b32e01d8cb713039", "decision": "HOLD", "reason": "px surged to +21.5, trade clearly working, thesis confirmed"}
+{"ts": 1784337215.817628, "event": "serve", "frame": 4, "nonce": "ec5093c4eb8a36f3"}
+{"ts": 1784337218.6659575, "event": "commit", "frame": 4, "nonce": "ec5093c4eb8a36f3", "decision": "HOLD", "reason": "px +26.25, strong run, giveback only 5%"}
+{"ts": 1784337220.9548097, "event": "serve", "frame": 5, "nonce": "07f55dc5f9956a3d"}
+{"ts": 1784337250.7009757, "event": "commit", "frame": 5, "nonce": "07f55dc5f9956a3d", "decision": "HOLD", "reason": "sharp retrace from +26 to -4.75 w/ against-fires, but 1m bar still closed +23; treating as pullback after strong impulse, watching next frame closely"}
+{"ts": 1784337253.2419164, "event": "serve", "frame": 6, "nonce": "1ddfc99138c93bd0"}
+{"ts": 1784337260.9211621, "event": "commit", "frame": 6, "nonce": "1ddfc99138c93bd0", "decision": "EXIT", "reason": "reversal confirmed: px -13.75 and worsening 3 frames straight (+26->-4.75->-13.75), giveback 64% and rising, 1m bar shows 37.75pt reversal from high, bailing"}
+{"ts": 1784337265.9549088, "event": "finish", "summary": "Entry ran favorably to +26.25 by t=4m, but then reversed sharply and kept deteriorating for three straight frames (+26.25 -> -4.75 -> -13.75) with giveback climbing 5%->55%->64% and CLIMAX/HA against-fires clustering. The one-time dip pattern from t=0-1m (which recovered) did not repeat here -- this was a sustained, worsening move against the position, so I bailed at -13.75 rather than wait for further compounding. Next time I'd watch giveback-% trend (rising two frames in a row is the trigger) and against-fire clustering together, rather than any single frame's price alone.", "exit_frame": 6, "n_commits": 7}

@@ -1,0 +1,606 @@
+{
+  "episode_id": "2025_01_14_1736868100_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "830bb22e1fc8d2aa",
+      "ts": 1784341197.6488297
+    },
+    {
+      "frame": 1,
+      "nonce": "46465a3fb17e42ea",
+      "ts": 1784341205.717267
+    },
+    {
+      "frame": 2,
+      "nonce": "9d9f1b874d5842dd",
+      "ts": 1784341211.9292288
+    },
+    {
+      "frame": 3,
+      "nonce": "9348fcad2f3f64ad",
+      "ts": 1784341217.91206
+    },
+    {
+      "frame": 4,
+      "nonce": "d458ff09263aed34",
+      "ts": 1784341223.9104211
+    },
+    {
+      "frame": 5,
+      "nonce": "15553ec1d0c642b4",
+      "ts": 1784341231.0460653
+    },
+    {
+      "frame": 6,
+      "nonce": "12b1214fc1530e14",
+      "ts": 1784341236.2237916
+    },
+    {
+      "frame": 7,
+      "nonce": "cf7d59d39d36df75",
+      "ts": 1784341242.0395336
+    },
+    {
+      "frame": 8,
+      "nonce": "f05739c2bb170b94",
+      "ts": 1784341248.0790157
+    },
+    {
+      "frame": 9,
+      "nonce": "a0e058a93dd69d74",
+      "ts": 1784341253.7984686
+    },
+    {
+      "frame": 10,
+      "nonce": "49f6c104f75242e8",
+      "ts": 1784341260.6199052
+    },
+    {
+      "frame": 11,
+      "nonce": "796a098f50874419",
+      "ts": 1784341266.9363804
+    },
+    {
+      "frame": 12,
+      "nonce": "9b2ebc4c5f03ddce",
+      "ts": 1784341272.5194812
+    },
+    {
+      "frame": 13,
+      "nonce": "1763866b8b67b108",
+      "ts": 1784341277.5488844
+    },
+    {
+      "frame": 14,
+      "nonce": "76d30f26f9cfae5e",
+      "ts": 1784341284.344202
+    },
+    {
+      "frame": 15,
+      "nonce": "8ae504aeb56d44e7",
+      "ts": 1784341289.8259811
+    },
+    {
+      "frame": 16,
+      "nonce": "b496c60278023307",
+      "ts": 1784341296.5991187
+    },
+    {
+      "frame": 17,
+      "nonce": "c0310f4bc7e74493",
+      "ts": 1784341302.737877
+    },
+    {
+      "frame": 18,
+      "nonce": "f187064256904a97",
+      "ts": 1784341308.1384807
+    },
+    {
+      "frame": 19,
+      "nonce": "eec625208e33f02b",
+      "ts": 1784341313.8858614
+    },
+    {
+      "frame": 20,
+      "nonce": "db5fab93ae6868a6",
+      "ts": 1784341319.8491228
+    },
+    {
+      "frame": 21,
+      "nonce": "902ef2c94607694c",
+      "ts": 1784341326.6125093
+    },
+    {
+      "frame": 22,
+      "nonce": "4d1068d3403adf94",
+      "ts": 1784341332.1748824
+    },
+    {
+      "frame": 23,
+      "nonce": "1997ab0eb0d0cd71",
+      "ts": 1784341337.8843582
+    },
+    {
+      "frame": 24,
+      "nonce": "6e9db75ad6d3625a",
+      "ts": 1784341343.5110672
+    },
+    {
+      "frame": 25,
+      "nonce": "9b9501d5db864b82",
+      "ts": 1784341349.1751034
+    },
+    {
+      "frame": 26,
+      "nonce": "dce4e1777090bce8",
+      "ts": 1784341356.3324482
+    },
+    {
+      "frame": 27,
+      "nonce": "25b833cc228c436f",
+      "ts": 1784341362.0781636
+    },
+    {
+      "frame": 28,
+      "nonce": "0f0217fb8fb69e9b",
+      "ts": 1784341367.7601373
+    },
+    {
+      "frame": 29,
+      "nonce": "1b13c354597c9043",
+      "ts": 1784341373.7646306
+    },
+    {
+      "frame": 30,
+      "nonce": "6d9b50d69c92cd32",
+      "ts": 1784341379.004301
+    },
+    {
+      "frame": 31,
+      "nonce": "451b8ce648b905d5",
+      "ts": 1784341384.4685886
+    },
+    {
+      "frame": 32,
+      "nonce": "9189a7ece746d90b",
+      "ts": 1784341389.6529515
+    },
+    {
+      "frame": 33,
+      "nonce": "8331602995a55d20",
+      "ts": 1784341398.6595845
+    },
+    {
+      "frame": 34,
+      "nonce": "36a2298be7d6abcf",
+      "ts": 1784341406.9232397
+    },
+    {
+      "frame": 35,
+      "nonce": "482b93d2145af079",
+      "ts": 1784341412.191495
+    },
+    {
+      "frame": 36,
+      "nonce": "c1407458227d35d6",
+      "ts": 1784341417.9155633
+    },
+    {
+      "frame": 37,
+      "nonce": "c9208eb33f978b23",
+      "ts": 1784341423.8987784
+    },
+    {
+      "frame": 38,
+      "nonce": "215c32fd7c3ea660",
+      "ts": 1784341429.2948446
+    },
+    {
+      "frame": 39,
+      "nonce": "dba64bd05d460bbb",
+      "ts": 1784341435.4425642
+    },
+    {
+      "frame": 40,
+      "nonce": "0a21e6ec9eb27622",
+      "ts": 1784341441.6383204
+    },
+    {
+      "frame": 41,
+      "nonce": "8ae16e1ca71d3ce2",
+      "ts": 1784341447.0708508
+    },
+    {
+      "frame": 42,
+      "nonce": "b1e11ff880cbdfd6",
+      "ts": 1784341452.6028423
+    },
+    {
+      "frame": 43,
+      "nonce": "e838de4ff974c150",
+      "ts": 1784341458.9305108
+    },
+    {
+      "frame": 44,
+      "nonce": "291c2fe2e62d1ec0",
+      "ts": 1784341467.6066291
+    },
+    {
+      "frame": 45,
+      "nonce": "677f8a9516ac67e4",
+      "ts": 1784341474.8406103
+    },
+    {
+      "frame": 46,
+      "nonce": "748aa83d7468e51c",
+      "ts": 1784341480.6244764
+    },
+    {
+      "frame": 47,
+      "nonce": "7fbe28379819bce5",
+      "ts": 1784341487.4438334
+    },
+    {
+      "frame": 48,
+      "nonce": "5aab21d6c39f01b3",
+      "ts": 1784341492.6192265
+    },
+    {
+      "frame": 49,
+      "nonce": "0712e1c27754a6a3",
+      "ts": 1784341497.939641
+    },
+    {
+      "frame": 50,
+      "nonce": "367c11fe8cd5e748",
+      "ts": 1784341503.2675514
+    },
+    {
+      "frame": 51,
+      "nonce": "8aa8b57ccdff483a",
+      "ts": 1784341509.509528
+    },
+    {
+      "frame": 52,
+      "nonce": "bd9e620f07bf9fdb",
+      "ts": 1784341515.1947625
+    },
+    {
+      "frame": 53,
+      "nonce": "68ddf167142313b5",
+      "ts": 1784341520.354177
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "830bb22e1fc8d2aa",
+      "decision": "HOLD",
+      "reason": "1min in, px flat at entry, no clear wrong-direction move yet, mean-reversion lambda still negative on fast TFs"
+    },
+    {
+      "frame": 1,
+      "nonce": "46465a3fb17e42ea",
+      "decision": "HOLD",
+      "reason": "px +13.25pts, thesis working, no wrong-direction signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "9d9f1b874d5842dd",
+      "decision": "HOLD",
+      "reason": "px +31pts, strong favorable move, ER10 rising, thesis clearly intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "9348fcad2f3f64ad",
+      "decision": "HOLD",
+      "reason": "px +28.5pts, minor pullback from peak but still strongly favorable, giveback only 13%"
+    },
+    {
+      "frame": 4,
+      "nonce": "d458ff09263aed34",
+      "decision": "HOLD",
+      "reason": "px +9.75pts still favorable, giveback growing to 35% but not negative yet, watching closely"
+    },
+    {
+      "frame": 5,
+      "nonce": "15553ec1d0c642b4",
+      "decision": "HOLD",
+      "reason": "px recovered to +23.25pts, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "12b1214fc1530e14",
+      "decision": "HOLD",
+      "reason": "new high +33.25pts, thesis intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "cf7d59d39d36df75",
+      "decision": "HOLD",
+      "reason": "px +51pts new high, trade running strongly, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "f05739c2bb170b94",
+      "decision": "HOLD",
+      "reason": "px +54.5pts new high, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "a0e058a93dd69d74",
+      "decision": "HOLD",
+      "reason": "px +54.25pts, minor pullback but thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "49f6c104f75242e8",
+      "decision": "HOLD",
+      "reason": "px +62.5pts new high, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "796a098f50874419",
+      "decision": "HOLD",
+      "reason": "px +58.5pts, small giveback 8%, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "9b2ebc4c5f03ddce",
+      "decision": "HOLD",
+      "reason": "px +60.75pts still very favorable, thesis intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "1763866b8b67b108",
+      "decision": "HOLD",
+      "reason": "px +70pts new high, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "76d30f26f9cfae5e",
+      "decision": "HOLD",
+      "reason": "px +81.75pts new high, thesis intact"
+    },
+    {
+      "frame": 15,
+      "nonce": "8ae504aeb56d44e7",
+      "decision": "HOLD",
+      "reason": "px +68.25pts, minor pullback from peak but thesis clearly intact"
+    },
+    {
+      "frame": 16,
+      "nonce": "b496c60278023307",
+      "decision": "HOLD",
+      "reason": "px +95.75pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 17,
+      "nonce": "c0310f4bc7e74493",
+      "decision": "HOLD",
+      "reason": "px +106.25pts new high, 0% giveback, thesis strongly intact"
+    },
+    {
+      "frame": 18,
+      "nonce": "f187064256904a97",
+      "decision": "HOLD",
+      "reason": "px +116.75pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 19,
+      "nonce": "eec625208e33f02b",
+      "decision": "HOLD",
+      "reason": "px +95.5pts still huge cushion despite 21% giveback off peak, thesis intact"
+    },
+    {
+      "frame": 20,
+      "nonce": "db5fab93ae6868a6",
+      "decision": "HOLD",
+      "reason": "px +76.5pts still very favorable despite pullback, thesis intact"
+    },
+    {
+      "frame": 21,
+      "nonce": "902ef2c94607694c",
+      "decision": "HOLD",
+      "reason": "px +80pts rebounding, thesis intact"
+    },
+    {
+      "frame": 22,
+      "nonce": "4d1068d3403adf94",
+      "decision": "HOLD",
+      "reason": "px +62.25pts, still strongly favorable, thesis intact"
+    },
+    {
+      "frame": 23,
+      "nonce": "1997ab0eb0d0cd71",
+      "decision": "HOLD",
+      "reason": "px +57.75pts, still comfortably favorable"
+    },
+    {
+      "frame": 24,
+      "nonce": "6e9db75ad6d3625a",
+      "decision": "HOLD",
+      "reason": "px +75pts recovered, thesis intact"
+    },
+    {
+      "frame": 25,
+      "nonce": "9b9501d5db864b82",
+      "decision": "HOLD",
+      "reason": "px +94.75pts strongly favorable, thesis intact"
+    },
+    {
+      "frame": 26,
+      "nonce": "dce4e1777090bce8",
+      "decision": "HOLD",
+      "reason": "px +75.25pts, still strongly favorable"
+    },
+    {
+      "frame": 27,
+      "nonce": "25b833cc228c436f",
+      "decision": "HOLD",
+      "reason": "px +92pts near highs, thesis strongly intact"
+    },
+    {
+      "frame": 28,
+      "nonce": "0f0217fb8fb69e9b",
+      "decision": "HOLD",
+      "reason": "px +98.75pts near highs, thesis intact"
+    },
+    {
+      "frame": 29,
+      "nonce": "1b13c354597c9043",
+      "decision": "HOLD",
+      "reason": "px +116.5pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 30,
+      "nonce": "6d9b50d69c92cd32",
+      "decision": "HOLD",
+      "reason": "px +106.25pts, still very favorable"
+    },
+    {
+      "frame": 31,
+      "nonce": "451b8ce648b905d5",
+      "decision": "HOLD",
+      "reason": "px +108.5pts still very favorable, thesis intact"
+    },
+    {
+      "frame": 32,
+      "nonce": "9189a7ece746d90b",
+      "decision": "HOLD",
+      "reason": "px +99.25pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 33,
+      "nonce": "8331602995a55d20",
+      "decision": "HOLD",
+      "reason": "px +96pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 34,
+      "nonce": "36a2298be7d6abcf",
+      "decision": "HOLD",
+      "reason": "px +111.5pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 35,
+      "nonce": "482b93d2145af079",
+      "decision": "HOLD",
+      "reason": "px +124.5pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 36,
+      "nonce": "c1407458227d35d6",
+      "decision": "HOLD",
+      "reason": "px +123pts, near highs, thesis intact"
+    },
+    {
+      "frame": 37,
+      "nonce": "c9208eb33f978b23",
+      "decision": "HOLD",
+      "reason": "px +127.5pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 38,
+      "nonce": "215c32fd7c3ea660",
+      "decision": "HOLD",
+      "reason": "px +134.5pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 39,
+      "nonce": "dba64bd05d460bbb",
+      "decision": "HOLD",
+      "reason": "px +139pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 40,
+      "nonce": "0a21e6ec9eb27622",
+      "decision": "HOLD",
+      "reason": "px +145.5pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 41,
+      "nonce": "8ae16e1ca71d3ce2",
+      "decision": "HOLD",
+      "reason": "px +161.25pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 42,
+      "nonce": "b1e11ff880cbdfd6",
+      "decision": "HOLD",
+      "reason": "px +179.5pts new high, 0% giveback, thesis strongly intact"
+    },
+    {
+      "frame": 43,
+      "nonce": "e838de4ff974c150",
+      "decision": "HOLD",
+      "reason": "px +186pts new high, thesis strongly intact"
+    },
+    {
+      "frame": 44,
+      "nonce": "291c2fe2e62d1ec0",
+      "decision": "HOLD",
+      "reason": "px +183.25pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 45,
+      "nonce": "677f8a9516ac67e4",
+      "decision": "HOLD",
+      "reason": "px +168.25pts still very favorable, thesis intact"
+    },
+    {
+      "frame": 46,
+      "nonce": "748aa83d7468e51c",
+      "decision": "HOLD",
+      "reason": "px +163.25pts, still very favorable"
+    },
+    {
+      "frame": 47,
+      "nonce": "7fbe28379819bce5",
+      "decision": "HOLD",
+      "reason": "px +159.25pts, still very favorable"
+    },
+    {
+      "frame": 48,
+      "nonce": "5aab21d6c39f01b3",
+      "decision": "HOLD",
+      "reason": "px +147.25pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 49,
+      "nonce": "0712e1c27754a6a3",
+      "decision": "HOLD",
+      "reason": "px +162.75pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 50,
+      "nonce": "367c11fe8cd5e748",
+      "decision": "HOLD",
+      "reason": "px +161.75pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 51,
+      "nonce": "8aa8b57ccdff483a",
+      "decision": "HOLD",
+      "reason": "px +176.25pts, very favorable, thesis intact"
+    },
+    {
+      "frame": 52,
+      "nonce": "bd9e620f07bf9fdb",
+      "decision": "HOLD",
+      "reason": "px +172pts, still very favorable, thesis intact"
+    },
+    {
+      "frame": 53,
+      "nonce": "68ddf167142313b5",
+      "decision": "HOLD",
+      "reason": "px +169.5pts, still very favorable, thesis intact"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire episode (53 frames, ~53min). This was a clean, strongly working short: price moved favorably almost monotonically from entry to +180pts+ with only shallow, short-lived giveback dips (never approaching zero or negative), each followed by a fresh high. There was never a wrong-direction signature -- no sustained adverse move, no breakdown of the favorable trend, no giveback that threatened to erase the position. Next time I'd watch for: a giveback that keeps compounding across multiple consecutive frames without a fresh high, or price crossing back toward/through zero, as the actual wrong-direction tell -- neither ever appeared here."
+}

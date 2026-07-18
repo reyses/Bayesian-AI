@@ -1,0 +1,15 @@
+{"ts": 1784340953.8460317, "event": "serve", "frame": 0, "nonce": "84eae98b0e9ef69c"}
+{"ts": 1784340960.2851205, "event": "commit", "frame": 0, "nonce": "84eae98b0e9ef69c", "decision": "HOLD", "reason": "frame 0, entry just opened, px flat, too early to judge direction"}
+{"ts": 1784340962.9282935, "event": "serve", "frame": 1, "nonce": "8a63a919d92b2082"}
+{"ts": 1784340966.722926, "event": "commit", "frame": 1, "nonce": "8a63a919d92b2082", "decision": "HOLD", "reason": "px +6.00, trade working in our favor, thesis intact"}
+{"ts": 1784340968.7489657, "event": "serve", "frame": 2, "nonce": "c532ce69d815e7dc"}
+{"ts": 1784340972.0718422, "event": "commit", "frame": 2, "nonce": "c532ce69d815e7dc", "decision": "HOLD", "reason": "px +21.25, strong follow-through in our favor, thesis intact"}
+{"ts": 1784340974.2239501, "event": "serve", "frame": 3, "nonce": "5c38dc93571dda73"}
+{"ts": 1784340978.4198039, "event": "commit", "frame": 3, "nonce": "5c38dc93571dda73", "decision": "HOLD", "reason": "px +8.50, still favorable despite pullback/giveback from peak, normal retrace not a reversal"}
+{"ts": 1784340981.9203196, "event": "serve", "frame": 4, "nonce": "4b713d612a429acc"}
+{"ts": 1784341002.8923316, "event": "commit", "frame": 4, "nonce": "4b713d612a429acc", "decision": "HOLD", "reason": "px turned -15 after 70pct giveback, 4-signal against confluence is concerning but want one more frame to confirm trend vs dip"}
+{"ts": 1784341004.9100301, "event": "serve", "frame": 5, "nonce": "42408c281596090c"}
+{"ts": 1784341010.1999915, "event": "commit", "frame": 5, "nonce": "42408c281596090c", "decision": "HOLD", "reason": "px recovered to -2.75 from -15, near breakeven, new leg starting with PROPP-with, not a confirmed reversal"}
+{"ts": 1784341012.250103, "event": "serve", "frame": 6, "nonce": "692b2850c693a457"}
+{"ts": 1784341022.2810314, "event": "commit", "frame": 6, "nonce": "692b2850c693a457", "decision": "EXIT", "reason": "px -22.25, new worse extreme than prior -15 trough; adverse leg amp grew to 64pts with only 8pct giveback = persistent move against us, not a recoverable dip"}
+{"ts": 1784341027.830411, "event": "finish", "summary": "Held through the initial +21 favorable swing and a first pullback to -15 (looked like normal giveback since it partially recovered to -2.75 with a fresh leg). Bailed at t=6m when price broke to a NEW worse extreme (-22.25, deeper than the prior -15 trough) with the new adverse leg showing 64pt amplitude and only 8pct giveback -- i.e. sustained pressure against the position rather than a bounce. Next time I'd watch for the 'lower low' signature specifically (adverse excursion exceeding the prior trough) as the tell that a dip has become a genuine reversal, rather than reacting to the first red print or a single multi-signal-against reading that gets partially reclaimed.", "exit_frame": 6, "n_commits": 7}

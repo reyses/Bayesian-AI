@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_10_28_1761658440_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "577c280462f0ad28",
+      "ts": 1784339135.155642
+    },
+    {
+      "frame": 1,
+      "nonce": "62a04931426c8b1e",
+      "ts": 1784339145.1938913
+    },
+    {
+      "frame": 2,
+      "nonce": "2bdc38406e605f29",
+      "ts": 1784339158.9671807
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "577c280462f0ad28",
+      "decision": "HOLD",
+      "reason": "entry frame, mixed signals, no confirmed wrong-direction yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "62a04931426c8b1e",
+      "decision": "HOLD",
+      "reason": "deep pullback but only 1m in, still within noise range of a fast prior run-up; watching for confirmation"
+    },
+    {
+      "frame": 2,
+      "nonce": "2bdc38406e605f29",
+      "decision": "EXIT",
+      "reason": "3 consecutive frames of accelerating adverse move (-3.75->-13.75->-22->-36.75), multiple against-fires each frame, low ER10 -- wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Bailed at t=2m after 3 consecutive frames of accelerating adverse movement (0 -> -13.75 -> -22.00 -> -36.75 pts), with CLIMAX-against and HA-against firing repeatedly and ER10 collapsing to 0.31, indicating trend-quality deterioration rather than a noisy dip. Held the first two frames since the initial deep pullback looked like it could be normal retrace off a fast prior run-up, but the monotonic, compounding loss with no bounce across 2 full minutes was the wrong-direction confirmation. Next time I'd watch giveback% resetting to 0% alongside a fresh leg-age reset -- that combination (new leg starting against the position) is a useful early tell to weight more heavily before the loss compounds further."
+}

@@ -1,0 +1,56 @@
+{
+  "episode_id": "2026_02_12_1770906600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a08b2f5ba0c4b873",
+      "ts": 1784365938.3813992
+    },
+    {
+      "frame": 1,
+      "nonce": "157bfc6de252240e",
+      "ts": 1784365947.8977063
+    },
+    {
+      "frame": 2,
+      "nonce": "e07941906406877f",
+      "ts": 1784365963.9870524
+    },
+    {
+      "frame": 3,
+      "nonce": "e3587e4db57a1673",
+      "ts": 1784365976.1418355
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a08b2f5ba0c4b873",
+      "decision": "HOLD",
+      "reason": "just entered, price flat at 0, no wrong-direction signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "157bfc6de252240e",
+      "decision": "HOLD",
+      "reason": "small dip to -2.25pts, still near entry, no strong reversal signal"
+    },
+    {
+      "frame": 2,
+      "nonce": "e07941906406877f",
+      "decision": "HOLD",
+      "reason": "drawdown -8.75pts, giveback 26%, still within normal noise for a fresh leg"
+    },
+    {
+      "frame": 3,
+      "nonce": "e3587e4db57a1673",
+      "decision": "EXIT",
+      "reason": "px -31.75, giveback 80% of leg amp, ER10 0.93 (strong trend against), HA-against + PROPP-against fires both flipped against position -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Held through the first 2 minutes as a small dip (giveback 19-26%, price near flat), consistent with normal noise. At frame 3 (t=3m) the drawdown accelerated sharply to -31.75pts (80% giveback of the leg's favorable amplitude), ER10 jumped to 0.93 (strong directional efficiency against the position), and both HA and PROPP fired against the trade within the prior minute -- multiple independent signals agreeing the move was a real trend against us, not noise, so I bailed. Next time I'd watch for the combination of rapid giveback deceleration (>50-70% of amp given back within 1-2 bars) plus rising ER10 plus two+ concurrent against-fires as the earliest confirmable wrong-direction signature, rather than waiting on price alone."
+}

@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_10_03_1759500060_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "37906beacd929a49",
+      "ts": 1784363404.0770466
+    },
+    {
+      "frame": 1,
+      "nonce": "54ad38a6ca9798e5",
+      "ts": 1784363418.0539765
+    },
+    {
+      "frame": 2,
+      "nonce": "2b4f7e8a48952a36",
+      "ts": 1784363425.172964
+    },
+    {
+      "frame": 3,
+      "nonce": "8577b126271e358e",
+      "ts": 1784363430.598528
+    },
+    {
+      "frame": 4,
+      "nonce": "7d00f80aa37bcb41",
+      "ts": 1784363437.771907
+    },
+    {
+      "frame": 5,
+      "nonce": "0b37f954149015d9",
+      "ts": 1784363447.0595007
+    },
+    {
+      "frame": 6,
+      "nonce": "d43aa952a853637d",
+      "ts": 1784363454.0445855
+    },
+    {
+      "frame": 7,
+      "nonce": "7e01cbfa654efbb9",
+      "ts": 1784363461.8428288
+    },
+    {
+      "frame": 8,
+      "nonce": "0807f8493d0121f8",
+      "ts": 1784363469.2922184
+    },
+    {
+      "frame": 9,
+      "nonce": "6af50d30925e5e57",
+      "ts": 1784363475.1002178
+    },
+    {
+      "frame": 10,
+      "nonce": "bcc584ce097787e9",
+      "ts": 1784363482.4364693
+    },
+    {
+      "frame": 11,
+      "nonce": "0f563e1998d5777f",
+      "ts": 1784363489.6853497
+    },
+    {
+      "frame": 12,
+      "nonce": "752a77d4d8f9a146",
+      "ts": 1784363496.431538
+    },
+    {
+      "frame": 13,
+      "nonce": "4fcdc10f5d4da4e8",
+      "ts": 1784363501.8745654
+    },
+    {
+      "frame": 14,
+      "nonce": "e3a7715889a4eaae",
+      "ts": 1784363507.8537664
+    },
+    {
+      "frame": 15,
+      "nonce": "e83fb767cc01cc84",
+      "ts": 1784363515.0709949
+    },
+    {
+      "frame": 16,
+      "nonce": "75a5446f5c73ac45",
+      "ts": 1784363522.383237
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "37906beacd929a49",
+      "decision": "HOLD",
+      "reason": "just entered, flat at breakeven, too early to judge direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "54ad38a6ca9798e5",
+      "decision": "HOLD",
+      "reason": "px +4.25, working in our favor"
+    },
+    {
+      "frame": 2,
+      "nonce": "2b4f7e8a48952a36",
+      "decision": "HOLD",
+      "reason": "px +10.75, trending further in favor"
+    },
+    {
+      "frame": 3,
+      "nonce": "8577b126271e358e",
+      "decision": "HOLD",
+      "reason": "pulled back to +2.75 but still favorable, minor dip not a breakdown"
+    },
+    {
+      "frame": 4,
+      "nonce": "7d00f80aa37bcb41",
+      "decision": "HOLD",
+      "reason": "faded to -3.25, small giveback, mixed against/with fires, not yet a breakdown"
+    },
+    {
+      "frame": 5,
+      "nonce": "0b37f954149015d9",
+      "decision": "HOLD",
+      "reason": "recovered to +2.25, choppy but not breaking down"
+    },
+    {
+      "frame": 6,
+      "nonce": "d43aa952a853637d",
+      "decision": "HOLD",
+      "reason": "near flat -0.50, choppy range not a breakdown"
+    },
+    {
+      "frame": 7,
+      "nonce": "7e01cbfa654efbb9",
+      "decision": "HOLD",
+      "reason": "px +3.75, still favorable, oscillating but no breakdown"
+    },
+    {
+      "frame": 8,
+      "nonce": "0807f8493d0121f8",
+      "decision": "HOLD",
+      "reason": "big push to +25.0, strongly favorable, new leg high"
+    },
+    {
+      "frame": 9,
+      "nonce": "6af50d30925e5e57",
+      "decision": "HOLD",
+      "reason": "gave back some of the +25 peak but still +12, well in favor"
+    },
+    {
+      "frame": 10,
+      "nonce": "bcc584ce097787e9",
+      "decision": "HOLD",
+      "reason": "still +8.0, eroding from peak but not negative yet"
+    },
+    {
+      "frame": 11,
+      "nonce": "0f563e1998d5777f",
+      "decision": "HOLD",
+      "reason": "bounced to +19.25, strong favorable move resumed"
+    },
+    {
+      "frame": 12,
+      "nonce": "752a77d4d8f9a146",
+      "decision": "HOLD",
+      "reason": "faded to +4.75, choppy but still positive"
+    },
+    {
+      "frame": 13,
+      "nonce": "4fcdc10f5d4da4e8",
+      "decision": "HOLD",
+      "reason": "px +4.25, still holding above zero"
+    },
+    {
+      "frame": 14,
+      "nonce": "e3a7715889a4eaae",
+      "decision": "HOLD",
+      "reason": "eroding further to +2.25, still barely positive, watching closely"
+    },
+    {
+      "frame": 15,
+      "nonce": "e83fb767cc01cc84",
+      "decision": "HOLD",
+      "reason": "small dip to -3.25, similar magnitude to earlier recovered dip, not a clean breakdown"
+    },
+    {
+      "frame": 16,
+      "nonce": "75a5446f5c73ac45",
+      "decision": "EXIT",
+      "reason": "6-frame monotonic decay from +19.25 to -11.25 with low giveback on the new leg (not bouncing back like prior dips) -- wrong-direction, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 16,
+  "finished": true,
+  "summary": "Held through the first several minutes of chop (px oscillating roughly -3 to +25) as normal noise around a working thesis, including a couple of small dips that recovered on prior frames. At t=16m the picture changed qualitatively: a clean 6-frame monotonic decay from +19.25 down through +4.75/+4.25/+2.25/-3.25 to -11.25, with the new down-leg showing only 3% giveback (i.e. not bouncing) versus earlier dips that snapped back within a frame or two -- that combination (sustained direction + low retracement) is what separated this from prior noise and triggered the bail. Next time I'd watch giveback% on the active leg as the key discriminator between a dip (high giveback, quick recovery) and a real breakdown (low giveback, persistent one-way drift), and would consider bailing a frame or two earlier once 3+ consecutive frames confirm the same direction with shrinking giveback."
+}

@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_11_07_1762526325_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "490ecaac723edbb1",
+      "ts": 1784339301.689421
+    },
+    {
+      "frame": 1,
+      "nonce": "8867a068ab8035c7",
+      "ts": 1784339322.9113557
+    },
+    {
+      "frame": 2,
+      "nonce": "b86a2bfd8c6fccb1",
+      "ts": 1784339329.0739818
+    },
+    {
+      "frame": 3,
+      "nonce": "347a0c3332278b14",
+      "ts": 1784339335.643266
+    },
+    {
+      "frame": 4,
+      "nonce": "5aa293aeb1771daa",
+      "ts": 1784339342.7022212
+    },
+    {
+      "frame": 5,
+      "nonce": "c63b9d4550d24479",
+      "ts": 1784339350.8567245
+    },
+    {
+      "frame": 6,
+      "nonce": "5224b26a3f9826db",
+      "ts": 1784339364.4499507
+    },
+    {
+      "frame": 7,
+      "nonce": "3561c6aa81e52f78",
+      "ts": 1784339374.174138
+    },
+    {
+      "frame": 8,
+      "nonce": "defaa0378c6a2015",
+      "ts": 1784339380.3814015
+    },
+    {
+      "frame": 9,
+      "nonce": "dd55ac99e3720485",
+      "ts": 1784339389.7077582
+    },
+    {
+      "frame": 10,
+      "nonce": "7239d9dcab1f9fff",
+      "ts": 1784339395.3710818
+    },
+    {
+      "frame": 11,
+      "nonce": "a5de1b7c1336e226",
+      "ts": 1784339405.1065438
+    },
+    {
+      "frame": 12,
+      "nonce": "508a29755f0333d1",
+      "ts": 1784339412.7841685
+    },
+    {
+      "frame": 13,
+      "nonce": "ea8be0f97fd38f66",
+      "ts": 1784339420.086624
+    },
+    {
+      "frame": 14,
+      "nonce": "6300483fadc91df3",
+      "ts": 1784339425.9638364
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "490ecaac723edbb1",
+      "decision": "HOLD",
+      "reason": "Frame 0: at breakeven, only mild 17% giveback off a 128pt favorable leg; no confirmed wrong-direction signature yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "8867a068ab8035c7",
+      "decision": "HOLD",
+      "reason": "px +32.75, 0% giveback, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "b86a2bfd8c6fccb1",
+      "decision": "HOLD",
+      "reason": "px pulled back to +4.25 from +32.75 but still non-negative; PROPP flipped against, watching closely"
+    },
+    {
+      "frame": 3,
+      "nonce": "347a0c3332278b14",
+      "decision": "HOLD",
+      "reason": "px +9.50, still positive and ticking back up from the dip; giveback stable at 12%"
+    },
+    {
+      "frame": 4,
+      "nonce": "5aa293aeb1771daa",
+      "decision": "HOLD",
+      "reason": "px -1.25, near breakeven; giveback rising to 24% but PROPP flipped back with, no confirmed break yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "c63b9d4550d24479",
+      "decision": "HOLD",
+      "reason": "px -28.75, deeper dip but PROPP flipped back with(0m); new leg only 8% given back, not yet a confirmed break"
+    },
+    {
+      "frame": 6,
+      "nonce": "5224b26a3f9826db",
+      "decision": "HOLD",
+      "reason": "px -21, chopping in a range (-28 to +32) not a clean breakdown; still within normal dip noise"
+    },
+    {
+      "frame": 7,
+      "nonce": "3561c6aa81e52f78",
+      "decision": "HOLD",
+      "reason": "px -26.5, still range-bound, PROPP back with, giveback improved to 12% within leg"
+    },
+    {
+      "frame": 8,
+      "nonce": "defaa0378c6a2015",
+      "decision": "HOLD",
+      "reason": "px back to +11.75, PROPP-with, thesis recovering from the dip"
+    },
+    {
+      "frame": 9,
+      "nonce": "dd55ac99e3720485",
+      "decision": "HOLD",
+      "reason": "px +11.50, holding positive, PROPP-with, HA-with"
+    },
+    {
+      "frame": 10,
+      "nonce": "7239d9dcab1f9fff",
+      "decision": "HOLD",
+      "reason": "px -32.25, retesting prior lows within the same range, ER10 near zero = pure chop not a directional break"
+    },
+    {
+      "frame": 11,
+      "nonce": "a5de1b7c1336e226",
+      "decision": "HOLD",
+      "reason": "px +11.50, back positive again, consistent chop-range behavior, no breakdown"
+    },
+    {
+      "frame": 12,
+      "nonce": "508a29755f0333d1",
+      "decision": "HOLD",
+      "reason": "px -1.75, near flat, still oscillating in same range, PROPP-with"
+    },
+    {
+      "frame": 13,
+      "nonce": "ea8be0f97fd38f66",
+      "decision": "HOLD",
+      "reason": "px -6.75, small, within established range, HA-with and PROPP-with both current"
+    },
+    {
+      "frame": 14,
+      "nonce": "6300483fadc91df3",
+      "decision": "EXIT",
+      "reason": "px -45.25 breaks decisively below the entire prior chop range (-32 to +32), giveback >100% of leg amplitude, HA-against and PROPP-against both fresh -- this is a genuine new extreme against the position, not more chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Held through 13 minutes of two-sided chop (roughly -32 to +32pts) since none of the dips broke the established range and PROPP/HA kept flipping back with. Bailed at t=14m when price broke to a decisive new extreme (-45.25pts, giveback >100% of leg amplitude) with HA-against and PROPP-against both fresh -- that was the first true range breakdown rather than another oscillation. Next time: watch for the range floor being taken out with fresh against-fires as the trigger, not just any negative excursion, since most of the early red prints were normal dip noise that recovered."
+}

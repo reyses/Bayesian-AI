@@ -1,0 +1,9 @@
+# exit_code=0 dt=351s
+## STDOUT
+Episode complete: held the full 45-minute window with no EXIT.
+
+**Result:** HOLD throughout. Price dipped hard to -25.5pts (giveback 116%) in the first few minutes but repeatedly bounced back rather than trending away; by t=6-8m it broke favorable to +26/+37 and spent the rest of the window chopping in a wide but consistently positive band (~0 to +37). No sustained breakdown ever appeared â€” the closest thing to a real warning (all three fire families against at t=23m) coincided with price only -1.25pts, which recovered within two frames. Final ledger: 46 commits, all HOLD, no exit triggered.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

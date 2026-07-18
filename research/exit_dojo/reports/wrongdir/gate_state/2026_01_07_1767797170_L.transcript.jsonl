@@ -1,0 +1,33 @@
+{"ts": 1784339815.945647, "event": "serve", "frame": 0, "nonce": "706fd65ff0b0bf6b"}
+{"ts": 1784339820.3864, "event": "commit", "frame": 0, "nonce": "706fd65ff0b0bf6b", "decision": "HOLD", "reason": "small dip near entry, mixed lambda, no clear wrong-direction signal yet"}
+{"ts": 1784339822.647736, "event": "serve", "frame": 1, "nonce": "5a7bc491b01815a6"}
+{"ts": 1784339826.8542073, "event": "commit", "frame": 1, "nonce": "5a7bc491b01815a6", "decision": "HOLD", "reason": "+16pts favorable, lambda positive across TFs, giveback only 3%, thesis working"}
+{"ts": 1784339829.3215928, "event": "serve", "frame": 2, "nonce": "ae5175a0e11346b4"}
+{"ts": 1784339834.0340493, "event": "commit", "frame": 2, "nonce": "ae5175a0e11346b4", "decision": "HOLD", "reason": "+14pts, minor pullback giveback 11%, still well favorable"}
+{"ts": 1784339836.1861622, "event": "serve", "frame": 3, "nonce": "3e36042c263e548b"}
+{"ts": 1784339839.388741, "event": "commit", "frame": 3, "nonce": "3e36042c263e548b", "decision": "HOLD", "reason": "+18pts new high area, giveback 9%, trend still favorable"}
+{"ts": 1784339842.474842, "event": "serve", "frame": 4, "nonce": "a38fdf93a3209500"}
+{"ts": 1784339847.9902334, "event": "commit", "frame": 4, "nonce": "a38fdf93a3209500", "decision": "HOLD", "reason": "pulled back to +14 from +18 high, giveback 27% but still deep in profit, 5m lambda positive t=2.9"}
+{"ts": 1784339850.2205474, "event": "serve", "frame": 5, "nonce": "83e2072b8c463514"}
+{"ts": 1784339865.6590817, "event": "commit", "frame": 5, "nonce": "83e2072b8c463514", "decision": "HOLD", "reason": "fully erased gain to breakeven, momentum turning negative multi-TF, watching closely but not yet negative"}
+{"ts": 1784339867.821017, "event": "serve", "frame": 6, "nonce": "23acd682b6c53986"}
+{"ts": 1784339873.6292477, "event": "commit", "frame": 6, "nonce": "23acd682b6c53986", "decision": "HOLD", "reason": "dipped negative but recovered to +2.50, 15s lambda flipped positive t=3.5, new leg forming, not a clean breakdown"}
+{"ts": 1784339875.815501, "event": "serve", "frame": 7, "nonce": "1c33b8d81f75f9cb"}
+{"ts": 1784339879.348604, "event": "commit", "frame": 7, "nonce": "1c33b8d81f75f9cb", "decision": "HOLD", "reason": "recovered to +9.25pts, lambda positive multi-TF, choppy but favorable"}
+{"ts": 1784339881.5795999, "event": "serve", "frame": 8, "nonce": "0973e753de3e6303"}
+{"ts": 1784339885.4838996, "event": "commit", "frame": 8, "nonce": "0973e753de3e6303", "decision": "HOLD", "reason": "+16.75pts, new highs near +25, thesis intact despite chop"}
+{"ts": 1784339887.6022651, "event": "serve", "frame": 9, "nonce": "1641f9d7d9a231a8"}
+{"ts": 1784339891.1444502, "event": "commit", "frame": 9, "nonce": "1641f9d7d9a231a8", "decision": "HOLD", "reason": "still +9.25pts favorable, 5m lambda positive t=2.6, choppy but not broken"}
+{"ts": 1784339893.3585696, "event": "serve", "frame": 10, "nonce": "0f8be9783cf0044d"}
+{"ts": 1784339897.3088455, "event": "commit", "frame": 10, "nonce": "0f8be9783cf0044d", "decision": "HOLD", "reason": "new high +27.5pts, strong 1m body, thesis clearly working"}
+{"ts": 1784339899.487998, "event": "serve", "frame": 11, "nonce": "f0e43bbf51101771"}
+{"ts": 1784339902.876377, "event": "commit", "frame": 11, "nonce": "f0e43bbf51101771", "decision": "HOLD", "reason": "+16.50pts, pullback from +27.5 high but still deep in profit"}
+{"ts": 1784339905.116821, "event": "serve", "frame": 12, "nonce": "d9c48d87868e98c4"}
+{"ts": 1784339908.8621924, "event": "commit", "frame": 12, "nonce": "d9c48d87868e98c4", "decision": "HOLD", "reason": "+15.25pts still well favorable despite chop, no directional breakdown"}
+{"ts": 1784339911.3274076, "event": "serve", "frame": 13, "nonce": "4c80b1a01aef4dbd"}
+{"ts": 1784339925.4083138, "event": "commit", "frame": 13, "nonce": "4c80b1a01aef4dbd", "decision": "HOLD", "reason": "decayed to +3.75pts, 5s lambda strongly negative across lookbacks, watching closely but still positive"}
+{"ts": 1784339927.5383122, "event": "serve", "frame": 14, "nonce": "9bd1be3fc1525670"}
+{"ts": 1784339931.662038, "event": "commit", "frame": 14, "nonce": "9bd1be3fc1525670", "decision": "HOLD", "reason": "+3.00pts, still positive, 5m lambda strongly positive t=3.5, bigger-picture trend intact"}
+{"ts": 1784339933.9399936, "event": "serve", "frame": 15, "nonce": "a875839f7e292e68"}
+{"ts": 1784339944.3589823, "event": "commit", "frame": 15, "nonce": "a875839f7e292e68", "decision": "EXIT", "reason": "sharp red 1m candle broke through prior lows on volume surge, z_se_30=-2.7/z_low_30=-3.1, first genuine negative excursion at -19pts, momentum breakdown not a dip"}
+{"ts": 1784339951.254256, "event": "finish", "summary": "Held through 14 frames of normal chop while the trade oscillated between roughly 0 and +27pts favorable with lambda staying net positive across TFs -- textbook 'dip, don't knife it' behavior. Bailed at frame 15 when a single 1m candle (O+5 H+15.75 L-27.75 C-19.75) broke decisively below every prior local low on a volume surge (vol_velocity_1b +9185, vol_accel +9165) with z_se_30/z_low_30 at -2.7/-3.1 -- a genuine momentum breakdown, not chop, and the first time price actually went meaningfully negative. Next time I'd watch for this same signature earlier: a same-direction volume spike (not just price velocity) combined with z-scores blowing past -2 on the fast TF is what separates a real reversal from the routine giveback/recovery cycles seen in frames 4-14.", "exit_frame": 15, "n_commits": 16}

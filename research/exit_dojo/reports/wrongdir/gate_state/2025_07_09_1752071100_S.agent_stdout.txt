@@ -1,0 +1,7 @@
+# exit_code=0 dt=414s
+## STDOUT
+Episode complete: 61 HOLD commits, no EXIT fired. The trade ran favorably from entry (+0.00) to a peak of ~+154pts around t=53-54m, ending the visible window at +98.5pts â€” a genuinely strong, thesis-intact SHORT the entire way. The only real dip was a small -4.5pt wobble in the first 2 minutes, which resolved immediately. No wrong-direction signature ever appeared.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

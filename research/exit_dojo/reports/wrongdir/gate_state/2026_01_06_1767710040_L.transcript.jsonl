@@ -1,0 +1,17 @@
+{"ts": 1784364941.4304285, "event": "serve", "frame": 0, "nonce": "63052047e76328a2"}
+{"ts": 1784364948.7649975, "event": "commit", "frame": 0, "nonce": "63052047e76328a2", "decision": "HOLD", "reason": "at entry, px flat 0.00, no adverse move yet"}
+{"ts": 1784364952.2285376, "event": "serve", "frame": 1, "nonce": "05984e45bf40ff9d"}
+{"ts": 1784364962.4168835, "event": "commit", "frame": 1, "nonce": "05984e45bf40ff9d", "decision": "HOLD", "reason": "-19pts dip but 1m lambda positive/sig (t~2.6-3.2), early leg, could be normal pullback"}
+{"ts": 1784364964.90798, "event": "serve", "frame": 2, "nonce": "77c8146f3ddf49df"}
+{"ts": 1784364970.6465561, "event": "commit", "frame": 2, "nonce": "77c8146f3ddf49df", "decision": "HOLD", "reason": "px recovered -19->-12, PROPP-with just fired, still early"}
+{"ts": 1784364972.7252352, "event": "serve", "frame": 3, "nonce": "02bbcccc6bfe132b"}
+{"ts": 1784364976.0103114, "event": "commit", "frame": 3, "nonce": "02bbcccc6bfe132b", "decision": "HOLD", "reason": "px continuing to recover -12->-3.25, near breakeven"}
+{"ts": 1784364978.4434144, "event": "serve", "frame": 4, "nonce": "e24812ad38f4c7d8"}
+{"ts": 1784364982.981035, "event": "commit", "frame": 4, "nonce": "e24812ad38f4c7d8", "decision": "HOLD", "reason": "choppy oscillation -3->-11.5, within prior range, HA/PROPP firing with"}
+{"ts": 1784364985.4567502, "event": "serve", "frame": 5, "nonce": "7bb7769ad563c6d4"}
+{"ts": 1784364994.6300917, "event": "commit", "frame": 5, "nonce": "7bb7769ad563c6d4", "decision": "HOLD", "reason": "new low -24.25 but lambda/z not extreme, PROPP still with; watching for confirmation"}
+{"ts": 1784364997.073891, "event": "serve", "frame": 6, "nonce": "661af39427b6b6f5"}
+{"ts": 1784365003.1588185, "event": "commit", "frame": 6, "nonce": "661af39427b6b6f5", "decision": "HOLD", "reason": "px -19.25, both HA and PROPP now against, ER10 collapsed to 0.04 - watching closely, one more frame"}
+{"ts": 1784365005.3442726, "event": "serve", "frame": 7, "nonce": "ef900009912b2afe"}
+{"ts": 1784365012.469067, "event": "commit", "frame": 7, "nonce": "ef900009912b2afe", "decision": "EXIT", "reason": "px collapsed to -46, new deep low breaking all prior support, giveback 114%>amp, ER10 stuck ~0.05, HA+PROPP both fired against and price kept bleeding since - wrong-direction confirmed, bailing"}
+{"ts": 1784365020.265994, "event": "finish", "summary": "Held through normal early chop (px oscillated -19 to -3 in first 4 minutes with PROPP/HA firing 'with' at times), which looked like a typical pullback-then-recover pattern. But at t=6-7m both HA and PROPP flipped to firing against in succession, ER10 collapsed to ~0.04-0.05 (no directional efficiency left), and price broke a new deep low of -46pts with giveback exceeding 114% of the recent leg amplitude -- a clean break past all prior support levels rather than another oscillation. That combination (two independent against-fires + efficiency collapse + support break) is what flagged wrong-direction, so I bailed at -46. Next time I'd watch for the ER10 collapse earlier as a leading warning before the price confirmation, and treat a giveback ratio crossing 100% as a hard alarm rather than waiting for it to compound further.", "exit_frame": 7, "n_commits": 8}

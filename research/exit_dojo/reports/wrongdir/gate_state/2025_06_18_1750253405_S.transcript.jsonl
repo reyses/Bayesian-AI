@@ -1,0 +1,33 @@
+{"ts": 1784338127.3001797, "event": "serve", "frame": 0, "nonce": "067a3dcdf0fd76b4"}
+{"ts": 1784338132.649872, "event": "commit", "frame": 0, "nonce": "067a3dcdf0fd76b4", "decision": "HOLD", "reason": "Just entered, price at 0.00, no adverse move yet"}
+{"ts": 1784338135.05484, "event": "serve", "frame": 1, "nonce": "053d3120ea839518"}
+{"ts": 1784338147.0354571, "event": "commit", "frame": 1, "nonce": "053d3120ea839518", "decision": "HOLD", "reason": "Down -21pts but only 1min in, single adverse bar with rejection wick, need more confirmation"}
+{"ts": 1784338149.1525655, "event": "serve", "frame": 2, "nonce": "7f50bf46de54c835"}
+{"ts": 1784338152.747993, "event": "commit", "frame": 2, "nonce": "7f50bf46de54c835", "decision": "HOLD", "reason": "Recovered to +1pt, giveback back to 0%, dip resolved"}
+{"ts": 1784338155.3057132, "event": "serve", "frame": 3, "nonce": "887b1c3bfc3b3cff"}
+{"ts": 1784338158.8776653, "event": "commit", "frame": 3, "nonce": "887b1c3bfc3b3cff", "decision": "HOLD", "reason": "Strongly working now, +26.25pts, giveback 0%, PROPP-with firing"}
+{"ts": 1784338160.9457073, "event": "serve", "frame": 4, "nonce": "deea3184926f8a9f"}
+{"ts": 1784338164.001449, "event": "commit", "frame": 4, "nonce": "deea3184926f8a9f", "decision": "HOLD", "reason": "Trade still strongly working, +32.5pts, giveback only 1%"}
+{"ts": 1784338166.4385457, "event": "serve", "frame": 5, "nonce": "8b5a53f14f2ab6c6"}
+{"ts": 1784338170.3040464, "event": "commit", "frame": 5, "nonce": "8b5a53f14f2ab6c6", "decision": "HOLD", "reason": "Pulled back from peak but still +25.75pts, giveback only 13%, minor pullback"}
+{"ts": 1784338172.74216, "event": "serve", "frame": 6, "nonce": "589a774d8125ed54"}
+{"ts": 1784338175.9107652, "event": "commit", "frame": 6, "nonce": "589a774d8125ed54", "decision": "HOLD", "reason": "Still +27.5pts, PROPP-with firing, thesis intact"}
+{"ts": 1784338178.1084561, "event": "serve", "frame": 7, "nonce": "e537fddcc3a54eb8"}
+{"ts": 1784338181.58045, "event": "commit", "frame": 7, "nonce": "e537fddcc3a54eb8", "decision": "HOLD", "reason": "+22.5pts, still comfortably positive, normal pullback within a big leg"}
+{"ts": 1784338184.5008016, "event": "serve", "frame": 8, "nonce": "d69df856511bf704"}
+{"ts": 1784338191.9535182, "event": "commit", "frame": 8, "nonce": "d69df856511bf704", "decision": "HOLD", "reason": "Eroded from +32.5 peak to +6.25 but still positive, watching closely for wrong-direction confirmation"}
+{"ts": 1784338194.6678967, "event": "serve", "frame": 9, "nonce": "55417d2bc42fca4d"}
+{"ts": 1784338198.3120322, "event": "commit", "frame": 9, "nonce": "55417d2bc42fca4d", "decision": "HOLD", "reason": "Still net positive +5.25pts, new leg giveback only 8%, no clean break yet"}
+{"ts": 1784338202.2703006, "event": "serve", "frame": 10, "nonce": "0b7d05bdefdc8730"}
+{"ts": 1784338206.083469, "event": "commit", "frame": 10, "nonce": "0b7d05bdefdc8730", "decision": "HOLD", "reason": "Still positive +5.0pts, giveback down to 1%, thesis intact"}
+{"ts": 1784338208.4227262, "event": "serve", "frame": 11, "nonce": "ccc37d3077e4301c"}
+{"ts": 1784338213.3404877, "event": "commit", "frame": 11, "nonce": "ccc37d3077e4301c", "decision": "HOLD", "reason": "Near breakeven +1.75pts but PROPP-with firing, no against-signal this frame, choppy not broken"}
+{"ts": 1784338215.7759457, "event": "serve", "frame": 12, "nonce": "5bb8a9d0ce04a463"}
+{"ts": 1784338222.1727269, "event": "commit", "frame": 12, "nonce": "5bb8a9d0ce04a463", "decision": "HOLD", "reason": "Mildly negative -7.5pts but choppy chop (ER10 0.10), PROPP-with still firing, no against signal"}
+{"ts": 1784338224.3573349, "event": "serve", "frame": 13, "nonce": "8963e775e51dcbae"}
+{"ts": 1784338230.244988, "event": "commit", "frame": 13, "nonce": "8963e775e51dcbae", "decision": "HOLD", "reason": "Recovered to -2.0pts, PROPP-with still firing, chop not breakdown"}
+{"ts": 1784338233.0451784, "event": "serve", "frame": 14, "nonce": "8a8bebc82a02a46f"}
+{"ts": 1784338246.0926905, "event": "commit", "frame": 14, "nonce": "8a8bebc82a02a46f", "decision": "HOLD", "reason": "Now -14.5pts with PROPP-against firing, deeper red than before, watching for confirmation next frame"}
+{"ts": 1784338251.931787, "event": "serve", "frame": 15, "nonce": "e2e63926068aced6"}
+{"ts": 1784338257.3477545, "event": "commit", "frame": 15, "nonce": "e2e63926068aced6", "decision": "HOLD", "reason": "Improved to -9.5pts, PROPP-with firing again, still choppy not a clean breakdown"}
+{"ts": 1784338266.8254676, "event": "finish", "summary": "Held throughout. Entry saw an early -21pt dip that fully recovered and ran to a +32.5pt peak by t=4-5m, confirming the short thesis. From t=8m on, price chopped and gave back the gain, round-tripping to -14.5pt at t=14m before recovering slightly to -9.5pt at the final frame -- concerning but never showed a clean, sustained against-fire streak or an accelerating adverse leg (ER10 stayed low/choppy, PROPP flipped with/against repeatedly rather than committing one direction), so I judged it unresolved chop rather than confirmed wrong-direction and never got a clean bail signal. Next time I'd watch for a sustained run of against-fires (2+ consecutive) plus a leg giveback that keeps climbing without a with-fire counter-response as the actual wrong-direction confirmation, rather than reacting to single red frames.", "exit_frame": null, "n_commits": 16}

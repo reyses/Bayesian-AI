@@ -1,0 +1,15 @@
+{"ts": 1784340641.0741806, "event": "serve", "frame": 0, "nonce": "e33a76d759b6ab44"}
+{"ts": 1784340650.0074625, "event": "commit", "frame": 0, "nonce": "e33a76d759b6ab44", "decision": "HOLD", "reason": "entry frame, thesis not yet tested"}
+{"ts": 1784340652.475146, "event": "serve", "frame": 1, "nonce": "e5727ec25b646183"}
+{"ts": 1784340658.7977006, "event": "commit", "frame": 1, "nonce": "e5727ec25b646183", "decision": "HOLD", "reason": "dip but 1m bar shows recovery off low (-111->-14), mixed fires, too early to call wrong-direction"}
+{"ts": 1784340661.3603823, "event": "serve", "frame": 2, "nonce": "1c3e0fab32eb30fb"}
+{"ts": 1784340665.4552164, "event": "commit", "frame": 2, "nonce": "1c3e0fab32eb30fb", "decision": "HOLD", "reason": "px improved -33.5->-23.5, choppy ER10 low but no clean breakdown yet"}
+{"ts": 1784340667.7606902, "event": "serve", "frame": 3, "nonce": "43e3380476469a66"}
+{"ts": 1784340671.4948032, "event": "commit", "frame": 3, "nonce": "43e3380476469a66", "decision": "HOLD", "reason": "strong recovery back to -0.75, near flat, giveback reset to 0%"}
+{"ts": 1784340673.9375055, "event": "serve", "frame": 4, "nonce": "cfe4e6b9bb59cbdb"}
+{"ts": 1784340679.0703385, "event": "commit", "frame": 4, "nonce": "cfe4e6b9bb59cbdb", "decision": "HOLD", "reason": "now positive +15.75, thesis working, giveback 0%"}
+{"ts": 1784340681.278161, "event": "serve", "frame": 5, "nonce": "b117acc1de1ade71"}
+{"ts": 1784340693.9089353, "event": "commit", "frame": 5, "nonce": "b117acc1de1ade71", "decision": "HOLD", "reason": "sharp reversal to -40.75 but market has round-tripped from deeper before, watching for confirmation"}
+{"ts": 1784340696.2620516, "event": "serve", "frame": 6, "nonce": "6e520824b55af19f"}
+{"ts": 1784340702.2974522, "event": "commit", "frame": 6, "nonce": "6e520824b55af19f", "decision": "EXIT", "reason": "unanimous against fires (KMDR/CLIMAX/HA/PROPP), new low -58.50, accelerating down momentum on 1m, giveback 67% -- wrong-direction, bail"}
+{"ts": 1784340708.4405258, "event": "finish", "summary": "Held through two earlier dips (-33.5 and -40.75) that fully round-tripped back to flat/positive within a minute, consistent with normal chop. At t=6m the picture changed: price made a new low (-58.50, worse than any prior dip), the 1m bar showed accelerating downside velocity/acceleration, and all four recent fires (KMDR, CLIMAX, HA, PROPP) flipped to unanimously against for the first time -- prior dips only had 1-2 against fires with others still with. That unanimous-against confluence plus a fresh low breaking the prior range was the wrong-direction signature, so I bailed. Next time I'd watch for the transition from mixed/against-with fires to full unanimity across detector families combined with a new extreme as the trigger, rather than reacting to raw pts drawdown alone.", "exit_frame": 6, "n_commits": 7}

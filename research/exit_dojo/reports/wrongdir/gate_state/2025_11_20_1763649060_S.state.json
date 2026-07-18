@@ -1,0 +1,210 @@
+{
+  "episode_id": "2025_11_20_1763649060_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "848c272c9f7e0230",
+      "ts": 1784339453.195895
+    },
+    {
+      "frame": 1,
+      "nonce": "1fa48cacd8488a8b",
+      "ts": 1784339460.5942159
+    },
+    {
+      "frame": 2,
+      "nonce": "ec601b397925541e",
+      "ts": 1784339466.5092022
+    },
+    {
+      "frame": 3,
+      "nonce": "eeef3daf33e80e3c",
+      "ts": 1784339473.0341525
+    },
+    {
+      "frame": 4,
+      "nonce": "ade42165c920cb35",
+      "ts": 1784339478.490326
+    },
+    {
+      "frame": 5,
+      "nonce": "24d09b062ebec3c0",
+      "ts": 1784339485.158495
+    },
+    {
+      "frame": 6,
+      "nonce": "f43a897805d054c3",
+      "ts": 1784339491.3185537
+    },
+    {
+      "frame": 7,
+      "nonce": "4a919b86cbcb4271",
+      "ts": 1784339498.4127533
+    },
+    {
+      "frame": 8,
+      "nonce": "d5c54213de6c6cba",
+      "ts": 1784339510.2752738
+    },
+    {
+      "frame": 9,
+      "nonce": "a12b2601598cd2c9",
+      "ts": 1784339517.758955
+    },
+    {
+      "frame": 10,
+      "nonce": "4679ca83b6e3ba50",
+      "ts": 1784339527.9432113
+    },
+    {
+      "frame": 11,
+      "nonce": "54822d5fd1e9e180",
+      "ts": 1784339534.405313
+    },
+    {
+      "frame": 12,
+      "nonce": "a96e49827c7fd389",
+      "ts": 1784339539.9788325
+    },
+    {
+      "frame": 13,
+      "nonce": "66e66eff3203f44b",
+      "ts": 1784339545.0271242
+    },
+    {
+      "frame": 14,
+      "nonce": "20b4fedb3bdc8c7d",
+      "ts": 1784339553.9093642
+    },
+    {
+      "frame": 15,
+      "nonce": "aaf0bab0eb945d1c",
+      "ts": 1784339561.202964
+    },
+    {
+      "frame": 16,
+      "nonce": "d2b13bddd6cdc631",
+      "ts": 1784339568.321036
+    },
+    {
+      "frame": 17,
+      "nonce": "c5511b17c5962797",
+      "ts": 1784339575.3292723
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "848c272c9f7e0230",
+      "decision": "HOLD",
+      "reason": "frame 0, price at entry, too early to judge direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "1fa48cacd8488a8b",
+      "decision": "HOLD",
+      "reason": "px -7.5, small dip, mixed signals, still within noise"
+    },
+    {
+      "frame": 2,
+      "nonce": "ec601b397925541e",
+      "decision": "HOLD",
+      "reason": "px recovered to +10, no sustained adverse move"
+    },
+    {
+      "frame": 3,
+      "nonce": "eeef3daf33e80e3c",
+      "decision": "HOLD",
+      "reason": "px +26.25, strong favorable move, low giveback"
+    },
+    {
+      "frame": 4,
+      "nonce": "ade42165c920cb35",
+      "decision": "HOLD",
+      "reason": "pulled back from +26 to +4 but still positive, normal pullback not a reversal"
+    },
+    {
+      "frame": 5,
+      "nonce": "24d09b062ebec3c0",
+      "decision": "HOLD",
+      "reason": "px -3.25, choppy pullback within noise band, no decisive break against"
+    },
+    {
+      "frame": 6,
+      "nonce": "f43a897805d054c3",
+      "decision": "HOLD",
+      "reason": "px -8.75, still oscillating in a tight band, no sustained trend against"
+    },
+    {
+      "frame": 7,
+      "nonce": "4a919b86cbcb4271",
+      "decision": "HOLD",
+      "reason": "px -21.5, deepest red yet but still whipsaw pattern, giveback only 21% of leg amp"
+    },
+    {
+      "frame": 8,
+      "nonce": "d5c54213de6c6cba",
+      "decision": "HOLD",
+      "reason": "px -20.75, stabilizing not worsening, vol compressing, ER low = chop not trend"
+    },
+    {
+      "frame": 9,
+      "nonce": "a12b2601598cd2c9",
+      "decision": "HOLD",
+      "reason": "px -26.5, new low but ER10 down to 0.05 = pure chop/consolidation not a trend, vol compressing"
+    },
+    {
+      "frame": 10,
+      "nonce": "4679ca83b6e3ba50",
+      "decision": "HOLD",
+      "reason": "recovered from -26.5 to -4.25, confirms chop not trend, no wrong-direction signature"
+    },
+    {
+      "frame": 11,
+      "nonce": "54822d5fd1e9e180",
+      "decision": "HOLD",
+      "reason": "px +32.25, new high, thesis working strongly"
+    },
+    {
+      "frame": 12,
+      "nonce": "a96e49827c7fd389",
+      "decision": "HOLD",
+      "reason": "px +17.25, pulled back from peak but still clearly favorable"
+    },
+    {
+      "frame": 13,
+      "nonce": "66e66eff3203f44b",
+      "decision": "HOLD",
+      "reason": "px -20.5, giveback 110% is notable but pattern all episode has been extreme whipsaw with full recoveries both ways"
+    },
+    {
+      "frame": 14,
+      "nonce": "20b4fedb3bdc8c7d",
+      "decision": "HOLD",
+      "reason": "px -15.75, minor improvement from -20.5, new leg just started, still within chop range"
+    },
+    {
+      "frame": 15,
+      "nonce": "aaf0bab0eb945d1c",
+      "decision": "HOLD",
+      "reason": "px -3.75, continued mean reversion, near flat"
+    },
+    {
+      "frame": 16,
+      "nonce": "d2b13bddd6cdc631",
+      "decision": "HOLD",
+      "reason": "px -11.75, low giveback 12%, still consolidating"
+    },
+    {
+      "frame": 17,
+      "nonce": "c5511b17c5962797",
+      "decision": "EXIT",
+      "reason": "px -65.5, sharp break to new extreme (2.5x prior worst), leg amp blew out to 108.8, both HA and PROPP firing against -- decisive move not chop"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 17,
+  "finished": true,
+  "summary": "Held through 17 minutes of extreme whipsaw (repeated swings between roughly +32 and -26 pts) that kept fully recovering, treating it as noise/chop given low ER10 and giveback ratios under 50%. Bailed at t=17m when price broke to -65.5pts -- 2.5x worse than any prior extreme, on a strong directional 5s bar (closed near its low, clsInRng 0.95) with leg amplitude blowing out to 108.8pts and both HA and PROPP fire signals against, which read as a genuine momentum break rather than another mean-reverting swing. Next time I'd weight the magnitude jump relative to the established chop range more heavily and treat 2x+ breaks beyond the established range as an early bail trigger rather than waiting to see if it's 'just another swing.'"
+}

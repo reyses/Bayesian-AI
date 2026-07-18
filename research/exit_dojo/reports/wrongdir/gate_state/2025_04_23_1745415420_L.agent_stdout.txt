@@ -1,0 +1,7 @@
+# exit_code=0 dt=203s
+## STDOUT
+Episode `2025_04_23_1745415420_L` complete: held all 26 frames, no exit. Price never dipped below entry after frame 0, made repeated new highs (peak ~+182pts), and pullbacks were always partial gives-back of profit rather than a genuine trend break â€” a good trade that dipped but never reversed direction.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

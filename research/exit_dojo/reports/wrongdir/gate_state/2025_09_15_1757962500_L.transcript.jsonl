@@ -1,0 +1,23 @@
+{"ts": 1784362986.0231473, "event": "serve", "frame": 0, "nonce": "d2c61982f61261ce"}
+{"ts": 1784362992.548919, "event": "commit", "frame": 0, "nonce": "d2c61982f61261ce", "decision": "HOLD", "reason": "fresh entry, small 5s/15s dip but higher TFs (1h/4h) show strong positive momentum and positive lambda -- thesis intact"}
+{"ts": 1784362995.0240922, "event": "serve", "frame": 1, "nonce": "23146ae1fd676bdf"}
+{"ts": 1784362999.8657844, "event": "commit", "frame": 1, "nonce": "23146ae1fd676bdf", "decision": "HOLD", "reason": "minor -1.5pt dip, only 8% giveback, 1m/5m bodies still strongly positive -- normal noise, thesis intact"}
+{"ts": 1784363002.43099, "event": "serve", "frame": 2, "nonce": "1a0ef65cfbd623aa"}
+{"ts": 1784363008.5106502, "event": "commit", "frame": 2, "nonce": "1a0ef65cfbd623aa", "decision": "HOLD", "reason": "-2.0pts, 11% giveback, 1m z_21 still +1.1 and lambda positive -- shallow pullback, structure intact"}
+{"ts": 1784363013.4061012, "event": "serve", "frame": 3, "nonce": "df5364b92828d82c"}
+{"ts": 1784363019.6503363, "event": "commit", "frame": 3, "nonce": "df5364b92828d82c", "decision": "HOLD", "reason": "-4.5pts, 13% giveback, but 1m/15s lambda_hat strongly positive (t=3.2-3.7) signaling bounce building -- still a pullback not a breakdown"}
+{"ts": 1784363022.4320204, "event": "serve", "frame": 4, "nonce": "975ff0bdae61edc9"}
+{"ts": 1784363027.4996638, "event": "commit", "frame": 4, "nonce": "975ff0bdae61edc9", "decision": "HOLD", "reason": "price recovered to -2.5 from -4.5, 15s/1m lambda_hat strongly positive (t=2.6-4.3) -- bounce confirming, not a breakdown"}
+{"ts": 1784363030.682656, "event": "serve", "frame": 5, "nonce": "4fef69605d1d312e"}
+{"ts": 1784363034.9492772, "event": "commit", "frame": 5, "nonce": "4fef69605d1d312e", "decision": "HOLD", "reason": "price recovering further to -0.75, HA-with fire aligns with position -- thesis intact"}
+{"ts": 1784363040.4070024, "event": "serve", "frame": 6, "nonce": "7777174b28441133"}
+{"ts": 1784363045.0655973, "event": "commit", "frame": 6, "nonce": "7777174b28441133", "decision": "HOLD", "reason": "price back to +0.75 above entry, 1h lambda strongly positive (t=3.6) -- thesis intact despite against-fires"}
+{"ts": 1784363050.7049465, "event": "serve", "frame": 7, "nonce": "fd442d338b1720e2"}
+{"ts": 1784363056.152865, "event": "commit", "frame": 7, "nonce": "fd442d338b1720e2", "decision": "HOLD", "reason": "price at +3.50, new local high, ER10 0.71 -- trade working, thesis intact"}
+{"ts": 1784363059.189025, "event": "serve", "frame": 8, "nonce": "b0f3e0a480324a20"}
+{"ts": 1784363064.87926, "event": "commit", "frame": 8, "nonce": "b0f3e0a480324a20", "decision": "HOLD", "reason": "back to breakeven after giving back the +3.5 bounce, but 1m body still +3.0 and no negative structural break -- choppy consolidation, watching closely"}
+{"ts": 1784363067.438234, "event": "serve", "frame": 9, "nonce": "272ca1fa741332f6"}
+{"ts": 1784363076.7092006, "event": "commit", "frame": 9, "nonce": "272ca1fa741332f6", "decision": "HOLD", "reason": "-2.25pts, within prior tolerated range, but 1m lambda_hat_12 t=-5.76 and ER10 down to 0.38 are a warning -- holding one more frame to confirm before acting"}
+{"ts": 1784363082.0724525, "event": "serve", "frame": 10, "nonce": "f8fb49d23ff3abc1"}
+{"ts": 1784363087.8207374, "event": "commit", "frame": 10, "nonce": "f8fb49d23ff3abc1", "decision": "EXIT", "reason": "new local low -6.50 (breaking prior -4.5 floor), ER10 collapsed to 0.07 (no trend structure), 1m z_21=-2.0 and lambda_hat_12 t=-4.6 confirm sustained negative momentum -- wrong-direction, bailing"}
+{"ts": 1784363095.722871, "event": "finish", "summary": "Held through several shallow pullbacks (-2 to -4.5pts) that kept recovering on strong 1m/15s lambda_hat bounces, and the trade even ran to +3.5pts at t=7m. Bailed at t=10m when price broke below the prior -4.5pt floor to -6.5pts, ER10 collapsed from 0.6-0.7 down to 0.07 (loss of any trending structure), and 1m z_21 hit -2.0 with lambda_hat_12 t=-4.6 confirming persistent negative momentum rather than another noise dip. Next time: watch for ER10 collapse combined with a new local-low break as the confirming signature -- individually a dip or a low ER reading is common noise, but the co-occurrence of 'new floor + no trend structure + sustained negative lambda' is what separated this from the earlier recoverable dips.", "exit_frame": 10, "n_commits": 11}

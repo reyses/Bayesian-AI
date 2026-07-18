@@ -1,0 +1,375 @@
+{
+  "episode_id": "2025_05_30_1748611860_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "10671ecb8fabd056",
+      "ts": 1784343295.235587
+    },
+    {
+      "frame": 1,
+      "nonce": "763d49953ec3b836",
+      "ts": 1784343305.0784678
+    },
+    {
+      "frame": 2,
+      "nonce": "e3f7d81ff940c616",
+      "ts": 1784343321.732856
+    },
+    {
+      "frame": 3,
+      "nonce": "790bfc79ba42dc78",
+      "ts": 1784343328.1203613
+    },
+    {
+      "frame": 4,
+      "nonce": "bcc827a864099096",
+      "ts": 1784343333.6408854
+    },
+    {
+      "frame": 5,
+      "nonce": "1f9329537359ed2d",
+      "ts": 1784343339.5152414
+    },
+    {
+      "frame": 6,
+      "nonce": "7245f09ca3a21652",
+      "ts": 1784343347.0475235
+    },
+    {
+      "frame": 7,
+      "nonce": "7e663569dbdd86d3",
+      "ts": 1784343353.1177115
+    },
+    {
+      "frame": 8,
+      "nonce": "3d2f24211e421887",
+      "ts": 1784343358.616705
+    },
+    {
+      "frame": 9,
+      "nonce": "17a706b479f380bf",
+      "ts": 1784343365.20121
+    },
+    {
+      "frame": 10,
+      "nonce": "3360e54d953f3f1d",
+      "ts": 1784343373.8026764
+    },
+    {
+      "frame": 11,
+      "nonce": "ef2de944b90de94b",
+      "ts": 1784343380.3884304
+    },
+    {
+      "frame": 12,
+      "nonce": "16a51737e219e7d7",
+      "ts": 1784343386.2435045
+    },
+    {
+      "frame": 13,
+      "nonce": "551e5c60bb72fc34",
+      "ts": 1784343392.1110725
+    },
+    {
+      "frame": 14,
+      "nonce": "2bcc061425d9cef1",
+      "ts": 1784343397.5070279
+    },
+    {
+      "frame": 15,
+      "nonce": "7bc1bf8f0fdee66a",
+      "ts": 1784343403.155553
+    },
+    {
+      "frame": 16,
+      "nonce": "730f0855c7a9896b",
+      "ts": 1784343415.2151797
+    },
+    {
+      "frame": 17,
+      "nonce": "1682722201f53fbc",
+      "ts": 1784343420.6387305
+    },
+    {
+      "frame": 18,
+      "nonce": "5f7b215cd1cae900",
+      "ts": 1784343425.8332374
+    },
+    {
+      "frame": 19,
+      "nonce": "2108233c67ef153c",
+      "ts": 1784343431.3879547
+    },
+    {
+      "frame": 20,
+      "nonce": "3c03198039b80f0a",
+      "ts": 1784343437.8970947
+    },
+    {
+      "frame": 21,
+      "nonce": "616a5ba321e8bdbe",
+      "ts": 1784343443.5193179
+    },
+    {
+      "frame": 22,
+      "nonce": "14f3d23e3e3e033a",
+      "ts": 1784343449.724917
+    },
+    {
+      "frame": 23,
+      "nonce": "8b8d5104f816e37c",
+      "ts": 1784343455.538223
+    },
+    {
+      "frame": 24,
+      "nonce": "7ddb0a61d903b46d",
+      "ts": 1784343461.4942226
+    },
+    {
+      "frame": 25,
+      "nonce": "24b0ae959bd1e9a6",
+      "ts": 1784343467.876547
+    },
+    {
+      "frame": 26,
+      "nonce": "c0feb0fb8cdd9719",
+      "ts": 1784343473.1135035
+    },
+    {
+      "frame": 27,
+      "nonce": "40bb8e29b9f9cbf7",
+      "ts": 1784343479.7305741
+    },
+    {
+      "frame": 28,
+      "nonce": "aed1369cf43eec81",
+      "ts": 1784343485.774424
+    },
+    {
+      "frame": 29,
+      "nonce": "df915dd0e10c61c0",
+      "ts": 1784343491.573424
+    },
+    {
+      "frame": 30,
+      "nonce": "498898dfbf3b3bb6",
+      "ts": 1784343497.114043
+    },
+    {
+      "frame": 31,
+      "nonce": "f8699ff8172ea967",
+      "ts": 1784343506.0897138
+    },
+    {
+      "frame": 32,
+      "nonce": "4bc09eaf8392d26f",
+      "ts": 1784343513.9383478
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "10671ecb8fabd056",
+      "decision": "HOLD",
+      "reason": "frame 0, entry just triggered, px flat, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "763d49953ec3b836",
+      "decision": "HOLD",
+      "reason": "px -22.75 at 1m, real adverse move but could be normal dip after entry; watching for continuation"
+    },
+    {
+      "frame": 2,
+      "nonce": "e3f7d81ff940c616",
+      "decision": "HOLD",
+      "reason": "px recovered to +4.50, dip reversed, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "790bfc79ba42dc78",
+      "decision": "HOLD",
+      "reason": "px +13.75 and climbing, new leg forming favorably, thesis working"
+    },
+    {
+      "frame": 4,
+      "nonce": "bcc827a864099096",
+      "decision": "HOLD",
+      "reason": "px still +5.50, pulled back from +13.75 but remains favorable, normal pullback in a 60pt leg"
+    },
+    {
+      "frame": 5,
+      "nonce": "1f9329537359ed2d",
+      "decision": "HOLD",
+      "reason": "px +31.00, strong favorable move, giveback 0%, thesis clearly working"
+    },
+    {
+      "frame": 6,
+      "nonce": "7245f09ca3a21652",
+      "decision": "HOLD",
+      "reason": "px holding at +31.00, minor giveback 14%, thesis still strongly intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "7e663569dbdd86d3",
+      "decision": "HOLD",
+      "reason": "px +23.50, mild pullback from peak but still deeply favorable"
+    },
+    {
+      "frame": 8,
+      "nonce": "3d2f24211e421887",
+      "decision": "HOLD",
+      "reason": "px +36.75, new high, giveback ~0%, trade clearly working"
+    },
+    {
+      "frame": 9,
+      "nonce": "17a706b479f380bf",
+      "decision": "HOLD",
+      "reason": "px +33.50, still near peak, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "3360e54d953f3f1d",
+      "decision": "HOLD",
+      "reason": "px pulled back to +14.50 from peak +38 but still solidly favorable; watching for further erosion"
+    },
+    {
+      "frame": 11,
+      "nonce": "ef2de944b90de94b",
+      "decision": "HOLD",
+      "reason": "px bounced back to +32.25, thesis intact, oscillating around a large favorable band"
+    },
+    {
+      "frame": 12,
+      "nonce": "16a51737e219e7d7",
+      "decision": "HOLD",
+      "reason": "px +48.75, new high, strongly favorable, thesis working well"
+    },
+    {
+      "frame": 13,
+      "nonce": "551e5c60bb72fc34",
+      "decision": "HOLD",
+      "reason": "px +36.75, well in profit, thesis intact"
+    },
+    {
+      "frame": 14,
+      "nonce": "2bcc061425d9cef1",
+      "decision": "HOLD",
+      "reason": "px +44.50, new high, thesis working strongly"
+    },
+    {
+      "frame": 15,
+      "nonce": "7bc1bf8f0fdee66a",
+      "decision": "HOLD",
+      "reason": "px +23.00, gave back 80% of last leg and all turn-fires against, but still well above breakeven -- watching closely next frame"
+    },
+    {
+      "frame": 16,
+      "nonce": "730f0855c7a9896b",
+      "decision": "HOLD",
+      "reason": "px recovered to +44.00, near highs, thesis strongly intact"
+    },
+    {
+      "frame": 17,
+      "nonce": "1682722201f53fbc",
+      "decision": "HOLD",
+      "reason": "px +41.50, holding near highs, thesis intact"
+    },
+    {
+      "frame": 18,
+      "nonce": "5f7b215cd1cae900",
+      "decision": "HOLD",
+      "reason": "px +43.50, thesis intact, strong sustained profit"
+    },
+    {
+      "frame": 19,
+      "nonce": "2108233c67ef153c",
+      "decision": "HOLD",
+      "reason": "px +57.25, new high, trade running strongly favorable"
+    },
+    {
+      "frame": 20,
+      "nonce": "3c03198039b80f0a",
+      "decision": "HOLD",
+      "reason": "px +88.25, huge favorable extension, thesis running very strongly"
+    },
+    {
+      "frame": 21,
+      "nonce": "616a5ba321e8bdbe",
+      "decision": "HOLD",
+      "reason": "px +108.25, massive favorable move continuing, thesis strongly intact"
+    },
+    {
+      "frame": 22,
+      "nonce": "14f3d23e3e3e033a",
+      "decision": "HOLD",
+      "reason": "px +99.50, minor pullback from +108 peak but massively favorable, thesis intact"
+    },
+    {
+      "frame": 23,
+      "nonce": "8b8d5104f816e37c",
+      "decision": "HOLD",
+      "reason": "px +81.75, still deep in profit, thesis intact"
+    },
+    {
+      "frame": 24,
+      "nonce": "7ddb0a61d903b46d",
+      "decision": "HOLD",
+      "reason": "px +72.00, pulling back gradually from peak but still massively favorable"
+    },
+    {
+      "frame": 25,
+      "nonce": "24b0ae959bd1e9a6",
+      "decision": "HOLD",
+      "reason": "px +85.75, still deep in profit, thesis intact"
+    },
+    {
+      "frame": 26,
+      "nonce": "c0feb0fb8cdd9719",
+      "decision": "HOLD",
+      "reason": "px +80.50, holding well, thesis intact"
+    },
+    {
+      "frame": 27,
+      "nonce": "40bb8e29b9f9cbf7",
+      "decision": "HOLD",
+      "reason": "px +81.25, stable in favorable zone, thesis intact"
+    },
+    {
+      "frame": 28,
+      "nonce": "aed1369cf43eec81",
+      "decision": "HOLD",
+      "reason": "px +76.50, thesis still deeply intact, consolidating near highs"
+    },
+    {
+      "frame": 29,
+      "nonce": "df915dd0e10c61c0",
+      "decision": "HOLD",
+      "reason": "px +72.50, consolidating in strongly favorable range, thesis intact"
+    },
+    {
+      "frame": 30,
+      "nonce": "498898dfbf3b3bb6",
+      "decision": "HOLD",
+      "reason": "px +45.00, sharp pullback from +85 but still solidly favorable, not wrong-direction yet"
+    },
+    {
+      "frame": 31,
+      "nonce": "f8699ff8172ea967",
+      "decision": "HOLD",
+      "reason": "px +23.50, still positive despite big pullback from peak; entry direction was never wrong"
+    },
+    {
+      "frame": 32,
+      "nonce": "4bc09eaf8392d26f",
+      "decision": "HOLD",
+      "reason": "px +31.25, final frame, still solidly favorable, thesis intact throughout"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held for the entire 32-frame window. The entry's thesis was never wrong-direction: price dipped to -22.75 briefly at t=1m but recovered by t=2m and never went negative again, then ran to a peak of +108.25 by t=21m before oscillating down to +23-45 range in the closing frames. Turn-detector fires (KMDR/HA/PROPP/CLIMAX-against) flagged repeatedly during pullbacks from local peaks, but these were normal give-backs within a strongly favorable leg, not reversals into losing territory -- next time I'd watch for fires-against clustering WHILE price is also crossing back toward/through breakeven as the real wrong-direction signal, not fires-against alone during a pullback that stays deep in profit."
+}

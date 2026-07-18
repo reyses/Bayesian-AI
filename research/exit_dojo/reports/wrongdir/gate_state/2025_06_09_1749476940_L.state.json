@@ -1,0 +1,144 @@
+{
+  "episode_id": "2025_06_09_1749476940_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ee64b0b76b4501d9",
+      "ts": 1784343365.7636094
+    },
+    {
+      "frame": 1,
+      "nonce": "a093369156eacb4e",
+      "ts": 1784343372.5063388
+    },
+    {
+      "frame": 2,
+      "nonce": "33e5b54f567b5f0a",
+      "ts": 1784343380.8964844
+    },
+    {
+      "frame": 3,
+      "nonce": "bcb833653a65fa61",
+      "ts": 1784343386.2762535
+    },
+    {
+      "frame": 4,
+      "nonce": "c851fb7d7a9c77eb",
+      "ts": 1784343391.9374955
+    },
+    {
+      "frame": 5,
+      "nonce": "e52748d818c05a72",
+      "ts": 1784343397.261878
+    },
+    {
+      "frame": 6,
+      "nonce": "43fc72abc7deb5c3",
+      "ts": 1784343403.3990917
+    },
+    {
+      "frame": 7,
+      "nonce": "062535618916066b",
+      "ts": 1784343409.0302453
+    },
+    {
+      "frame": 8,
+      "nonce": "4c148bc24596bcd5",
+      "ts": 1784343414.8643055
+    },
+    {
+      "frame": 9,
+      "nonce": "cc38d8bf75a762c3",
+      "ts": 1784343420.5904593
+    },
+    {
+      "frame": 10,
+      "nonce": "ebdb8c4a6ef5c66b",
+      "ts": 1784343427.4536607
+    },
+    {
+      "frame": 11,
+      "nonce": "263b18acf4daf132",
+      "ts": 1784343440.7977118
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ee64b0b76b4501d9",
+      "decision": "HOLD",
+      "reason": "frame0: at entry, higher TFs (5m/15m/1h/4h) closed favorable, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "a093369156eacb4e",
+      "decision": "HOLD",
+      "reason": "price +15.25pts, strong favorable momentum across 5s/15s/1m, fires with-trend"
+    },
+    {
+      "frame": 2,
+      "nonce": "33e5b54f567b5f0a",
+      "decision": "HOLD",
+      "reason": "price +18.50pts, still trending favorable, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "bcb833653a65fa61",
+      "decision": "HOLD",
+      "reason": "price +21.00pts, new leg high, low giveback 7%, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "c851fb7d7a9c77eb",
+      "decision": "HOLD",
+      "reason": "price +24.00pts, new leg high, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "e52748d818c05a72",
+      "decision": "HOLD",
+      "reason": "pullback to +21.50pts from +24 high, still well positive, normal dip in trend"
+    },
+    {
+      "frame": 6,
+      "nonce": "43fc72abc7deb5c3",
+      "decision": "HOLD",
+      "reason": "new leg high +29.50pts, giveback 0%, thesis strongly intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "062535618916066b",
+      "decision": "HOLD",
+      "reason": "px +19.50pts, 29% giveback off high, still solidly favorable"
+    },
+    {
+      "frame": 8,
+      "nonce": "4c148bc24596bcd5",
+      "decision": "HOLD",
+      "reason": "px +24.25pts, recovered off dip, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "cc38d8bf75a762c3",
+      "decision": "HOLD",
+      "reason": "px +15.25pts still well positive despite 41% giveback and against-fires; not broken yet"
+    },
+    {
+      "frame": 10,
+      "nonce": "ebdb8c4a6ef5c66b",
+      "decision": "HOLD",
+      "reason": "px +9.25pts, eroding fast from +29.50 high but still net positive; watching next frame for confirmation of reversal"
+    },
+    {
+      "frame": 11,
+      "nonce": "263b18acf4daf132",
+      "decision": "EXIT",
+      "reason": "px eroded +29.50->+24.25->+15.25->+9.25->+5.25 over 5 frames, negative lambda across TFs, 5s already touched negative -- sustained reversal, bail before it goes red"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Held through the first ~6 minutes as price ran favorably to a +29.50pt peak with clean momentum and low giveback. From t=6m to t=11m the trade eroded steadily and monotonically over 5 straight frames (+29.50 -> +24.25 -> +15.25 -> +9.25 -> +5.25) while lambda_hat flipped significantly negative across 5s/1m/15s timeframes and the 5s bar tested outright negative territory -- that consistent, accelerating, multi-timeframe decay (not a single red bar) was the wrong-direction signature, so I bailed at +5.25 before it went net negative. Next time: watch for lambda_hat sign flips with |t|>2 persisting across 2+ consecutive frames as the earliest leading tell, rather than waiting for price itself to cross zero."
+}

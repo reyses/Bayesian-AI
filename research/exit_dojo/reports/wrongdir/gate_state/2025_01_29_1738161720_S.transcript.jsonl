@@ -1,0 +1,25 @@
+{"ts": 1784336990.3164756, "event": "serve", "frame": 0, "nonce": "c8cba70638612281"}
+{"ts": 1784336998.9404767, "event": "commit", "frame": 0, "nonce": "c8cba70638612281", "decision": "HOLD", "reason": "entry frame, px flat at 0, no adverse move yet"}
+{"ts": 1784337001.9991279, "event": "serve", "frame": 1, "nonce": "551d89e7f143e79c"}
+{"ts": 1784337005.2943227, "event": "commit", "frame": 1, "nonce": "551d89e7f143e79c", "decision": "HOLD", "reason": "px +1.5, working in favor, no adverse signal"}
+{"ts": 1784337007.432465, "event": "serve", "frame": 2, "nonce": "6bd070348cea5e2f"}
+{"ts": 1784337010.9817662, "event": "commit", "frame": 2, "nonce": "6bd070348cea5e2f", "decision": "HOLD", "reason": "px +4.0, thesis intact, momentum in favor"}
+{"ts": 1784337012.8289254, "event": "serve", "frame": 3, "nonce": "a7e2234f175889a8"}
+{"ts": 1784337015.542271, "event": "commit", "frame": 3, "nonce": "a7e2234f175889a8", "decision": "HOLD", "reason": "px +11.25, trending further in favor"}
+{"ts": 1784337017.1896558, "event": "serve", "frame": 4, "nonce": "c2a1357de21bf5bd"}
+{"ts": 1784337021.0815372, "event": "commit", "frame": 4, "nonce": "c2a1357de21bf5bd", "decision": "HOLD", "reason": "px +3.5, still positive, dip off recent peak but not yet against"}
+{"ts": 1784337023.250904, "event": "serve", "frame": 5, "nonce": "245c90bb5e075c4c"}
+{"ts": 1784337028.200779, "event": "commit", "frame": 5, "nonce": "245c90bb5e075c4c", "decision": "HOLD", "reason": "px -2.0, mild pullback within normal noise band, watching closely"}
+{"ts": 1784337030.1270535, "event": "serve", "frame": 6, "nonce": "551e7cb8fead2663"}
+{"ts": 1784337033.353422, "event": "commit", "frame": 6, "nonce": "551e7cb8fead2663", "decision": "HOLD", "reason": "px +15.25, new high, prior dip confirmed as noise"}
+{"ts": 1784337035.264455, "event": "serve", "frame": 7, "nonce": "08af0362f3cb72ac"}
+{"ts": 1784337039.9357524, "event": "commit", "frame": 7, "nonce": "08af0362f3cb72ac", "decision": "HOLD", "reason": "px +1.25, still positive despite pullback, choppy but not against"}
+{"ts": 1784337041.8284485, "event": "serve", "frame": 8, "nonce": "84fdef920a22f804"}
+{"ts": 1784337044.7126608, "event": "commit", "frame": 8, "nonce": "84fdef920a22f804", "decision": "HOLD", "reason": "px +15.25, favorable, choppy but net working"}
+{"ts": 1784337046.7915552, "event": "serve", "frame": 9, "nonce": "6b470e7274f788d4"}
+{"ts": 1784337049.6630063, "event": "commit", "frame": 9, "nonce": "6b470e7274f788d4", "decision": "HOLD", "reason": "px +3.25, no against-fires, supportive signals"}
+{"ts": 1784337051.746406, "event": "serve", "frame": 10, "nonce": "9e8fddc96841c9b4"}
+{"ts": 1784337057.9091227, "event": "commit", "frame": 10, "nonce": "9e8fddc96841c9b4", "decision": "HOLD", "reason": "px -6.75, deepest dip yet but consistent with range-chop pattern seen all episode"}
+{"ts": 1784337060.001441, "event": "serve", "frame": 11, "nonce": "dba617bdffa33d54"}
+{"ts": 1784337066.1485078, "event": "commit", "frame": 11, "nonce": "dba617bdffa33d54", "decision": "EXIT", "reason": "px -23.25, sharp break below entire prior range (-7 to +15), 5s bar closed at its low, HA/PROPP both against, ER10 collapsed to 0.06 -- structure broken, bailing"}
+{"ts": 1784337070.79985, "event": "finish", "summary": "Held through 10 frames of normal chop between roughly -7 and +15 pts, treating each dip as noise since it kept snapping back to new highs. Bailed at t=11m when price broke to -23.25, a clean break below the entire prior range with the 5s bar closing at its low, HA/PROPP both flipping against, and ER10 collapsing to 0.06 -- that combination read as a genuine structure break rather than another dip. Next time I'd watch for the range-break-plus-efficiency-collapse combo earlier as the wrong-direction tell, rather than waiting for it to compound further before confirming.", "exit_frame": 11, "n_commits": 12}

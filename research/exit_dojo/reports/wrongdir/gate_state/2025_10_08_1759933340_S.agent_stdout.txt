@@ -1,0 +1,8 @@
+# exit_code=0 dt=123s
+## STDOUT
+Bailed at t=4m. The tell was the leg-tracker resetting (amplitude collapsed 36.8â†’18.5pts, meaning the favorable swing had fully reversed) combined with price breaking to a new worse extreme past the prior low and an HA-against fire alongside still-significant positive 1m lambda â€” that combo distinguished it from the earlier dip (which had recovered and had PROPP flip back in favor).
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

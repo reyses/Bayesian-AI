@@ -1,0 +1,67 @@
+{
+  "episode_id": "2026_03_06_1772807700_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "223fafe83151949a",
+      "ts": 1784340641.2879713
+    },
+    {
+      "frame": 1,
+      "nonce": "65abfec81d91dd5b",
+      "ts": 1784340648.8772163
+    },
+    {
+      "frame": 2,
+      "nonce": "0e1337d48d731e2e",
+      "ts": 1784340661.549347
+    },
+    {
+      "frame": 3,
+      "nonce": "c54d747afa7bcf8d",
+      "ts": 1784340669.3620522
+    },
+    {
+      "frame": 4,
+      "nonce": "206597d536dfdfed",
+      "ts": 1784340674.820741
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "223fafe83151949a",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "65abfec81d91dd5b",
+      "decision": "HOLD",
+      "reason": "px +32.75, favorable move, 3 fires with vs 1 against, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "0e1337d48d731e2e",
+      "decision": "HOLD",
+      "reason": "px +56, new leg 0% giveback, strongly favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "c54d747afa7bcf8d",
+      "decision": "HOLD",
+      "reason": "px +49.25, minor giveback 9%, still strongly favorable"
+    },
+    {
+      "frame": 4,
+      "nonce": "206597d536dfdfed",
+      "decision": "EXIT",
+      "reason": "px flipped +49->-7 in 1min, giveback 61% of leg amp, both fires (HA,PROPP) now against with no with-fires -- reversal signature, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through the entry frame and a strong favorable run to +56pts with 0% giveback and multiple with-direction fires. Bailed at t=4m when price whipped from +49 to -7pts in one minute (61% giveback of a 103.5pt leg) and both active signal fires (HA, PROPP) flipped against the position with none supporting it -- a fast, high-magnitude reversal rather than a normal dip. Next time: watch for the combo of large giveback% + all fires flipping against as the wrong-direction tell, distinct from a shallow single-frame red tick in an otherwise intact trend."
+}

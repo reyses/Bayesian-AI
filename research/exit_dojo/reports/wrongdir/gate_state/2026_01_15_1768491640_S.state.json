@@ -1,0 +1,276 @@
+{
+  "episode_id": "2026_01_15_1768491640_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "aaccb7081c14977b",
+      "ts": 1784365352.0495033
+    },
+    {
+      "frame": 1,
+      "nonce": "cdf92f2d000eb359",
+      "ts": 1784365362.216214
+    },
+    {
+      "frame": 2,
+      "nonce": "84cdea67b7664ee0",
+      "ts": 1784365369.383479
+    },
+    {
+      "frame": 3,
+      "nonce": "0d52a2b2bd87c26f",
+      "ts": 1784365375.410072
+    },
+    {
+      "frame": 4,
+      "nonce": "cdca3c5a06e604e0",
+      "ts": 1784365382.6356025
+    },
+    {
+      "frame": 5,
+      "nonce": "cb1e2a135c782f92",
+      "ts": 1784365389.1483243
+    },
+    {
+      "frame": 6,
+      "nonce": "e7599e92dae1f85e",
+      "ts": 1784365397.0813584
+    },
+    {
+      "frame": 7,
+      "nonce": "18d3c6e72c99eeb0",
+      "ts": 1784365403.8345232
+    },
+    {
+      "frame": 8,
+      "nonce": "b62df38ee880168c",
+      "ts": 1784365411.8782568
+    },
+    {
+      "frame": 9,
+      "nonce": "e556dbd65d7dbc21",
+      "ts": 1784365417.6359234
+    },
+    {
+      "frame": 10,
+      "nonce": "ef5fb445517b4213",
+      "ts": 1784365423.0927346
+    },
+    {
+      "frame": 11,
+      "nonce": "c01192aec47a3aab",
+      "ts": 1784365429.1072285
+    },
+    {
+      "frame": 12,
+      "nonce": "9d3b976b3fb0cc54",
+      "ts": 1784365435.2576325
+    },
+    {
+      "frame": 13,
+      "nonce": "fe354ff6a0145782",
+      "ts": 1784365442.485773
+    },
+    {
+      "frame": 14,
+      "nonce": "7c6b803fec007620",
+      "ts": 1784365449.1814756
+    },
+    {
+      "frame": 15,
+      "nonce": "61710f0bb59847ac",
+      "ts": 1784365454.5109992
+    },
+    {
+      "frame": 16,
+      "nonce": "9d648caeb790f3aa",
+      "ts": 1784365460.7422419
+    },
+    {
+      "frame": 17,
+      "nonce": "ae0964ee6575dc12",
+      "ts": 1784365468.010221
+    },
+    {
+      "frame": 18,
+      "nonce": "a8dcb5a1b137970e",
+      "ts": 1784365476.3410053
+    },
+    {
+      "frame": 19,
+      "nonce": "3aa28bfa7f30a1c3",
+      "ts": 1784365491.8754659
+    },
+    {
+      "frame": 20,
+      "nonce": "bf5a60bf1fb3c08a",
+      "ts": 1784365498.4917738
+    },
+    {
+      "frame": 21,
+      "nonce": "1236995b8a00074e",
+      "ts": 1784365504.842917
+    },
+    {
+      "frame": 22,
+      "nonce": "b8ce7bbac82eccfe",
+      "ts": 1784365519.0355155
+    },
+    {
+      "frame": 23,
+      "nonce": "20310a151e83c09c",
+      "ts": 1784365527.2547972
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "aaccb7081c14977b",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "cdf92f2d000eb359",
+      "decision": "HOLD",
+      "reason": "px +6.5, working in our favor"
+    },
+    {
+      "frame": 2,
+      "nonce": "84cdea67b7664ee0",
+      "decision": "HOLD",
+      "reason": "px +8.75, trending favorable, fires agree with direction"
+    },
+    {
+      "frame": 3,
+      "nonce": "0d52a2b2bd87c26f",
+      "decision": "HOLD",
+      "reason": "px +28.25, strong favorable move, low giveback"
+    },
+    {
+      "frame": 4,
+      "nonce": "cdca3c5a06e604e0",
+      "decision": "HOLD",
+      "reason": "px +54.5, 0% giveback, strongly favorable"
+    },
+    {
+      "frame": 5,
+      "nonce": "cb1e2a135c782f92",
+      "decision": "HOLD",
+      "reason": "px +56, giveback only 6%, still strongly favorable despite one against-fire"
+    },
+    {
+      "frame": 6,
+      "nonce": "e7599e92dae1f85e",
+      "decision": "HOLD",
+      "reason": "px +86, giveback 2%, momentum continuing favorably"
+    },
+    {
+      "frame": 7,
+      "nonce": "18d3c6e72c99eeb0",
+      "decision": "HOLD",
+      "reason": "px +62, pulled back from +86 peak but still deeply favorable, normal pullback not a reversal"
+    },
+    {
+      "frame": 8,
+      "nonce": "b62df38ee880168c",
+      "decision": "HOLD",
+      "reason": "px +80.75, recovered near peak, giveback back to 3%"
+    },
+    {
+      "frame": 9,
+      "nonce": "e556dbd65d7dbc21",
+      "decision": "HOLD",
+      "reason": "px +83.25, near peak, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "ef5fb445517b4213",
+      "decision": "HOLD",
+      "reason": "px +79.5, still deep in profit, normal chop near highs"
+    },
+    {
+      "frame": 11,
+      "nonce": "c01192aec47a3aab",
+      "decision": "HOLD",
+      "reason": "px +86.5, new high, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "9d3b976b3fb0cc54",
+      "decision": "HOLD",
+      "reason": "px +89.75, new trade high, thesis clearly intact"
+    },
+    {
+      "frame": 13,
+      "nonce": "fe354ff6a0145782",
+      "decision": "HOLD",
+      "reason": "px +79.75, still deep favorable, minor chop"
+    },
+    {
+      "frame": 14,
+      "nonce": "7c6b803fec007620",
+      "decision": "HOLD",
+      "reason": "px +83.5, consistently favorable range"
+    },
+    {
+      "frame": 15,
+      "nonce": "61710f0bb59847ac",
+      "decision": "HOLD",
+      "reason": "px +80.75, still deep in profit despite against-fires, no reversal to loss"
+    },
+    {
+      "frame": 16,
+      "nonce": "9d648caeb790f3aa",
+      "decision": "HOLD",
+      "reason": "px +72.25, still deep profit but all fires now against - watching closely"
+    },
+    {
+      "frame": 17,
+      "nonce": "ae0964ee6575dc12",
+      "decision": "HOLD",
+      "reason": "px +39, sharp pullback from +72 but still net favorable, not negative territory"
+    },
+    {
+      "frame": 18,
+      "nonce": "a8dcb5a1b137970e",
+      "decision": "HOLD",
+      "reason": "px +28.75, steady erosion from +90 peak but still net favorable, entry never went negative"
+    },
+    {
+      "frame": 19,
+      "nonce": "3aa28bfa7f30a1c3",
+      "decision": "HOLD",
+      "reason": "px +24.75, decay slowing, still net favorable"
+    },
+    {
+      "frame": 20,
+      "nonce": "bf5a60bf1fb3c08a",
+      "decision": "HOLD",
+      "reason": "px +19.5, still favorable, PROPP fire agrees with direction"
+    },
+    {
+      "frame": 21,
+      "nonce": "1236995b8a00074e",
+      "decision": "HOLD",
+      "reason": "px +11.5, still positive but sustained decay from +90 peak, watching for zero-cross"
+    },
+    {
+      "frame": 22,
+      "nonce": "b8ce7bbac82eccfe",
+      "decision": "HOLD",
+      "reason": "px +6.0, near breakeven but still not negative"
+    },
+    {
+      "frame": 23,
+      "nonce": "20310a151e83c09c",
+      "decision": "HOLD",
+      "reason": "px +4.0, still positive, fires flipped back with-direction"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the entire episode. The trade ran from 0 to a peak of about +90pts by t=12m, confirming the entry thesis was correct, then gave back most of the gain in a steady grind down to roughly +4 to +11pts by t=23m without ever crossing into negative territory. That erosion looked like profit-giveback on a winning trade, not a wrong-direction entry -- the price never actually went against the entry, so there was no clean wrong-direction signal to bail on. Next time I would watch the rate and persistence of decay off a peak more closely (t12-t19 lost about 70pts steadily) as an early trim or protect-profit signal even though it does not meet the bar for a wrong-direction bail."
+}

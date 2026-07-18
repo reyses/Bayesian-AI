@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_02_20_1740061995_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "449acfa3396a1765",
+      "ts": 1784337109.3278587
+    },
+    {
+      "frame": 1,
+      "nonce": "d94232fc1e06b7d9",
+      "ts": 1784337117.3213744
+    },
+    {
+      "frame": 2,
+      "nonce": "224b42efadf4bcb4",
+      "ts": 1784337133.1738286
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "449acfa3396a1765",
+      "decision": "HOLD",
+      "reason": "Only frame 0, short-TF dip but 5m/15m/1h still favorable; too early to call wrong-direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "d94232fc1e06b7d9",
+      "decision": "HOLD",
+      "reason": "Sharp drop to -14.25 but 5s shows a small bounce forming; want one more frame before calling it wrong-direction"
+    },
+    {
+      "frame": 2,
+      "nonce": "224b42efadf4bcb4",
+      "decision": "EXIT",
+      "reason": "Price -18 to -28.5 low, z_se deeply negative across TFs with reversion_prob=0 repeatedly, hurst trending not reverting, PROPP flipped from with->against; momentum continuing adverse, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Bailed at t=2m/frame 2. Price moved from 0 to -14.25 (frame1) to -18 with a -28.5 intrabar low (frame2), fully round-tripping and exceeding the initial favorable leg amplitude. Across 1m/5m timeframes z_se_30 sat at -3.2 to -3.7 with reversion_prob_30 pinned at 0.000 for two consecutive frames, hurst_30 elevated (~0.55-0.65, trending not mean-reverting), and the PROPP fire flipped from with-direction to against-direction right at decision time -- a compounding, non-reverting adverse move rather than a normal dip. Next time: watch for reversion_prob_30 collapsing to 0 alongside deeply negative z_se persisting 2+ frames, and any local fire flipping from with to against, as the earliest confirmable wrong-direction signature; would still want one more confirming frame before bailing on the very first red print alone."
+}

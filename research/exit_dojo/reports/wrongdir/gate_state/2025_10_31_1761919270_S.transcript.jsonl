@@ -1,0 +1,17 @@
+{"ts": 1784339136.449846, "event": "serve", "frame": 0, "nonce": "a4755026f4e1ac71"}
+{"ts": 1784339141.9868736, "event": "commit", "frame": 0, "nonce": "a4755026f4e1ac71", "decision": "HOLD", "reason": "entry frame, px flat at 0, no adverse move yet"}
+{"ts": 1784339143.961765, "event": "serve", "frame": 1, "nonce": "fe8f5a601c2b9252"}
+{"ts": 1784339150.478738, "event": "commit", "frame": 1, "nonce": "fe8f5a601c2b9252", "decision": "HOLD", "reason": "early dip, higher-TF closes still near flat/positive, no giveback yet"}
+{"ts": 1784339152.9273298, "event": "serve", "frame": 2, "nonce": "aecd2d3bfc1a9dbd"}
+{"ts": 1784339159.82285, "event": "commit", "frame": 2, "nonce": "aecd2d3bfc1a9dbd", "decision": "HOLD", "reason": "px stabilizing off worst level, lambda still mildly reverting, giveback only 16%"}
+{"ts": 1784339161.8927388, "event": "serve", "frame": 3, "nonce": "9843c74a0c26ee4b"}
+{"ts": 1784339167.3221142, "event": "commit", "frame": 3, "nonce": "9843c74a0c26ee4b", "decision": "HOLD", "reason": "px flipped positive (+2.5), recovered 73% of the adverse excursion -- thesis intact"}
+{"ts": 1784339170.6282706, "event": "serve", "frame": 4, "nonce": "2228a81597ff4f40"}
+{"ts": 1784339175.299457, "event": "commit", "frame": 4, "nonce": "2228a81597ff4f40", "decision": "HOLD", "reason": "px now +19.75, strong favorable move, thesis clearly working"}
+{"ts": 1784339177.6337423, "event": "serve", "frame": 5, "nonce": "049541a3d44c51f8"}
+{"ts": 1784339182.2133014, "event": "commit", "frame": 5, "nonce": "049541a3d44c51f8", "decision": "HOLD", "reason": "px still +7.5, pulled back from peak but well above entry, normal profit-taking dip"}
+{"ts": 1784339184.4417448, "event": "serve", "frame": 6, "nonce": "1987bc3553cf3a6e"}
+{"ts": 1784339206.350112, "event": "commit", "frame": 6, "nonce": "1987bc3553cf3a6e", "decision": "HOLD", "reason": "sharp reversal to -15 but this instrument has shown big whipsaws before recovering; ER10 near-zero = chop not clean trend against"}
+{"ts": 1784339208.4856963, "event": "serve", "frame": 7, "nonce": "d6c9de492b45e36b"}
+{"ts": 1784339214.2155676, "event": "commit", "frame": 7, "nonce": "d6c9de492b45e36b", "decision": "EXIT", "reason": "px deteriorating for 2 straight frames (-15->-18.5), giveback 83% of the whole favorable leg, HA+PROPP both against -- wrong-direction, bail"}
+{"ts": 1784339222.4061317, "event": "finish", "summary": "Held through an initial dip and a strong favorable swing to +19.75pts, but bailed at -18.5pts when price erased the entire favorable leg and kept deteriorating for two consecutive frames (giveback 83%) with both HA and PROPP against-fires confirming. Next time I'd watch for the point where a pullback stops being 'noise inside a winning leg' and becomes a full round-trip through breakeven into new lows -- that transition, especially with consecutive against-fires, is the earlier and cheaper signal versus waiting for a third confirming frame.", "exit_frame": 7, "n_commits": 8}

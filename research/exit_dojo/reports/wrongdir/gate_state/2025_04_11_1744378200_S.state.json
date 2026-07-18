@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_04_11_1744378200_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9b70bdd8a899629a",
+      "ts": 1784337469.8301845
+    },
+    {
+      "frame": 1,
+      "nonce": "11631778f7f8096a",
+      "ts": 1784337476.019504
+    },
+    {
+      "frame": 2,
+      "nonce": "641ed82fd2fcf5ca",
+      "ts": 1784337487.8279612
+    },
+    {
+      "frame": 3,
+      "nonce": "c1a6065c3f890118",
+      "ts": 1784337493.1124418
+    },
+    {
+      "frame": 4,
+      "nonce": "c84416dc1452830d",
+      "ts": 1784337498.7832937
+    },
+    {
+      "frame": 5,
+      "nonce": "7e70913215e83830",
+      "ts": 1784337506.631274
+    },
+    {
+      "frame": 6,
+      "nonce": "adf425dc57b72369",
+      "ts": 1784337528.0792732
+    },
+    {
+      "frame": 7,
+      "nonce": "70e7901a2812fab9",
+      "ts": 1784337533.731883
+    },
+    {
+      "frame": 8,
+      "nonce": "700225318b6d802c",
+      "ts": 1784337540.23091
+    },
+    {
+      "frame": 9,
+      "nonce": "b6ab3c433eedbd19",
+      "ts": 1784337545.3574433
+    },
+    {
+      "frame": 10,
+      "nonce": "def54bf7d29713fb",
+      "ts": 1784337571.9446604
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9b70bdd8a899629a",
+      "decision": "HOLD",
+      "reason": "just entered, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "11631778f7f8096a",
+      "decision": "HOLD",
+      "reason": "small dip -9.75pts 1min in, mixed fires, still early"
+    },
+    {
+      "frame": 2,
+      "nonce": "641ed82fd2fcf5ca",
+      "decision": "HOLD",
+      "reason": "px swung to +55.5, strongly favorable, fires HA-with/PROPP-with"
+    },
+    {
+      "frame": 3,
+      "nonce": "c1a6065c3f890118",
+      "decision": "HOLD",
+      "reason": "px +67.25, still strongly favorable, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "c84416dc1452830d",
+      "decision": "HOLD",
+      "reason": "pulled back from +67 to +44.5 but still solidly in profit, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "7e70913215e83830",
+      "decision": "HOLD",
+      "reason": "gave back gains to near-flat +2.5, all fires against now -- concerning but not negative yet, watching next bar"
+    },
+    {
+      "frame": 6,
+      "nonce": "adf425dc57b72369",
+      "decision": "HOLD",
+      "reason": "recovered to +19.5, PROPP flipped back with, still favorable overall"
+    },
+    {
+      "frame": 7,
+      "nonce": "70e7901a2812fab9",
+      "decision": "HOLD",
+      "reason": "px steady +19.25, choppy but holding positive"
+    },
+    {
+      "frame": 8,
+      "nonce": "700225318b6d802c",
+      "decision": "HOLD",
+      "reason": "px back to +43.75, both fires with, thesis strengthening"
+    },
+    {
+      "frame": 9,
+      "nonce": "b6ab3c433eedbd19",
+      "decision": "HOLD",
+      "reason": "sharp reversal to -61.5, but this episode has repeatedly whipsawed hard both ways and recovered before -- watching closely for continuation vs reversion"
+    },
+    {
+      "frame": 10,
+      "nonce": "def54bf7d29713fb",
+      "decision": "EXIT",
+      "reason": "px stuck deeply negative -53.5, adverse leg now 159.8pts (largest yet) with only 12% giveback -- this is a sustained move against us, not a whipsaw; bailing before it compounds"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Held through several violent whipsaws (px swung +67, back to near-flat, +43.75, then -61.5) that each recovered within 1-2 frames, matching the episode's noisy character. Bailed at t=10m when px stayed pinned deeply negative (-53.5) across two consecutive frames with the adverse leg growing to 159.8pts (the largest of the episode) and only 12% giveback -- unlike every prior against-move, this one wasn't reverting, signaling a real trend against the position rather than another shakeout. Next time: watch for adverse-leg amplitude exceeding all prior legs combined with low giveback-of-adverse-move as the key 'this one is different' tell, rather than reacting to the first against-fire alignment alone."
+}

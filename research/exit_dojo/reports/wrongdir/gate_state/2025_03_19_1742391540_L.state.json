@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_03_19_1742391540_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ea0f69d9b154a922",
+      "ts": 1784342722.926384
+    },
+    {
+      "frame": 1,
+      "nonce": "e5505e81da0e2c8f",
+      "ts": 1784342733.6793995
+    },
+    {
+      "frame": 2,
+      "nonce": "69fd201b14ed01fa",
+      "ts": 1784342739.1514695
+    },
+    {
+      "frame": 3,
+      "nonce": "9ccd1412c5c537a7",
+      "ts": 1784342746.4012647
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ea0f69d9b154a922",
+      "decision": "HOLD",
+      "reason": "at entry, mixed signals, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "e5505e81da0e2c8f",
+      "decision": "HOLD",
+      "reason": "px +2.25, slight favorable, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "69fd201b14ed01fa",
+      "decision": "HOLD",
+      "reason": "px -9.75, one dip after wick-heavy chop, only 2m in, no trend break yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "9ccd1412c5c537a7",
+      "decision": "EXIT",
+      "reason": "px -33.75, giveback 107%, HA+PROPP both against, 15s z_21=-2.38 breakdown -- wrong-direction, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Entry drifted in a 2-min chop then broke down hard by t=3m: px -33.75pts, giveback 107% (fully round-tripped the leg's favorable amplitude and then some), with both HA and PROPP fire flipping to against and 15s z_21 hitting -2.38 -- a real momentum breakdown, not a normal dip, so I bailed. Next time watch for the giveback% crossing 100% combined with two independent fire signals flipping against as the trigger rather than waiting for a third confirming bar."
+}

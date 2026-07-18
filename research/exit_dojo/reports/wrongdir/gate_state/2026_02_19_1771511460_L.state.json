@@ -1,0 +1,45 @@
+{
+  "episode_id": "2026_02_19_1771511460_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "d2d24987f65882be",
+      "ts": 1784340444.368197
+    },
+    {
+      "frame": 1,
+      "nonce": "62946314f30496dc",
+      "ts": 1784340459.6904826
+    },
+    {
+      "frame": 2,
+      "nonce": "ea369952d0995179",
+      "ts": 1784340468.1528196
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "d2d24987f65882be",
+      "decision": "HOLD",
+      "reason": "px back to breakeven after dip, multiple -with fires aligned bullish, thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "62946314f30496dc",
+      "decision": "HOLD",
+      "reason": "dip to -17.75, giveback stable ~65% not worsening, still 2/3 with-fires bullish, one against-fire but ER low=chop not confirmed reversal"
+    },
+    {
+      "frame": 2,
+      "nonce": "ea369952d0995179",
+      "decision": "EXIT",
+      "reason": "px worsened -17.75 -> -40.25 in 1min, monotonic adverse move, fresh PROPP-against fire, ER10 stays low (no bullish trend forming) -- bailing before further compounding"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Price moved breakeven -> -17.75 -> -40.25 over 2 minutes, a steady monotonic adverse move rather than a one-bar dip. The early -with fires (KMDR/CLIMAX/HA) went stale (1-3m old) while PROPP flipped to -against and kept firing fresh each frame, and ER10 stayed low (0.14-0.18) meaning no clean trend was reasserting itself in our favor. Bailed at -40.25 rather than wait for it to test/exceed the full 46.2pt favorable amplitude. Next time: watch for the combination of a fresh against-fire plus low ER10 persisting across 2+ frames as the wrong-direction tell, not just a single red bar."
+}

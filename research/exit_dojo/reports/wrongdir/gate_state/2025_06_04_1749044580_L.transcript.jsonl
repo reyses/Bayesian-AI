@@ -1,0 +1,19 @@
+{"ts": 1784338029.6382256, "event": "serve", "frame": 0, "nonce": "63faffcb7dabacb0"}
+{"ts": 1784338036.8601508, "event": "commit", "frame": 0, "nonce": "63faffcb7dabacb0", "decision": "HOLD", "reason": "frame0: px flat at entry, mixed HTF signals, too early to call wrong-direction"}
+{"ts": 1784338039.4686232, "event": "serve", "frame": 1, "nonce": "72b0b4e1cacfff07"}
+{"ts": 1784338048.1101565, "event": "commit", "frame": 1, "nonce": "72b0b4e1cacfff07", "decision": "HOLD", "reason": "px -23.75, giveback 43% but reversion_prob high across TFs (0.85-0.99), z_se stretched negative suggesting bounce likely; still early"}
+{"ts": 1784338050.2909539, "event": "serve", "frame": 2, "nonce": "eed8ed905bfea253"}
+{"ts": 1784338055.2900977, "event": "commit", "frame": 2, "nonce": "eed8ed905bfea253", "decision": "HOLD", "reason": "px stabilizing -20 vs -23.75, 1m z_21 stretched -2.6 (oversold), PROPP-with just fired; looks like dip not breakdown"}
+{"ts": 1784338057.8448923, "event": "serve", "frame": 3, "nonce": "710dc24dd8fbbd86"}
+{"ts": 1784338061.6946933, "event": "commit", "frame": 3, "nonce": "710dc24dd8fbbd86", "decision": "HOLD", "reason": "px recovering -11.75 from -20, new leg reset giveback 0%, bounce confirmed off oversold levels"}
+{"ts": 1784338063.796007, "event": "serve", "frame": 4, "nonce": "07500cd41b9b1d1c"}
+{"ts": 1784338067.7444863, "event": "commit", "frame": 4, "nonce": "07500cd41b9b1d1c", "decision": "HOLD", "reason": "px continues recovering -7.50 from -11.75, HA-with fired, thesis intact"}
+{"ts": 1784338070.172205, "event": "serve", "frame": 5, "nonce": "290fe752176aceb4"}
+{"ts": 1784338075.2401152, "event": "commit", "frame": 5, "nonce": "290fe752176aceb4", "decision": "HOLD", "reason": "px flat -8.00, giveback improved to 20%, vol declining, consolidation not breakdown"}
+{"ts": 1784338078.2525434, "event": "serve", "frame": 6, "nonce": "b191391c0b8cd50d"}
+{"ts": 1784338082.6278033, "event": "commit", "frame": 6, "nonce": "b191391c0b8cd50d", "decision": "HOLD", "reason": "px flipped positive +2.75, fully recovered above entry, both fires HA/PROPP with"}
+{"ts": 1784338084.8206692, "event": "serve", "frame": 7, "nonce": "2416ab8edd44dde2"}
+{"ts": 1784338089.8028731, "event": "commit", "frame": 7, "nonce": "2416ab8edd44dde2", "decision": "HOLD", "reason": "px chopping back to -7.75 but both HA/PROPP fires still with, low ER10 suggests noise not trend, vol declining"}
+{"ts": 1784338091.8947284, "event": "serve", "frame": 8, "nonce": "27257f057d836eaf"}
+{"ts": 1784338101.3903565, "event": "commit", "frame": 8, "nonce": "27257f057d836eaf", "decision": "EXIT", "reason": "px broke to new low -21.50, giveback 112% (erased entire recent leg), both HA and PROPP now firing against -- breakdown not dip"}
+{"ts": 1784338106.910301, "event": "finish", "summary": "Held through the first two dips (t=1-2m and t=7m) because reversion_prob stayed high and both HA/PROPP fires were still favorable while ER10 was low (chop, not trend), and price did in fact recover to +2.75 by t=6m confirming those were noise. Bailed at t=8m when price broke to a new low of -21.50 with giveback 112% (erasing the entire recent leg's amplitude) and both HA and PROPP fires flipped against simultaneously -- that combination read as a genuine trend break rather than another dip. Next time I'd watch for giveback crossing 100% combined with a same-bar flip of multiple fire signals as the key wrong-direction tell, versus isolated single-fire noise during high-chop (low ER10) periods.", "exit_frame": 8, "n_commits": 9}

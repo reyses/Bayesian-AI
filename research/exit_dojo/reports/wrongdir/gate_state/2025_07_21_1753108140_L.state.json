@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_07_21_1753108140_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a6cef10274900766",
+      "ts": 1784338277.949603
+    },
+    {
+      "frame": 1,
+      "nonce": "7a11a01edaf3d7c8",
+      "ts": 1784338292.718903
+    },
+    {
+      "frame": 2,
+      "nonce": "d59c591d69d4e8ff",
+      "ts": 1784338300.444999
+    },
+    {
+      "frame": 3,
+      "nonce": "8ea3e6a2788bef95",
+      "ts": 1784338307.5692255
+    },
+    {
+      "frame": 4,
+      "nonce": "a1600f93eb49b754",
+      "ts": 1784338313.6077693
+    },
+    {
+      "frame": 5,
+      "nonce": "38f3d800eee79bc0",
+      "ts": 1784338320.0361571
+    },
+    {
+      "frame": 6,
+      "nonce": "5a4d04333771db32",
+      "ts": 1784338326.8263125
+    },
+    {
+      "frame": 7,
+      "nonce": "dcd9d3805064b51d",
+      "ts": 1784338333.1775858
+    },
+    {
+      "frame": 8,
+      "nonce": "395cc6938d929ae3",
+      "ts": 1784338340.2361295
+    },
+    {
+      "frame": 9,
+      "nonce": "c7082bd03a08b5d6",
+      "ts": 1784338348.2898939
+    },
+    {
+      "frame": 10,
+      "nonce": "6803dda85128d552",
+      "ts": 1784338354.1712122
+    },
+    {
+      "frame": 11,
+      "nonce": "40f0a24d3bac8c55",
+      "ts": 1784338362.4246173
+    },
+    {
+      "frame": 12,
+      "nonce": "61dbaf1a8b7394e2",
+      "ts": 1784338371.2146091
+    },
+    {
+      "frame": 13,
+      "nonce": "e6c24b0f6e56aada",
+      "ts": 1784338394.2045639
+    },
+    {
+      "frame": 14,
+      "nonce": "f06ace1e2f9b2d8c",
+      "ts": 1784338401.9695723
+    },
+    {
+      "frame": 15,
+      "nonce": "fb8ca28024ee60a0",
+      "ts": 1784338408.8619747
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a6cef10274900766",
+      "decision": "HOLD",
+      "reason": "just entered, local px flat at 0, higher TFs show strong uptrend context, one against-fire not enough to bail"
+    },
+    {
+      "frame": 1,
+      "nonce": "7a11a01edaf3d7c8",
+      "decision": "HOLD",
+      "reason": "trade working, px +8.0, 0% giveback, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "d59c591d69d4e8ff",
+      "decision": "HOLD",
+      "reason": "still positive +4.5, minor 12% giveback, normal pullback"
+    },
+    {
+      "frame": 3,
+      "nonce": "8ea3e6a2788bef95",
+      "decision": "HOLD",
+      "reason": "improved to +10.5, giveback only 2%, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "a1600f93eb49b754",
+      "decision": "HOLD",
+      "reason": "px +11.5, new high, low giveback 5%, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "38f3d800eee79bc0",
+      "decision": "HOLD",
+      "reason": "px +9.5, still well positive, 24% giveback is normal pullback not reversal"
+    },
+    {
+      "frame": 6,
+      "nonce": "5a4d04333771db32",
+      "decision": "HOLD",
+      "reason": "px +7.25 still solidly positive, giveback 20% within normal range"
+    },
+    {
+      "frame": 7,
+      "nonce": "dcd9d3805064b51d",
+      "decision": "HOLD",
+      "reason": "px +6.5, giveback stable ~19-20%, HA-with fire, no deterioration"
+    },
+    {
+      "frame": 8,
+      "nonce": "395cc6938d929ae3",
+      "decision": "HOLD",
+      "reason": "px +8.25, new leg giveback only 3%, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "c7082bd03a08b5d6",
+      "decision": "HOLD",
+      "reason": "px +7.25, giveback 5%, still working"
+    },
+    {
+      "frame": 10,
+      "nonce": "6803dda85128d552",
+      "decision": "HOLD",
+      "reason": "px +3.0, still positive but fading, watching closely"
+    },
+    {
+      "frame": 11,
+      "nonce": "40f0a24d3bac8c55",
+      "decision": "HOLD",
+      "reason": "px +2.75, still positive, slow decay but not broken yet"
+    },
+    {
+      "frame": 12,
+      "nonce": "61dbaf1a8b7394e2",
+      "decision": "HOLD",
+      "reason": "first red print px -6.0, sharp but modest vs prior amplitude; want one more frame to confirm before bailing"
+    },
+    {
+      "frame": 13,
+      "nonce": "e6c24b0f6e56aada",
+      "decision": "HOLD",
+      "reason": "px recovered to +3.0 from -6.0, confirms prior dip was noise not breakdown"
+    },
+    {
+      "frame": 14,
+      "nonce": "f06ace1e2f9b2d8c",
+      "decision": "HOLD",
+      "reason": "px near flat -0.75, choppy but no clean breakdown signature"
+    },
+    {
+      "frame": 15,
+      "nonce": "fb8ca28024ee60a0",
+      "decision": "HOLD",
+      "reason": "px -6.0 again but oscillating in a range, 1m lambda_t_21 +2.96 still positive/trending, no confirmed breakdown"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the whole window. Entry rode a strong higher-TF (1h/4h) uptrend; price ran to +11.5pts by t=4m then chopped/pulled back in a widening range (+11.5 -> -6.0 -> +3.0 -> -0.75 -> -6.0), but every dip either stayed shallow relative to the leg amplitude or recovered on the next frame, and 1m/5m lambda_t stayed intermittently positive rather than showing a persistent accelerating down-trend. Never saw the signature I'd call wrong-direction (sustained negative z_21 + negative lambda_t across 1m/5m/15m simultaneously with no bounce) so I never bailed. Next time I'd watch for that multi-TF lambda_t sign-alignment lasting 2+ consecutive frames as the actual bail trigger, rather than reacting to any single red print."
+}

@@ -1,0 +1,19 @@
+{"ts": 1784339676.3122752, "event": "serve", "frame": 0, "nonce": "7d69f84fa480a10b"}
+{"ts": 1784339681.9127653, "event": "commit", "frame": 0, "nonce": "7d69f84fa480a10b", "decision": "HOLD", "reason": "just entered, px flat at 0, no adverse move yet"}
+{"ts": 1784339684.4364595, "event": "serve", "frame": 1, "nonce": "22a46415a450f626"}
+{"ts": 1784339688.6667666, "event": "commit", "frame": 1, "nonce": "22a46415a450f626", "decision": "HOLD", "reason": "small -4pt dip, giveback only 8%, within normal noise"}
+{"ts": 1784339691.600503, "event": "serve", "frame": 2, "nonce": "0939a13b7f59c31e"}
+{"ts": 1784339694.7713885, "event": "commit", "frame": 2, "nonce": "0939a13b7f59c31e", "decision": "HOLD", "reason": "px recovered to +3, giveback down to 2%, thesis intact"}
+{"ts": 1784339696.9783313, "event": "serve", "frame": 3, "nonce": "a5dfd9e44404802b"}
+{"ts": 1784339700.880717, "event": "commit", "frame": 3, "nonce": "a5dfd9e44404802b", "decision": "HOLD", "reason": "strong favorable move +19.5pts, giveback 0%, thesis working well"}
+{"ts": 1784339703.0290768, "event": "serve", "frame": 4, "nonce": "a08d95941dffb5ed"}
+{"ts": 1784339706.0714984, "event": "commit", "frame": 4, "nonce": "a08d95941dffb5ed", "decision": "HOLD", "reason": "still +20pts, thesis intact, minor giveback normal"}
+{"ts": 1784339708.201842, "event": "serve", "frame": 5, "nonce": "97c546598d910a17"}
+{"ts": 1784339711.4167666, "event": "commit", "frame": 5, "nonce": "97c546598d910a17", "decision": "HOLD", "reason": "+40.25pts, giveback 0%, ER10 0.89, thesis strongly intact"}
+{"ts": 1784339713.898331, "event": "serve", "frame": 6, "nonce": "82978fa2cdc60fa1"}
+{"ts": 1784339719.6837306, "event": "commit", "frame": 6, "nonce": "82978fa2cdc60fa1", "decision": "HOLD", "reason": "+28.5pts, small pullback from peak but still strongly favorable, giveback only 5%"}
+{"ts": 1784339722.0014648, "event": "serve", "frame": 7, "nonce": "245f5c9a7eef55a7"}
+{"ts": 1784339728.7896109, "event": "commit", "frame": 7, "nonce": "245f5c9a7eef55a7", "decision": "HOLD", "reason": "pulled back hard from peak (giveback 30%) but still +4.5pts favorable, not wrong-direction yet -- watching closely"}
+{"ts": 1784339730.9059215, "event": "serve", "frame": 8, "nonce": "95066aecc9763a4e"}
+{"ts": 1784339752.6451, "event": "commit", "frame": 8, "nonce": "95066aecc9763a4e", "decision": "EXIT", "reason": "round-tripped from +40 peak to -12.25, 40% giveback, ER10 collapsed to 0.19 (no trend), HA-against fired -- thesis breaking down, bail"}
+{"ts": 1784339758.8044457, "event": "finish", "summary": "Held through an early -4pt dip and a strong favorable run to +40pts (giveback 0%, ER10 0.89), which looked like the thesis working. Bailed at frame 8 (t=8m) when price fully round-tripped back through breakeven to -12.25pts, giveback hit 40%, and ER10 collapsed to 0.19 with HA-against firing -- that combination (full retrace of a large favorable excursion plus collapsing trend efficiency) read as a genuine reversal, not a normal dip. Next time: watch giveback-from-peak and ER10 together as the pair that separates a real pullback from a round-trip reversal, rather than reacting to raw px sign alone.", "exit_frame": 8, "n_commits": 9}

@@ -1,0 +1,133 @@
+{
+  "episode_id": "2025_01_03_1735915125_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "bc27a2b4cc35cefa",
+      "ts": 1784336458.0152564
+    },
+    {
+      "frame": 1,
+      "nonce": "61d151af2233765c",
+      "ts": 1784336465.7782147
+    },
+    {
+      "frame": 2,
+      "nonce": "5f3f62a061afd5ae",
+      "ts": 1784336472.5077462
+    },
+    {
+      "frame": 3,
+      "nonce": "325dd72a2844e84f",
+      "ts": 1784336477.9992707
+    },
+    {
+      "frame": 4,
+      "nonce": "fabe74c3b9a16c86",
+      "ts": 1784336483.9136581
+    },
+    {
+      "frame": 5,
+      "nonce": "f113b967701186ce",
+      "ts": 1784336489.7456064
+    },
+    {
+      "frame": 6,
+      "nonce": "01aa1d1bd9a4f2f2",
+      "ts": 1784336495.2794826
+    },
+    {
+      "frame": 7,
+      "nonce": "af7abbf0fe03864d",
+      "ts": 1784336501.1126344
+    },
+    {
+      "frame": 8,
+      "nonce": "a7eb37e6be18008b",
+      "ts": 1784336506.8463147
+    },
+    {
+      "frame": 9,
+      "nonce": "dcad6f627b963025",
+      "ts": 1784336512.2215047
+    },
+    {
+      "frame": 10,
+      "nonce": "171467212712a92b",
+      "ts": 1784336524.8944192
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "bc27a2b4cc35cefa",
+      "decision": "HOLD",
+      "reason": "at entry, px flat, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "61d151af2233765c",
+      "decision": "HOLD",
+      "reason": "px +41.5, strong upward momentum, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "5f3f62a061afd5ae",
+      "decision": "HOLD",
+      "reason": "px +44.5, momentum still strongly favorable"
+    },
+    {
+      "frame": 3,
+      "nonce": "325dd72a2844e84f",
+      "decision": "HOLD",
+      "reason": "px +36, small pullback from peak, giveback only 16%, thesis intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "fabe74c3b9a16c86",
+      "decision": "HOLD",
+      "reason": "px +40.5, stable giveback 14%, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "f113b967701186ce",
+      "decision": "HOLD",
+      "reason": "new high px +55, thesis still working"
+    },
+    {
+      "frame": 6,
+      "nonce": "01aa1d1bd9a4f2f2",
+      "decision": "HOLD",
+      "reason": "px +59, continued upward trend, new highs"
+    },
+    {
+      "frame": 7,
+      "nonce": "af7abbf0fe03864d",
+      "decision": "HOLD",
+      "reason": "px +55, minor pullback from +59 peak, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "a7eb37e6be18008b",
+      "decision": "HOLD",
+      "reason": "px +57, consolidating near highs, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "dcad6f627b963025",
+      "decision": "HOLD",
+      "reason": "sharp pullback +57->+18.5, all fires against, but still net positive - watching for continuation before bailing"
+    },
+    {
+      "frame": 10,
+      "nonce": "171467212712a92b",
+      "decision": "EXIT",
+      "reason": "full round-trip: +59 peak fully given back, now -13 and broke through entry; 2-frame confirmed reversal, ER10 dropped to 0.18, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Trade ran cleanly from 0 to a +59pt peak over ~7min with strong momentum across TFs. At t=9m a sharp reversal hit (all three fire signals - KMDR, HA, PROPP - flipped against) that erased most of the gain in one bar; I held one more frame to check for a dip vs. real reversal. At t=10m price broke fully through entry into negative territory (-13), a full round-trip of the entire gain with ER10 collapsing to 0.18, confirming a genuine reversal rather than noise, so I bailed. Next time: watch for the pattern of ALL fire signals flipping against simultaneously after an extended run - that combined with an efficiency-ratio collapse is a faster tell than waiting for the full round-trip through entry."
+}

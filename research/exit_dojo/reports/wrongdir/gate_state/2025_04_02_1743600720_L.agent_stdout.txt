@@ -1,0 +1,7 @@
+# exit_code=0 dt=299s
+## STDOUT
+Episode 2025_04_02_1743600720_L complete â€” held all 42 frames, no EXIT. Price ran favorable from the start, peaked around +263pts, and consolidated in a wide +150â€“260 band without ever threatening to reverse. Correctly judged as a good trade, not a wrong-direction entry.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

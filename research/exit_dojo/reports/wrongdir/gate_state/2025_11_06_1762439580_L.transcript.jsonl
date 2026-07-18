@@ -1,0 +1,19 @@
+{"ts": 1784339301.988272, "event": "serve", "frame": 0, "nonce": "47968f42feb5f963"}
+{"ts": 1784339310.3691459, "event": "commit", "frame": 0, "nonce": "47968f42feb5f963", "decision": "HOLD", "reason": "just entered, px flat, higher TFs still favorable, early noise"}
+{"ts": 1784339312.614898, "event": "serve", "frame": 1, "nonce": "4cd1891352cd92da"}
+{"ts": 1784339322.0836768, "event": "commit", "frame": 1, "nonce": "4cd1891352cd92da", "decision": "HOLD", "reason": "dip to -24.5 but 1m bar shows strong bounce off low, higher TF context still bullish"}
+{"ts": 1784339324.8915763, "event": "serve", "frame": 2, "nonce": "747323bf435067f2"}
+{"ts": 1784339335.4663355, "event": "commit", "frame": 2, "nonce": "747323bf435067f2", "decision": "HOLD", "reason": "px holding near -25, 5s/15s bars show bounce off lows (-21->-20, -13.75->-9.75), not deteriorating further"}
+{"ts": 1784339337.5910358, "event": "serve", "frame": 3, "nonce": "e30eef18de0913b3"}
+{"ts": 1784339354.6691968, "event": "commit", "frame": 3, "nonce": "e30eef18de0913b3", "decision": "HOLD", "reason": "new lows to -44.75 on 5s, deepening dip, but 5m z_se -2.28 extended = due for reversion bounce, only 12m in"}
+{"ts": 1784339358.659651, "event": "serve", "frame": 4, "nonce": "a0c4235522654c23"}
+{"ts": 1784339364.0184455, "event": "commit", "frame": 4, "nonce": "a0c4235522654c23", "decision": "HOLD", "reason": "bounce from -37 to -23, 5s bar closed near top of range (0.85), recovering off the low"}
+{"ts": 1784339366.0642478, "event": "serve", "frame": 5, "nonce": "2e1fe880842c1d95"}
+{"ts": 1784339369.9710748, "event": "commit", "frame": 5, "nonce": "2e1fe880842c1d95", "decision": "HOLD", "reason": "continued recovery to -15, giveback 20%, all fires favorable (KMDR/HA/PROPP-with)"}
+{"ts": 1784339372.4583554, "event": "serve", "frame": 6, "nonce": "803d659e509af159"}
+{"ts": 1784339380.4387305, "event": "commit", "frame": 6, "nonce": "803d659e509af159", "decision": "HOLD", "reason": "px recovered to -6, near entry, strong bounce continuing (15s clsInRng 1.00)"}
+{"ts": 1784339383.8040469, "event": "serve", "frame": 7, "nonce": "24c41997e0a95e1e"}
+{"ts": 1784339389.944143, "event": "commit", "frame": 7, "nonce": "24c41997e0a95e1e", "decision": "HOLD", "reason": "choppy oscillation not a clean trend against us, ER10 dropped to 0.11 confirming chop not directional move"}
+{"ts": 1784339392.1746395, "event": "serve", "frame": 8, "nonce": "151a45706c21fb4e"}
+{"ts": 1784339401.7074215, "event": "commit", "frame": 8, "nonce": "151a45706c21fb4e", "decision": "EXIT", "reason": "new deep low -54.25 beyond prior worst (-45.5), 96% giveback of the bounce leg, HA-against and PROPP-against both firing simultaneously -- breakdown not chop"}
+{"ts": 1784339408.9179027, "event": "finish", "summary": "Held through the first 7 minutes of choppy oscillation (px swinging between roughly -45 and -6, ER10 bouncing 0.11-0.47) because higher-TF context at entry was strongly bullish and each dip was followed by a genuine bounce with clsInRng near 1.0. Bailed at t=8m when price broke to a new deep low (-54.25) beyond the prior worst (-45.5), erasing 96% of the recovery leg, with HA-against and PROPP-against both firing simultaneously -- that combination (new extreme + multiple against-signals concurrently) read as a real breakdown rather than another chop cycle. Next time: watch for the leg-amp making a new high AND giveback exceeding ~90% AND 2+ against-fires stacking in the same frame as the trigger to bail, since single against-fires alone (seen earlier at t=3m, t=7m) didn't confirm a breakdown.", "exit_frame": 8, "n_commits": 9}

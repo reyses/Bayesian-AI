@@ -1,0 +1,15 @@
+{"ts": 1784338668.24524, "event": "serve", "frame": 0, "nonce": "a73d39f815a4a5fa"}
+{"ts": 1784338676.359644, "event": "commit", "frame": 0, "nonce": "a73d39f815a4a5fa", "decision": "HOLD", "reason": "frame 0, still at entry (px 0.00), no adverse move yet"}
+{"ts": 1784338678.85376, "event": "serve", "frame": 1, "nonce": "fc902f759125d5fa"}
+{"ts": 1784338683.0415134, "event": "commit", "frame": 1, "nonce": "fc902f759125d5fa", "decision": "HOLD", "reason": "small dip -2.5pts, 1m bar still strongly positive body +16, thesis intact"}
+{"ts": 1784338685.850255, "event": "serve", "frame": 2, "nonce": "8aafe9fdf3693972"}
+{"ts": 1784338689.375806, "event": "commit", "frame": 2, "nonce": "8aafe9fdf3693972", "decision": "HOLD", "reason": "strongly working, px +32pts, giveback only 2%, PROPP-with"}
+{"ts": 1784338691.780191, "event": "serve", "frame": 3, "nonce": "30f835bb4328dcfb"}
+{"ts": 1784338695.5684905, "event": "commit", "frame": 3, "nonce": "30f835bb4328dcfb", "decision": "HOLD", "reason": "still +24.75pts, minor pullback (giveback 11%), thesis intact"}
+{"ts": 1784338697.8278098, "event": "serve", "frame": 4, "nonce": "e3ab5889b5420439"}
+{"ts": 1784338706.9108768, "event": "commit", "frame": 4, "nonce": "e3ab5889b5420439", "decision": "HOLD", "reason": "pulled back to -3.5pts after +32 peak (40% giveback), both against fires but could be shakeout, watching next bar"}
+{"ts": 1784338710.659244, "event": "serve", "frame": 5, "nonce": "cb2669f1f2e1dc83"}
+{"ts": 1784338723.5731215, "event": "commit", "frame": 5, "nonce": "cb2669f1f2e1dc83", "decision": "HOLD", "reason": "deepening to -11.75, closes near lows, ER10 falling to 0.24 -- watching closely, one more bar to confirm before bailing"}
+{"ts": 1784338725.8275905, "event": "serve", "frame": 6, "nonce": "33af7bac74d3e261"}
+{"ts": 1784338733.145343, "event": "commit", "frame": 6, "nonce": "33af7bac74d3e261", "decision": "EXIT", "reason": "3 consecutive bars closing near lows, round-tripped +32 to -29.5 in 4min, momentum firmly against -- wrong direction, bailing"}
+{"ts": 1784338738.9478846, "event": "finish", "summary": "Entry rallied cleanly to +32pts by t=2m (giveback near 0%), but then reversed hard: by t=6m price had round-tripped through breakeven to -29.5pts across three consecutive bars each closing near their session lows (clsInRng 0.04-0.11), with ER10 collapsing to 0.01 and against-direction fires (CLIMAX-against, HA-against) stacking. That sustained multi-bar continuation with deteriorating efficiency, not a one-bar dip, was the signature that told me the entry thesis had flipped, so I bailed at -29.5pts. Next time I'd watch for the same pattern earlier: 2+ consecutive closes near bar lows plus falling ER10 right after a peak is a decent early tell, though I likely held one bar longer than necessary waiting for confirmation.", "exit_frame": 6, "n_commits": 7}

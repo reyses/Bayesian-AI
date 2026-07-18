@@ -1,0 +1,7 @@
+# exit_code=0 dt=143s
+## STDOUT
+Episode closed. Held HOLD through the favorable run (0 â†’ +27.5pts by t=8m), then EXIT at t=11m when price fully round-tripped to -1.00pts â€” a failed bounce with three consecutive against-fires (CLIMAX/HA/PROPP) and ER10 collapsing to 0.15, signaling broken trend structure rather than a normal dip.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

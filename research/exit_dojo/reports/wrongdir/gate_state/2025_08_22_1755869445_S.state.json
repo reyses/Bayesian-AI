@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_08_22_1755869445_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0b953626f960e8da",
+      "ts": 1784338592.7635305
+    },
+    {
+      "frame": 1,
+      "nonce": "f0ac56945ba3ac93",
+      "ts": 1784338605.1329846
+    },
+    {
+      "frame": 2,
+      "nonce": "d50c64763b349dc5",
+      "ts": 1784338614.9699385
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0b953626f960e8da",
+      "decision": "HOLD",
+      "reason": "fresh entry, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "f0ac56945ba3ac93",
+      "decision": "HOLD",
+      "reason": "early dip -9.25pts at 2m, mixed fires, thesis not yet invalidated"
+    },
+    {
+      "frame": 2,
+      "nonce": "d50c64763b349dc5",
+      "decision": "EXIT",
+      "reason": "px worsening monotonically 0 -> -9.25 -> -24.50pts over 3min, majority fires flipped against (KMDR/CLIMAX/PROPP-against vs single HA-with), bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Bailed at t=2m/frame 2 after price moved against the short monotonically (0 -> -9.25 -> -24.50pts) over three consecutive frames with accelerating loss and the fire-signature flipping majority-against (KMDR-against, CLIMAX-against, PROPP-against vs. only one HA-with). No sign of the dip resolving back toward entry, and the 1m bar showed a strong adverse body against the leg. Next time I'd watch for the fire-signature flip (with->against majority) as the earliest tell, combined with two consecutive frames of worsening px, rather than waiting for a third confirming frame -- could bail one frame earlier."
+}

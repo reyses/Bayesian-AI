@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_04_17_1744896600_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "55ea47556ddde961",
+      "ts": 1784337596.8069108
+    },
+    {
+      "frame": 1,
+      "nonce": "9636a90ad10bc463",
+      "ts": 1784337607.7845197
+    },
+    {
+      "frame": 2,
+      "nonce": "a9485ec690c3f887",
+      "ts": 1784337625.4817505
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "55ea47556ddde961",
+      "decision": "HOLD",
+      "reason": "Long entry, short-TF closes positive (5s+2.75, 15s+5.75, 5m+40.25), thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "9636a90ad10bc463",
+      "decision": "HOLD",
+      "reason": "Sharp pullback to -20.75 but only 1m in; 1m/5m closes still near flat/slightly positive, watching for continuation before bailing"
+    },
+    {
+      "frame": 2,
+      "nonce": "a9485ec690c3f887",
+      "decision": "EXIT",
+      "reason": "Drawdown accelerating: +2.75->-20.75->-51.25 in 2min, z_21/z_se deeply negative across 1m/15s, vol accelerating on the down move, PROPP-with fire confirms continuation against us -- bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Long entry started fine (+2.75 at t=0) but accelerated against us: -20.75 at 1m, -51.25 at 2m -- the drawdown was widening, not stabilizing. Deeply negative z_21/z_se_30 across 1m and 15s, rising vol on the down bars, and a PROPP-with(continuation) fire all pointed to a genuine wrong-direction move rather than a dip-and-recover. Bailed at frame 2 (-51.25pts). Next time: watch for the pace of drawdown widening (accelerating vs decelerating) as the key tell, not just the raw magnitude."
+}

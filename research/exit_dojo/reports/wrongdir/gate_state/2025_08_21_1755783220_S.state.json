@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_08_21_1755783220_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f0bbf29fdbe62462",
+      "ts": 1784344674.3867338
+    },
+    {
+      "frame": 1,
+      "nonce": "f179f1abb55c0262",
+      "ts": 1784344687.6053143
+    },
+    {
+      "frame": 2,
+      "nonce": "32e3a865d75470ee",
+      "ts": 1784344694.0966005
+    },
+    {
+      "frame": 3,
+      "nonce": "06fe6bba955f703f",
+      "ts": 1784344699.9771252
+    },
+    {
+      "frame": 4,
+      "nonce": "4b7f8e4891906ad5",
+      "ts": 1784344708.6915922
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f0bbf29fdbe62462",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry after early favorable leg gave back; too early to call wrong-direction, thesis not disproven yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "f179f1abb55c0262",
+      "decision": "HOLD",
+      "reason": "px recovered to +5.00, giveback improved 117%->57%, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "32e3a865d75470ee",
+      "decision": "HOLD",
+      "reason": "px +25.50, giveback down to 16%, thesis strongly working"
+    },
+    {
+      "frame": 3,
+      "nonce": "06fe6bba955f703f",
+      "decision": "HOLD",
+      "reason": "sharp giveback to -2.75 but still near breakeven, KMDR/HA fires still with-trend; one dip after a strong leg isn't wrong-direction yet"
+    },
+    {
+      "frame": 4,
+      "nonce": "4b7f8e4891906ad5",
+      "decision": "EXIT",
+      "reason": "px broke through entry to -20.75, giveback 122% (erased entire favorable leg + more), HA-against and PROPP-against both firing, ER10 collapsing to 0.05 -- wrong-direction, bail now"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Held through an early favorable spike to +25.5pts that then reversed hard, fully erasing the gain (giveback 122%, px -20.75). Bailed at t=4m when the reversal broke past entry with HA-against and PROPP-against both firing and ER10 collapsing to 0.05, signaling the move had lost trend efficiency rather than just dipping. Next time: watch for giveback crossing ~100% combined with against-thesis fires clustering together as the trigger, not just a single red print."
+}

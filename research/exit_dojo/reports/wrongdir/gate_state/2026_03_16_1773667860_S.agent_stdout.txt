@@ -1,0 +1,8 @@
+# exit_code=0 dt=216s
+## STDOUT
+Episode closed: HOLD â†’ HOLD â†’ EXIT at frame 2 (t=2m). Bailed once price worsened two consecutive frames (-14.5 â†’ -21.25 pts) with giveback climbing past 100% (109% â†’ 135%), signaling the entry's favorable leg had been fully erased and the move was continuing against the position rather than dipping and recovering.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

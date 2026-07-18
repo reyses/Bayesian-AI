@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_01_13_1736778720_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "3b9616ed7aea0104",
+      "ts": 1784340953.578668
+    },
+    {
+      "frame": 1,
+      "nonce": "1dc17d5e9a8e50a7",
+      "ts": 1784340961.1685655
+    },
+    {
+      "frame": 2,
+      "nonce": "bc19a2a5c6f1ec2d",
+      "ts": 1784340969.7194922
+    },
+    {
+      "frame": 3,
+      "nonce": "8d81d04f4cc79db8",
+      "ts": 1784340975.8218658
+    },
+    {
+      "frame": 4,
+      "nonce": "534452a5477502bd",
+      "ts": 1784340983.0759153
+    },
+    {
+      "frame": 5,
+      "nonce": "b636839ea31b642c",
+      "ts": 1784340989.6183436
+    },
+    {
+      "frame": 6,
+      "nonce": "964f7daefd5cc6ec",
+      "ts": 1784340995.388162
+    },
+    {
+      "frame": 7,
+      "nonce": "348df296157611ca",
+      "ts": 1784341001.7114658
+    },
+    {
+      "frame": 8,
+      "nonce": "46b6a1d40e92b3ba",
+      "ts": 1784341007.3906417
+    },
+    {
+      "frame": 9,
+      "nonce": "ce1f2bd561cf99c9",
+      "ts": 1784341013.0503347
+    },
+    {
+      "frame": 10,
+      "nonce": "2b7dc8483a166084",
+      "ts": 1784341020.4565332
+    },
+    {
+      "frame": 11,
+      "nonce": "c80913f7e0de4255",
+      "ts": 1784341026.0179076
+    },
+    {
+      "frame": 12,
+      "nonce": "458250fbd57cd05d",
+      "ts": 1784341032.4164877
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "3b9616ed7aea0104",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "1dc17d5e9a8e50a7",
+      "decision": "HOLD",
+      "reason": "px +27.5, working nicely, PROPP-with fired"
+    },
+    {
+      "frame": 2,
+      "nonce": "bc19a2a5c6f1ec2d",
+      "decision": "HOLD",
+      "reason": "px +20.5, minor giveback from peak, still working"
+    },
+    {
+      "frame": 3,
+      "nonce": "8d81d04f4cc79db8",
+      "decision": "HOLD",
+      "reason": "still +13.5 but giveback rising to 33%, PROPP flipped against - watching closely"
+    },
+    {
+      "frame": 4,
+      "nonce": "534452a5477502bd",
+      "decision": "HOLD",
+      "reason": "px +35.25, new leg high, giveback reset to 0%, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "b636839ea31b642c",
+      "decision": "HOLD",
+      "reason": "px +64, strong continuation, new leg high, giveback 0%"
+    },
+    {
+      "frame": 6,
+      "nonce": "964f7daefd5cc6ec",
+      "decision": "HOLD",
+      "reason": "px +61.5, minor giveback off new leg high 89pts, trend intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "348df296157611ca",
+      "decision": "HOLD",
+      "reason": "px +56.75, giveback 11%, still consolidating high, thesis intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "46b6a1d40e92b3ba",
+      "decision": "HOLD",
+      "reason": "px +67.75, near leg high, giveback 19% normal chop, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "ce1f2bd561cf99c9",
+      "decision": "HOLD",
+      "reason": "px +56.5, normal pullback within large favorable move, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "2b7dc8483a166084",
+      "decision": "HOLD",
+      "reason": "px +76.25, new leg high, strongly favorable"
+    },
+    {
+      "frame": 11,
+      "nonce": "c80913f7e0de4255",
+      "decision": "HOLD",
+      "reason": "px +60.25, choppy but deep in profit, no reversal signal"
+    },
+    {
+      "frame": 12,
+      "nonce": "458250fbd57cd05d",
+      "decision": "EXIT",
+      "reason": "px collapsed +76->+5.75 in 3min, 92% giveback of peak, KMDR/HA/PROPP all against - thesis broken, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Trade worked strongly for ~11 minutes, extending favorably from +27 up to a peak of +81pts with repeated new leg highs and low giveback -- clear thesis-intact holds throughout. At t=12m the trade violently reversed: local price collapsed from the +81 peak to +5.75 (92% giveback) over a sustained 3-minute adverse leg, not a single-bar wick, with KMDR, HA, and PROPP fire signals all flipping against simultaneously. That combination of magnitude, duration, and signal-stacking read as thesis failure rather than a normal dip, so I bailed. Next time I'd watch for giveback crossing roughly 50-60% of a leg's peak amplitude sustained over multiple minutes (vs the 10-30% noise seen earlier) as the earlier trigger, rather than waiting for it to approach 90%."
+}

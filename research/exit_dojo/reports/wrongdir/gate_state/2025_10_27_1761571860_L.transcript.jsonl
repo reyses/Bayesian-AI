@@ -1,0 +1,11 @@
+{"ts": 1784363715.7552607, "event": "serve", "frame": 0, "nonce": "5e4c95650129b94c"}
+{"ts": 1784363724.2233632, "event": "commit", "frame": 0, "nonce": "5e4c95650129b94c", "decision": "HOLD", "reason": "entry frame, px flat at 0, too early to judge"}
+{"ts": 1784363726.765017, "event": "serve", "frame": 1, "nonce": "13f499df7716d9ba"}
+{"ts": 1784363731.3793876, "event": "commit", "frame": 1, "nonce": "13f499df7716d9ba", "decision": "HOLD", "reason": "small -4.25 dip, 1m bar shows strong bounce off lows, thesis intact"}
+{"ts": 1784363735.504535, "event": "serve", "frame": 2, "nonce": "77b0185251c01078"}
+{"ts": 1784363740.3134785, "event": "commit", "frame": 2, "nonce": "77b0185251c01078", "decision": "HOLD", "reason": "still small dip -6.25, new leg just started giveback 0%, mixed fires"}
+{"ts": 1784363742.5879838, "event": "serve", "frame": 3, "nonce": "9cb2d77514712369"}
+{"ts": 1784363747.1744215, "event": "commit", "frame": 3, "nonce": "9cb2d77514712369", "decision": "HOLD", "reason": "px -6.5, giveback only 5% of 33pt leg amplitude, still noise"}
+{"ts": 1784363749.6152515, "event": "serve", "frame": 4, "nonce": "02c8d7f300f54c84"}
+{"ts": 1784363757.2034683, "event": "commit", "frame": 4, "nonce": "02c8d7f300f54c84", "decision": "EXIT", "reason": "sharp break to -39.5pts in 1min, giveback 77%, all fires flipped against (HA/CLIMAX/PROPP), no with-signals left"}
+{"ts": 1784363763.109534, "event": "finish", "summary": "Held through the first 3 minutes of small dips (giveback 0-5% of a stable ~23-33pt leg amplitude, mixed with/against fires) since those looked like normal noise on a fresh entry. Bailed at t=4m when price broke sharply from -6.5 to -39.5pts in one bar, giveback jumped to 77%, and every recent fire (HA, CLIMAX, PROPP) flipped to against with no supporting signal left -- that combination (large 1-bar acceleration against + fire-consensus flip + giveback>>50%) is what read as wrong-direction rather than a dip. Next time watch for the fire-consensus flip earlier and treat velocity/accel spikes on the 5s/1m bars as the leading tell before giveback%% catches up.", "exit_frame": 4, "n_commits": 5}

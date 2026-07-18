@@ -1,0 +1,33 @@
+{"ts": 1784339962.7089615, "event": "serve", "frame": 0, "nonce": "336d23350f40c348"}
+{"ts": 1784339969.0879762, "event": "commit", "frame": 0, "nonce": "336d23350f40c348", "decision": "HOLD", "reason": "frame 0 at entry, no adverse move yet, thesis intact"}
+{"ts": 1784339971.5520625, "event": "serve", "frame": 1, "nonce": "88f3293e529fbe07"}
+{"ts": 1784339975.5403879, "event": "commit", "frame": 1, "nonce": "88f3293e529fbe07", "decision": "HOLD", "reason": "+43.5pts, all TFs green, momentum with trade, PROPP-with fire"}
+{"ts": 1784339978.0180776, "event": "serve", "frame": 2, "nonce": "6447140e7a9864f2"}
+{"ts": 1784339985.1045306, "event": "commit", "frame": 2, "nonce": "6447140e7a9864f2", "decision": "HOLD", "reason": "pullback from +43.5 to +13.25 (42% giveback) but still positive, 1m bar still strongly green, normal consolidation after impulsive move"}
+{"ts": 1784339987.504857, "event": "serve", "frame": 3, "nonce": "e51cde4ad29007ff"}
+{"ts": 1784339993.4208, "event": "commit", "frame": 3, "nonce": "e51cde4ad29007ff", "decision": "HOLD", "reason": "still +9.75 above entry though giveback now 77% and ER10 dropping; not negative yet, watching closely"}
+{"ts": 1784339995.5542278, "event": "serve", "frame": 4, "nonce": "dca78c724c394c64"}
+{"ts": 1784339999.7951655, "event": "commit", "frame": 4, "nonce": "dca78c724c394c64", "decision": "HOLD", "reason": "recovered to +22.75, giveback improved to 39%, 5s bar strong green, PROPP-with fire"}
+{"ts": 1784340002.0273788, "event": "serve", "frame": 5, "nonce": "84bbf8f0ee8092b8"}
+{"ts": 1784340007.6565125, "event": "commit", "frame": 5, "nonce": "84bbf8f0ee8092b8", "decision": "HOLD", "reason": "+16.5pts, new leg started giveback down to 16%, HA-with and PROPP-with fires, thesis intact"}
+{"ts": 1784340009.6716948, "event": "serve", "frame": 6, "nonce": "43d4cc34be656745"}
+{"ts": 1784340013.3083608, "event": "commit", "frame": 6, "nonce": "43d4cc34be656745", "decision": "HOLD", "reason": "+23.5pts, 5m TF lambda positive across windows, PROPP-with fire, thesis intact"}
+{"ts": 1784340015.6022205, "event": "serve", "frame": 7, "nonce": "7de57ac99e8aacef"}
+{"ts": 1784340018.9163787, "event": "commit", "frame": 7, "nonce": "7de57ac99e8aacef", "decision": "HOLD", "reason": "+29.25pts, new local high, HA-with fire, thesis intact"}
+{"ts": 1784340021.1756809, "event": "serve", "frame": 8, "nonce": "d6023bfd3debfa4e"}
+{"ts": 1784340026.5908985, "event": "commit", "frame": 8, "nonce": "d6023bfd3debfa4e", "decision": "HOLD", "reason": "+15.75pts, still within normal oscillation band this trade has shown all episode, no structural break"}
+{"ts": 1784340028.8892183, "event": "serve", "frame": 9, "nonce": "0bae8c6f0661078d"}
+{"ts": 1784340032.529167, "event": "commit", "frame": 9, "nonce": "0bae8c6f0661078d", "decision": "HOLD", "reason": "+32.5pts new local high, PROPP-with fire, thesis intact"}
+{"ts": 1784340034.592671, "event": "serve", "frame": 10, "nonce": "29c322250409590b"}
+{"ts": 1784340037.836379, "event": "commit", "frame": 10, "nonce": "29c322250409590b", "decision": "HOLD", "reason": "+19pts, HA-with and PROPP-with fires confirm trend, giveback only 25%"}
+{"ts": 1784340040.0405777, "event": "serve", "frame": 11, "nonce": "39d28b72eb6ddf82"}
+{"ts": 1784340045.9975731, "event": "commit", "frame": 11, "nonce": "39d28b72eb6ddf82", "decision": "HOLD", "reason": "faded to +4.75 but still positive, 5m lambda strongly positive (t=4.3) macro trend intact despite short-TF against fires"}
+{"ts": 1784340048.260584, "event": "serve", "frame": 12, "nonce": "d6abdc1bb799d898"}
+{"ts": 1784340058.8736544, "event": "commit", "frame": 12, "nonce": "d6abdc1bb799d898", "decision": "HOLD", "reason": "round-tripped back to breakeven (+0.00) after peaking +32, concerning but not negative yet, watching for confirmed break below zero"}
+{"ts": 1784340061.7512696, "event": "serve", "frame": 13, "nonce": "22a41f0b72ad363d"}
+{"ts": 1784340076.3183434, "event": "commit", "frame": 13, "nonce": "22a41f0b72ad363d", "decision": "HOLD", "reason": "first negative print -2.75 after round-trip from +32, small magnitude, but 1m momentum has gone flat/negative unlike prior dips - watching next frame closely for confirmation"}
+{"ts": 1784340078.6303093, "event": "serve", "frame": 14, "nonce": "3e1288586cd4891a"}
+{"ts": 1784340089.6865668, "event": "commit", "frame": 14, "nonce": "3e1288586cd4891a", "decision": "HOLD", "reason": "-4.50pts, still small vs 43.5pt amplitude seen earlier, 1m lambda ticking positive again (bounce attempt), not a decisive breakdown yet"}
+{"ts": 1784340091.901994, "event": "serve", "frame": 15, "nonce": "dc5f8688a195e92a"}
+{"ts": 1784340098.56112, "event": "commit", "frame": 15, "nonce": "dc5f8688a195e92a", "decision": "EXIT", "reason": "decisive break to -15pts, new down-leg with 37pt amplitude, past the noise band that held all episode - bailing"}
+{"ts": 1784340103.9129696, "event": "finish", "summary": "Held through the first ~14 minutes of a choppy but net-positive long that repeatedly oscillated 0 to +40pts and always recovered, since higher-TF lambda stayed positive through every dip. Bailed at t=15m when price broke to -15pts on a fresh down-leg with 37pts amplitude, decisively past the noise band the trade had respected all episode, with 1m z_se deeply negative and no supporting higher-TF lambda left. Next time: watch for the round-trip-to-breakeven (t=12m, giveback>150%) as the earlier warning that higher-TF momentum had evaporated, rather than waiting for the second leg down to confirm.", "exit_frame": 15, "n_commits": 16}

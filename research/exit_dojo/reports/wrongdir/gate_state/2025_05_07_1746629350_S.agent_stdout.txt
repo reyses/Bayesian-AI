@@ -1,0 +1,7 @@
+# exit_code=0 dt=392s
+## STDOUT
+Episode 2025_05_07_1746629350_S complete: held all 58 frames (59 commits total), never exited. The SHORT entry dipped to -11.5pts briefly at t=0-1m, then ran favorable to a peak of +130pts by t=25m, and spent the rest of the episode chopping in a wide +75 to +130pt favorable band â€” never showing a genuine wrong-direction signature. Correct call was HOLD throughout.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.

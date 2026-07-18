@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_10_20_1760967000_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "a9f334fd36c26f19",
+      "ts": 1784339085.5831168
+    },
+    {
+      "frame": 1,
+      "nonce": "3af8fa645651a5da",
+      "ts": 1784339094.7660613
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "a9f334fd36c26f19",
+      "decision": "HOLD",
+      "reason": "Just entered, local px flat at 0, no adverse structure yet, giveback 0%"
+    },
+    {
+      "frame": 1,
+      "nonce": "3af8fa645651a5da",
+      "decision": "EXIT",
+      "reason": "Sharp 46.75pt adverse move in 1min, giveback 165% of leg amp, 3 against-fires (CLIMAX/HA/PROPP) vs 1 with -- thesis broken, bail"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Bailed at t=1m: local px swung from +0.00 to -46.75pts against the short in a single minute, giveback 165% of the leg's 33pt favorable amplitude, and 3 of 4 recent fires (CLIMAX-against, HA-against, PROPP-against) were against the position vs only 1 with. That combination -- large magnitude reversal plus multi-signal against-consensus this early -- read as thesis-broken rather than a normal dip, so I cut before it compounded. Next time I'd also want to see whether lambda_hat/t-stats on the 1m/5m TFs were confirming trend persistence against me (they were weak/mixed here), and would weight the fire-consensus count more than any single TF's z-score."
+}

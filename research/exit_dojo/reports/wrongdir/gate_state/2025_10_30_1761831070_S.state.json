@@ -1,0 +1,221 @@
+{
+  "episode_id": "2025_10_30_1761831070_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "82cb41b4ac87cb5b",
+      "ts": 1784339134.569792
+    },
+    {
+      "frame": 1,
+      "nonce": "d14c36cd38427ea0",
+      "ts": 1784339150.637407
+    },
+    {
+      "frame": 2,
+      "nonce": "c5219b22ebb42edc",
+      "ts": 1784339161.9084702
+    },
+    {
+      "frame": 3,
+      "nonce": "1ca09a1f627dd475",
+      "ts": 1784339168.494276
+    },
+    {
+      "frame": 4,
+      "nonce": "ae8428a4dec195bf",
+      "ts": 1784339173.6210988
+    },
+    {
+      "frame": 5,
+      "nonce": "5a01ecd6128f7074",
+      "ts": 1784339180.6784382
+    },
+    {
+      "frame": 6,
+      "nonce": "70a2298f9f316993",
+      "ts": 1784339188.4531927
+    },
+    {
+      "frame": 7,
+      "nonce": "74d62fd1b8500e5e",
+      "ts": 1784339194.4446497
+    },
+    {
+      "frame": 8,
+      "nonce": "7d31ecadb7186b51",
+      "ts": 1784339201.0942025
+    },
+    {
+      "frame": 9,
+      "nonce": "576275f067f41f21",
+      "ts": 1784339206.7187996
+    },
+    {
+      "frame": 10,
+      "nonce": "266268aa561d87fa",
+      "ts": 1784339212.2881136
+    },
+    {
+      "frame": 11,
+      "nonce": "b1647056702d339c",
+      "ts": 1784339218.168369
+    },
+    {
+      "frame": 12,
+      "nonce": "68afd6a84114411d",
+      "ts": 1784339224.4986217
+    },
+    {
+      "frame": 13,
+      "nonce": "a22506dbda83b94f",
+      "ts": 1784339231.806306
+    },
+    {
+      "frame": 14,
+      "nonce": "025fde140bc241fb",
+      "ts": 1784339238.1471658
+    },
+    {
+      "frame": 15,
+      "nonce": "772ee4e0b1545b28",
+      "ts": 1784339244.1035125
+    },
+    {
+      "frame": 16,
+      "nonce": "358aa5ae638a5a49",
+      "ts": 1784339251.1763306
+    },
+    {
+      "frame": 17,
+      "nonce": "6d070e36560605ed",
+      "ts": 1784339257.3370852
+    },
+    {
+      "frame": 18,
+      "nonce": "22200f382a8955b0",
+      "ts": 1784339271.8444622
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "82cb41b4ac87cb5b",
+      "decision": "HOLD",
+      "reason": "Entry frame, price at breakeven, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "d14c36cd38427ea0",
+      "decision": "HOLD",
+      "reason": "Adverse -9pts but only 9m in, one against-fire (CLIMAX), still within normal dip range"
+    },
+    {
+      "frame": 2,
+      "nonce": "c5219b22ebb42edc",
+      "decision": "HOLD",
+      "reason": "Recovered to +8pts, amplitude grew to 50pts giveback only 1% - thesis working"
+    },
+    {
+      "frame": 3,
+      "nonce": "1ca09a1f627dd475",
+      "decision": "HOLD",
+      "reason": "Working well, +11.75pts, amplitude expanding to 63.5pts, giveback only 11%"
+    },
+    {
+      "frame": 4,
+      "nonce": "ae8428a4dec195bf",
+      "decision": "HOLD",
+      "reason": "Strongly favorable +46.5pts, giveback 0%, thesis clearly working"
+    },
+    {
+      "frame": 5,
+      "nonce": "5a01ecd6128f7074",
+      "decision": "HOLD",
+      "reason": "Very strong, +57.75pts amp 100pts giveback 0%, no against fires"
+    },
+    {
+      "frame": 6,
+      "nonce": "70a2298f9f316993",
+      "decision": "HOLD",
+      "reason": "+90.75pts, amp 136.5pts, giveback low 4%, trend accelerating in our favor"
+    },
+    {
+      "frame": 7,
+      "nonce": "74d62fd1b8500e5e",
+      "decision": "HOLD",
+      "reason": "+102.5pts, giveback still 4%, one against-fire but price action still strongly favorable"
+    },
+    {
+      "frame": 8,
+      "nonce": "7d31ecadb7186b51",
+      "decision": "HOLD",
+      "reason": "+118.25pts, giveback 2%, still healthy uptrend for the short"
+    },
+    {
+      "frame": 9,
+      "nonce": "576275f067f41f21",
+      "decision": "HOLD",
+      "reason": "+117pts holding steady, giveback 4%, still strongly favorable"
+    },
+    {
+      "frame": 10,
+      "nonce": "266268aa561d87fa",
+      "decision": "HOLD",
+      "reason": "+109.25pts, minor pullback from peak (giveback 11%), still deeply favorable"
+    },
+    {
+      "frame": 11,
+      "nonce": "b1647056702d339c",
+      "decision": "HOLD",
+      "reason": "+113.25pts, giveback 7%, thesis intact"
+    },
+    {
+      "frame": 12,
+      "nonce": "68afd6a84114411d",
+      "decision": "HOLD",
+      "reason": "Pullback to +94.5pts (giveback 22%) but still deeply favorable overall; two against-fires but not yet a trend reversal"
+    },
+    {
+      "frame": 13,
+      "nonce": "a22506dbda83b94f",
+      "decision": "HOLD",
+      "reason": "Back to +118.25pts near peak, still deeply favorable"
+    },
+    {
+      "frame": 14,
+      "nonce": "025fde140bc241fb",
+      "decision": "HOLD",
+      "reason": "+92.25pts still deeply favorable, normal chop within a big winning move"
+    },
+    {
+      "frame": 15,
+      "nonce": "772ee4e0b1545b28",
+      "decision": "HOLD",
+      "reason": "Pulled back to +68.5pts from ~118 peak but still solidly favorable, watching for further erosion"
+    },
+    {
+      "frame": 16,
+      "nonce": "358aa5ae638a5a49",
+      "decision": "HOLD",
+      "reason": "+50.75pts still net favorable, PROPP fire now supports the position"
+    },
+    {
+      "frame": 17,
+      "nonce": "6d070e36560605ed",
+      "decision": "HOLD",
+      "reason": "+35.5pts, steady erosion from peak but still net favorable, watching closely for further decay"
+    },
+    {
+      "frame": 18,
+      "nonce": "22200f382a8955b0",
+      "decision": "EXIT",
+      "reason": "Six consecutive frames of steady erosion (118->92->68->50->35->11), momentum has flipped sustainedly against the short; bailing before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 18,
+  "finished": true,
+  "summary": "Entry was strongly favorable early, peaking near +118pts by t=8m with amplitude growing to ~170pts. From t~12m onward the leg reversed into a persistent, monotonic erosion across six consecutive frames (118->92->68->50->35->11pts), a decay pattern too sustained to be normal chop, so I bailed at +11pts before it turned negative. Next time I'd watch for the transition point (t~11-12m) sooner -- multiple consecutive against-fires (HA-against, PROPP-against) plus a rising giveback% on a still-positive leg was the earliest tell that momentum had flipped, and waiting for a 6-frame confirmation gave back most of the peak gain."
+}

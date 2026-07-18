@@ -1,0 +1,89 @@
+{
+  "episode_id": "2025_04_21_1745242205_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "65e281e4d2a23beb",
+      "ts": 1784337597.1722555
+    },
+    {
+      "frame": 1,
+      "nonce": "9fa951eba5954e49",
+      "ts": 1784337606.510465
+    },
+    {
+      "frame": 2,
+      "nonce": "e3d25e3c6690205d",
+      "ts": 1784337614.9832807
+    },
+    {
+      "frame": 3,
+      "nonce": "2e204acff1397395",
+      "ts": 1784337624.0102913
+    },
+    {
+      "frame": 4,
+      "nonce": "959d33db9536708f",
+      "ts": 1784337631.061823
+    },
+    {
+      "frame": 5,
+      "nonce": "247ae44af702c4d3",
+      "ts": 1784337638.4370687
+    },
+    {
+      "frame": 6,
+      "nonce": "d2645e4d511c1f24",
+      "ts": 1784337645.6473775
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "65e281e4d2a23beb",
+      "decision": "HOLD",
+      "reason": "px flat at entry, strong prior upward momentum into entry, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "9fa951eba5954e49",
+      "decision": "HOLD",
+      "reason": "small -6pt dip, 17% giveback; underlying 1m/15s momentum still strongly positive w/ positive lambda, looks like normal pullback"
+    },
+    {
+      "frame": 2,
+      "nonce": "e3d25e3c6690205d",
+      "decision": "HOLD",
+      "reason": "-13.25pts, 24% giveback but 1m lambda_t still strongly positive (trend continuation), treating as pullback not reversal yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "2e204acff1397395",
+      "decision": "HOLD",
+      "reason": "px improved -13.25->-9.00, amp made new high 71.2, giveback eased to 17%, 1m lambda still strongly positive"
+    },
+    {
+      "frame": 4,
+      "nonce": "959d33db9536708f",
+      "decision": "HOLD",
+      "reason": "px -6.75, chopping in -6 to -13 band vs 71pt amp; 1m lambda_t_21 still +4.7, no clean reversal signal yet"
+    },
+    {
+      "frame": 5,
+      "nonce": "247ae44af702c4d3",
+      "decision": "HOLD",
+      "reason": "px -8.00, still chopping in same band; 1m/15s closes near bar highs showing bounce attempts, 1m lambda_t still positive"
+    },
+    {
+      "frame": 6,
+      "nonce": "d2645e4d511c1f24",
+      "decision": "EXIT",
+      "reason": "px cratered -8->-28 on a -30.5pt 1m body, leg reset to age 0 (new down-leg), z_21 flipped to -2.18, three indicators (KMDR/HA/PROPP) all against -- trend break, bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 6,
+  "finished": true,
+  "summary": "Held through normal chop (-6 to -13pts, giveback 17-27%) while the 1m lambda stayed strongly positive and closes kept probing back toward highs -- looked like a routine pullback within the prior strong upmove. At t=6m price cratered from -8 to -28 on a single -30.5pt 1m bar, the leg-age counter reset to 0 (signaling the up-leg had structurally ended), z_21 flipped hard negative, and three independent against-indicators (KMDR, HA, PROPP) fired together -- that convergence of a sharp break + leg reset + multi-signal agreement is what triggered the bail. Next time: watch for the leg-age reset as the key tell that a pullback has become a structural break, not just magnitude of the drawdown alone."
+}

@@ -1,0 +1,9 @@
+{"ts": 1784342723.3688846, "event": "serve", "frame": 0, "nonce": "058ac82552ad335b"}
+{"ts": 1784342728.3786867, "event": "commit", "frame": 0, "nonce": "058ac82552ad335b", "decision": "HOLD", "reason": "frame 0, entry just opened, px flat, no adverse move yet"}
+{"ts": 1784342730.6274295, "event": "serve", "frame": 1, "nonce": "e80061ba963e7683"}
+{"ts": 1784342740.615558, "event": "commit", "frame": 1, "nonce": "e80061ba963e7683", "decision": "HOLD", "reason": "1m in, -45.5pts dip but early; lambda_hat still positive multi-TF, could be normal pullback"}
+{"ts": 1784342742.8666785, "event": "serve", "frame": 2, "nonce": "c6604dfe6165f730"}
+{"ts": 1784342750.7714515, "event": "commit", "frame": 2, "nonce": "c6604dfe6165f730", "decision": "HOLD", "reason": "deep giveback 66% but lambda_hat still positive on 1m/5m (t=1.9/3.65), z stretched negative suggests reversion setup, watching closely"}
+{"ts": 1784342753.4716997, "event": "serve", "frame": 3, "nonce": "1cfdf22577a1ef2b"}
+{"ts": 1784342760.968322, "event": "commit", "frame": 3, "nonce": "1cfdf22577a1ef2b", "decision": "EXIT", "reason": "giveback hit 90% of leg amplitude, reversion_prob_30(1m) collapsed to 0.38 from 0.93+, z extended -5.8 vs high, HA+CLIMAX both against -- thesis broken, bail"}
+{"ts": 1784342765.9639144, "event": "finish", "summary": "Held through the first 2 minutes as a normal dip (lambda_hat stayed positive multi-TF, suggesting expected upward reversion). By t=3m the giveback reached 90% of the leg's favorable amplitude, the 1m reversion_prob_30 collapsed from ~0.93 to 0.38, and z_close_vs_high_30 stretched to -5.8 with both HA and CLIMAX firing against -- the reversion thesis had clearly failed, so bailed. Next time: watch reversion_prob_30 collapse and giveback crossing ~70-80% as the earlier, cleaner trigger rather than waiting for 90%.", "exit_frame": 3, "n_commits": 4}

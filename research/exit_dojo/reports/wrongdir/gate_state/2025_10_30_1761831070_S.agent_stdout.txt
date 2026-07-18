@@ -1,0 +1,8 @@
+# exit_code=0 dt=184s
+## STDOUT
+Episode closed. Summary: the short entry ran strongly favorable, peaking near +118pts around t=8m, then reversed into a sustained six-frame erosion (118â†’92â†’68â†’50â†’35â†’11) starting around t=12m. I bailed at +11pts (frame 18) rather than let it flip negative. In hindsight the earliest tell was the cluster of against-fires (HA-against, PROPP-against) starting at t=12m combined with rising giveback% â€” worth acting on sooner rather than waiting for a multi-frame confirmation, since that wait cost most of the peak gain.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

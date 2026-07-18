@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_01_30_1738248300_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9646013e3e14f5c4",
+      "ts": 1784341549.576848
+    },
+    {
+      "frame": 1,
+      "nonce": "633dc71fc8ba5565",
+      "ts": 1784341556.2377172
+    },
+    {
+      "frame": 2,
+      "nonce": "978ae62d026994e0",
+      "ts": 1784341563.436459
+    },
+    {
+      "frame": 3,
+      "nonce": "591fb4a061a6df47",
+      "ts": 1784341569.8758464
+    },
+    {
+      "frame": 4,
+      "nonce": "52f86b71fc288c0a",
+      "ts": 1784341577.3956277
+    },
+    {
+      "frame": 5,
+      "nonce": "133a2721cd361c7d",
+      "ts": 1784341582.97092
+    },
+    {
+      "frame": 6,
+      "nonce": "c8c8e34b128dc9f8",
+      "ts": 1784341589.2851717
+    },
+    {
+      "frame": 7,
+      "nonce": "037b30ecebe8cf9d",
+      "ts": 1784341594.4782536
+    },
+    {
+      "frame": 8,
+      "nonce": "401a1bc7ced0be34",
+      "ts": 1784341601.888471
+    },
+    {
+      "frame": 9,
+      "nonce": "631778b60e2d5062",
+      "ts": 1784341610.599869
+    },
+    {
+      "frame": 10,
+      "nonce": "0e5fb2bc9bcbccc8",
+      "ts": 1784341627.3495355
+    },
+    {
+      "frame": 11,
+      "nonce": "ad6c7640bdcaf5ee",
+      "ts": 1784341634.4753375
+    },
+    {
+      "frame": 12,
+      "nonce": "b15e7c9cca524896",
+      "ts": 1784341640.7384286
+    },
+    {
+      "frame": 13,
+      "nonce": "6de81d2723994885",
+      "ts": 1784341646.8759465
+    },
+    {
+      "frame": 14,
+      "nonce": "a5c5e8fffb529648",
+      "ts": 1784341653.7054706
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9646013e3e14f5c4",
+      "decision": "HOLD",
+      "reason": "entry frame, thesis intact, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "633dc71fc8ba5565",
+      "decision": "HOLD",
+      "reason": "px +6.75, trade working, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "978ae62d026994e0",
+      "decision": "HOLD",
+      "reason": "px +23.25, strong momentum, PROPP now with, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "591fb4a061a6df47",
+      "decision": "HOLD",
+      "reason": "px +58, thesis strongly intact despite single KMDR-against flag"
+    },
+    {
+      "frame": 4,
+      "nonce": "52f86b71fc288c0a",
+      "decision": "HOLD",
+      "reason": "px +64.75, fresh leg, strong momentum, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "133a2721cd361c7d",
+      "decision": "HOLD",
+      "reason": "px +92.5, giveback only 2%, thesis intact"
+    },
+    {
+      "frame": 6,
+      "nonce": "c8c8e34b128dc9f8",
+      "decision": "HOLD",
+      "reason": "px +90.5, minimal giveback, momentum still with"
+    },
+    {
+      "frame": 7,
+      "nonce": "037b30ecebe8cf9d",
+      "decision": "HOLD",
+      "reason": "px +91, consolidating near highs, giveback still 2%, no reversal confirmed"
+    },
+    {
+      "frame": 8,
+      "nonce": "401a1bc7ced0be34",
+      "decision": "HOLD",
+      "reason": "px +72.5, pullback from peak but still deep in profit, not wrong-direction"
+    },
+    {
+      "frame": 9,
+      "nonce": "631778b60e2d5062",
+      "decision": "HOLD",
+      "reason": "sharp pullback (54% giveback) but still +36.25, all-against confluence noted, want one more frame before judging wrong-direction"
+    },
+    {
+      "frame": 10,
+      "nonce": "0e5fb2bc9bcbccc8",
+      "decision": "HOLD",
+      "reason": "bounced from +36 to +60, PROPP back with, dip absorbed, thesis intact"
+    },
+    {
+      "frame": 11,
+      "nonce": "ad6c7640bdcaf5ee",
+      "decision": "HOLD",
+      "reason": "px +71, choppy consolidation in 36-100 range, no directional break against"
+    },
+    {
+      "frame": 12,
+      "nonce": "b15e7c9cca524896",
+      "decision": "HOLD",
+      "reason": "px +49.5, still in chop range, no confirmed breakdown below zero"
+    },
+    {
+      "frame": 13,
+      "nonce": "6de81d2723994885",
+      "decision": "HOLD",
+      "reason": "px +39.5, still comfortably positive, ranging not breaking down"
+    },
+    {
+      "frame": 14,
+      "nonce": "a5c5e8fffb529648",
+      "decision": "EXIT",
+      "reason": "3 consecutive frames all-against confluence (KMDR/HA/PROPP), steady erosion +71->+13.75 in 3min, 1m accel -31.75 -- bailing before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Trade ran hard in favor early (peak ~+103) then began a multi-minute erosion with lower highs on each bounce; the tell was 3 consecutive frames of all-signal-against confluence (KMDR/HA/PROPP) combined with steadily decaying price (+71->+36 bounce to +71 again ->+49->+39->+13.75) and sharply negative 1m velocity/accel, so I bailed near +13.75 before it could round-trip to a loss. Next time I'd watch for the SECOND lower high after a strong impulse leg (not just one dip) as the earlier confirming signal, since the first pullback to +36 was noise but the second decay was the real turn."
+}

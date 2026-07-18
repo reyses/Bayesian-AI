@@ -1,0 +1,8 @@
+# exit_code=0 dt=204s
+## STDOUT
+Episode closed. Summary: held through 18 minutes of favorable chop (peak +51.25pts) since price kept recovering from every dip and against-signals kept flipping back to with-direction, then bailed at the final frame (t=18m) when price breached breakeven for the first time all episode (-19.50pts) on a fresh, sharp 1-minute down-push with no supporting signal.
+
+## STDERR
+Ignoring 39 permissions.allow entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Ignoring 3 permissions.additionalDirectories entries from .claude/settings.json and .claude/settings.local.json: this workspace has not been trusted. Run Claude Code interactively here once and accept the trust dialog, or set projects["C:/Users/reyse/OneDrive/Desktop/Bayesian-AI"].hasTrustDialogAccepted: true in C:\Users\reyse\.claude.json.
+Warning: no stdin data received in 3s, proceeding without it. If piping from a slow command, redirect stdin explicitly: < /dev/null to skip, or wait longer.

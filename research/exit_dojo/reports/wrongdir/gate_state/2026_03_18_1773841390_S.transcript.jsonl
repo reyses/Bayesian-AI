@@ -1,0 +1,11 @@
+{"ts": 1784366784.7940953, "event": "serve", "frame": 0, "nonce": "542df3e0653f9bb1"}
+{"ts": 1784366791.7430785, "event": "commit", "frame": 0, "nonce": "542df3e0653f9bb1", "decision": "HOLD", "reason": "early frame, px flat at entry, thesis not yet invalidated"}
+{"ts": 1784366794.6179287, "event": "serve", "frame": 1, "nonce": "54faa9a324a02b15"}
+{"ts": 1784366798.5740972, "event": "commit", "frame": 1, "nonce": "54faa9a324a02b15", "decision": "HOLD", "reason": "px +24.5pts favorable, giveback only 1%, thesis working"}
+{"ts": 1784366801.1140792, "event": "serve", "frame": 2, "nonce": "bd4e33442610e01b"}
+{"ts": 1784366806.886745, "event": "commit", "frame": 2, "nonce": "bd4e33442610e01b", "decision": "HOLD", "reason": "pullback but still px slightly positive; giveback 59% of a big amp, watching closely but not yet wrong-direction"}
+{"ts": 1784366809.600952, "event": "serve", "frame": 3, "nonce": "7c9f5417f7d986c2"}
+{"ts": 1784366816.9747224, "event": "commit", "frame": 3, "nonce": "7c9f5417f7d986c2", "decision": "HOLD", "reason": "still marginally positive px +3.75, though giveback 81% is a warning; not negative yet"}
+{"ts": 1784366819.9053235, "event": "serve", "frame": 4, "nonce": "023a7c1bd867e82e"}
+{"ts": 1784366826.2346394, "event": "commit", "frame": 4, "nonce": "023a7c1bd867e82e", "decision": "EXIT", "reason": "px -28pts, giveback 116% of peak amp (full round-trip through breakeven into loss), HA and PROPP fires flipped to against -- thesis broken"}
+{"ts": 1784366832.7600858, "event": "finish", "summary": "Held through an early dip and a strong +24.5pt favorable run, then watched the position bleed back down through 59% then 81% giveback while still marginally positive. Bailed at frame 4 when price broke to -28pts (116% giveback, full round-trip past breakeven into loss) and the HA/PROPP fires flipped from with-position to against-position, signaling the reversal was real, not noise. Next time: the giveback ratio crossing 100% combined with a fire-direction flip is the clean tell -- would watch for that combo earlier rather than waiting for the loss to already be locked in at -28.", "exit_frame": 4, "n_commits": 5}

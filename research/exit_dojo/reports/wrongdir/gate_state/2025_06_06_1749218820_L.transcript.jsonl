@@ -1,0 +1,11 @@
+{"ts": 1784338126.447092, "event": "serve", "frame": 0, "nonce": "5a816dd14437ada3"}
+{"ts": 1784338132.0752692, "event": "commit", "frame": 0, "nonce": "5a816dd14437ada3", "decision": "HOLD", "reason": "frame0: price back at entry (0.00), early noise, no clear wrong-direction signal yet"}
+{"ts": 1784338135.0123246, "event": "serve", "frame": 1, "nonce": "d7876781ce15a658"}
+{"ts": 1784338138.807445, "event": "commit", "frame": 1, "nonce": "d7876781ce15a658", "decision": "HOLD", "reason": "small pullback to -2.75, 22% giveback, still within normal noise band, no trend break"}
+{"ts": 1784338142.2910612, "event": "serve", "frame": 2, "nonce": "3168ec8f572fdfa5"}
+{"ts": 1784338147.1461449, "event": "commit", "frame": 2, "nonce": "3168ec8f572fdfa5", "decision": "HOLD", "reason": "price -2.0, oscillating in same small band as prior frames, not breaking down further"}
+{"ts": 1784338149.4521434, "event": "serve", "frame": 3, "nonce": "3d9421f246745916"}
+{"ts": 1784338153.721882, "event": "commit", "frame": 3, "nonce": "3d9421f246745916", "decision": "HOLD", "reason": "price recovered to +3.50, best level yet, giveback down to 10%, thesis working"}
+{"ts": 1784338156.6000934, "event": "serve", "frame": 4, "nonce": "0d5af4034a2ff366"}
+{"ts": 1784338172.7446284, "event": "commit", "frame": 4, "nonce": "0d5af4034a2ff366", "decision": "EXIT", "reason": "sharp break to -11.75, more than 3x worse than prior range (-2.75 to +3.5), giveback 53%, both HA and PROPP now firing against -- structure broken"}
+{"ts": 1784338178.715596, "event": "finish", "summary": "Held through 4 minutes of normal chop (range roughly -2.75 to +3.5, giveback fluctuating 10-26%) since none of it broke the established range. At t=4m price broke sharply to -11.75, more than 3x worse than any prior excursion, giveback jumped to 53%, and both HA and PROPP fired against simultaneously for the first time -- a real structure break, not a dip. Bailed there. Next time: watch for the combination of (1) a new price extreme well outside the established chop range plus (2) multiple signal fires flipping against at once -- that confluence is what separated this from the earlier harmless pullbacks.", "exit_frame": 4, "n_commits": 5}

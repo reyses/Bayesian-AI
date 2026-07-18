@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_08_07_1754573400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9c3ac39c253a742f",
+      "ts": 1784338439.2889588
+    },
+    {
+      "frame": 1,
+      "nonce": "49bc798117389441",
+      "ts": 1784338451.3244672
+    },
+    {
+      "frame": 2,
+      "nonce": "98eba2b807a69d12",
+      "ts": 1784338458.7847502
+    },
+    {
+      "frame": 3,
+      "nonce": "9611bfc268719b54",
+      "ts": 1784338472.1537116
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9c3ac39c253a742f",
+      "decision": "HOLD",
+      "reason": "entry frame, px flat, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "49bc798117389441",
+      "decision": "HOLD",
+      "reason": "only -8.25pts 1m in, normal dip, thesis not broken yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "98eba2b807a69d12",
+      "decision": "HOLD",
+      "reason": "-12.75pts, multiple against-fires but still within normal dip range, watching for confirmation"
+    },
+    {
+      "frame": 3,
+      "nonce": "9611bfc268719b54",
+      "decision": "EXIT",
+      "reason": "px -31.25 and accelerating each frame (-8/-13/-31), giveback 100%, all 4 fires against, ER10 collapsed to 0.07 -- wrong-direction confirmed"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Bailed at t=3m/frame 3 when px hit -31.25pts after a steady worsening sequence (-8.25 -> -12.75 -> -31.25), leg giveback reached 100%, and all four short-horizon detectors (KMDR, CLIMAX, HA, PROPP) fired against the position simultaneously while ER10 collapsed to 0.07 -- that convergence of accelerating adverse price, full giveback, and unanimous against-fires read as wrong-direction rather than a normal dip. Next time I'd watch for the same signature earlier: once giveback crosses ~50% with 2+ against-fires stacking within a minute, that's the point to pre-empt rather than wait for a third confirming frame."
+}

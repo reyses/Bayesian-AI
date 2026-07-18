@@ -1,0 +1,25 @@
+{"ts": 1784343365.7697618, "event": "serve", "frame": 0, "nonce": "ee64b0b76b4501d9"}
+{"ts": 1784343370.083534, "event": "commit", "frame": 0, "nonce": "ee64b0b76b4501d9", "decision": "HOLD", "reason": "frame0: at entry, higher TFs (5m/15m/1h/4h) closed favorable, thesis intact"}
+{"ts": 1784343372.5130901, "event": "serve", "frame": 1, "nonce": "a093369156eacb4e"}
+{"ts": 1784343378.7943664, "event": "commit", "frame": 1, "nonce": "a093369156eacb4e", "decision": "HOLD", "reason": "price +15.25pts, strong favorable momentum across 5s/15s/1m, fires with-trend"}
+{"ts": 1784343380.9015014, "event": "serve", "frame": 2, "nonce": "33e5b54f567b5f0a"}
+{"ts": 1784343384.095678, "event": "commit", "frame": 2, "nonce": "33e5b54f567b5f0a", "decision": "HOLD", "reason": "price +18.50pts, still trending favorable, thesis intact"}
+{"ts": 1784343386.2846236, "event": "serve", "frame": 3, "nonce": "bcb833653a65fa61"}
+{"ts": 1784343389.5726545, "event": "commit", "frame": 3, "nonce": "bcb833653a65fa61", "decision": "HOLD", "reason": "price +21.00pts, new leg high, low giveback 7%, thesis intact"}
+{"ts": 1784343391.9455104, "event": "serve", "frame": 4, "nonce": "c851fb7d7a9c77eb"}
+{"ts": 1784343394.9119923, "event": "commit", "frame": 4, "nonce": "c851fb7d7a9c77eb", "decision": "HOLD", "reason": "price +24.00pts, new leg high, thesis intact"}
+{"ts": 1784343397.2722602, "event": "serve", "frame": 5, "nonce": "e52748d818c05a72"}
+{"ts": 1784343401.147757, "event": "commit", "frame": 5, "nonce": "e52748d818c05a72", "decision": "HOLD", "reason": "pullback to +21.50pts from +24 high, still well positive, normal dip in trend"}
+{"ts": 1784343403.4040074, "event": "serve", "frame": 6, "nonce": "43fc72abc7deb5c3"}
+{"ts": 1784343406.7173123, "event": "commit", "frame": 6, "nonce": "43fc72abc7deb5c3", "decision": "HOLD", "reason": "new leg high +29.50pts, giveback 0%, thesis strongly intact"}
+{"ts": 1784343409.0339622, "event": "serve", "frame": 7, "nonce": "062535618916066b"}
+{"ts": 1784343412.4423935, "event": "commit", "frame": 7, "nonce": "062535618916066b", "decision": "HOLD", "reason": "px +19.50pts, 29% giveback off high, still solidly favorable"}
+{"ts": 1784343414.8691633, "event": "serve", "frame": 8, "nonce": "4c148bc24596bcd5"}
+{"ts": 1784343418.0898848, "event": "commit", "frame": 8, "nonce": "4c148bc24596bcd5", "decision": "HOLD", "reason": "px +24.25pts, recovered off dip, thesis intact"}
+{"ts": 1784343420.5904593, "event": "serve", "frame": 9, "nonce": "cc38d8bf75a762c3"}
+{"ts": 1784343425.2808318, "event": "commit", "frame": 9, "nonce": "cc38d8bf75a762c3", "decision": "HOLD", "reason": "px +15.25pts still well positive despite 41% giveback and against-fires; not broken yet"}
+{"ts": 1784343427.4566655, "event": "serve", "frame": 10, "nonce": "ebdb8c4a6ef5c66b"}
+{"ts": 1784343438.546062, "event": "commit", "frame": 10, "nonce": "ebdb8c4a6ef5c66b", "decision": "HOLD", "reason": "px +9.25pts, eroding fast from +29.50 high but still net positive; watching next frame for confirmation of reversal"}
+{"ts": 1784343440.8020766, "event": "serve", "frame": 11, "nonce": "263b18acf4daf132"}
+{"ts": 1784343452.7267098, "event": "commit", "frame": 11, "nonce": "263b18acf4daf132", "decision": "EXIT", "reason": "px eroded +29.50->+24.25->+15.25->+9.25->+5.25 over 5 frames, negative lambda across TFs, 5s already touched negative -- sustained reversal, bail before it goes red"}
+{"ts": 1784343459.063467, "event": "finish", "summary": "Held through the first ~6 minutes as price ran favorably to a +29.50pt peak with clean momentum and low giveback. From t=6m to t=11m the trade eroded steadily and monotonically over 5 straight frames (+29.50 -> +24.25 -> +15.25 -> +9.25 -> +5.25) while lambda_hat flipped significantly negative across 5s/1m/15s timeframes and the 5s bar tested outright negative territory -- that consistent, accelerating, multi-timeframe decay (not a single red bar) was the wrong-direction signature, so I bailed at +5.25 before it went net negative. Next time: watch for lambda_hat sign flips with |t|>2 persisting across 2+ consecutive frames as the earliest leading tell, rather than waiting for price itself to cross zero.", "exit_frame": 11, "n_commits": 12}

@@ -1,0 +1,122 @@
+{
+  "episode_id": "2025_12_01_1764599520_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "cef80cf521b949db",
+      "ts": 1784364342.416298
+    },
+    {
+      "frame": 1,
+      "nonce": "7a7f085f63693f51",
+      "ts": 1784364352.9713504
+    },
+    {
+      "frame": 2,
+      "nonce": "173c5ae842e1dbe7",
+      "ts": 1784364360.6336088
+    },
+    {
+      "frame": 3,
+      "nonce": "da96901e3d900f0e",
+      "ts": 1784364369.5941036
+    },
+    {
+      "frame": 4,
+      "nonce": "3d79188bb1a31c2d",
+      "ts": 1784364376.9631464
+    },
+    {
+      "frame": 5,
+      "nonce": "586320403ffdcc33",
+      "ts": 1784364382.630071
+    },
+    {
+      "frame": 6,
+      "nonce": "4304d9009a8d534b",
+      "ts": 1784364389.7729056
+    },
+    {
+      "frame": 7,
+      "nonce": "d0ec2e32e074d0c3",
+      "ts": 1784364396.2425137
+    },
+    {
+      "frame": 8,
+      "nonce": "23fbe58ed76a8b10",
+      "ts": 1784364405.4396634
+    },
+    {
+      "frame": 9,
+      "nonce": "9314b115506fe8c0",
+      "ts": 1784364424.031452
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "cef80cf521b949db",
+      "decision": "HOLD",
+      "reason": "flat at entry after 36.8pt run gave back 95%; early frame, thesis not yet invalidated, watching for further fade"
+    },
+    {
+      "frame": 1,
+      "nonce": "7a7f085f63693f51",
+      "decision": "HOLD",
+      "reason": "px recovered to +25, giveback improved 95%->58%, 5s/15s bars show strong up moves, thesis working"
+    },
+    {
+      "frame": 2,
+      "nonce": "173c5ae842e1dbe7",
+      "decision": "HOLD",
+      "reason": "px +37, giveback down to 16%, CLIMAX+HA fires with-trend, strong continuation"
+    },
+    {
+      "frame": 3,
+      "nonce": "da96901e3d900f0e",
+      "decision": "HOLD",
+      "reason": "px +56.5, giveback 0%, PROPP now with-trend, strong trending move intact"
+    },
+    {
+      "frame": 4,
+      "nonce": "3d79188bb1a31c2d",
+      "decision": "HOLD",
+      "reason": "px +52.5, giveback only 15%, PROPP still with-trend, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "586320403ffdcc33",
+      "decision": "HOLD",
+      "reason": "px +51.75, giveback stable ~17%, consolidating not reversing"
+    },
+    {
+      "frame": 6,
+      "nonce": "4304d9009a8d534b",
+      "decision": "HOLD",
+      "reason": "new leg high px +66, giveback 0%, thesis strongly intact"
+    },
+    {
+      "frame": 7,
+      "nonce": "d0ec2e32e074d0c3",
+      "decision": "HOLD",
+      "reason": "pulled back to +47.5 from +66 (17% giveback), 3 against-fires but still deep in profit, normal pullback in uptrend"
+    },
+    {
+      "frame": 8,
+      "nonce": "23fbe58ed76a8b10",
+      "decision": "HOLD",
+      "reason": "px still +36.5 (favorable), giveback spiked to 84% off local peak but this leg has been noisy/oscillating all along (giveback bounced 95/58/16/0/17/0/17 before), not yet negative"
+    },
+    {
+      "frame": 9,
+      "nonce": "9314b115506fe8c0",
+      "decision": "EXIT",
+      "reason": "px collapsed +66->+7 in ~3min; 1m bar -46pts, 5m bar closed at bottom of range (clsInRng 0.00) after new high +75; ER10 dropped to 0.03; 3 against-fires (KMDR/CLIMAX/HA) sustained 3 frames -- climactic reversal, bailing before it goes negative"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 9,
+  "finished": true,
+  "summary": "Held through a strong, noisy but genuinely trending run (px 0 -> +66 over ~7min, giveback oscillating but repeatedly resetting to 0-17%). Bailed at t=9m when the leg went climactic: 1m bar dropped 46pts in a single bar right after a fresh high, the 5m bar closed at the very bottom of its range (clsInRng 0.00) after printing +75 high, ER10 collapsed to 0.03, and KMDR/CLIMAX/HA against-fires had now persisted 3 frames straight -- px had round-tripped from +66 to +7. Next time I'd watch for the combination of (new high immediately followed by a single-bar giveback of >30pts) + (clsInRng near 0 on the higher TF) + (multiple against-fires persisting >2 frames) as the earliest reliable climax-reversal signature, rather than waiting for price to actually cross into negative territory."
+}

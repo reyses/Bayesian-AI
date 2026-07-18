@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_10_16_1760621400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "87ddd30cafbf2d47",
+      "ts": 1784339084.3874278
+    },
+    {
+      "frame": 1,
+      "nonce": "6e1580c291616428",
+      "ts": 1784339091.922262
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "87ddd30cafbf2d47",
+      "decision": "HOLD",
+      "reason": "entry bar, px flat at 0, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "6e1580c291616428",
+      "decision": "EXIT",
+      "reason": "px -28pts, 65% giveback of leg amplitude, triple concurrent against-fires (CLIMAX/HA/PROPP) -- wrong-direction confluence"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Entry looked fine at t=0 (px flat, no adverse move). By t=1m the trade had swung to -28pts with 65% giveback of the leg's prior favorable amplitude, and three independent detectors (CLIMAX, HA, PROPP) all fired 'against' simultaneously at 0m -- that confluence plus the steep, fast giveback read as wrong-direction rather than a normal dip, so I bailed. Next time I'd weight the simultaneity of multiple against-fires more than any single one, and watch giveback% crossing ~50-60% of leg amplitude as an early bail trigger before it compounds further."
+}

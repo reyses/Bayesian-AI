@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_02_10_1739197980_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c74cd287dfc6aad3",
+      "ts": 1784336990.499696
+    },
+    {
+      "frame": 1,
+      "nonce": "bad57484c8937c71",
+      "ts": 1784337006.3993113
+    },
+    {
+      "frame": 2,
+      "nonce": "ef8b80d226a6c970",
+      "ts": 1784337011.5609071
+    },
+    {
+      "frame": 3,
+      "nonce": "a7a3684488074650",
+      "ts": 1784337017.737753
+    },
+    {
+      "frame": 4,
+      "nonce": "f7026b0c9e05cb17",
+      "ts": 1784337034.4731505
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c74cd287dfc6aad3",
+      "decision": "HOLD",
+      "reason": "Still at entry (px 0.00), no adverse move yet; too early to judge direction"
+    },
+    {
+      "frame": 1,
+      "nonce": "bad57484c8937c71",
+      "decision": "HOLD",
+      "reason": "px +3.00, moving favorably, thesis intact"
+    },
+    {
+      "frame": 2,
+      "nonce": "ef8b80d226a6c970",
+      "decision": "HOLD",
+      "reason": "px -0.50, minor dip near flat, no clear reversal signature yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "a7a3684488074650",
+      "decision": "HOLD",
+      "reason": "px -11.75, notable adverse move (HA-against just fired, 57% giveback) but only ~1.3std of 5m vol; watching for confirmation before bailing"
+    },
+    {
+      "frame": 4,
+      "nonce": "f7026b0c9e05cb17",
+      "decision": "EXIT",
+      "reason": "px -19.75, giveback 95% of the favorable leg, adverse move accelerated from -11.75 to -19.75 (>2std of 5m vol), continuation not a dip -- wrong-direction confirmed"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Entry looked fine initially (px +3.00 at 1m) but the favorable leg fully unwound: px went -0.50 -> -11.75 -> -19.75 across frames 2-4, with giveback of the leg's amplitude climbing 0%->57%->95% and HA-against firing twice. The accelerating adverse move past 2std of local 5m vol, combined with near-total giveback, was the wrong-direction signature -- bailed at -19.75 rather than waiting for full reversal confirmation. Next time: watch giveback% crossing ~50-60% with a fresh HA-against fire as the earlier trigger to cut sooner and reduce the loss."
+}

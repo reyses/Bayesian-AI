@@ -1,0 +1,155 @@
+{
+  "episode_id": "2025_10_29_1761761040_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ef5fb10a956ef3d0",
+      "ts": 1784363886.6412086
+    },
+    {
+      "frame": 1,
+      "nonce": "332f0936998caaf6",
+      "ts": 1784363894.2528088
+    },
+    {
+      "frame": 2,
+      "nonce": "764af95b4ccd1480",
+      "ts": 1784363903.978967
+    },
+    {
+      "frame": 3,
+      "nonce": "708b29a1ccdf7639",
+      "ts": 1784363910.4301562
+    },
+    {
+      "frame": 4,
+      "nonce": "33c97df123354e79",
+      "ts": 1784363922.9076066
+    },
+    {
+      "frame": 5,
+      "nonce": "0edc953164384106",
+      "ts": 1784363929.2277267
+    },
+    {
+      "frame": 6,
+      "nonce": "274e1f2bb0d79d6d",
+      "ts": 1784363936.5221581
+    },
+    {
+      "frame": 7,
+      "nonce": "f75c79863bb05bdb",
+      "ts": 1784363943.1717813
+    },
+    {
+      "frame": 8,
+      "nonce": "a6bd2228157f17ea",
+      "ts": 1784363950.129525
+    },
+    {
+      "frame": 9,
+      "nonce": "f59210a2cb13985a",
+      "ts": 1784363957.9330232
+    },
+    {
+      "frame": 10,
+      "nonce": "8b17f2fb70cb8d1e",
+      "ts": 1784363968.8861122
+    },
+    {
+      "frame": 11,
+      "nonce": "38ec394c1aeb8d31",
+      "ts": 1784363985.5662389
+    },
+    {
+      "frame": 12,
+      "nonce": "7c2bb1a34a020f35",
+      "ts": 1784364002.4914827
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ef5fb10a956ef3d0",
+      "decision": "HOLD",
+      "reason": "Entry frame, all TFs positive-signed (1m/5m/15m/1h closes all up), thesis intact"
+    },
+    {
+      "frame": 1,
+      "nonce": "332f0936998caaf6",
+      "decision": "HOLD",
+      "reason": "Still net +2.25pts, 20% giveback but not broken; 1m dipped intrabar but closed positive"
+    },
+    {
+      "frame": 2,
+      "nonce": "764af95b4ccd1480",
+      "decision": "HOLD",
+      "reason": "px +6.00, recovered from dip, 1m closed strong +10.75, thesis intact"
+    },
+    {
+      "frame": 3,
+      "nonce": "708b29a1ccdf7639",
+      "decision": "HOLD",
+      "reason": "px +8.00, still net positive despite 1m intrabar dip to -23.5, PROPP firing with"
+    },
+    {
+      "frame": 4,
+      "nonce": "33c97df123354e79",
+      "decision": "HOLD",
+      "reason": "px +11.00, new local high, 1m closed +7.25 with strong upper wick, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "0edc953164384106",
+      "decision": "HOLD",
+      "reason": "px +14.00, continued grind higher, trade working as intended"
+    },
+    {
+      "frame": 6,
+      "nonce": "274e1f2bb0d79d6d",
+      "decision": "HOLD",
+      "reason": "px +9.00, 1m closed +17.00 strong, pullback within normal range, both fires with-trend"
+    },
+    {
+      "frame": 7,
+      "nonce": "f75c79863bb05bdb",
+      "decision": "HOLD",
+      "reason": "px +20.50 new high, giveback low at 14%, trend intact"
+    },
+    {
+      "frame": 8,
+      "nonce": "a6bd2228157f17ea",
+      "decision": "HOLD",
+      "reason": "px +24.00 new high, 1m closed at top of range, strong trend continuation"
+    },
+    {
+      "frame": 9,
+      "nonce": "f59210a2cb13985a",
+      "decision": "HOLD",
+      "reason": "Sharp pullback from +24 to +2.5 but still positive; both HA/PROPP now against -- watching closely next frame"
+    },
+    {
+      "frame": 10,
+      "nonce": "8b17f2fb70cb8d1e",
+      "decision": "HOLD",
+      "reason": "px +3.25, still positive; sharp pullback from +25 peak but within prior noise amplitude, not yet broken"
+    },
+    {
+      "frame": 11,
+      "nonce": "38ec394c1aeb8d31",
+      "decision": "HOLD",
+      "reason": "First negative print px -4.50, but small vs prior 50-75pt amplitude range; 1m still closed +0.50; watching for decisive break"
+    },
+    {
+      "frame": 12,
+      "nonce": "7c2bb1a34a020f35",
+      "decision": "EXIT",
+      "reason": "px -11.25, 3rd consecutive negative frame deepening (+3.25->-4.5->-11.25), 1m/5m/15m all closed -4.00, momentum sustained against us -- bailing"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 12,
+  "finished": true,
+  "summary": "Trade ran cleanly to +24pts then reversed sharply; bailed at -11.25 once three consecutive frames printed deepening negatives (+3.25 -> -4.5 -> -11.25) with 1m/5m/15m all closing at the same -4.00 level, indicating sustained cross-timeframe momentum against the position rather than a single-bar dip. Next time watch for the giveback trajectory reversing direction (increasing negative deltas across 2+ consecutive frames) as the earlier tell, rather than waiting for the round-number magnitude to look large -- the multi-TF close agreement at -4.00 was the clearer signal than the raw point value."
+}

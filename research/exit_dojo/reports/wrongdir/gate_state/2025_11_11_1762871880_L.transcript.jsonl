@@ -1,0 +1,11 @@
+{"ts": 1784339453.0418072, "event": "serve", "frame": 0, "nonce": "98bd10f271674d8a"}
+{"ts": 1784339457.8546731, "event": "commit", "frame": 0, "nonce": "98bd10f271674d8a", "decision": "HOLD", "reason": "frame0: px flat at entry, mixed TF signals, no wrong-direction signature yet"}
+{"ts": 1784339459.9273398, "event": "serve", "frame": 1, "nonce": "1c04969a7305caa6"}
+{"ts": 1784339464.8778625, "event": "commit", "frame": 1, "nonce": "1c04969a7305caa6", "decision": "HOLD", "reason": "px still +3.25 net positive despite giveback; fires against but no confirmed reversal yet"}
+{"ts": 1784339467.1415286, "event": "serve", "frame": 2, "nonce": "ce2b267ddad2f867"}
+{"ts": 1784339472.6813886, "event": "commit", "frame": 2, "nonce": "ce2b267ddad2f867", "decision": "HOLD", "reason": "px dipped to -6.75, giveback 53%, but mixed fires (HA-with); watching for confirmation before bailing"}
+{"ts": 1784339474.8691545, "event": "serve", "frame": 3, "nonce": "c1b12ddf12ef4f1b"}
+{"ts": 1784339480.6412387, "event": "commit", "frame": 3, "nonce": "c1b12ddf12ef4f1b", "decision": "HOLD", "reason": "px -9.00 but leg amp grew to 30.5 (new favorable extreme made), giveback actually eased to 32%; still choppy not confirmed reversal"}
+{"ts": 1784339484.008658, "event": "serve", "frame": 4, "nonce": "16bd1f8e58099777"}
+{"ts": 1784339496.787088, "event": "commit", "frame": 4, "nonce": "16bd1f8e58099777", "decision": "EXIT", "reason": "3 consecutive frames of monotonic deterioration (-6.75,-9,-13.5), amp stalled at 30.5 (no new favorable high), consistent HA/PROPP-against fires, ER10 dropped to 0.10 -- wrong-direction confirmed, bailing"}
+{"ts": 1784339501.9479268, "event": "finish", "summary": "Price went briefly positive then reversed, worsening monotonically for three straight frames (-6.75 -> -9.00 -> -13.50) while the leg's favorable amplitude stalled at 30.5 (no new favorable high), and HA/PROPP fires flipped consistently against the position with ER10 collapsing to 0.10 (choppy, non-trending against us) -- bailed on frame 4 as wrong-direction confirmed. Next time watch for the combination of a stalled amplitude ceiling plus 3+ consecutive worsening frames as the earliest reliable signature, rather than waiting for price to go deeply negative.", "exit_frame": 4, "n_commits": 5}

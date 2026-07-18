@@ -1,0 +1,27 @@
+{"ts": 1784337188.4884684, "event": "serve", "frame": 0, "nonce": "3cfc36af90703478"}
+{"ts": 1784337193.3096218, "event": "commit", "frame": 0, "nonce": "3cfc36af90703478", "decision": "HOLD", "reason": "just entered, px flat at 0, no adverse move yet"}
+{"ts": 1784337195.593454, "event": "serve", "frame": 1, "nonce": "6fe909f8b3283923"}
+{"ts": 1784337199.4070268, "event": "commit", "frame": 1, "nonce": "6fe909f8b3283923", "decision": "HOLD", "reason": "px +5, working in favor, thesis intact"}
+{"ts": 1784337201.4779627, "event": "serve", "frame": 2, "nonce": "125ba3225248258b"}
+{"ts": 1784337204.2764657, "event": "commit", "frame": 2, "nonce": "125ba3225248258b", "decision": "HOLD", "reason": "px +8, uptrend continuing, thesis intact"}
+{"ts": 1784337207.0295243, "event": "serve", "frame": 3, "nonce": "b817b0ef0300f895"}
+{"ts": 1784337210.727408, "event": "commit", "frame": 3, "nonce": "b817b0ef0300f895", "decision": "HOLD", "reason": "px +4.75, minor pullback from +8 but still net favorable, no wrong-direction signal"}
+{"ts": 1784337212.8735247, "event": "serve", "frame": 4, "nonce": "c13847d3acb14848"}
+{"ts": 1784337216.1706293, "event": "commit", "frame": 4, "nonce": "c13847d3acb14848", "decision": "HOLD", "reason": "px +3.25, still net positive, pullback but not broken"}
+{"ts": 1784337218.099179, "event": "serve", "frame": 5, "nonce": "6e15de75fb2a8429"}
+{"ts": 1784337221.6875455, "event": "commit", "frame": 5, "nonce": "6e15de75fb2a8429", "decision": "HOLD", "reason": "px +29.25, strong move in favor, thesis clearly working"}
+{"ts": 1784337223.8678398, "event": "serve", "frame": 6, "nonce": "77e46ff6ab67e4ca"}
+{"ts": 1784337227.9277573, "event": "commit", "frame": 6, "nonce": "77e46ff6ab67e4ca", "decision": "HOLD", "reason": "px -0.75, minor giveback (28%) after big +29 leg, still within noise, not a reversal"}
+{"ts": 1784337230.0438426, "event": "serve", "frame": 7, "nonce": "1da48a4d625dde52"}
+{"ts": 1784337233.7130299, "event": "commit", "frame": 7, "nonce": "1da48a4d625dde52", "decision": "HOLD", "reason": "px -2.75, only 19% giveback of a 45pt leg, minor dip"}
+{"ts": 1784337235.8003123, "event": "serve", "frame": 8, "nonce": "b36c5146986520bc"}
+{"ts": 1784337238.8914788, "event": "commit", "frame": 8, "nonce": "b36c5146986520bc", "decision": "HOLD", "reason": "px +21.75, recovered strongly, thesis clearly intact"}
+{"ts": 1784337241.9673185, "event": "serve", "frame": 9, "nonce": "053541ad38d0ae45"}
+{"ts": 1784337247.9846895, "event": "commit", "frame": 9, "nonce": "053541ad38d0ae45", "decision": "HOLD", "reason": "px -7.75, choppy pullback but 1m/5m bars still show +26 close, structure intact"}
+{"ts": 1784337250.1775231, "event": "serve", "frame": 10, "nonce": "0cb64a981a1724cd"}
+{"ts": 1784337253.3791869, "event": "commit", "frame": 10, "nonce": "0cb64a981a1724cd", "decision": "HOLD", "reason": "px +4.25, still net favorable, choppy but no breakdown"}
+{"ts": 1784337256.0192995, "event": "serve", "frame": 11, "nonce": "6b4118e66306f56f"}
+{"ts": 1784337263.1317067, "event": "commit", "frame": 11, "nonce": "6b4118e66306f56f", "decision": "HOLD", "reason": "px -8, giveback 63% but only 1m into this leg, prior legs recovered repeatedly, no structural breakdown yet"}
+{"ts": 1784337265.2655082, "event": "serve", "frame": 12, "nonce": "72d8cd74745c0bb1"}
+{"ts": 1784337277.671082, "event": "commit", "frame": 12, "nonce": "72d8cd74745c0bb1", "decision": "EXIT", "reason": "px -28.25, new worst extreme (prior dips only -8), giveback 117%, lambda_hat negative & significant across 5s/15s/1m (t up to -2.58) = real downside persistence not noise"}
+{"ts": 1784337283.3628647, "event": "finish", "summary": "Held through several early dips (-2.75, -7.75, -8) that each recovered into new favorable highs (+8, +21.75, +29.25), consistent with a working trade. Bailed at t=12m when price hit a new worst extreme of -28.25 (more than 3x any prior dip) with 117% giveback of the leg amplitude, and lambda_hat readings turned negative and statistically significant across 5s/15s/1m (t-stats to -2.58), signaling real downside persistence rather than another bounce. Next time I'd watch for the combination of a new adverse extreme beyond prior dip range plus multi-timeframe lambda flipping negative together -- that combo, not just a red print, is what separates a genuine wrong-direction break from normal chop.", "exit_frame": 12, "n_commits": 13}

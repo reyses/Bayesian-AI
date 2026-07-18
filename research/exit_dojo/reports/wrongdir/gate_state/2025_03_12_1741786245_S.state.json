@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_03_12_1741786245_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ffa1c69ff2577a7c",
+      "ts": 1784337386.6286523
+    },
+    {
+      "frame": 1,
+      "nonce": "80fdcd15f591b076",
+      "ts": 1784337402.1672907
+    },
+    {
+      "frame": 2,
+      "nonce": "0a9cc08fcbc95651",
+      "ts": 1784337411.3617322
+    },
+    {
+      "frame": 3,
+      "nonce": "149f451d4dbbfef0",
+      "ts": 1784337420.7339764
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ffa1c69ff2577a7c",
+      "decision": "HOLD",
+      "reason": "frame0: px flat at entry, no giveback yet, too early to judge"
+    },
+    {
+      "frame": 1,
+      "nonce": "80fdcd15f591b076",
+      "decision": "HOLD",
+      "reason": "px -15.75, giveback only 20%, 1m still favorable, normal early dip"
+    },
+    {
+      "frame": 2,
+      "nonce": "0a9cc08fcbc95651",
+      "decision": "HOLD",
+      "reason": "px roughly flat -16.25 vs -15.75, giveback 26% mild, no runaway yet"
+    },
+    {
+      "frame": 3,
+      "nonce": "149f451d4dbbfef0",
+      "decision": "EXIT",
+      "reason": "px collapsed -16->-63 in 1min, new leg low (giveback 0%=fresh extreme), ER10 rising to 0.54, PROPP-against fired: accelerating wrong-direction breakout, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Held through the first two minutes as px drifted mildly negative (-15.75 -> -16.25, giveback 20-26%) which looked like normal chop, not a breakdown. Bailed at t=3m when px collapsed to -63.00 (a fresh leg extreme, giveback reset to 0%), ER10 jumped to 0.54 (strengthening trend efficiency), and PROPP fired against the position -- that combination read as an accelerating wrong-direction move rather than a dip. Next time I'd watch for the ER10 ramp + fresh-extreme giveback-reset combo earlier as the tell that a dip has turned into a real breakdown."
+}

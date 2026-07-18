@@ -1,0 +1,188 @@
+{
+  "episode_id": "2025_10_24_1761312600_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "23a828f95c68cec3",
+      "ts": 1784363715.0803916
+    },
+    {
+      "frame": 1,
+      "nonce": "b3228bc67b573574",
+      "ts": 1784363722.1383176
+    },
+    {
+      "frame": 2,
+      "nonce": "c3e46b6fa2842e11",
+      "ts": 1784363738.4034188
+    },
+    {
+      "frame": 3,
+      "nonce": "c9aaecec87d07eec",
+      "ts": 1784363751.4622757
+    },
+    {
+      "frame": 4,
+      "nonce": "f69606442d2268e6",
+      "ts": 1784363758.2850335
+    },
+    {
+      "frame": 5,
+      "nonce": "06326461246adf05",
+      "ts": 1784363763.7767782
+    },
+    {
+      "frame": 6,
+      "nonce": "7450178fa1af4355",
+      "ts": 1784363771.055266
+    },
+    {
+      "frame": 7,
+      "nonce": "b80ebaaf11aa683e",
+      "ts": 1784363778.630326
+    },
+    {
+      "frame": 8,
+      "nonce": "d9574a00170445fc",
+      "ts": 1784363784.1287138
+    },
+    {
+      "frame": 9,
+      "nonce": "147c537f7f31e946",
+      "ts": 1784363790.0873582
+    },
+    {
+      "frame": 10,
+      "nonce": "b1c1a615adf0cb0c",
+      "ts": 1784363797.1357026
+    },
+    {
+      "frame": 11,
+      "nonce": "62f0ed8575a8c12b",
+      "ts": 1784363804.7156594
+    },
+    {
+      "frame": 12,
+      "nonce": "fb7d7abb655b697b",
+      "ts": 1784363813.3256538
+    },
+    {
+      "frame": 13,
+      "nonce": "fb3a64b23f81483f",
+      "ts": 1784363838.498635
+    },
+    {
+      "frame": 14,
+      "nonce": "1a02427f92293cc0",
+      "ts": 1784363845.2688832
+    },
+    {
+      "frame": 15,
+      "nonce": "c5c4f527e869f845",
+      "ts": 1784363855.2027674
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "23a828f95c68cec3",
+      "decision": "HOLD",
+      "reason": "just entered, multi-TF momentum still up, no adverse signal yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "b3228bc67b573574",
+      "decision": "HOLD",
+      "reason": "-17pts dip but 1m z_se -2.4 oversold w/ high reversion_prob 0.72, hurst<0.5 mean-reverting, larger TFs (5m/15m) still bullish, fires flipped to with"
+    },
+    {
+      "frame": 2,
+      "nonce": "c3e46b6fa2842e11",
+      "decision": "HOLD",
+      "reason": "price recovering (-20 to -6), 1m extremely oversold z_se -3.9 w/ ER10 0.76, fires still with, treating as dip not reversal"
+    },
+    {
+      "frame": 3,
+      "nonce": "c9aaecec87d07eec",
+      "decision": "HOLD",
+      "reason": "price recovered to +13.25pts, back positive, fires all with, thesis confirmed"
+    },
+    {
+      "frame": 4,
+      "nonce": "f69606442d2268e6",
+      "decision": "HOLD",
+      "reason": "price +16.75pts and climbing, fires all with, thesis intact"
+    },
+    {
+      "frame": 5,
+      "nonce": "06326461246adf05",
+      "decision": "HOLD",
+      "reason": "price +32.75pts, strong new leg, only minor PROPP-against blip vs mostly with fires"
+    },
+    {
+      "frame": 6,
+      "nonce": "7450178fa1af4355",
+      "decision": "HOLD",
+      "reason": "price +42.50pts new high, 0% giveback, against fires are noise vs strong trend"
+    },
+    {
+      "frame": 7,
+      "nonce": "b80ebaaf11aa683e",
+      "decision": "HOLD",
+      "reason": "price +67.25pts, strong continued momentum, 0% giveback"
+    },
+    {
+      "frame": 8,
+      "nonce": "d9574a00170445fc",
+      "decision": "HOLD",
+      "reason": "still +65.75pts, only 5% giveback off peak, thesis intact"
+    },
+    {
+      "frame": 9,
+      "nonce": "147c537f7f31e946",
+      "decision": "HOLD",
+      "reason": "new peak +68.50pts, minimal giveback, thesis intact"
+    },
+    {
+      "frame": 10,
+      "nonce": "b1c1a615adf0cb0c",
+      "decision": "HOLD",
+      "reason": "pulled back from +68.5 to +52.5 (23% giveback), still deeply profitable, CLIMAX-against noted but not yet a trend break"
+    },
+    {
+      "frame": 11,
+      "nonce": "62f0ed8575a8c12b",
+      "decision": "HOLD",
+      "reason": "price stabilizing ~+51.50pts after the run, still massively profitable, treating as consolidation not reversal"
+    },
+    {
+      "frame": 12,
+      "nonce": "fb7d7abb655b697b",
+      "decision": "HOLD",
+      "reason": "price flat ~+52.5pts still huge cushion, but all 3 fires now against - watching closely for next frame"
+    },
+    {
+      "frame": 13,
+      "nonce": "fb3a64b23f81483f",
+      "decision": "HOLD",
+      "reason": "price ticked up to +58pts, HA flipped back with, no breakdown"
+    },
+    {
+      "frame": 14,
+      "nonce": "1a02427f92293cc0",
+      "decision": "HOLD",
+      "reason": "price +47pts, still well within the established profitable range, consolidating not reversing"
+    },
+    {
+      "frame": 15,
+      "nonce": "c5c4f527e869f845",
+      "decision": "HOLD",
+      "reason": "price bounced back to +61.25pts, fires with, thesis intact"
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": true,
+  "summary": "Held the whole 15-frame window. Entry dipped to -20pts in the first 2 minutes but 1m z_se was extremely oversold (-3.9) with high reversion_prob, and it fully recovered by t=3m; from t=5m on the trade ran hard to a +68pt peak and then oscillated in a wide +45 to +68pt profitable range through the end of the window, never threatening entry. No wrong-direction signature ever appeared -- against-fires (CLIMAX/HA/PROPP) clustered during pullbacks but price never broke down through prior swing lows, so each was read as normal give-back inside an intact uptrend. Next time I'd watch for against-fires co-occurring with a break of the prior local low, not just a giveback percentage, as the real wrong-direction tell."
+}

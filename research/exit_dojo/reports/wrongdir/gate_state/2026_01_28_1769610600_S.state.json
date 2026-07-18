@@ -1,0 +1,56 @@
+{
+  "episode_id": "2026_01_28_1769610600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "df1ff34b56ce3024",
+      "ts": 1784340119.0054083
+    },
+    {
+      "frame": 1,
+      "nonce": "1b59e52398988371",
+      "ts": 1784340126.0006242
+    },
+    {
+      "frame": 2,
+      "nonce": "7844f73254f0ebba",
+      "ts": 1784340134.8771794
+    },
+    {
+      "frame": 3,
+      "nonce": "d7a9a6c62e99eed9",
+      "ts": 1784340153.2147322
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "df1ff34b56ce3024",
+      "decision": "HOLD",
+      "reason": "at entry, no adverse move yet"
+    },
+    {
+      "frame": 1,
+      "nonce": "1b59e52398988371",
+      "decision": "HOLD",
+      "reason": "1m in, -14pts dip but z_21/lambda mixed, not decisively wrong yet"
+    },
+    {
+      "frame": 2,
+      "nonce": "7844f73254f0ebba",
+      "decision": "HOLD",
+      "reason": "giveback 91%% and fires-against building, want one more frame to confirm before bailing"
+    },
+    {
+      "frame": 3,
+      "nonce": "d7a9a6c62e99eed9",
+      "decision": "EXIT",
+      "reason": "giveback blew past 100%% to 188%%, px -38.5 and worsening each frame, vol expanding against -- wrong-direction breakdown, not a dip"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Held through frames 0-2 as the initial -14 to -21pt dip with mixed lambda/z signals looked like normal chop, not a broken thesis. Bailed at frame 3 when giveback blew past 100%% to 188%% (px -38.5, worsening every single frame since entry) with expanding 5m vol against the position -- that combination (monotonic adverse price + giveback>100%% + vol expansion) is the wrong-direction signature, distinct from a dip that later recovers. Next time: watch giveback crossing 100%% as the hard trigger rather than waiting for a third confirming frame, since the price path here was monotonically against from frame 1 onward."
+}

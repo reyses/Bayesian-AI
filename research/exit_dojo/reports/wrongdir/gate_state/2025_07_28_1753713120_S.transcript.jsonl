@@ -1,0 +1,23 @@
+{"ts": 1784344210.5113707, "event": "serve", "frame": 0, "nonce": "ffaaf8b699713ea6"}
+{"ts": 1784344214.741038, "event": "commit", "frame": 0, "nonce": "ffaaf8b699713ea6", "decision": "HOLD", "reason": "all TF closes favorable/near-flat at entry, no adverse structure yet"}
+{"ts": 1784344217.1361957, "event": "serve", "frame": 1, "nonce": "dfbf73b82f068bef"}
+{"ts": 1784344221.403093, "event": "commit", "frame": 1, "nonce": "dfbf73b82f068bef", "decision": "HOLD", "reason": "px +3.25 favorable, giveback improved 60%->43%, still working"}
+{"ts": 1784344223.9624226, "event": "serve", "frame": 2, "nonce": "09cf26b252d4c451"}
+{"ts": 1784344228.1747644, "event": "commit", "frame": 2, "nonce": "09cf26b252d4c451", "decision": "HOLD", "reason": "tiny -0.25 dip, giveback low 14%, still near flat, no breakdown"}
+{"ts": 1784344230.1119828, "event": "serve", "frame": 3, "nonce": "89ec69268a820d3f"}
+{"ts": 1784344233.9736862, "event": "commit", "frame": 3, "nonce": "89ec69268a820d3f", "decision": "HOLD", "reason": "px +2.75 favorable, recovered from -0.25 dip"}
+{"ts": 1784344236.1991732, "event": "serve", "frame": 4, "nonce": "e1ac02713346e6ec"}
+{"ts": 1784344239.7912803, "event": "commit", "frame": 4, "nonce": "e1ac02713346e6ec", "decision": "HOLD", "reason": "px +1.00 still favorable, no wrong-direction structure yet despite rising giveback"}
+{"ts": 1784344243.0320754, "event": "serve", "frame": 5, "nonce": "4e40f39f4982a751"}
+{"ts": 1784344246.1792252, "event": "commit", "frame": 5, "nonce": "4e40f39f4982a751", "decision": "HOLD", "reason": "px +5.25, new high favorable, thesis intact"}
+{"ts": 1784344248.4718153, "event": "serve", "frame": 6, "nonce": "c62d47ea418c8d86"}
+{"ts": 1784344251.5952673, "event": "commit", "frame": 6, "nonce": "c62d47ea418c8d86", "decision": "HOLD", "reason": "px +4.75 still solidly favorable despite a PROPP-against fire"}
+{"ts": 1784344253.8050542, "event": "serve", "frame": 7, "nonce": "35d85405e4ef1391"}
+{"ts": 1784344257.3072102, "event": "commit", "frame": 7, "nonce": "35d85405e4ef1391", "decision": "HOLD", "reason": "px +1.25 still favorable, pulled back from peak but not broken"}
+{"ts": 1784344259.4595785, "event": "serve", "frame": 8, "nonce": "7800f3690086adf1"}
+{"ts": 1784344265.9859657, "event": "commit", "frame": 8, "nonce": "7800f3690086adf1", "decision": "HOLD", "reason": "first negative print -2.75, within prior noise range, no structural breakdown yet, watching closely"}
+{"ts": 1784344268.7498233, "event": "serve", "frame": 9, "nonce": "922cd7fe235ef485"}
+{"ts": 1784344295.9737308, "event": "commit", "frame": 9, "nonce": "922cd7fe235ef485", "decision": "HOLD", "reason": "second negative print -3.25, deepening but 5m lambda significantly negative (mean-reversion favored), still within prior volatility band"}
+{"ts": 1784344298.0638742, "event": "serve", "frame": 10, "nonce": "1810c5b2b4e2b2d2"}
+{"ts": 1784344308.2224545, "event": "commit", "frame": 10, "nonce": "1810c5b2b4e2b2d2", "decision": "EXIT", "reason": "px collapsed -3.25->-13.00, new extreme past all prior range, lambda flipped positive/significant (trending against us not reverting), vol accelerating -- wrong direction confirmed, bail"}
+{"ts": 1784344314.3580177, "event": "finish", "summary": "Held through the first ~9 minutes because price oscillated in a normal-looking band (roughly -3 to +5 pts) with no sustained trend, and lambda on 5m was significantly negative (mean-reversion favored) during the first dip below zero. At t=10m price gapped sharply to -13.00, blowing past every prior extreme (amplitude jumped to 20.2pts), volatility accelerated (+1.4), and lambda on 5s/15s flipped positive and significant -- the trending (not reverting) signature the thesis explicitly treats as wrong-direction. Bailed immediately on that combination rather than waiting for further confirmation. Next time: watch for the lambda sign flip (negative->positive) combined with a new-extreme break as the earliest reliable wrong-direction tell, and treat vol acceleration on top of it as the urgency trigger to bail same-frame rather than waiting another bar.", "exit_frame": 10, "n_commits": 11}
