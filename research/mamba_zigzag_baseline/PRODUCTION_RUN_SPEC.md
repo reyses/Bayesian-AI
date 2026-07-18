@@ -76,3 +76,11 @@ beat never-bail on the standing N=23k harness
    capture>0 on right trades, no freeze, [SMOKE] json sane in ticks.
 3. Speed gates re-PASS post-edits.
 4. Reviewer sign-off, then "run with --fresh when ready" — Moises launches.
+
+## 8. TEACHER-STUDENT OPTION (north star, added 2026-07-18 — see memory: teacher-student-northstar)
+If/when the dojo-forge genome proves a held-out ride-edge: phase-1 Mamba
+training becomes DISTILLATION from the specialized local-LLM teacher
+(KL to per-frame P(EXIT)/P(ride) soft labels generated offline over thousands
+of days) with reward as polish — replacing most RL exploration cost. This
+section activates only after the genome gate; until then the spec above
+stands as written.
