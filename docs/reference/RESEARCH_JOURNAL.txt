@@ -4500,3 +4500,4 @@ next. Disk hit 0 bytes mid-run (freed via cache cleans; flag: disk plan needed).
 2026-07-18 (dawn): POWERED FRONTIER DECISIVE (doc 107) — no cut policy beats never-bail at N=23,378 natural mix; doc-100 stop edge was balance artifact; cut side CLOSED, losers cut themselves; Mamba exit head = ride-length only (smaller run). Graveyard + MEMORY updated.
 
 | 2026-07-18 | Dojo Forge Harness F1 | Built local-model generational dojo harness. CUDA build failed; fallback to Ollama HTTP API successful. |2026-07-18 (cont): distill swarm — 27 topics carded, 19 archived w/ receipts, FTS 54 context rows; Footprint Imbalance (+$17.23/day sig) flagged for spin-out; 3 June pre-echoes of the ride-only law found. Docs 119/120.
+2026-07-18 (cont): Footprint Imbalance spinout REJECTED at extraction - the +$17.23/day was a 536-vs-114-day dilution artifact on graveyard-rejected order-flow data, unsealable (no 2024 delta). Doc 121.

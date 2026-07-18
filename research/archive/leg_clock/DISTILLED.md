@@ -58,3 +58,11 @@ ARCHIVE (thesis answered: legs clocked but untradeable; entry-filter hunt
 mostly killed, one real filter found). Flag `AG_cat_10_Footprint_Imbalance.md`
 for a possible spin-out mini-project before archiving — it is the only surviving
 positive-CI result in the whole topic.
+
+## SALVAGE FLAG RESOLVED (2026-07-18, doc 121)
+Footprint Imbalance spin-out REJECTED at extraction: (1) reads the graveyard-
+rejected order-flow delta feed; (2) the +$17.23/day CI[12.27,22.99] is a
+DILUTION ARTIFACT - 422/536 sweep days had no delta data (structural zeros),
+true per-active-day ~$81 unsealed on a weak null, hand-picked +/-200 threshold;
+(3) unsealed forever - zero 2024 delta data exists to tune on. Verdict:
+REJECTED, stays archived. Report: reports/footprint_imbalance_spinout.md.
