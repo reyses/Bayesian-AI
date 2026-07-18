@@ -4491,3 +4491,7 @@ run WITH the move. ZIGZAG 0.96 agreement is timing-split (mode=label end; 43% ea
 with 21-40min left). Pooled combiner OOS AUC 0.687, decile calibration monotone (0.25->0.80
 observed), tails 75/80% right on 17.3k OOS fires. P(label-right) != P($) - economic layer
 next. Disk hit 0 bytes mid-run (freed via cache cleans; flag: disk plan needed).
+
+2026-07-16/17 (autonomous night): Exit Dojo pilot (10 Sonnet, grammar: 2-3-family confluence) + Mamba anti-freeze smoke 4 arms (NO freeze; 5 reward dead-wires found+fixed; FIXED2=candidate) + speed 248->431 bars/s (parity gates PASS). Docs 096.
+2026-07-17: phold anchor patch (5s -period shift; all 089 verdicts hold, null stronger) | Exit Dojo FULL RUN 200 blind: LLM exit ~wash vs 5m-hold (+3.9 NS, beat 40pct); winners only sig (+19.5, 0.29 oracle); wrong-side sig loss -> EXIT-GRAMMAR narrows to winner-ride; Mamba promises ride-length not turn-timing | wrong-dir dojo built + re-cut on terminal economics, 100/100 blind, dumb-stop ROC bar | Telegram bridge live. Docs 097/098/099.
+2026-07-18: ExNMP archaeology to genesis (bayesian_brain/wave_rider 01-31; $900-giveback 04-16 = founding trauma; Shainin Red X derivation journaled) | NMP9 ported plain: V1 FADEAGN direction-INVERTED, FADEMOM loss real, lambda-hat head selective (calm +0.070) | quantile retune: structure THRESHOLD-ROBUST, retune immaterial | dossier = 49 streams | Mamba production spec draft (ticks ruling, NMP9 state). Docs 101/102; wrong-dir verdict (100) pending fleet.
