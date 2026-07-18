@@ -5,7 +5,7 @@ on its own; this README is only a wrapper/index. Read in the order below.
 
 ## Documents
 
-1. **[projectteacherstudentnorthstar.md](../docs/memory/project-teacher-student-northstar.md)** *(source of truth, repo root)*
+1. **[projectteacherstudentnorthstar.md](../memory/project-teacher-student-northstar.md)** *(source of truth, repo root)*
    The program north star â€” the pipeline, the five Acts, the gated sequencing.
    Everything else here reviews or hardens this.
 
@@ -34,3 +34,10 @@ on its own; this README is only a wrapper/index. Read in the order below.
 Docs are snake_case to match the repo. Cross-links between docs use relative paths,
 so they resolve whether opened in VS Code, GitHub, or a plain markdown viewer.
 
+
+
+## Operational note (2026-07-18)
+The FROZEN pre-registration copy of the gate spec lives at
+`research/dojo_forge/RIDE_EDGE_GATE_SPEC.md` (v2 + amendments v2.1/v2.2;
+pre-reg tip = the latest commit touching that file). The copy here is the
+readable reference; the frozen copy governs.

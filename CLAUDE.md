@@ -19,11 +19,17 @@ You are a critical collaborator, not an assistant. This is a real-money trading 
 
 ## What This Is
 MNQ futures trading system. Originally statistical regression bands + Bayesian
-learning + a supervised CNN/blended stack; **pivoting to a reinforcement-learning
-engine** (Parallel Worlds Curriculum RL — see `rl_whitepaper.md`). RL is
-mid-training and NOT yet deployed; live trading still flows through the V2
-zigzag/L5 engine. NOT quantum physics — physics metaphors are historical and
-fully purged.
+learning + a supervised CNN/blended stack; then a reinforcement-learning
+engine (PW-CRL, `rl_whitepaper.md`); **now organized around the TEACHER-STUDENT
+NORTH STAR** (2026-07-18, five acts — see `docs/northstar/README.md` +
+`docs/memory/project-teacher-student-northstar.md`): a genome-evolved local-LLM
+teacher (dojo forge, free local compute) → soft-label distillation into a fast
+student (Mamba, pending the student bake-off) → nonce-audited arena → glass-
+cockpit interpreter → Bayesian-table actuary. Everything is gated on ONE
+pre-registered claim: a held-out RIDE-side edge
+(`research/dojo_forge/RIDE_EDGE_GATE_SPEC.md` — the frozen copy governs).
+Live trading still flows through the V2 zigzag/L5 engine. NOT quantum
+physics — physics metaphors are historical and fully purged.
 
 ## Entry Points
 > Full, maintained command list lives in `AGENTS.ini [entry_points]`.
@@ -56,12 +62,25 @@ fully purged.
 > Canonical "what's broken / what's still TBD" lives in `AGENTS.ini [known_issues]`.
 > Historical "Active Work" snapshots moved to `docs/daily/` journals.
 
-- **RL engine training (PW-CRL)** — mid-curriculum (`EXIT_NMP → ENTRY_NMP → YOLO`).
-  Current focus: Composite Brain dual normal curves + `N_AGENTS=1` pure-OOS evaluation
-  (HEAD `55e7f0e5`). A `research_A` architecture variant is being trialed in parallel
-  via `training/rl_engine/{network,train_gpu,evaluate_oos}_research_A.py`.
-- **VRAM / OOM hardening** of the forward pass — see
-  `core_v2/FPS/forward_pass_system_vram.py`.
+- **DOJO FORGE (the active program, 2026-07-18)** — generational genome
+  evolution on free local models (`research/dojo_forge/`, AG-executed under
+  doc-108 + the Claude⇄AG review protocol; comms docs 108-118+). Sequence to
+  the PRIMARY gen-0: ctx-audit → qwen3:14b native acceptance → gate-spec
+  partitions (lockbox/alpha-ledger/Q0 power) → model-store migration →
+  launch. THE gate: pre-registered ride-edge spec (frozen at
+  `research/dojo_forge/RIDE_EDGE_GATE_SPEC.md`).
+- **Closed with receipts (2026-07-17/18)**: exit timing ≈ wash vs 5m-hold
+  blind (doc 098); **cut side CLOSED at N=23,378 — no cut policy beats
+  never-bail; losers cut themselves** (doc 107); NMP9 original ladder
+  recovered/ported/retuned — threshold-robust (docs 101/102); V1 FADEAGN was
+  direction-inverted. The edge is RIDE-ONLY.
+- **Mamba production spec** ready (`research/mamba_zigzag_baseline/
+  PRODUCTION_RUN_SPEC.md`): ride-length-only exit head, ticks ruling, FIXED2
+  reward (5 dead-wires repaired), 431 bars/s compiled — awaiting Moises' go,
+  possibly superseded by the teacher-student distillation path (spec §8) if
+  the genome gate passes.
+- **RL engine training (PW-CRL)** — parked in favor of the north star;
+  `research_A` variant files remain in `training/rl_engine/`.
 - **Blended path = retired-but-runnable via compat shim.** Supervised CNN/blended/
   nightmare modules were deleted; `training/nightmare_blended.py` is now a **proxy**
   that imports the frozen snapshot at `docs/reference/nightmare_blended_2026_05_20.py`
