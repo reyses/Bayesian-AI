@@ -126,8 +126,12 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
         )
 
     # --- docs/memory/*.md (top-level, non-archive) --------------------------
+    # + docs/memory/agents/<agent>/*.md — per-agent SEGMENTS (2026-07-18:
+    #   full segmentation, not mirror: each agent owns its segment, everyone
+    #   reads all; tag carries the segment owner for scoped retrieval).
     n = 0
-    for path in sorted(glob.glob(os.path.join(MEM_DIR, "*.md"))):
+    seg_paths = sorted(glob.glob(os.path.join(MEM_DIR, "agents", "*", "*.md")))
+    for path in sorted(glob.glob(os.path.join(MEM_DIR, "*.md"))) + seg_paths:
         name = os.path.basename(path)
         rel = os.path.relpath(path, REPO).replace("\\", "/")
         raw = read_text(path)
@@ -158,10 +162,16 @@ def build_rows() -> tuple[list[dict], dict[str, int]]:
             continue
 
         body = strip_frontmatter(raw)
+        # segment-owned file? prefix the tag with the owning agent (ag:, claude:)
+        tag = os.path.splitext(name)[0]
+        norm = path.replace("\\", "/")
+        if "/agents/" in norm:
+            owner = norm.split("/agents/")[1].split("/")[0]
+            tag = f"{owner}:{tag}"
         add(
             first_date(body, path),
             tier_for_memory_file(name, ftype),
-            os.path.splitext(name)[0],
+            tag,
             rel,
             body,
         )

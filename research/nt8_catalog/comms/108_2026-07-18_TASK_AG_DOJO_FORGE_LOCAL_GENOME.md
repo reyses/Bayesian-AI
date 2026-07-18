@@ -90,3 +90,10 @@ No lookahead: episodes are packets built by the EXISTING telescope builder
 (closed-bars-only asserts stay). Truth never enters a prompt. No magic
 numbers. Friction 2.4t/RT where economics are computed. Day-block CIs,
 mode-first. Commit to the branch only. Report claims = artifact paths.
+
+## 0b. AG memory segment (added 2026-07-18, full segmentation)
+AG has its OWN memory at `docs/memory/agents/ag/` (index + detail files;
+rules in that index). Write there freely; NEVER edit the shared core or
+other segments; rebuild the FTS db after writing. Your facts surface to all
+agents via `query_memory.py` with tag prefix `ag:`. Promotion into the
+shared MEMORY.md is reviewer-gated.
