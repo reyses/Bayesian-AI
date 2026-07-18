@@ -1679,3 +1679,132 @@ def gen_propturn_p(ctx):
 
 
 GENS['PROP-TURN-P'] = gen_propturn_p
+
+
+# ---- NMP9: the ORIGINAL 2026-04-08 nine-tier ExNMP waterfall, ported PLAIN ------------
+# (Moises 2026-07-18, doc 101: "let's make the good 9 tier mapped without the extra spicy
+# V1 names"). Verbatim port of nightmare_blended_9tier.py::_classify_full_tier (recovered
+# from git 06d14190; research/exnmp_lineage_recovered/nine_tier_2026-04-08/). This is the
+# ORIGINAL ladder, NOT the later 2026-04-18 re-derivation the NMPT-* streams port:
+#   * ORIGINAL priority order: CASCADE > KILLSHOT > FREIGHT > FADE_AGAINST > RIDE_AGAINST
+#     > [head] RIDE_MOMENTUM/RIDE_CALM > FADE_MOMENTUM > FADE_CALM.  (NMPT reordered
+#     FREIGHT to #1, swapped KILLSHOT/CASCADE, and added MTFEXH/MTFBRK — none of that here.)
+#   * FREIGHT is the SIMPLE original: |1m_vel|>=100 only (no vr<0.85, no vel*acc>0 gate
+#     — those were 04-18 additions).  FADE_AGAINST / RIDE_AGAINST are the simple original
+#     forms (no |v5_vel|<10 gate).  No MTFEXH, no MTFBRK.
+#   * The explicit ENTRY GATE is restored (the original file gated entries at
+#     |z|>ROCHE=2.0 AND vr<VR_ENTRY=1.0 before classifying; NMPT dropped that gate).
+# UNIT / QUANTITY RECONCILIATION (79D-era file -> 5s-stream port), all documented:
+#   - The original read a 79D SFE feature vector: z=feat[10] (1m z_se), vel=feat[13]
+#     (1m velocity in TICKS), wick=feat[65/68/71], h1_z=feat[40], h1_vel=feat[43].
+#     Here every quantity is recomputed from raw bars at the decision layer via the SAME
+#     _tf_state used by NMPT (map recipe A): base z = _z21 (21-bar OLS endpoint z on 1m
+#     closes) STANDS IN for the 79D z_se; velocity = diff(closes)/TICK (ticks, matches the
+#     79D velocity unit — verified against the file's VELOCITY_THRESHOLD=50 / FREIGHT=100
+#     constants, which are ticks-based per NINE_TIER_EXTRACTION.md); wick = 1-|c-o|/range;
+#     vr = std10/std60 (ddof=1) on 1m closes. Original thresholds therefore transfer.
+#   - EDGE-TRIGGER adaptation (identical to the NMPT port, same rationale): the legacy
+#     fired continuously via position occupancy (a trade-management artifact). Here each
+#     stream emits on its own (tier,direction) EDGE at 1m boundaries. Entry-gate misses
+#     reset the edge state (res=None -> prev=None), so the next in-universe fire is an edge.
+# THE HEAD (tiers 6-7) — labeled "lambda-hat-completed (head seat)", NOT original:
+#   The original head was a CNN FADE/RIDE/SKIP classifier. Per the corrected history
+#   (NINE_TIER_EXTRACTION.md) the ladder ran CNN-FREE after 2026-04-10, so tiers 6-7 never
+#   fired and it degenerated to a 7-tier physics ladder. We COMPLETE the head with the exact
+#   NMP-LAMBDA derivation already in this pipeline: lambda_hat = trailing OLS slope (k=21)
+#   of log(|z_se|+NMP_EPS) (uses ctx.zse). lambda_hat>0 at the head seat -> RIDE (flip the
+#   fade direction) -> RIDE_MOMENTUM (|vel|>=50) / RIDE_CALM (else); lambda_hat<=0 (or
+#   undefined) -> fall through to FADE_MOMENTUM/FADE_CALM. There is NO SKIP branch (the CNN
+#   had one; lambda_hat gives no abstain signal — the omission is documented, doc 101).
+_TIER9_C = dict(ROCHE=2.0, VR_ENTRY=1.0, WICK_5M_MIN=0.83, WICK_15M_MIN=0.77,
+                VELOCITY_THRESHOLD=50.0, FREIGHT_TRAIN_THRESHOLD=100.0,
+                H1_Z_MIN=1.0, H1_AGAINST_Z_MIN=1.5)
+NMP9_TIERS = ('CASCADE', 'KILLSHOT', 'FREIGHT', 'FADEAGAINST', 'RIDEAGAINST',
+              'RIDEMOM', 'RIDECALM', 'FADEMOM', 'FADECALM')
+
+def _nmp9_events(ctx):
+    """Classify every RTH 1m boundary that passes the NMP entry gate with the VERBATIM
+    original 2026-04-08 waterfall; emit on (tier, direction) EDGE. Cached on ctx._nmp9."""
+    if getattr(ctx, '_nmp9', None) is not None:
+        return ctx._nmp9
+    C = _TIER9_C
+    m1 = _tf_state(ctx, 60); m5 = _tf_state(ctx, 300)
+    m15 = _tf_state(ctx, 900); h1 = _tf_state(ctx, 3600)
+    # lambda-hat head (needs the canonical z_se store); undefined -> all-NaN -> no RIDE.
+    if getattr(ctx, 'zse', None) is not None:
+        lam = _nmp_lambda(ctx)
+    else:
+        lam = np.full(len(ctx.c), np.nan)
+    events = []
+    prev = None
+    rows = np.flatnonzero((ctx.ts % 60 == 0) & ctx.rth &
+                          (np.arange(len(ctx.c)) >= ctx.start))
+    def at(st, i):
+        k = st['row_closed'][i]
+        return None if not np.isfinite(k) else int(k)
+    for i in rows:
+        k1, k5, k15, kh = at(m1, i), at(m5, i), at(m15, i), at(h1, i)
+        if None in (k1, k5, k15, kh):
+            continue
+        z = m1['z'][k1]; vr = m1['vr'][k1]
+        # ORIGINAL entry gate: |z|>ROCHE AND vr<VR_ENTRY (else not in the NMP universe)
+        if not (np.isfinite(z) and abs(z) > C['ROCHE'] and
+                np.isfinite(vr) and vr < C['VR_ENTRY']):
+            prev = None
+            continue
+        direction = 'short' if z > 0 else 'long'          # NMP default: fade the z
+        wick_5m, wick_15m = m5['wick'][k5], m15['wick'][k15]
+        h1_z, h1_vel = h1['z'][kh], h1['vel'][kh]
+        velocity = m1['vel'][k1]; abs_vel = abs(velocity)
+        has_wick = wick_5m > C['WICK_5M_MIN'] and wick_15m > C['WICK_15M_MIN']
+        h1_aligned = ((direction == 'long' and h1_z < -C['H1_Z_MIN']) or
+                      (direction == 'short' and h1_z > C['H1_Z_MIN']))
+        h1_against_fade = ((direction == 'long' and h1_z > C['H1_AGAINST_Z_MIN']) or
+                           (direction == 'short' and h1_z < -C['H1_AGAINST_Z_MIN']))
+        h1_vel_against = ((direction == 'long' and h1_vel < -C['H1_AGAINST_Z_MIN']) or
+                          (direction == 'short' and h1_vel > C['H1_AGAINST_Z_MIN']))
+        res = None
+        if has_wick and h1_aligned:                        # 1 CASCADE
+            res = (direction, 'CASCADE', wick_5m)
+        elif has_wick:                                     # 2 KILL_SHOT
+            res = (direction, 'KILLSHOT', wick_5m)
+        elif abs_vel >= C['FREIGHT_TRAIN_THRESHOLD']:      # 3 FREIGHT_TRAIN (ride)
+            res = ('long' if velocity > 0 else 'short', 'FREIGHT', abs_vel)
+        elif h1_against_fade:                              # 4 FADE_AGAINST (follow 1h z)
+            res = ('short' if h1_z > 0 else 'long', 'FADEAGAINST', abs(h1_z))
+        elif h1_vel_against:                               # 5 RIDE_AGAINST (follow 1h vel)
+            res = ('long' if h1_vel > 0 else 'short', 'RIDEAGAINST', abs(h1_vel))
+        else:
+            lam_i = lam[i]                                 # head seat: lambda_hat>0 -> RIDE
+            if np.isfinite(lam_i) and lam_i > 0.0:
+                rdir = 'long' if direction == 'short' else 'short'   # flip the fade
+                if abs_vel >= C['VELOCITY_THRESHOLD']:     # 6 RIDE_MOMENTUM
+                    res = (rdir, 'RIDEMOM', abs_vel)
+                else:                                      # 7 RIDE_CALM
+                    res = (rdir, 'RIDECALM', abs(z))
+            elif abs_vel >= C['VELOCITY_THRESHOLD']:       # 8 FADE_MOMENTUM
+                res = (direction, 'FADEMOM', abs_vel)
+            else:                                          # 9 FADE_CALM (default)
+                res = (direction, 'FADECALM', abs(z))
+        key = (res[0], res[1]) if res else None
+        if res and key != prev:
+            events.append((i, res[0] == 'long', res[1], res[2]))
+        prev = key
+    ctx._nmp9 = events
+    return events
+
+def _make_nmp9_gen(tier):
+    _head = tier in ('RIDEMOM', 'RIDECALM')
+    def gen(ctx):
+        return [ctx.emit(i, is_long, float(val))
+                for i, is_long, t, val in _nmp9_events(ctx) if t == tier]
+    gen.__doc__ = (
+        f"NMP9-{tier}: original 2026-04-08 nine-tier ExNMP waterfall port "
+        f"(nightmare_blended_9tier.py::_classify_full_tier verbatim), plain names, "
+        f"edge-triggered at 1m boundaries."
+        + (" HEAD SEAT: lambda-hat-completed (lambda_hat>0 -> RIDE, no SKIP)." if _head else ""))
+    return gen
+
+for _t9 in NMP9_TIERS:
+    GENS[f'NMP9-{_t9}'] = _make_nmp9_gen(_t9)
+NMP_STREAMS.update({f'NMP9-{_t9}' for _t9 in NMP9_TIERS})   # all 9 need ctx.zse for the head
