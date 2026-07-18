@@ -1719,15 +1719,27 @@ GENS['PROP-TURN-P'] = gen_propturn_p
 _TIER9_C = dict(ROCHE=2.0, VR_ENTRY=1.0, WICK_5M_MIN=0.83, WICK_15M_MIN=0.77,
                 VELOCITY_THRESHOLD=50.0, FREIGHT_TRAIN_THRESHOLD=100.0,
                 H1_Z_MIN=1.0, H1_AGAINST_Z_MIN=1.5)
+# QUANTILE-RETUNED constants (doc 102, 2026-07-18): the distribution-dependent thresholds
+# re-solved by MARGINAL PASS-RATE on 2024 to reproduce the era occupancy anchors (rolling
+# windows changed => z/wick/h1z quantiles shifted off the verbatim 2026-04 values). Frozen
+# by tools/nmp9_quantile_match.py -> reports/nmp9_retuned_constants.json (no AI-label/PnL in
+# the tuning loop). HELD absolute: VR_ENTRY, VELOCITY_THRESHOLD, FREIGHT_TRAIN_THRESHOLD.
+# The VERBATIM dict above stays the default; set NMP9_USE_RETUNED=True (league runner does)
+# to select this set -- the verbatim run remains byte-reproducible.
+_TIER9_C_RETUNED = dict(ROCHE=1.9131, VR_ENTRY=1.0, WICK_5M_MIN=0.7475, WICK_15M_MIN=0.6875,
+                        VELOCITY_THRESHOLD=50.0, FREIGHT_TRAIN_THRESHOLD=100.0,
+                        H1_Z_MIN=1.3835, H1_AGAINST_Z_MIN=2.213)
+NMP9_USE_RETUNED = False    # runner flips this; default keeps the verbatim run reproducible
 NMP9_TIERS = ('CASCADE', 'KILLSHOT', 'FREIGHT', 'FADEAGAINST', 'RIDEAGAINST',
               'RIDEMOM', 'RIDECALM', 'FADEMOM', 'FADECALM')
 
 def _nmp9_events(ctx):
     """Classify every RTH 1m boundary that passes the NMP entry gate with the VERBATIM
     original 2026-04-08 waterfall; emit on (tier, direction) EDGE. Cached on ctx._nmp9."""
-    if getattr(ctx, '_nmp9', None) is not None:
-        return ctx._nmp9
-    C = _TIER9_C
+    _attr = '_nmp9_rt' if NMP9_USE_RETUNED else '_nmp9'   # separate cache per constant set
+    if getattr(ctx, _attr, None) is not None:
+        return getattr(ctx, _attr)
+    C = _TIER9_C_RETUNED if NMP9_USE_RETUNED else _TIER9_C
     m1 = _tf_state(ctx, 60); m5 = _tf_state(ctx, 300)
     m15 = _tf_state(ctx, 900); h1 = _tf_state(ctx, 3600)
     # lambda-hat head (needs the canonical z_se store); undefined -> all-NaN -> no RIDE.
@@ -1790,7 +1802,7 @@ def _nmp9_events(ctx):
         if res and key != prev:
             events.append((i, res[0] == 'long', res[1], res[2]))
         prev = key
-    ctx._nmp9 = events
+    setattr(ctx, _attr, events)
     return events
 
 def _make_nmp9_gen(tier):
