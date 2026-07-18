@@ -20,3 +20,28 @@ resolves the Mamba GPU-cost concern (supervised >> RL exploration cost).
 **Why gated:** both dojos show LLM ~wash on cut side; the plan rests on the
 RIDE side showing genome edge. If it never does, the plan dies at the cheap
 gate. Related: [[telescope-nested-cadence]], docs 107/108, PRODUCTION_RUN_SPEC.
+
+## Acts 3+4 (added 2026-07-18, Moises)
+**Act 3 - the ARENA**: the forge harness is executor-agnostic - Mamba plays the
+same nonce-audited gate as the LLMs (tensor frames adapter). One arena for all
+contenders (teacher variants, Mamba checkpoints, dumb baselines) on identical
+held-out episodes. Two tracks kept distinct: PARITY (Mamba sees the tensor
+equivalent of the LLM frames - the honest teacher-vs-student comparison) vs
+NATIVE (full production state - the deployable measure). Mamba speed => arena
+evaluates checkpoints on thousands of held-out eps => tight student CIs.
+Steering-CI enforcement: any steered variant must post an arena score before live.
+
+**Act 4 - the GLASS COCKPIT**: the teacher doubles as Mamba bidirectional
+interpreter. OUTBOUND: verbalizes the instrument panel ONLY - named state
+channels + P(EXIT) trajectory + mechanical per-channel counterfactual
+attributions (computable for a small SSM; seed tool mamba_brain_scanner.py).
+LAW: interpreter speaks only from instruments (claim-evidence coupling) -
+confabulated "reasons" are the failure mode. INBOUND: compiles Moises-English
+into genome lessons/conditioning flags -> steering-CI -> live. Chat surface =
+the Telegram bridge. LLM stays OUT of the trade path (graveyard).
+
+**The engine (Moises closing)**: the Hermes-like harness keeps EVERYTHING
+slowly evolving - genome, teacher weights, Mamba checkpoints, steering rules -
+one loop (play -> score vs dumb baselines on held-out -> distill -> commit ->
+next gen), git as the fossil record, reviewer gates as selection pressure.
+Nothing finished, nothing drifting unmeasured.
