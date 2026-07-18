@@ -59,17 +59,16 @@ Do NOT evaluate the run on turn-timing metrics.
   in any smoke arm — regression-watch only).
 - Seed + [SMOKE] metrics every epoch; parity re-run of gates after ANY env edit.
 
-## 6. Wrong-direction cut (RESOLVED — doc 100, 2026-07-18)
-Blind Red X verdict: agents catch 95% of losers but net +7.5 ticks/ep vs the
-dumb 24-tick stop's +17.7 → **the cut-head BASELINE is the dumb stop**
-(bail at ROC-optimal X≈24 ticks / 6pts). The net's ONE learnable margin:
-**veto the stop on recoverable dips** — agents held clean goods at 10%
-false-bail vs 54% on dipped (the information exists in the path; the pricing
-was wrong, not the read). Reward shaping: bail-on-dipped-good penalized by
-forgone ticks; early catch credited by damage-avoided ticks; the veto is the
-skill, not the detection. Candidate state emphasis (stable across BOTH blind
-dojos): adverse extreme + against-fire clustering + giveback dynamics +
-loss-ACCELERATION + ER10.
+## 6. Wrong-direction cut (RE-RESOLVED — doc 107 supersedes doc 100, 2026-07-18 dawn)
+The powered frontier (N=23,378, natural mix) showed doc-100's stop edge was a
+class-balance artifact: **NO cut policy beats never-bail** (all stops, the
+re-entry, and the veto are net-negative or ≈0; the stop's dipped-good bleed
+outweighs its wrong-trade pay on the real tape). **Cut-head = NONE.**
+Losers cut themselves at this entry quality (the R-trigger reversal is the
+only exit). Consequence: the exit head trains on RIDE-LENGTH ONLY — one head,
+one objective, smaller curriculum, cheaper run. Any future cut proposal must
+beat never-bail on the standing N=23k harness
+(research/exit_dojo/tools/powered_cut_frontier.py) before entering this spec.
 
 ## 7. Run gates (before Moises launches)
 1. reward_env synthetic tests green after the ticks conversion (§3).
