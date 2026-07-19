@@ -3,51 +3,54 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "6c123dac76e0580b",
-      "ts": 1784398227.6110902
+      "nonce": "402740a2b1a5f2cd",
+      "ts": 1784401265.7182713
     },
     {
       "frame": 1,
-      "nonce": "98c3490689957aa3",
-      "ts": 1784398391.3422
+      "nonce": "0e0caa7ad4171c47",
+      "ts": 1784401426.2562773
     },
     {
       "frame": 2,
-      "nonce": "5af1af1cd92993e8",
-      "ts": 1784398555.1201825
+      "nonce": "21185e8938ddc37c",
+      "ts": 1784401585.5297368
     },
     {
       "frame": 3,
-      "nonce": "a628df87bd2e8bd0",
-      "ts": 1784398712.7790692
+      "nonce": "1e00105a3af02066",
+      "ts": 1784401739.9555054
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "6c123dac76e0580b",
+      "nonce": "402740a2b1a5f2cd",
       "decision": "HOLD",
       "reason": "The provided data indicates mixed signals across different timeframes, suggesting volatility and potential for consolidation rather than an immediate strong trend reversal or acceleration of loss. Specifically:\n\n1. **Volatility Context:** The 30-period statistics show positive price and volume volatility ($\text{price}\text{_sigma}_30=+188.619$, $\text{vol}\text{_sigma}_30=+14950.512$).\n2. **4H Movement:** The 4-hour candle shows a wide range (O: 175.00, H: 216.00, L: 215.25, C: 80.75), indicating significant intraday movement.\n3. **1D Context:** The daily data suggests a bearish close relative to the 30-period low ($\text{z}\text{_close}\text{_vs}\text{_low}_30=-1.694$), which introduces caution.\n\nGiven the presence of high volatility and conflicting directional signals across the timeframes, holding position allows for further observation before committing to an exit or entry."
     },
     {
       "frame": 1,
-      "nonce": "98c3490689957aa3",
+      "nonce": "0e0caa7ad4171c47",
       "decision": "HOLD",
       "reason": "No explicit trigger for EXIT (multi-family fires AND accelerating loss) was met. Conditions for HOLD (adverse excursion or giveback/retrace with intact trend) are not definitively confirmed by the provided data, thus maintaining the current position."
     },
     {
       "frame": 2,
-      "nonce": "5af1af1cd92993e8",
+      "nonce": "21185e8938ddc37c",
       "decision": "HOLD",
       "reason": "The trade exhibits a significant pullback ('giveback 209%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "1e00105a3af02066",
+      "decision": "EXIT",
+      "reason": "The system detected multiple family fires (KMDR-against and PROPP-with) within the last 3 minutes, which satisfies the condition for multi-family fires. This suggests a high degree of conflicting signals, indicating an accelerating loss scenario, thus triggering the EXIT rule [G0.2]."
     }
   ],
-  "pending": {
-    "frame": 3,
-    "nonce": "a628df87bd2e8bd0"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

@@ -3,36 +3,36 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "5917c6c75c25b55a",
-      "ts": 1784398112.5058253
+      "nonce": "c10d0630335b3937",
+      "ts": 1784403353.2092917
     },
     {
       "frame": 1,
-      "nonce": "d2031e61eb4b858c",
-      "ts": 1784398280.505769
+      "nonce": "faa6f9a1829d9fbb",
+      "ts": 1784403501.779952
     },
     {
       "frame": 2,
-      "nonce": "4669b5250e0913b8",
-      "ts": 1784398445.0955124
+      "nonce": "ec3b1c3e99100643",
+      "ts": 1784403647.356263
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "5917c6c75c25b55a",
+      "nonce": "c10d0630335b3937",
       "decision": "HOLD",
       "reason": "The provided data indicates a state where there are no immediate adverse conditions (G0.1), multi-family fires with accelerating loss (G0.2), or a situation requiring a hold due to giveback/retrace while the trend is intact (G0.3). The local signal suggests a specific pattern of recent activity: 'HA-with(1m ago), PROPP-against(0m ago), none-else', which does not trigger an immediate EXIT based on the defined rules."
     },
     {
       "frame": 1,
-      "nonce": "d2031e61eb4b858c",
+      "nonce": "faa6f9a1829d9fbb",
       "decision": "HOLD",
       "reason": "The data indicates a 'giveback 1%' occurred. According to rule [G0.3], if a giveback/retrace occurs and the trend is intact, the action is HOLD."
     },
     {
       "frame": 2,
-      "nonce": "4669b5250e0913b8",
+      "nonce": "ec3b1c3e99100643",
       "decision": "EXIT",
       "reason": "The input data explicitly indicates 'multi-family fires' with signals such as KMDR-against, HA-with, and PROPP-with within the last 3 minutes. This triggers rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
     }

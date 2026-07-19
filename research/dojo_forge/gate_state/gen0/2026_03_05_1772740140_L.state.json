@@ -1,0 +1,45 @@
+{
+  "episode_id": "2026_03_05_1772740140_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "348d6cdcdac86a48",
+      "ts": 1784406177.5668595
+    },
+    {
+      "frame": 1,
+      "nonce": "e02eee73c24404d2",
+      "ts": 1784406245.3445332
+    },
+    {
+      "frame": 2,
+      "nonce": "3c3af27e9377c466",
+      "ts": 1784406318.072062
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "348d6cdcdac86a48",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists solely of structured technical data and a set of rules (Genome) for decision-making. Therefore, no trading action can be taken based on the provided context alone. The system remains in a neutral state pending a specific query."
+    },
+    {
+      "frame": 1,
+      "nonce": "e02eee73c24404d2",
+      "decision": "HOLD",
+      "reason": "The input data explicitly mentions a 'giveback 10%', which triggers Genome Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although the subsequent price acceleration in the latest bar is positive, the presence of a retracement suggests a pause or consolidation phase where the existing trend structure is being tested before continuing, aligning with the HOLD condition."
+    },
+    {
+      "frame": 2,
+      "nonce": "3c3af27e9377c466",
+      "decision": "EXIT",
+      "reason": "Triggered by Genome Rule [G0.2]. The presence of 'multi-family fires' (KMDR-against and PROPP-against signals) indicates adverse market conditions, which warrants an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -32,15 +32,17 @@ import golden_vector_gen as gvg
 import dossier_signal_pipeline as dsp
 
 NT8_5S = os.path.join(ROOT, 'DATA', 'ATLAS_NT8', '5s')
-NT8_ZDIR = os.path.join(ROOT, 'DATA', 'ATLAS_NT8', 'FEATURES_5s_v2', 'L3_1m')
+NT8_ZDIR = os.path.join(ROOT, 'DATA', 'ATLAS_NT8', 'FEATURES_5s_v2', 'L3_1m')  # default: z_se_30
 OUT = os.path.join(PROJ, 'golden_backtest')
-os.makedirs(OUT, exist_ok=True)
+
+# module-level, overridden by CLI (kept simple so build_ctx_nt8 can read them)
+ZDIR = NT8_ZDIR
 
 
 def _zse_col(day):
     """Return (path, colname) for the day's z_se store, or (None, None)."""
     import pyarrow.parquet as pq
-    p = os.path.join(NT8_ZDIR, f'{day}.parquet')
+    p = os.path.join(ZDIR, f'{day}.parquet')
     if not os.path.exists(p):
         return None, None
     cols = pq.ParquetFile(p).schema.names
@@ -94,10 +96,18 @@ def process_day_nt8(files, j, model):
 
 
 def main():
+    global ZDIR
     ap = argparse.ArgumentParser()
     ap.add_argument('--start', default='2026_06_22')
     ap.add_argument('--end', default='2026_07_17')
+    ap.add_argument('--zse-dir', default=None, help='override z_se store dir (e.g. the z_se_15 store)')
+    ap.add_argument('--out', default=OUT, help='golden output dir')
     args = ap.parse_args()
+    if args.zse_dir:
+        ZDIR = os.path.join(ROOT, args.zse_dir) if not os.path.isabs(args.zse_dir) else args.zse_dir
+    outdir = os.path.join(ROOT, args.out) if not os.path.isabs(args.out) else args.out
+    os.makedirs(outdir, exist_ok=True)
+    print(f'z_se dir: {ZDIR}\nout dir:  {outdir}')
 
     files = sorted(glob.glob(os.path.join(NT8_5S, '*.parquet')))
     names = [os.path.basename(f)[:10] for f in files]
@@ -110,7 +120,7 @@ def main():
     rows = []
     for j in win_idx:
         day, F, zz, G = process_day_nt8(files, j, model)
-        G.to_parquet(os.path.join(OUT, f'{day}.parquet'))
+        G.to_parquet(os.path.join(outdir, f'{day}.parquet'))
         n_fires = int(len(F))
         n_topk = int(F['det'].isin(model['topk']).sum()) if len(F) else 0
         n_entries = int(G['entry'].sum())
@@ -122,8 +132,8 @@ def main():
               f"entries={n_entries} zz_confirms={n_conf} R={zz['min_rev_ticks']}t")
 
     summ = pd.DataFrame(rows)
-    summ.to_csv(os.path.join(OUT, '_window_summary.csv'), index=False)
-    print(f"\nwrote {len(rows)} golden parquets + _window_summary.csv to {OUT}")
+    summ.to_csv(os.path.join(outdir, '_window_summary.csv'), index=False)
+    print(f"\nwrote {len(rows)} golden parquets + _window_summary.csv to {outdir}")
 
 
 if __name__ == '__main__':

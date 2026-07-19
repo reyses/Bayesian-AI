@@ -1,0 +1,12 @@
+{
+  "flagged": [
+    {
+      "date": "2025_08_03",
+      "turn_ts": 1754262540.0,
+      "direction": "LONG",
+      "entry_price": 22885.0,
+      "adverse_pts": 2.75,
+      "reason": "price broke past entry (mae > 1.27)"
+    }
+  ]
+}

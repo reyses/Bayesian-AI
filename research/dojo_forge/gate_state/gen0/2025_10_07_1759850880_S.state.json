@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_10_07_1759850880_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "193c9aec5e66e0a6",
+      "ts": 1784406454.2403588
+    },
+    {
+      "frame": 1,
+      "nonce": "253c03aa96974650",
+      "ts": 1784406513.0758667
+    },
+    {
+      "frame": 2,
+      "nonce": "81263635160f2a06",
+      "ts": 1784406566.4322555
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "193c9aec5e66e0a6",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a specific state regarding momentum indicators (`fires<=3m: KMDR-against(1m ago), PROPP-with(0m ago)`). Based on the defined rules:\n\n*   **[G0.1] IF adverse excursion on a clean entry THEN HOLD.** (This is a general safety measure, and without explicit confirmation of an 'adverse excursion' on a 'clean entry', holding is appropriate.)\n*   **[G0.2] IF multi-family fires AND accelerating loss THEN EXIT.** (The specific fire conditions are noted, but the overall context does not immediately signal accelerating loss.)\n*   **[G0.3] IF giveback/retrace AND trend is intact THEN HOLD.** (The local data shows a `giveback 15%`, which aligns with the condition for holding if the underlying trend remains intact.)\n\nGiven the presence of a recent pullback (`giveback 15%`) and the lack of immediate signals for accelerating loss or adverse excursion, **HOLD** is the recommended action based on the provided Genome rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "253c03aa96974650",
+      "decision": "HOLD",
+      "reason": "The scenario exhibits a 'giveback/retrace' (11% pullback). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD. While adverse signals (KMDR/PROPP) are present, the immediate pattern suggests consolidation within the existing structure rather than an immediate acceleration of loss requiring an EXIT."
+    },
+    {
+      "frame": 2,
+      "nonce": "81263635160f2a06",
+      "decision": "EXIT",
+      "reason": "The provided data indicates conflicting signals (KMDR-against, PROPP-with) suggesting 'multi-family fires'. Although not explicitly confirmed as 'accelerating loss', the price action shows a clear reversal after an initial move (5s up, 15s down, 1m down), which aligns with potential adverse movement or accelerating losses. This triggers the condition in [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

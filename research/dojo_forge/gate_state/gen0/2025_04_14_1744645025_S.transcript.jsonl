@@ -1,0 +1,5 @@
+{"ts": 1784399260.6871018, "event": "serve", "frame": 0, "nonce": "f4e7f7b07f4f03aa"}
+{"ts": 1784399418.0800016, "event": "commit", "frame": 0, "nonce": "f4e7f7b07f4f03aa", "decision": "HOLD", "reason": "No explicit instruction or question was provided. The input consists solely of technical indicator data from various timeframes ([30], [4h], [1D]) and statistical measures (velocity, acceleration, volatility, skewness, kurtosis). Without a specific objective or question, no trading decision can be made based on the provided frame alone."}
+{"ts": 1784399418.0847087, "event": "serve", "frame": 1, "nonce": "93b3c17b0c0029fa"}
+{"ts": 1784399573.8393023, "event": "commit", "frame": 1, "nonce": "93b3c17b0c0029fa", "decision": "EXIT", "reason": "The system detected multi-family fires (KMDR-against, PROPP-against) combined with accelerating loss (price_accel_1b=-30.000 in the 1m bar). This triggers rule [G0.2]."}
+{"ts": 1784399573.843508, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

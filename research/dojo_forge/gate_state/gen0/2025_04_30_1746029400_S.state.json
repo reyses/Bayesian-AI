@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_04_30_1746029400_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "8446273c81b7359f",
+      "ts": 1784405862.2802465
+    },
+    {
+      "frame": 1,
+      "nonce": "b3e02864090cd85e",
+      "ts": 1784405943.6558506
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8446273c81b7359f",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists solely of structured data and predefined rules ([G0.1], [G0.2], [G0.3]) for decision-making based on market conditions. Therefore, the system defaults to HOLD as no immediate trigger condition (adverse excursion, multi-family fires, or giveback/retrace) is explicitly confirmed by a direct query."
+    },
+    {
+      "frame": 1,
+      "nonce": "b3e02864090cd85e",
+      "decision": "EXIT",
+      "reason": "The provided data includes an explicit indicator: 'fires<=3m: HA-with(2m ago), PROPP-against(0m ago), none-else'. This suggests the presence of multi-family fires, which triggers rule [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

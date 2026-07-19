@@ -1,0 +1,7 @@
+{"ts": 1784405727.0866976, "event": "serve", "frame": 0, "nonce": "80d1e47b02296ae0"}
+{"ts": 1784405809.2005072, "event": "commit", "frame": 0, "nonce": "80d1e47b02296ae0", "decision": "HOLD", "reason": "No explicit trading instruction or question was provided. The input consists solely of structured financial data and rules for a hypothetical system ('DOJO FORGE GENOME'). Therefore, no action (HOLD or EXIT) can be taken based on the provided context alone."}
+{"ts": 1784405809.2052324, "event": "serve", "frame": 1, "nonce": "d91155e584cae235"}
+{"ts": 1784405896.36455, "event": "commit", "frame": 1, "nonce": "d91155e584cae235", "decision": "HOLD", "reason": "The input data explicitly mentions a 'giveback 6%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784405896.368714, "event": "serve", "frame": 2, "nonce": "b240ee73e00e768a"}
+{"ts": 1784405981.6845517, "event": "commit", "frame": 2, "nonce": "b240ee73e00e768a", "decision": "EXIT", "reason": "Failed to parse json"}
+{"ts": 1784405981.6884217, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 2, "n_commits": 3}

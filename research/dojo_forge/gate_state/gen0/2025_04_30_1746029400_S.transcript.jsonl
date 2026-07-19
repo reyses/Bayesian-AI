@@ -1,0 +1,5 @@
+{"ts": 1784405862.2802465, "event": "serve", "frame": 0, "nonce": "8446273c81b7359f"}
+{"ts": 1784405943.6542833, "event": "commit", "frame": 0, "nonce": "8446273c81b7359f", "decision": "HOLD", "reason": "No explicit instruction or question was provided. The input consists solely of structured data and predefined rules ([G0.1], [G0.2], [G0.3]) for decision-making based on market conditions. Therefore, the system defaults to HOLD as no immediate trigger condition (adverse excursion, multi-family fires, or giveback/retrace) is explicitly confirmed by a direct query."}
+{"ts": 1784405943.6595063, "event": "serve", "frame": 1, "nonce": "b3e02864090cd85e"}
+{"ts": 1784406028.4379258, "event": "commit", "frame": 1, "nonce": "b3e02864090cd85e", "decision": "EXIT", "reason": "The provided data includes an explicit indicator: 'fires<=3m: HA-with(2m ago), PROPP-against(0m ago), none-else'. This suggests the presence of multi-family fires, which triggers rule [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."}
+{"ts": 1784406028.4424956, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}

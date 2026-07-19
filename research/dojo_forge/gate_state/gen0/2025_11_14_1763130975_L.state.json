@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_11_14_1763130975_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "6eb92cff04a237ba",
+      "ts": 1784407295.1093438
+    },
+    {
+      "frame": 1,
+      "nonce": "3eaaad71fab90963",
+      "ts": 1784407302.932357
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "6eb92cff04a237ba",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided for analysis. The input consists solely of complex statistical data and a final local signal. Based on the provided rules, without an explicit trigger matching G0.1, G0.2, or G0.3, the default action is HOLD."
+    },
+    {
+      "frame": 1,
+      "nonce": "3eaaad71fab90963",
+      "decision": "EXIT",
+      "reason": "The input summary explicitly mentions recent firing conditions (KMDR-against, HA-with, PROPP-with). This aligns with the condition for [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT. The price action across the bars shows significant volatility and changing momentum (e.g., high vol_accel in 1m bar), suggesting an adverse environment that warrants exiting."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

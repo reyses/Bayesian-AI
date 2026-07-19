@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_04_14_1744645025_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f4e7f7b07f4f03aa",
+      "ts": 1784399260.68321
+    },
+    {
+      "frame": 1,
+      "nonce": "93b3c17b0c0029fa",
+      "ts": 1784399418.081039
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f4e7f7b07f4f03aa",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided. The input consists solely of technical indicator data from various timeframes ([30], [4h], [1D]) and statistical measures (velocity, acceleration, volatility, skewness, kurtosis). Without a specific objective or question, no trading decision can be made based on the provided frame alone."
+    },
+    {
+      "frame": 1,
+      "nonce": "93b3c17b0c0029fa",
+      "decision": "EXIT",
+      "reason": "The system detected multi-family fires (KMDR-against, PROPP-against) combined with accelerating loss (price_accel_1b=-30.000 in the 1m bar). This triggers rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

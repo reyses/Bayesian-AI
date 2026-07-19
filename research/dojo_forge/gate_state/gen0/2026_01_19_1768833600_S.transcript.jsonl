@@ -1,1 +1,9 @@
 {"ts": 1784398670.693083, "event": "serve", "frame": 0, "nonce": "6fa61f564b7c03ce"}
+{"ts": 1784398842.047478, "event": "commit", "frame": 0, "nonce": "6fa61f564b7c03ce", "decision": "HOLD", "reason": "No specific trigger conditions from the Genome rules ([G0.1], [G0.2], [G0.3]) were explicitly met by the provided data structure, as the input is a complex set of statistical measurements rather than a clear signal indicating adverse excursion, multi-family fires, or giveback/retrace patterns."}
+{"ts": 1784398842.0541148, "event": "serve", "frame": 1, "nonce": "28c3a018c8971cc8"}
+{"ts": 1784399011.506426, "event": "commit", "frame": 1, "nonce": "28c3a018c8971cc8", "decision": "HOLD", "reason": "The data indicates a 'giveback 38%' occurred over the last 2 minutes. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."}
+{"ts": 1784399011.510256, "event": "serve", "frame": 2, "nonce": "85682bbd4e3221bb"}
+{"ts": 1784399172.657113, "event": "commit", "frame": 2, "nonce": "85682bbd4e3221bb", "decision": "HOLD", "reason": "The data indicates a significant giveback/retrace (75% giveback) occurred over the last 3 minutes. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."}
+{"ts": 1784399172.6625197, "event": "serve", "frame": 3, "nonce": "e3d90e0eb318d404"}
+{"ts": 1784399329.3712745, "event": "commit", "frame": 3, "nonce": "e3d90e0eb318d404", "decision": "EXIT", "reason": "Triggered rule [G0.2]: multi-family fires detected (KMDR-against, CLIMAX-against, HA-with, PROPP-with) in the recent history."}
+{"ts": 1784399329.375475, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 3, "n_commits": 4}

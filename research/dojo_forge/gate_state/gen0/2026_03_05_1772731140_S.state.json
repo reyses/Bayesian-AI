@@ -1,0 +1,45 @@
+{
+  "episode_id": "2026_03_05_1772731140_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "80d1e47b02296ae0",
+      "ts": 1784405727.0866976
+    },
+    {
+      "frame": 1,
+      "nonce": "d91155e584cae235",
+      "ts": 1784405809.2015536
+    },
+    {
+      "frame": 2,
+      "nonce": "b240ee73e00e768a",
+      "ts": 1784405896.3650775
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "80d1e47b02296ae0",
+      "decision": "HOLD",
+      "reason": "No explicit trading instruction or question was provided. The input consists solely of structured financial data and rules for a hypothetical system ('DOJO FORGE GENOME'). Therefore, no action (HOLD or EXIT) can be taken based on the provided context alone."
+    },
+    {
+      "frame": 1,
+      "nonce": "d91155e584cae235",
+      "decision": "HOLD",
+      "reason": "The input data explicitly mentions a 'giveback 6%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 2,
+      "nonce": "b240ee73e00e768a",
+      "decision": "EXIT",
+      "reason": "Failed to parse json"
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_04_08_1744141320_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "5187a396eb13b542",
+      "ts": 1784403721.731825
+    },
+    {
+      "frame": 1,
+      "nonce": "59bf30c19e7deb2d",
+      "ts": 1784403861.643254
+    },
+    {
+      "frame": 2,
+      "nonce": "3f4e8d0b197038bf",
+      "ts": 1784404004.2019203
+    },
+    {
+      "frame": 3,
+      "nonce": "c99b2ff2ea6cabd7",
+      "ts": 1784404149.4751284
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "5187a396eb13b542",
+      "decision": "HOLD",
+      "reason": "The system's internal rules (Genome) do not trigger an EXIT condition based on the provided data. Specifically, none of the conditions for EXIT ([G0.1] adverse excursion on a clean entry, [G0.2] multi-family fires and accelerating loss, or [G0.3] giveback/retrace with intact trend) are met by the current state described in the 'local' context. Therefore, the default action is HOLD."
+    },
+    {
+      "frame": 1,
+      "nonce": "59bf30c19e7deb2d",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 42%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is to HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "3f4e8d0b197038bf",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 61%', satisfying the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although recent fires are noted, there is no explicit indication of accelerating loss required to trigger an EXIT based on [G0.2]."
+    },
+    {
+      "frame": 3,
+      "nonce": "c99b2ff2ea6cabd7",
+      "decision": "EXIT",
+      "reason": "multi-family fires detected (KMDR-against, HA-with, PROPP-with), suggesting the condition for EXIT under rule [G0.2] is potentially met."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -3,80 +3,80 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "9a039d271c2be728",
-      "ts": 1784397702.136664
+      "nonce": "06c1bb6adfe2e4f6",
+      "ts": 1784401672.277296
     },
     {
       "frame": 1,
-      "nonce": "ced4eb0737cefefd",
-      "ts": 1784397861.571903
+      "nonce": "a6ef801cb3e53db0",
+      "ts": 1784401821.8498898
     },
     {
       "frame": 2,
-      "nonce": "0a1f3da0bc81128d",
-      "ts": 1784398019.9014769
+      "nonce": "79a6386783f57267",
+      "ts": 1784401981.416225
     },
     {
       "frame": 3,
-      "nonce": "232271278497652b",
-      "ts": 1784398089.5031638
+      "nonce": "79080b3cefcdc05c",
+      "ts": 1784402046.8681536
     },
     {
       "frame": 4,
-      "nonce": "52a3e3ccbbb45c92",
-      "ts": 1784398256.2375095
+      "nonce": "47f6bb005ef7df73",
+      "ts": 1784402192.2805095
     },
     {
       "frame": 5,
-      "nonce": "e389445c73a145f7",
-      "ts": 1784398417.5723324
+      "nonce": "657c1bd209cf8b79",
+      "ts": 1784402348.0762827
     },
     {
       "frame": 6,
-      "nonce": "2f988459301987cf",
-      "ts": 1784398580.844829
+      "nonce": "7ba1f1a44ed6d047",
+      "ts": 1784402503.2472756
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "9a039d271c2be728",
+      "nonce": "06c1bb6adfe2e4f6",
       "decision": "HOLD",
       "reason": "The provided data presents complex statistical metrics across multiple timeframes (30-period, 4h, 1D) alongside immediate local signals. The most critical immediate signal is the contextual note: `fires<=3m: HA-with(1m ago), PROPP-against(1m ago), none-else`. This suggests a high-amplitude event with an opposing probability trend, which warrants caution and a HOLD position until further confirmation or resolution of the recent volatility."
     },
     {
       "frame": 1,
-      "nonce": "ced4eb0737cefefd",
+      "nonce": "a6ef801cb3e53db0",
       "decision": "HOLD",
       "reason": "The data indicates a 'giveback 88%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
     },
     {
       "frame": 2,
-      "nonce": "0a1f3da0bc81128d",
+      "nonce": "79a6386783f57267",
       "decision": "HOLD",
       "reason": "Failed to parse json"
     },
     {
       "frame": 3,
-      "nonce": "232271278497652b",
+      "nonce": "79080b3cefcdc05c",
       "decision": "HOLD",
       "reason": "The data indicates a recent price retracement ('giveback 17%'). This aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). While adverse signals ('fires') are present, the immediate action suggested by the retrace is to hold and wait for confirmation of the trend's continuation."
     },
     {
       "frame": 4,
-      "nonce": "52a3e3ccbbb45c92",
+      "nonce": "47f6bb005ef7df73",
       "decision": "HOLD",
       "reason": "The data indicates a 'giveback 5%', which satisfies the condition for [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
     },
     {
       "frame": 5,
-      "nonce": "e389445c73a145f7",
+      "nonce": "657c1bd209cf8b79",
       "decision": "HOLD",
       "reason": "The input data indicates a 'giveback 9%', suggesting a retrace has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
     },
     {
       "frame": 6,
-      "nonce": "2f988459301987cf",
+      "nonce": "7ba1f1a44ed6d047",
       "decision": "EXIT",
       "reason": "Triggered by Genome rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT. The provided data indicates 'fires<=3m: KMDR-against(1m ago), PROPP-against(1m ago)', which constitutes multiple adverse signals (multi-family fires)."
     }

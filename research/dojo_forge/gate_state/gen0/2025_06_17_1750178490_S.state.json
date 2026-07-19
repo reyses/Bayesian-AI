@@ -3,38 +3,38 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "89920657b4bc165c",
-      "ts": 1784396667.0127757
+      "nonce": "b730ea269401b7df",
+      "ts": 1784399217.6723835
     },
     {
       "frame": 1,
-      "nonce": "de2b2cdcfed31f8d",
-      "ts": 1784396828.3468015
+      "nonce": "469db7aaca0848c1",
+      "ts": 1784399372.5532446
     },
     {
       "frame": 2,
-      "nonce": "b42f6fbfae961191",
-      "ts": 1784396994.876075
+      "nonce": "7bd688b9ff3eb0dc",
+      "ts": 1784399533.700318
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "89920657b4bc165c",
+      "nonce": "b730ea269401b7df",
       "decision": "HOLD",
-      "reason": "The provided data shows significant price movement across both the 4-hour and 1-Day frames, accompanied by high positive acceleration in volume (`vol_accel_30` and `vol_accel_1b`). While there is a large range observed (e.g., +27.00 to +82.00), the specific conditions for triggering an EXIT (multi-family fires AND accelerating loss) or HOLD (adverse excursion on clean entry, giveback/retrace with intact trend) are not explicitly met by the provided summary statistics alone. The current state suggests continued observation is warranted."
+      "reason": "The data presents a mixed signal. While the 1D timeframe shows strong positive velocity and high volume acceleration, suggesting upward momentum, the statistical measures across all timeframes indicate that the current price action remains relatively close to its mean (low Z-scores) and exhibits a high probability of reversion (reversion_prob_30=+0.987). The immediate local activity is low volatility, suggesting consolidation or a pause in aggressive movement. Therefore, maintaining the current position is prudent while awaiting confirmation on the momentum shift."
     },
     {
       "frame": 1,
-      "nonce": "de2b2cdcfed31f8d",
+      "nonce": "469db7aaca0848c1",
       "decision": "HOLD",
-      "reason": "No explicit trigger for EXIT rules was met. The data shows high volatility and significant price reversal (giveback 2% in the summary), which might suggest a potential G0.3 scenario, but there is no clear confirmation of 'multi-family fires AND accelerating loss' required by G0.2. Therefore, HOLD is selected to await further confirmation."
+      "reason": "No explicit conditions for EXIT (G0.2) were met, and there is no clear indication of an adverse excursion following a clean entry (G0.1). The data suggests volatility and a recent pullback ('giveback 2%'), which aligns with the condition for HOLD under G0.3 if the trend is considered intact."
     },
     {
       "frame": 2,
-      "nonce": "b42f6fbfae961191",
+      "nonce": "7bd688b9ff3eb0dc",
       "decision": "EXIT",
-      "reason": "The summary indicates 'fires' are present: 'KMDR-against(2m ago), PROPP-against(1m ago)'. This aligns with the condition in rule [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."
+      "reason": "The input data indicates 'multi-family fires' (KMDR-against(2m ago), PROPP-against(1m ago)), suggesting conflicting signals and high volatility. This aligns with the condition for rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
     }
   ],
   "pending": null,

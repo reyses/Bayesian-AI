@@ -3,25 +3,25 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "51ccf45396483018",
-      "ts": 1784397899.8893354
+      "nonce": "96951b8cce0a29a7",
+      "ts": 1784400951.4064198
     },
     {
       "frame": 1,
-      "nonce": "165c34780b10d780",
-      "ts": 1784398061.042923
+      "nonce": "3b9358005c7b0b2b",
+      "ts": 1784401111.9829311
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "51ccf45396483018",
+      "nonce": "96951b8cce0a29a7",
       "decision": "HOLD",
       "reason": "The provided data presents a complex mix of momentum, volatility, and specific pattern recognition signals. While the 4-hour data suggests recent upward acceleration (positive velocity/acceleration), the longer-term daily data indicates deceleration or a pullback (negative velocity/acceleration). The local signal points to a specific pattern (`PROPP`) observed in the immediate past, suggesting a potential trigger point for consideration. Given the conflicting momentum signals and the need for confirmation, holding the current position is the most prudent action until the immediate pattern resolves or further confirmation is established."
     },
     {
       "frame": 1,
-      "nonce": "165c34780b10d780",
+      "nonce": "3b9358005c7b0b2b",
       "decision": "EXIT",
       "reason": "The summary indicates recent 'fires' (KMDR-against, PROPP-with) and significant volatility across timeframes (e.g., 5m bar range of +68.000). This suggests adverse market conditions are present, which aligns with the condition for EXIT under rule [G0.2] if accelerating loss is implied by the observed price swings."
     }

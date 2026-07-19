@@ -3,58 +3,58 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "6e95f3c11360750b",
-      "ts": 1784397407.0996666
+      "nonce": "67e83fbfda85b1bd",
+      "ts": 1784402654.1467326
     },
     {
       "frame": 1,
-      "nonce": "5368ca38a1b17c19",
-      "ts": 1784397561.4443007
+      "nonce": "296ce92f234931d5",
+      "ts": 1784402806.1069562
     },
     {
       "frame": 2,
-      "nonce": "6a51d6a671b032c6",
-      "ts": 1784397722.2304182
+      "nonce": "6a05c5056149e82e",
+      "ts": 1784402957.4241042
     },
     {
       "frame": 3,
-      "nonce": "3e167608cbb995df",
-      "ts": 1784397881.5931878
+      "nonce": "97b6cfe3314adfd1",
+      "ts": 1784403120.3230486
     },
     {
       "frame": 4,
-      "nonce": "f99bba3e24141dcb",
-      "ts": 1784397959.037886
+      "nonce": "86b052f281828328",
+      "ts": 1784403196.2162728
     }
   ],
   "commits": [
     {
       "frame": 0,
-      "nonce": "6e95f3c11360750b",
+      "nonce": "67e83fbfda85b1bd",
       "decision": "HOLD",
       "reason": "The provided data indicates a specific, localized signal: `fires<=3m: PROPP-against(1m ago), none-else`. This suggests an immediate counter-trend or cautionary position based on the internal logic of the system. Given the lack of explicit adverse conditions (like multi-family fires or accelerating loss) defined in the Genome rules, and the presence of a specific signal, the safest action according to the provided framework is to HOLD."
     },
     {
       "frame": 1,
-      "nonce": "5368ca38a1b17c19",
+      "nonce": "296ce92f234931d5",
       "decision": "HOLD",
       "reason": "The local context explicitly mentions a 'giveback 5%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
     },
     {
       "frame": 2,
-      "nonce": "6a51d6a671b032c6",
+      "nonce": "6a05c5056149e82e",
       "decision": "HOLD",
       "reason": "The local information indicates a 'giveback 1%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate multi-family fires leading to accelerating loss were detected, negating the trigger for EXIT under [G0.2]."
     },
     {
       "frame": 3,
-      "nonce": "3e167608cbb995df",
+      "nonce": "97b6cfe3314adfd1",
       "decision": "HOLD",
       "reason": "Failed to parse json"
     },
     {
       "frame": 4,
-      "nonce": "f99bba3e24141dcb",
+      "nonce": "86b052f281828328",
       "decision": "EXIT",
       "reason": "The local context indicates active multi-family fires (KMDR-against, PROPP-with) combined with a recent retracement (giveback 4%). This combination suggests that the momentum structure is unstable, triggering the condition for exiting."
     }

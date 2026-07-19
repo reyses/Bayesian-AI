@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_04_09_1744210140_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "9da3af5173c491a0",
+      "ts": 1784405863.3140352
+    },
+    {
+      "frame": 1,
+      "nonce": "ef8663ae3664dca2",
+      "ts": 1784405944.9090967
+    },
+    {
+      "frame": 2,
+      "nonce": "379e83b6afa97a10",
+      "ts": 1784406029.4892342
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "9da3af5173c491a0",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a specific trading context with recent volatility and position management signals. The final signal suggests a managed pullback or consolidation phase (indicated by 'giveback 89%') following recent activity, which aligns with the conservative approach suggested by the Genome rules (G0.3: giveback/retrace AND trend is intact). No immediate trigger for an adverse excursion or multi-family fire was explicitly detected in the summary."
+    },
+    {
+      "frame": 1,
+      "nonce": "ef8663ae3664dca2",
+      "decision": "HOLD",
+      "reason": "The local context indicates a 'giveback 130%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate signal for exiting based on adverse excursion or accelerating multi-family fires was present."
+    },
+    {
+      "frame": 2,
+      "nonce": "379e83b6afa97a10",
+      "decision": "EXIT",
+      "reason": "The input summary indicates multiple family fires (KMDR-against, HA-with, PROPP-with) and a giveback of 1%. This aligns with the condition in rule [G0.2] (multi-family fires) and suggests adverse conditions are present, warranting an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

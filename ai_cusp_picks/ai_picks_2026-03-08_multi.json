@@ -1,0 +1,16 @@
+{
+  "trades": [
+    {
+      "entry_ts": 1773008112.0,
+      "exit_ts": 1773010808.0,
+      "direction": "LONG",
+      "side": "Buy",
+      "entry_price": 24224.0,
+      "exit_price": 24326.5,
+      "pnl_dollars": 205.0,
+      "mae_dollars": 0.0,
+      "is_marginal": false,
+      "original_timestamp": 1773007980.0
+    }
+  ]
+}

@@ -5,15 +5,30 @@
       "frame": 0,
       "nonce": "94f17aad9c35f10b",
       "ts": 1784398703.5234246
+    },
+    {
+      "frame": 1,
+      "nonce": "053a6d800a6c551c",
+      "ts": 1784398880.94084
     }
   ],
-  "commits": [],
-  "pending": {
-    "frame": 0,
-    "nonce": "94f17aad9c35f10b"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "94f17aad9c35f10b",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a state where no immediate, high-risk exit conditions (like multi-family fires or accelerating loss) are met. The statistical measures suggest moderate volatility and some degree of mean reversion potential, supporting a cautious HOLD position."
+    },
+    {
+      "frame": 1,
+      "nonce": "053a6d800a6c551c",
+      "decision": "EXIT",
+      "reason": "The trade context indicates 'fires' (KMDR-against, PROPP-against) and a significant price retracement ('giveback 167%'). This combination suggests that adverse conditions are present and momentum may be shifting, triggering the condition for EXIT based on rule [G0.2] (multi-family fires AND accelerating loss)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

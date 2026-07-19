@@ -1,0 +1,9 @@
+{"ts": 1784402347.306701, "event": "serve", "frame": 0, "nonce": "ac701ed6b026f8e0"}
+{"ts": 1784402502.3037207, "event": "commit", "frame": 0, "nonce": "ac701ed6b026f8e0", "decision": "HOLD", "reason": "No explicit instruction was provided for a trade decision based on the Genome rules. The provided data is raw statistical and time-series information. Therefore, the default action is to HOLD until a specific trading objective or signal is requested."}
+{"ts": 1784402502.307875, "event": "serve", "frame": 1, "nonce": "0184162e3f35feda"}
+{"ts": 1784402645.0754275, "event": "commit", "frame": 1, "nonce": "0184162e3f35feda", "decision": "HOLD", "reason": "The observed price action shows a pullback or retrace (1m bar closed lower than the previous high), which satisfies the condition for G0.3 (giveback/retrace). There are no active multi-family fires reported, thus G0.2 is not triggered."}
+{"ts": 1784402645.0796523, "event": "serve", "frame": 2, "nonce": "f24beb21e5edcddd"}
+{"ts": 1784402728.45136, "event": "commit", "frame": 2, "nonce": "f24beb21e5edcddd", "decision": "HOLD", "reason": "Failed to parse json"}
+{"ts": 1784402728.4545195, "event": "serve", "frame": 3, "nonce": "87808e2d032d9657"}
+{"ts": 1784402876.055324, "event": "commit", "frame": 3, "nonce": "87808e2d032d9657", "decision": "EXIT", "reason": "The input data indicates 'fires<=3m: KMDR-against(0m ago), PROPP-against(1m ago)', which suggests multiple conflicting signals or adverse movements (multi-family fires). This triggers rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."}
+{"ts": 1784402876.059162, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 3, "n_commits": 4}

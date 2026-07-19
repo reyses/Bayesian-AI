@@ -15,6 +15,11 @@
       "frame": 2,
       "nonce": "8af6a83178179d6f",
       "ts": 1784398693.8005207
+    },
+    {
+      "frame": 3,
+      "nonce": "7f4b9b982f0d6db7",
+      "ts": 1784398869.4575834
     }
   ],
   "commits": [
@@ -29,14 +34,23 @@
       "nonce": "f05bdb549fa1ea0c",
       "decision": "HOLD",
       "reason": "No conditions for EXIT ([G0.2] multi-family fires AND accelerating loss) are met, as the summary indicates 'fires<=3m: none'. While a 7% giveback occurred, this aligns with condition [G0.3], suggesting that if the underlying trend remains intact, holding is appropriate."
+    },
+    {
+      "frame": 2,
+      "nonce": "8af6a83178179d6f",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) are explicitly met. The data does not confirm an adverse excursion on a clean entry (G0.1), nor does it confirm a giveback/retrace with an intact trend (G0.3). Therefore, the default action is HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "7f4b9b982f0d6db7",
+      "decision": "EXIT",
+      "reason": "The input indicates multiple adverse conditions ('fires<=3m: KMDR-against(2m ago), PROPP-against(0m ago)') combined with significant volatility acceleration (vol_accel_1b=+171.000, vol_accel_1b=+199.000, vol_accel_1b=+1709.000) and a recent price retracement ('giveback 13%'). This aligns with the condition for EXIT under rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
     }
   ],
-  "pending": {
-    "frame": 2,
-    "nonce": "8af6a83178179d6f"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

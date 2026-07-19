@@ -1,0 +1,12 @@
+{
+  "flagged": [
+    {
+      "date": "2025_03_09",
+      "turn_ts": 1741558500.0,
+      "direction": "LONG",
+      "entry_price": 19995.5,
+      "adverse_pts": 1.25,
+      "reason": "price broke past entry within the cubic leg"
+    }
+  ]
+}

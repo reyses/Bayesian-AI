@@ -1,0 +1,111 @@
+{
+  "episode_id": "2025_08_14_1755183465_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ef4140cc74b6590a",
+      "ts": 1784405332.3060374
+    },
+    {
+      "frame": 1,
+      "nonce": "90e86b7b07d52454",
+      "ts": 1784405422.5074089
+    },
+    {
+      "frame": 2,
+      "nonce": "462a1280571c602e",
+      "ts": 1784405517.849011
+    },
+    {
+      "frame": 3,
+      "nonce": "99326ffa7973d878",
+      "ts": 1784405601.2565835
+    },
+    {
+      "frame": 4,
+      "nonce": "eb4f841c4e9a2837",
+      "ts": 1784405692.649789
+    },
+    {
+      "frame": 5,
+      "nonce": "07e07145561d1273",
+      "ts": 1784405773.4446015
+    },
+    {
+      "frame": 6,
+      "nonce": "7a9099c413610096",
+      "ts": 1784405860.9960246
+    },
+    {
+      "frame": 7,
+      "nonce": "dbfc91afc2355566",
+      "ts": 1784405942.5251644
+    },
+    {
+      "frame": 8,
+      "nonce": "8bf9fee96d2ab0f7",
+      "ts": 1784406027.3562784
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ef4140cc74b6590a",
+      "decision": "HOLD",
+      "reason": "No explicit trigger conditions from the Genome rules ([G0.1], [G0.2], [G0.3]) were met based on the provided data context. The input consists of historical and real-time statistical metrics, but lacks the specific directional signals (adverse excursion, multi-family fires, giveback/retrace) required to execute an EXIT or HOLD command according to the defined rules."
+    },
+    {
+      "frame": 1,
+      "nonce": "90e86b7b07d52454",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 16%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although momentum has shifted significantly in the latest bar, the presence of a retracement suggests waiting for the trend to re-establish or confirm before exiting."
+    },
+    {
+      "frame": 2,
+      "nonce": "462a1280571c602e",
+      "decision": "HOLD",
+      "reason": "The system shows signs of multiple conflicting signals ('fires': KMDR-against, CLIMAX-against, PROPP-with), indicating high volatility and potential exhaustion. However, the presence of a 'giveback 23%' suggests a retracement phase. According to rule [G0.3], if there is a giveback/retrace and the trend is considered intact (which cannot be definitively ruled out without further context on the overall structure), the action is HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "99326ffa7973d878",
+      "decision": "HOLD",
+      "reason": "The system is currently in a state of high volatility contraction and mixed momentum signals, suggesting that while immediate price action shows deceleration, the underlying structure remains complex. The 1h data indicates slowing acceleration despite positive velocity, and the local signal (KMDR-against, CLIMAX-against) suggests caution regarding immediate aggressive moves. Given the presence of multi-family fires in the context of the overall system, HOLD is the safest response until a clearer trend or reversal pattern emerges."
+    },
+    {
+      "frame": 4,
+      "nonce": "eb4f841c4e9a2837",
+      "decision": "HOLD",
+      "reason": "The input indicates a 'giveback 20%', which suggests a retrace has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "07e07145561d1273",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) were met. While a 'giveback' is noted, there are no explicit signals indicating an adverse excursion on a clean entry (G0.1), and the trend context for G0.3 is not definitively violated."
+    },
+    {
+      "frame": 6,
+      "nonce": "7a9099c413610096",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 26%', which satisfies the condition for [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No signals for adverse excursion or multi-family fires were present."
+    },
+    {
+      "frame": 7,
+      "nonce": "dbfc91afc2355566",
+      "decision": "HOLD",
+      "reason": "No explicit condition for EXIT (G0.2) has been met. While there is evidence of price retracement ('giveback 29%'), the condition for HOLD based on a retrace and intact trend (G0.3) is plausible, and no signal for adverse excursion on a clean entry (G0.1) or accelerating loss is confirmed."
+    },
+    {
+      "frame": 8,
+      "nonce": "8bf9fee96d2ab0f7",
+      "decision": "EXIT",
+      "reason": "The summary indicates multiple 'fires' (KMDR-against, HA-with, PROPP-against) within the last 3 minutes. This suggests conflicting signals and potential accelerating loss, triggering rule [G0.2]."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 8,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

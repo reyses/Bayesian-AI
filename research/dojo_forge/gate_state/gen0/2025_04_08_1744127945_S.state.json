@@ -1,0 +1,177 @@
+{
+  "episode_id": "2025_04_08_1744127945_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "f181e4d50ca49d5a",
+      "ts": 1784405931.5504074
+    },
+    {
+      "frame": 1,
+      "nonce": "aa753aee6cac3110",
+      "ts": 1784406018.3661091
+    },
+    {
+      "frame": 2,
+      "nonce": "eba68a51b368d610",
+      "ts": 1784406097.8720386
+    },
+    {
+      "frame": 3,
+      "nonce": "b7281238916c6fb0",
+      "ts": 1784406175.4138658
+    },
+    {
+      "frame": 4,
+      "nonce": "de4cea67ef47c87a",
+      "ts": 1784406243.3767238
+    },
+    {
+      "frame": 5,
+      "nonce": "99dc8d6d1ac15b71",
+      "ts": 1784406315.597305
+    },
+    {
+      "frame": 6,
+      "nonce": "cb34ae36a22617c0",
+      "ts": 1784406386.446788
+    },
+    {
+      "frame": 7,
+      "nonce": "1da36322b5ac5d1a",
+      "ts": 1784406451.9701347
+    },
+    {
+      "frame": 8,
+      "nonce": "6906bc7aa2bcdc1f",
+      "ts": 1784406509.6912708
+    },
+    {
+      "frame": 9,
+      "nonce": "63160e58d3ffec2c",
+      "ts": 1784406564.2964456
+    },
+    {
+      "frame": 10,
+      "nonce": "d51d555277805d06",
+      "ts": 1784406624.7109756
+    },
+    {
+      "frame": 11,
+      "nonce": "709fe973639a0730",
+      "ts": 1784406678.0983436
+    },
+    {
+      "frame": 12,
+      "nonce": "3aa478b4a31a216f",
+      "ts": 1784406726.6903982
+    },
+    {
+      "frame": 13,
+      "nonce": "5c9494334c908882",
+      "ts": 1784406771.353077
+    },
+    {
+      "frame": 14,
+      "nonce": "6e504bbfa5fef0dc",
+      "ts": 1784406813.2614715
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "f181e4d50ca49d5a",
+      "decision": "HOLD",
+      "reason": "The provided data shows mixed signals across different timeframes, but the immediate local context suggests maintaining the current position. The 30-minute data indicates a slight negative price acceleration and volume acceleration, while the 4-hour data shows positive momentum relative to recent highs/lows (z-scores), suggesting volatility is present but not immediately extreme. Given the complexity of the multi-family fires and accelerating loss conditions (G0.2), holding provides a measured response until clearer directional confirmation emerges."
+    },
+    {
+      "frame": 1,
+      "nonce": "aa753aee6cac3110",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a complex statistical environment across multiple timeframes ([30], [1h], [4h]), suggesting that immediate, aggressive action is unwarranted. The system does not meet the criteria for an adverse excursion on a clean entry (G0.1), multi-family fires with accelerating loss (G0.2), or a clear giveback/retrace with intact trend (G0.3). Therefore, maintaining the current position is the most prudent action based solely on the defined Genome rules."
+    },
+    {
+      "frame": 2,
+      "nonce": "eba68a51b368d610",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 47%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). There are no active multi-family fires reported, negating the condition for EXIT under [G0.2]."
+    },
+    {
+      "frame": 3,
+      "nonce": "b7281238916c6fb0",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered. The local information explicitly states a 'giveback 27%', which indicates a retrace. Assuming the preceding structure (HA) was the intact trend, the condition for HOLD is met."
+    },
+    {
+      "frame": 4,
+      "nonce": "de4cea67ef47c87a",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (G0.2) is met, and while a 'giveback' is noted, there is insufficient information to confirm that the trend is broken or that an adverse excursion has occurred (G0.1). Therefore, HOLD is selected."
+    },
+    {
+      "frame": 5,
+      "nonce": "99dc8d6d1ac15b71",
+      "decision": "HOLD",
+      "reason": "The local summary indicates a 'giveback 27%'. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 6,
+      "nonce": "cb34ae36a22617c0",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 38%', which triggers condition [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). Although there are firing signals present, the explicit presence of a retracement suggests maintaining the position if the overall trend remains intact."
+    },
+    {
+      "frame": 7,
+      "nonce": "1da36322b5ac5d1a",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 40%', which aligns with the condition in Genome rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 8,
+      "nonce": "6906bc7aa2bcdc1f",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 92%', suggesting a retrace has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 9,
+      "nonce": "63160e58d3ffec2c",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant giveback/retrace occurred over the last 2 minutes, followed by a strong reversion probability (reversion_prob_30=+0.992) in the most recent bar. This aligns with rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 10,
+      "nonce": "d51d555277805d06",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 15%' has occurred, which triggers condition [G0.3]. Since there is no explicit evidence of accelerating loss (condition [G0.2]), the appropriate action is to HOLD while waiting for the trend to reassert itself."
+    },
+    {
+      "frame": 11,
+      "nonce": "709fe973639a0730",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) were met. While a giveback (24%) was noted in the summary, there are no explicit signals confirming an adverse excursion on a clean entry (G0.1), nor is there clear evidence of multi-family fires and accelerating loss. The situation warrants holding to observe the continuation of the trend or the outcome of the retracement."
+    },
+    {
+      "frame": 12,
+      "nonce": "3aa478b4a31a216f",
+      "decision": "HOLD",
+      "reason": "The input data explicitly indicates a 'giveback 40%', which aligns with the condition in rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 13,
+      "nonce": "5c9494334c908882",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant pullback ('giveback 91%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 14,
+      "nonce": "6e504bbfa5fef0dc",
+      "decision": "EXIT",
+      "reason": "The input data indicates multiple conflicting signals ('fires<=3m: HA-against(2m ago), PROPP-with(0m ago)'). This aligns with the condition for [G0.2] IF multi-family fires AND accelerating loss THEN EXIT. The price acceleration is negative (-29.500) in the last 1m bar, suggesting momentum is slowing or reversing, which supports exiting when multiple conflicting forces are present."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 14,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

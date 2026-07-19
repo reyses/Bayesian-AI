@@ -3,3 +3,5 @@
 {"ts": 1784398595.8628368, "event": "serve", "frame": 1, "nonce": "0634159e95346a27"}
 {"ts": 1784398756.5995662, "event": "commit", "frame": 1, "nonce": "0634159e95346a27", "decision": "HOLD", "reason": "The local information explicitly indicates a 'giveback 15%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
 {"ts": 1784398756.60389, "event": "serve", "frame": 2, "nonce": "522a1c6293801c0a"}
+{"ts": 1784398932.0154693, "event": "commit", "frame": 2, "nonce": "522a1c6293801c0a", "decision": "EXIT", "reason": "The input data indicates multiple adverse signals ('fires<=3m: KMDR-against(1m ago), HA-against(1m ago), PROPP-against(1m ago)') which aligns with the condition for [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."}
+{"ts": 1784398932.019663, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 2, "n_commits": 3}

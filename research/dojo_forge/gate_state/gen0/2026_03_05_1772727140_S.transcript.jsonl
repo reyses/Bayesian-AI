@@ -1,0 +1,15 @@
+{"ts": 1784401304.5175846, "event": "serve", "frame": 0, "nonce": "37cc98fd5285464e"}
+{"ts": 1784401462.5029447, "event": "commit", "frame": 0, "nonce": "37cc98fd5285464e", "decision": "HOLD", "reason": "The provided data indicates a state where no immediate, high-risk exit conditions (like multi-family fires and accelerating loss) have been met. The statistical measures suggest a relatively stable distribution (low kurtosis) and the local context shows a manageable position with a 16% giveback, suggesting that maintaining the current position is prudent until further confirmation or trigger events occur."}
+{"ts": 1784401462.5076656, "event": "serve", "frame": 1, "nonce": "2523cc40997ed9e7"}
+{"ts": 1784401619.6716523, "event": "commit", "frame": 1, "nonce": "2523cc40997ed9e7", "decision": "HOLD", "reason": "The scenario indicates a 'giveback 25%' in the summary. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD. No conditions for EXIT ([G0.2]) are explicitly met."}
+{"ts": 1784401619.6758475, "event": "serve", "frame": 2, "nonce": "d99ee3e3dcee2993"}
+{"ts": 1784401769.779419, "event": "commit", "frame": 2, "nonce": "d99ee3e3dcee2993", "decision": "HOLD", "reason": "The local information indicates a 'giveback 3%', which aligns with the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal for immediate exit based on multi-family fires and accelerating loss was present."}
+{"ts": 1784401769.7842102, "event": "serve", "frame": 3, "nonce": "cb752059b7928229"}
+{"ts": 1784401859.7091055, "event": "commit", "frame": 3, "nonce": "cb752059b7928229", "decision": "HOLD", "reason": "Failed to parse json"}
+{"ts": 1784401859.7133029, "event": "serve", "frame": 4, "nonce": "d87300984e486fe7"}
+{"ts": 1784402008.8568165, "event": "commit", "frame": 4, "nonce": "d87300984e486fe7", "decision": "HOLD", "reason": "The input data explicitly indicates a 'giveback 54%', which satisfies the condition for Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."}
+{"ts": 1784402008.8615322, "event": "serve", "frame": 5, "nonce": "9bb89ce637386646"}
+{"ts": 1784402169.1308298, "event": "commit", "frame": 5, "nonce": "9bb89ce637386646", "decision": "HOLD", "reason": "The data indicates a 'giveback 77%' over the last 3 minutes. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."}
+{"ts": 1784402169.1358066, "event": "serve", "frame": 6, "nonce": "af8bf0c8546e398a"}
+{"ts": 1784402314.5109286, "event": "commit", "frame": 6, "nonce": "af8bf0c8546e398a", "decision": "EXIT", "reason": "The system detected multiple adverse conditions ('fires'): KMDR-against (0m ago) and PROPP-against (0m ago). This indicates adverse movement or conflicting signals, which triggers the condition for EXIT under rule [G0.2] (multi-family fires AND accelerating loss)."}
+{"ts": 1784402314.514595, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 6, "n_commits": 7}

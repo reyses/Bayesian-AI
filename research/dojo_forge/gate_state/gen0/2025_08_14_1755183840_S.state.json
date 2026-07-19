@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_08_14_1755183840_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "0ce3851c89759e87",
+      "ts": 1784406102.953298
+    },
+    {
+      "frame": 1,
+      "nonce": "586fc478b7b42133",
+      "ts": 1784406178.9894536
+    },
+    {
+      "frame": 2,
+      "nonce": "3e3aa38d8aff6466",
+      "ts": 1784406246.3194323
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "0ce3851c89759e87",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a complex state with mixed signals. While there are shifts in velocity and volatility across different timeframes (4h, 1D), the final local summary suggests a recent giveback/retrace pattern (`giveback 22%`) that is being observed within a specific timeframe (3m). The overall structure does not immediately trigger the conditions for EXIT (multi-family fires AND accelerating loss) or HOLD based on adverse excursion on a clean entry, but maintaining a HOLD position aligns with the observed retrace behavior."
+    },
+    {
+      "frame": 1,
+      "nonce": "586fc478b7b42133",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 59%', suggesting a retracement phase. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "3e3aa38d8aff6466",
+      "decision": "EXIT",
+      "reason": "The data indicates 'giveback 74%' and multiple recent conflicts ('fires<=3m': KMDR-against, PROPP-against). This pattern suggests a potential loss of trend integrity or accelerating adverse movement, triggering the condition for EXIT based on G0.2 (multi-family fires AND accelerating loss)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

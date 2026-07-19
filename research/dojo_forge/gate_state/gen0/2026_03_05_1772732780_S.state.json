@@ -1,0 +1,144 @@
+{
+  "episode_id": "2026_03_05_1772732780_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "550fe57ded91b2c9",
+      "ts": 1784403518.1960828
+    },
+    {
+      "frame": 1,
+      "nonce": "54cb3bff87cc8ad0",
+      "ts": 1784403662.714565
+    },
+    {
+      "frame": 2,
+      "nonce": "e98816b1d8152326",
+      "ts": 1784403802.5921886
+    },
+    {
+      "frame": 3,
+      "nonce": "6db0e84972d54d1b",
+      "ts": 1784403941.762898
+    },
+    {
+      "frame": 4,
+      "nonce": "c68ef3d6c2e41988",
+      "ts": 1784404086.5922222
+    },
+    {
+      "frame": 5,
+      "nonce": "135f2ab1839a81d7",
+      "ts": 1784404180.9065511
+    },
+    {
+      "frame": 6,
+      "nonce": "93b22ea2f89005fb",
+      "ts": 1784404314.3548315
+    },
+    {
+      "frame": 7,
+      "nonce": "112c480ef12855f8",
+      "ts": 1784404445.5888455
+    },
+    {
+      "frame": 8,
+      "nonce": "d7c244e078ecc3e3",
+      "ts": 1784404575.715277
+    },
+    {
+      "frame": 9,
+      "nonce": "9d8184bbfb8b20ee",
+      "ts": 1784404699.5031867
+    },
+    {
+      "frame": 10,
+      "nonce": "d159757ad7abcf15",
+      "ts": 1784404822.8999107
+    },
+    {
+      "frame": 11,
+      "nonce": "18725b9204ce87ff",
+      "ts": 1784404948.0234275
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "550fe57ded91b2c9",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided for a decision based on the provided frame and rules. The input consists solely of technical/market data points without a specific question requiring an EXIT or HOLD action."
+    },
+    {
+      "frame": 1,
+      "nonce": "54cb3bff87cc8ad0",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered as there is a 'giveback 13%' observed in the local summary, suggesting a retrace while the overall trend is assumed to be intact."
+    },
+    {
+      "frame": 2,
+      "nonce": "e98816b1d8152326",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT (G0.2) has been met. While the data shows conflicting signals ('fires') and volatility, there is no confirmed evidence of 'accelerating loss' required by G0.2, nor a clear pattern of 'adverse excursion on a clean entry' (G0.1). The situation warrants caution, making HOLD the appropriate response."
+    },
+    {
+      "frame": 3,
+      "nonce": "6db0e84972d54d1b",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered by the observed 'giveback 7%', suggesting a retrace occurred while the overall trend remains intact."
+    },
+    {
+      "frame": 4,
+      "nonce": "c68ef3d6c2e41988",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 5,
+      "nonce": "135f2ab1839a81d7",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback' of 16% in the recent leg, which satisfies the condition for [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 6,
+      "nonce": "93b22ea2f89005fb",
+      "decision": "HOLD",
+      "reason": "The system does not meet the criteria for EXIT (G0.2: multi-family fires AND accelerating loss). The data indicates a 'giveback 25%' over the last 8m leg, which aligns with G0.3, suggesting a retrace occurred while the trend is still intact. Therefore, HOLD is appropriate."
+    },
+    {
+      "frame": 7,
+      "nonce": "112c480ef12855f8",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 41%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate multi-family fires or accelerating loss signals were detected, negating the trigger for EXIT under [G0.2]."
+    },
+    {
+      "frame": 8,
+      "nonce": "d7c244e078ecc3e3",
+      "decision": "HOLD",
+      "reason": "G0.3 is met. The local data indicates a 'giveback 41%', suggesting a retracement has occurred, and we assume the underlying trend remains intact for this condition to be met."
+    },
+    {
+      "frame": 9,
+      "nonce": "9d8184bbfb8b20ee",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant price retracement ('giveback 92%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD. While multiple firing conditions are present (suggesting volatility), there is no explicit confirmation of 'accelerating loss' required for an EXIT under [G0.2]."
+    },
+    {
+      "frame": 10,
+      "nonce": "d159757ad7abcf15",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered as the local data explicitly mentions a 'giveback 95%'. If we assume the underlying trend remains intact despite the retracement, the condition for HOLD is met."
+    },
+    {
+      "frame": 11,
+      "nonce": "18725b9204ce87ff",
+      "decision": "EXIT",
+      "reason": "G0.2 triggered. The input indicates 'multi-family fires' (HA-with(2m ago), PROPP-with(0m ago)) are active, suggesting high volatility and potential adverse movement, which aligns with the condition for EXIT when combined with implied loss acceleration."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 11,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

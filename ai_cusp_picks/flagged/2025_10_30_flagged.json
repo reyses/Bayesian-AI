@@ -1,0 +1,28 @@
+{
+  "flagged": [
+    {
+      "date": "2025_10_30",
+      "turn_ts": 1761854220.0,
+      "direction": "LONG",
+      "entry_price": 25878.75,
+      "adverse_pts": 25.75,
+      "reason": "price broke past entry (mae > 2.77)"
+    },
+    {
+      "date": "2025_10_30",
+      "turn_ts": 1761855780.0,
+      "direction": "SHORT",
+      "entry_price": 26031.75,
+      "adverse_pts": 14.75,
+      "reason": "price broke past entry (mae > 1.93)"
+    },
+    {
+      "date": "2025_10_30",
+      "turn_ts": 1761856200.0,
+      "direction": "LONG",
+      "entry_price": 25963.75,
+      "adverse_pts": 35.75,
+      "reason": "price broke past entry (mae > 1.84)"
+    }
+  ]
+}

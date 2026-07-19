@@ -1,0 +1,34 @@
+{
+  "episode_id": "2025_08_14_1755193645_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "38bddbb403dcfec4",
+      "ts": 1784406319.1566048
+    },
+    {
+      "frame": 1,
+      "nonce": "e99cdc0d43cddba3",
+      "ts": 1784406389.8127935
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "38bddbb403dcfec4",
+      "decision": "HOLD",
+      "reason": "The provided data presents a mixed signal. While the overall statistical metrics show significant volatility (high sigma values) and some potential for reversion, the specific local indicators suggest a cautious approach. The key signal is derived from the 'fires' analysis: HA-against (Head and Shoulders against) combined with PROPP-with (Price Point with). This suggests that while there is underlying volatility, the immediate structure points toward a potential consolidation or reversal setup rather than an immediate aggressive move. Therefore, maintaining a HOLD position is prudent until the momentum confirms the expected pattern."
+    },
+    {
+      "frame": 1,
+      "nonce": "e99cdc0d43cddba3",
+      "decision": "EXIT",
+      "reason": "Triggered rule [G0.2]: multi-family fires AND accelerating loss. The input explicitly states 'fires<=3m: HA-with(0m ago), PROPP-against(1m ago)', indicating multiple family fires are present, which mandates an EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 1,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

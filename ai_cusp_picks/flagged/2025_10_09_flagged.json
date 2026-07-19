@@ -1,0 +1,92 @@
+{
+  "flagged": [
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759970580.0,
+      "direction": "SHORT",
+      "entry_price": 25368.25,
+      "adverse_pts": 1.5,
+      "reason": "price broke past entry (mae > 0.62)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759972740.0,
+      "direction": "LONG",
+      "entry_price": 25331.75,
+      "adverse_pts": 1.25,
+      "reason": "price broke past entry (mae > 0.67)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759973220.0,
+      "direction": "SHORT",
+      "entry_price": 25345.25,
+      "adverse_pts": 1.25,
+      "reason": "price broke past entry (mae > 0.67)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759978620.0,
+      "direction": "LONG",
+      "entry_price": 25308.0,
+      "adverse_pts": 0.75,
+      "reason": "price broke past entry (mae > 0.65)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759983960.0,
+      "direction": "SHORT",
+      "entry_price": 25340.0,
+      "adverse_pts": 1.0,
+      "reason": "price broke past entry (mae > 0.62)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1759991580.0,
+      "direction": "LONG",
+      "entry_price": 25347.75,
+      "adverse_pts": 1.0,
+      "reason": "price broke past entry (mae > 0.83)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1760009460.0,
+      "direction": "SHORT",
+      "entry_price": 25339.0,
+      "adverse_pts": 2.5,
+      "reason": "price broke past entry (mae > 1.01)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1760016300.0,
+      "direction": "SHORT",
+      "entry_price": 25334.0,
+      "adverse_pts": 3.25,
+      "reason": "price broke past entry (mae > 1.19)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1760031120.0,
+      "direction": "LONG",
+      "entry_price": 25163.25,
+      "adverse_pts": 2.5,
+      "reason": "price broke past entry (mae > 2.32)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1760047980.0,
+      "direction": "LONG",
+      "entry_price": 25289.0,
+      "adverse_pts": 1.0,
+      "reason": "price broke past entry (mae > 0.69)"
+    },
+    {
+      "date": "2025_10_09",
+      "turn_ts": 1760049720.0,
+      "direction": "SHORT",
+      "entry_price": 25321.5,
+      "adverse_pts": 2.5,
+      "reason": "price broke past entry (mae > 0.62)"
+    }
+  ]
+}

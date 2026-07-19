@@ -59,7 +59,7 @@ using NinjaTrader.NinjaScript;
 using NinjaTrader.NinjaScript.Strategies.EnsembleV02Core;   // <- shared decision core
 // NT8 compile fix: bare `Core` resolves to the enclosing NinjaTrader.Core assembly
 // namespace before file-level usings are consulted (CS0234) -> alias the class.
-using V02Core = NinjaTrader.NinjaScript.Strategies.EnsembleV02Core.Core;
+
 #endregion
 
 namespace NinjaTrader.NinjaScript.Strategies
@@ -232,7 +232,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
             // TODO(P2-perf): ProcessDay is O(N) per minute (~390 calls/day). Fine for
             // backtest/live; an incremental per-generator port would cut it to O(1)/bar.
-            List<BarRec> recs = V02Core.ProcessDay(x, tmpl);
+            List<BarRec> recs = global::NinjaTrader.NinjaScript.Strategies.EnsembleV02Core.Core.ProcessDay(x, tmpl);
             Dictionary<long, BarRec> byTs = new Dictionary<long, BarRec>();
             for (int k = 0; k < recs.Count; k++) byTs[recs[k].BarTs] = recs[k];
 

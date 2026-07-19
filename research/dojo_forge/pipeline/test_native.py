@@ -31,7 +31,7 @@ def extract_p_exit(llm, tokens):
     print(f"P(EXIT)  -> {p_exit:.6f}")
     return p_exit
 
-llm = Llama(model_path="research/dojo_forge/pipeline/model.gguf", n_gpu_layers=-1, n_ctx=4096, seed=42, temperature=0.0)
+llm = Llama(model_path=r"D:\ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e", n_gpu_layers=-1, n_ctx=4096, seed=42, temperature=0.0)
 
 # Simulate system prompt
 system_text = b"System: You are an expert trader. Given the state, respond with EXIT or HOLD."

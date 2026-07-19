@@ -1,0 +1,45 @@
+{
+  "episode_id": "2026_03_05_1772731780_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "94918467ec7dd41d",
+      "ts": 1784405981.6931
+    },
+    {
+      "frame": 1,
+      "nonce": "979a7743af70bcc9",
+      "ts": 1784406065.1045928
+    },
+    {
+      "frame": 2,
+      "nonce": "a1276cde2a95bcfd",
+      "ts": 1784406102.0361285
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "94918467ec7dd41d",
+      "decision": "HOLD",
+      "reason": "No explicit instruction or question was provided for a trade decision. The input consists solely of raw statistical data and local market context. Therefore, no action (HOLD or EXIT) can be determined based on the provided rules or context."
+    },
+    {
+      "frame": 1,
+      "nonce": "979a7743af70bcc9",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 2,
+      "nonce": "a1276cde2a95bcfd",
+      "decision": "EXIT",
+      "reason": "The input indicates multiple recent directional signals ('fires<=3m: KMDR-against(2m ago), HA-with(2m ago), PROPP-with(1m ago)'). This suggests complex, multi-family activity. While the specific condition of 'accelerating loss' is not explicitly quantified, the presence of multiple conflicting signals warrants an exit based on rule [G0.2] (IF multi-family fires AND accelerating loss THEN EXIT)."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

@@ -29,14 +29,17 @@
       "nonce": "0634159e95346a27",
       "decision": "HOLD",
       "reason": "The local information explicitly indicates a 'giveback 15%', which aligns with rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 2,
+      "nonce": "522a1c6293801c0a",
+      "decision": "EXIT",
+      "reason": "The input data indicates multiple adverse signals ('fires<=3m: KMDR-against(1m ago), HA-against(1m ago), PROPP-against(1m ago)') which aligns with the condition for [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
     }
   ],
-  "pending": {
-    "frame": 2,
-    "nonce": "522a1c6293801c0a"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

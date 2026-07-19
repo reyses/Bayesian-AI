@@ -151,3 +151,42 @@ Best way to run optimization on NinjaTrader — https://www.reddit.com/r/algotra
 GitHub (open-source NinjaTrader strategy code)
 
 ayb/ninjatrader-automated-trading-strategy — https://github.com/ayb/ninjatrader-automated-trading-strategy
+
+
+
+Here's the academic and community/NinjaTrader-strategy batch. All verified full URLs.
+Academic Papers on Exit Rules / Stop-Loss / Profit Targets
+
+When Do Stop-Loss Rules Stop Losses? (Kaminski & Lo — the seminal paper on stop-loss exit rules) — https://www.sciencedirect.com/science/article/pii/S138641811300030X
+Stop Distance, Exit Methodology, and Signal Preservation in Intraday Value Area Breakouts: Evidence from E-mini S&P 500 Futures (SSRN) — https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6350238
+A Regime-Filtered Intraday Trading Framework for Gold: VWAP Microstructure and EMA-Based Dynamic Exit Mechanisms (SSRN) — https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6650958
+MaxAI: A Reinforcement Learning and Genetic Algorithm Framework for Intraday Index Futures Trading (SSRN) — https://papers.ssrn.com/sol3/papers.cfm?abstract_id=5761402
+A Profitable Day Trading Strategy for the US Equity Market (SSRN) — https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4729284
+Selective Strategies for Intraday Trading – An Overview (ResearchGate PDF) — https://www.researchgate.net/profile/Jalaja-Lakshminarayanan/publication/372592221_691_-702_Section_A-Research_paper_Selective_strategies_for_Intraday_Trading_-An_overview_Eur/links/64bfa8eb8de7ed28bac26ba9/691-702-Section-A-Research-paper-Selective-strategies-for-Intraday-Trading-An-overview-Eur.pdf
+Trading System Development (WPI thesis) — https://digital.wpi.edu/downloads/s7526d00k
+
+Reddit — Automated / NinjaTrader Strategies People Have Posted
+Strategy shares & results:
+
+My automated NinjaTrader strategy on NQ futures — https://www.reddit.com/r/Daytrading/comments/1amm6hy/my_automated_ninjatrader_strategy_on_nq_futures/
+My automated NinjaTrader 8 ORB strategy (E-mini) — https://www.reddit.com/r/Daytrading/comments/1nbfno3/my_automated_ninjatrader_8_orb_strategy_emini/
+Weekly results from my fully automated (strategy) — https://www.reddit.com/r/FuturesTrading/comments/1jbgf9z/weekly_results_from_my_fully_automated/
+My first real live trade from automated strategy — https://www.reddit.com/r/ninjatrader/comments/1rigni0/my_first_real_live_trade_from_automated_strategy/
+I had my friend code my strategy to automate it — https://www.reddit.com/r/ninjatrader/comments/1llkl2u/i_had_my_friend_code_my_strategy_to_automate_im/
+Here's my strategy — https://www.reddit.com/r/FuturesTrading/comments/1eui37q/heres_my_strategy/
+I'm a manual futures trader who learned C# to automate — https://www.reddit.com/r/ninjatrader/comments/1sox0j9/i_am_a_manual_futures_trader_who_learned_c_to/
+Moved from manual execution to automated (PropFirmTester) — https://www.reddit.com/r/PropFirmTester/comments/1sclxbn/i_moved_from_manual_execution_to_automated/
+
+Exit/stop mechanics & automation how-to:
+
+Automating EMA pullback strategy in NinjaTrader — https://www.reddit.com/r/ninjatrader/comments/1riqm0t/automating_ema_pullback_strategy_in_ninjatrader/
+Dynamic stops / trailing stops in Ninja — https://www.reddit.com/r/ninjatrader/comments/18p9any/dynamic_stopstrailing_stops_in_ninja/
+Breakeven / trailing stop behaving incorrectly in strategy — https://www.reddit.com/r/ninjatrader/comments/1r0utmk/breakeven_trailing_stop_behaving_incorrectly_in/
+Has anyone successfully created automated (strategies)? — https://www.reddit.com/r/ninjatrader/comments/1lt9942/has_anyone_successfully_created_automated/
+NinjaScript strategies on NinjaTrader (r/algotrading) — https://www.reddit.com/r/algotrading/comments/x0q0o7/ninjascript_or_strategies_on_ninjatrader/
+A few questions regarding NinjaTrader automated (r/algotrading) — https://www.reddit.com/r/algotrading/comments/1p34hyb/a_few_questions_regarding_ninjatrader_automated/
+Best way to run optimization on NinjaTrader — https://www.reddit.com/r/algotrading/comments/1o1mv4u/best_way_to_run_optimization_on_ninjatrader/
+
+GitHub (open-source NinjaTrader strategy code)
+
+ayb/ninjatrader-automated-trading-strategy — https://github.com/ayb/ninjatrader-automated-trading-strategy

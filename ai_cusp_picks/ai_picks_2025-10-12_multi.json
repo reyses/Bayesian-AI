@@ -1,0 +1,16 @@
+{
+  "trades": [
+    {
+      "entry_ts": 1760307787.0,
+      "exit_ts": 1760310258.0,
+      "direction": "SHORT",
+      "side": "Sell",
+      "entry_price": 24740.0,
+      "exit_price": 24650.75,
+      "pnl_dollars": 178.5,
+      "mae_dollars": 0.5,
+      "is_marginal": false,
+      "original_timestamp": 1760307720.0
+    }
+  ]
+}

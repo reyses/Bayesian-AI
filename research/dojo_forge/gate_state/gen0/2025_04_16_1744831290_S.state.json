@@ -1,0 +1,199 @@
+{
+  "episode_id": "2025_04_16_1744831290_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "2ec49f8937000466",
+      "ts": 1784401770.73541
+    },
+    {
+      "frame": 1,
+      "nonce": "dd7d4d8ea4515eff",
+      "ts": 1784401931.9040534
+    },
+    {
+      "frame": 2,
+      "nonce": "714fa03a3fe3277d",
+      "ts": 1784402078.1325674
+    },
+    {
+      "frame": 3,
+      "nonce": "96b3c49ceef3d5c6",
+      "ts": 1784402230.3927002
+    },
+    {
+      "frame": 4,
+      "nonce": "ce5daefd65c4494c",
+      "ts": 1784402380.5898285
+    },
+    {
+      "frame": 5,
+      "nonce": "cbefab05ef6183de",
+      "ts": 1784402535.691826
+    },
+    {
+      "frame": 6,
+      "nonce": "1df8aacd944e6fe8",
+      "ts": 1784402678.6884966
+    },
+    {
+      "frame": 7,
+      "nonce": "5d333c82a6928886",
+      "ts": 1784402831.343956
+    },
+    {
+      "frame": 8,
+      "nonce": "913233afc8ddaaf1",
+      "ts": 1784402985.23661
+    },
+    {
+      "frame": 9,
+      "nonce": "cfea3868b2b4ccdb",
+      "ts": 1784403146.536948
+    },
+    {
+      "frame": 10,
+      "nonce": "44f0d5fcde4404b0",
+      "ts": 1784403218.2730985
+    },
+    {
+      "frame": 11,
+      "nonce": "b28478f598604070",
+      "ts": 1784403372.8445995
+    },
+    {
+      "frame": 12,
+      "nonce": "efc23af5b79d1609",
+      "ts": 1784403519.0119426
+    },
+    {
+      "frame": 13,
+      "nonce": "c947a0b30bc04e92",
+      "ts": 1784403663.7010636
+    },
+    {
+      "frame": 14,
+      "nonce": "c156e29cb5b2760d",
+      "ts": 1784403803.6829212
+    },
+    {
+      "frame": 15,
+      "nonce": "3ce230efdb40b497",
+      "ts": 1784403942.5821617
+    },
+    {
+      "frame": 16,
+      "nonce": "bb24ec108f93a202",
+      "ts": 1784404087.35892
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "2ec49f8937000466",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a state where no immediate trigger for EXIT is met according to the defined Genome rules. Specifically:\n\n1. **[G0.1] IF adverse excursion on a clean entry THEN HOLD:** No explicit signal of an adverse excursion on a clean entry was detected.\n2. **[G0.2] IF multi-family fires AND accelerating loss THEN EXIT:** The system indicates `fires<=3m: KMDR-against(2m ago), PROPP-with(0m ago), none-else`. This suggests limited or specific firing conditions, not the general 'multi-family fires' required for an exit.\n3. **[G0.3] IF giveback/retrace AND trend is intact THEN HOLD:** The local summary shows a `giveback 4%` over the last 4 minutes, but the overall context (1D and 4H data) suggests the underlying trend remains established, supporting a HOLD decision."
+    },
+    {
+      "frame": 1,
+      "nonce": "dd7d4d8ea4515eff",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) are met, as there are no active multi-family fires and accelerating loss indicated by the summary ('fires<=3m: KMDR-against(0m ago), PROPP-against(0m ago), none-else'). While a giveback is mentioned (27%), the trend status remains ambiguous, making HOLD the safest default according to the provided Genome rules."
+    },
+    {
+      "frame": 2,
+      "nonce": "714fa03a3fe3277d",
+      "decision": "HOLD",
+      "reason": "The summary indicates a 'giveback 39%', suggesting a recent retracement. According to rule [G0.3], if there is a giveback/retrace AND the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "96b3c49ceef3d5c6",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT conditions (G0.2) is met, as 'accelerating loss' cannot be definitively confirmed from these snapshots alone. The market exhibits high volatility and multiple firing conditions ('fires<=3m: KMDR-against(2m ago), HA-against(0m ago), PROPP-with(1m ago)'). While this suggests complexity, the reversion probabilities are also high (e.g., reversion_prob_30 is near 1.0), indicating potential for mean reversion rather than sustained accelerating loss. Therefore, HOLD is selected to await further confirmation of trend or acceleration."
+    },
+    {
+      "frame": 4,
+      "nonce": "ce5daefd65c4494c",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT (G0.2) or HOLD (G0.1, G0.3) are definitively met based on the provided data. The system reports various volatility indicators ('fires') but does not confirm 'accelerating loss' required for an exit, nor a clear giveback/retrace pattern for a hold."
+    },
+    {
+      "frame": 5,
+      "nonce": "cbefab05ef6183de",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 10%', which aligns with the condition in Genome Rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signals for multi-family fires or accelerating loss were present to trigger an EXIT."
+    },
+    {
+      "frame": 6,
+      "nonce": "1df8aacd944e6fe8",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 14%', which aligns with the condition in [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal for accelerating loss or adverse excursion that mandates an EXIT based on [G0.2] is present."
+    },
+    {
+      "frame": 7,
+      "nonce": "5d333c82a6928886",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 23%', suggesting a retrace has occurred. According to rule [G0.3] ('IF giveback/retrace AND trend is intact THEN HOLD'), the appropriate action is to HOLD."
+    },
+    {
+      "frame": 8,
+      "nonce": "913233afc8ddaaf1",
+      "decision": "HOLD",
+      "reason": "The summary explicitly indicates a 'giveback 17%', which aligns with the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 9,
+      "nonce": "cfea3868b2b4ccdb",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 10,
+      "nonce": "44f0d5fcde4404b0",
+      "decision": "HOLD",
+      "reason": "Rule [G0.3] is triggered by the local context indicating a 'giveback 30%'. This rule states: IF giveback/retrace AND trend is intact THEN HOLD. Given this explicit condition, the appropriate action is to HOLD."
+    },
+    {
+      "frame": 11,
+      "nonce": "b28478f598604070",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT (G0.2) or HOLD (G0.1, G0.3) were explicitly met based on the provided data summary. The trade is currently being held."
+    },
+    {
+      "frame": 12,
+      "nonce": "efc23af5b79d1609",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 0%' in the local analysis, suggesting a retracement following recent movement. This aligns with rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 13,
+      "nonce": "c947a0b30bc04e92",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 12%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No multi-family fires or accelerating loss signals were detected, negating the trigger for EXIT under [G0.2]."
+    },
+    {
+      "frame": 14,
+      "nonce": "c156e29cb5b2760d",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 9%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 15,
+      "nonce": "3ce230efdb40b497",
+      "decision": "HOLD",
+      "reason": "G0.3 is triggered by the observed 'giveback 18%', suggesting a retracement while the overall trend is assumed to be intact."
+    },
+    {
+      "frame": 16,
+      "nonce": "bb24ec108f93a202",
+      "decision": "HOLD",
+      "reason": "The input summary indicates a 'giveback 37%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No conditions for EXIT ([G0.2]) or adverse excursion on a clean entry ([G0.1]) are explicitly met."
+    }
+  ],
+  "pending": null,
+  "closed": false,
+  "exit_frame": null,
+  "finished": false,
+  "summary": null
+}

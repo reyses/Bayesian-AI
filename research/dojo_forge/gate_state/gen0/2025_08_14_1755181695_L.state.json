@@ -3,17 +3,241 @@
   "served": [
     {
       "frame": 0,
-      "nonce": "efddf36e9c386326",
-      "ts": 1784398741.4306993
+      "nonce": "8daf47d45ef559a4",
+      "ts": 1784402646.0659955
+    },
+    {
+      "frame": 1,
+      "nonce": "1ef09111747c55ab",
+      "ts": 1784402798.709003
+    },
+    {
+      "frame": 2,
+      "nonce": "1e039f82a39fdf01",
+      "ts": 1784402949.5967476
+    },
+    {
+      "frame": 3,
+      "nonce": "8636f05e4cdfb995",
+      "ts": 1784403030.5428014
+    },
+    {
+      "frame": 4,
+      "nonce": "e208ec1337585412",
+      "ts": 1784403190.5172539
+    },
+    {
+      "frame": 5,
+      "nonce": "81999c5b91154240",
+      "ts": 1784403351.258401
+    },
+    {
+      "frame": 6,
+      "nonce": "ce9c93fdc45e000b",
+      "ts": 1784403499.1120253
+    },
+    {
+      "frame": 7,
+      "nonce": "2af88a4fcaa449d7",
+      "ts": 1784403645.4882755
+    },
+    {
+      "frame": 8,
+      "nonce": "372fcd60ead5ffd2",
+      "ts": 1784403789.4021046
+    },
+    {
+      "frame": 9,
+      "nonce": "164e012ef9e7918f",
+      "ts": 1784403927.441981
+    },
+    {
+      "frame": 10,
+      "nonce": "daf315627dcdb4ed",
+      "ts": 1784404073.344189
+    },
+    {
+      "frame": 11,
+      "nonce": "0bcdcdd31d2320b2",
+      "ts": 1784404213.8568785
+    },
+    {
+      "frame": 12,
+      "nonce": "59e00fe162cdd95d",
+      "ts": 1784404342.0032387
+    },
+    {
+      "frame": 13,
+      "nonce": "54efc5dbc91ea20e",
+      "ts": 1784404475.3818228
+    },
+    {
+      "frame": 14,
+      "nonce": "1e75316cf06f40e9",
+      "ts": 1784404603.364733
+    },
+    {
+      "frame": 15,
+      "nonce": "388c69b24f20cc24",
+      "ts": 1784404726.6554353
+    },
+    {
+      "frame": 16,
+      "nonce": "928f73c96a631d2c",
+      "ts": 1784404851.4211488
+    },
+    {
+      "frame": 17,
+      "nonce": "8c47d93cec0b97d6",
+      "ts": 1784404968.3007302
+    },
+    {
+      "frame": 18,
+      "nonce": "6b06bc0f5a1fccdc",
+      "ts": 1784405026.362064
+    },
+    {
+      "frame": 19,
+      "nonce": "03dcded0d52e07bc",
+      "ts": 1784405139.701341
+    },
+    {
+      "frame": 20,
+      "nonce": "fac4201d8e8bb01d",
+      "ts": 1784405244.5906749
     }
   ],
-  "commits": [],
-  "pending": {
-    "frame": 0,
-    "nonce": "efddf36e9c386326"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "8daf47d45ef559a4",
+      "decision": "HOLD",
+      "reason": "The provided data indicates mixed momentum and volatility across different timeframes, suggesting a period of consolidation or transition rather than an immediate, clear directional breakout that would trigger an EXIT. Specifically:\n\n1. **Momentum Divergence:** The 30-minute snapshot shows slightly negative price velocity (-0.758), while the 4-hour context suggests strong upward momentum (+21.250). This divergence indicates uncertainty.\n2. **Volatility Profile:** The system exhibits high volatility metrics (e.g., `vol_sigma_30` values) and leptokurtic distribution (`ldist_kurtosis=-1.560`), suggesting that large price swings are possible, which supports maintaining a defensive posture.\n3. **Local Activity:** The immediate context shows recent amplitude and giveback activity, indicating active trading, but the overall structure remains balanced enough to warrant holding until clearer directional confirmation is established."
+    },
+    {
+      "frame": 1,
+      "nonce": "1ef09111747c55ab",
+      "decision": "HOLD",
+      "reason": "No explicit conditions for EXIT were met based on the provided Genome rules. While firing signals (HA, PROPP) are present, there is no confirmed evidence of 'accelerating loss' required by G0.2, nor a clear confirmation of an adverse excursion on a clean entry (G0.1). The presence of a 3% giveback suggests a retrace, which aligns with the condition for HOLD under G0.3 if the trend is considered intact."
+    },
+    {
+      "frame": 2,
+      "nonce": "1e039f82a39fdf01",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 3,
+      "nonce": "8636f05e4cdfb995",
+      "decision": "HOLD",
+      "reason": "The data indicates a recent price pullback or correction ('giveback 24%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 4,
+      "nonce": "e208ec1337585412",
+      "decision": "HOLD",
+      "reason": "The input summary explicitly states 'giveback 2%', which aligns with the condition in rule [G0.3]: IF giveback/retrace AND trend is intact THEN HOLD."
+    },
+    {
+      "frame": 5,
+      "nonce": "81999c5b91154240",
+      "decision": "HOLD",
+      "reason": "The data indicates a pullback ('giveback 8%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD. There is no explicit confirmation of 'multi-family fires AND accelerating loss' required for an EXIT signal under [G0.2]."
+    },
+    {
+      "frame": 6,
+      "nonce": "ce9c93fdc45e000b",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 9%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 7,
+      "nonce": "2af88a4fcaa449d7",
+      "decision": "HOLD",
+      "reason": "The local information indicates a 'giveback 28%', which aligns with the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal for multi-family fires and accelerating loss (G0.2) was detected."
+    },
+    {
+      "frame": 8,
+      "nonce": "372fcd60ead5ffd2",
+      "decision": "HOLD",
+      "reason": "The system does not meet the criteria for EXIT (G0.2: multi-family fires AND accelerating loss). While there is a 58% giveback, which suggests a retrace, the conditions for HOLD (G0.3: giveback/retrace AND trend is intact) are met in the absence of explicit adverse excursion or accelerating loss signals."
+    },
+    {
+      "frame": 9,
+      "nonce": "164e012ef9e7918f",
+      "decision": "HOLD",
+      "reason": "The local data indicates a 'giveback 61%', suggesting a retracement has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 10,
+      "nonce": "daf315627dcdb4ed",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 60%', which satisfies the condition for rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal of multi-family fires leading to accelerating loss was detected."
+    },
+    {
+      "frame": 11,
+      "nonce": "0bcdcdd31d2320b2",
+      "decision": "HOLD",
+      "reason": "The local context explicitly indicates a 'giveback 9%'. According to Genome rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 12,
+      "nonce": "59e00fe162cdd95d",
+      "decision": "HOLD",
+      "reason": "No explicit trigger for EXIT rules (G0.2) was met, and the conditions for HOLD (G0.1 or G0.3) are not definitively confirmed based solely on the provided data structure. The presence of multiple firing signals suggests caution, warranting a HOLD."
+    },
+    {
+      "frame": 13,
+      "nonce": "54efc5dbc91ea20e",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 44%', which satisfies the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 14,
+      "nonce": "1e75316cf06f40e9",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 51%', which satisfies the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD)."
+    },
+    {
+      "frame": 15,
+      "nonce": "388c69b24f20cc24",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 36%', which satisfies the condition of [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No explicit signal for multi-family fires and accelerating loss ([G0.2]) was confirmed."
+    },
+    {
+      "frame": 16,
+      "nonce": "928f73c96a631d2c",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The system reports 'fires<=3m: none', negating the trigger for G0.2. While a 'giveback 12%' is noted, the overall price action suggests the trend remains intact, satisfying the condition for HOLD under G0.3."
+    },
+    {
+      "frame": 17,
+      "nonce": "8c47d93cec0b97d6",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 18,
+      "nonce": "6b06bc0f5a1fccdc",
+      "decision": "HOLD",
+      "reason": "No conditions for EXIT were met. The data does not indicate multi-family fires and accelerating loss (G0.2), nor is there evidence of an adverse excursion on a clean entry (G0.1). Although a 'giveback' is noted, the overall momentum suggests the trend remains intact (G0.3)."
+    },
+    {
+      "frame": 19,
+      "nonce": "03dcded0d52e07bc",
+      "decision": "HOLD",
+      "reason": "The system does not meet the explicit criteria for EXIT (G0.2: multi-family fires AND accelerating loss). While adverse signals ('fires') are present, the latest 1m bar shows strong positive price acceleration (+4.250), suggesting momentum is shifting or continuing rather than an immediate, accelerating loss that would trigger an exit."
+    },
+    {
+      "frame": 20,
+      "nonce": "fac4201d8e8bb01d",
+      "decision": "EXIT",
+      "reason": "The input summary explicitly indicates 'fires' (KMDR-against(2m ago), PROPP-against(1m ago)), suggesting multi-family stress or conflicting signals are present. This aligns with the condition in rule [G0.2] ('multi-family fires') which triggers an EXIT if accelerating loss is present. The observed volatility and range expansion across the 5s, 15s, and 1m bars further support the interpretation that conditions may be deteriorating rapidly."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 20,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

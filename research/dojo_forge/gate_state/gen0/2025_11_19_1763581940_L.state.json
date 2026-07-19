@@ -45,6 +45,16 @@
       "frame": 8,
       "nonce": "61967f3cc3c92b6f",
       "ts": 1784398713.9718208
+    },
+    {
+      "frame": 9,
+      "nonce": "19916221c5f86de8",
+      "ts": 1784398889.527643
+    },
+    {
+      "frame": 10,
+      "nonce": "60bfb90beb619bac",
+      "ts": 1784399052.8484738
     }
   ],
   "commits": [
@@ -95,14 +105,29 @@
       "nonce": "ef57ed5cee144fab",
       "decision": "HOLD",
       "reason": "The input data indicates a 'giveback 23%', which satisfies the condition in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). The market shows signs of consolidation after recent movement, suggesting a pause rather than an immediate need to exit or hold due to adverse excursion."
+    },
+    {
+      "frame": 8,
+      "nonce": "61967f3cc3c92b6f",
+      "decision": "HOLD",
+      "reason": "The system is currently in a state of mixed momentum and volatility. While the 4h data suggests strong persistence (Hurst = +0.703), the immediate 1h data shows signs of mean reversion tendencies, and the recent trade activity indicates a partial giveback (54%). The final signal ('HA-against', 'PROPP-against') suggests that the current momentum is being challenged or reversed by the underlying structure, warranting a HOLD to observe if the established trend breaks or if the reversion holds."
+    },
+    {
+      "frame": 9,
+      "nonce": "19916221c5f86de8",
+      "decision": "HOLD",
+      "reason": "The data indicates a significant pullback ('giveback 61%'). According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD. While conflicting signals (HA-with, PROPP-against) are present, the presence of a clear retracement suggests waiting for confirmation rather than exiting immediately."
+    },
+    {
+      "frame": 10,
+      "nonce": "60bfb90beb619bac",
+      "decision": "EXIT",
+      "reason": "Rule [G0.2] is triggered. The local context indicates 'fires<=3m: HA-with(1m ago), PROPP-against(2m ago)', and the price action shows accelerating loss (e.g., strong negative price acceleration and high volume acceleration in the 1m bar)."
     }
   ],
-  "pending": {
-    "frame": 8,
-    "nonce": "61967f3cc3c92b6f"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "pending": null,
+  "closed": true,
+  "exit_frame": 10,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

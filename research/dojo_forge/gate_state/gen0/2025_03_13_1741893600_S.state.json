@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_03_13_1741893600_S",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "c3809655241371e7",
+      "ts": 1784400150.68065
+    },
+    {
+      "frame": 1,
+      "nonce": "e153fad68137cbae",
+      "ts": 1784400311.9068334
+    },
+    {
+      "frame": 2,
+      "nonce": "07ec2df113054483",
+      "ts": 1784400469.4642322
+    },
+    {
+      "frame": 3,
+      "nonce": "7a0cf8c475fc1de4",
+      "ts": 1784400620.8497815
+    },
+    {
+      "frame": 4,
+      "nonce": "e948330f7448a3f0",
+      "ts": 1784400775.9332695
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "c3809655241371e7",
+      "decision": "HOLD",
+      "reason": "The provided data shows mixed signals, but no immediate trigger for an EXIT based on the defined Genome rules. Specifically:\n\n1. **[G0.1] IF adverse excursion on a clean entry THEN HOLD:** The Z-scores in both timeframes indicate that the price is near recent extremes (e.g., `z_high_30=-0.972`, `z_close_vs_high_30=-1.356`), suggesting proximity to volatility boundaries, which warrants caution.\n2. **[G0.2] IF multi-family fires AND accelerating loss THEN EXIT:** There are no explicit 'multi-family fires' detected in the immediate context provided.\n3. **[G0.3] IF giveback/retrace AND trend is intact THEN HOLD:** The data suggests some degree of mean reversion tendencies (indicated by the Hurst exponent and price velocity/acceleration interplay), supporting a holding position while waiting for clearer directional confirmation."
+    },
+    {
+      "frame": 1,
+      "nonce": "e153fad68137cbae",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 14%', suggesting a retrace has occurred. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action should be HOLD."
+    },
+    {
+      "frame": 2,
+      "nonce": "07ec2df113054483",
+      "decision": "HOLD",
+      "reason": "The conditions for EXIT (G0.2: multi-family fires AND accelerating loss) are not explicitly confirmed by the provided data. While there are indicators of volatility and some firing events (HA-with, PROPP-against), the presence of a 'giveback 11%' suggests a potential retrace or consolidation phase. Therefore, adhering to G0.3 (if giveback/retrace AND trend is intact THEN HOLD) is appropriate until acceleration in loss is confirmed."
+    },
+    {
+      "frame": 3,
+      "nonce": "7a0cf8c475fc1de4",
+      "decision": "HOLD",
+      "reason": "G0.3 is met. The data explicitly shows a 'giveback 37%', which satisfies the condition for HOLD if the trend is considered intact."
+    },
+    {
+      "frame": 4,
+      "nonce": "e948330f7448a3f0",
+      "decision": "EXIT",
+      "reason": "The input data indicates the presence of multiple family fires (HA and PROPP). According to rule [G0.2], if multi-family fires and accelerating loss are present, the action is EXIT. The volatility metrics across the timeframes show significant acceleration/deceleration in price and volume dynamics, suggesting an unstable environment where accelerating loss is a possibility."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

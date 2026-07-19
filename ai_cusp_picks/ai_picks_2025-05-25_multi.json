@@ -1,0 +1,40 @@
+{
+  "trades": [
+    {
+      "entry_ts": 1748211934.0,
+      "exit_ts": 1748212775.0,
+      "direction": "SHORT",
+      "side": "Sell",
+      "entry_price": 21229.25,
+      "exit_price": 21138.5,
+      "pnl_dollars": 181.5,
+      "mae_dollars": 0.0,
+      "is_marginal": false,
+      "original_timestamp": 1748212080.0
+    },
+    {
+      "entry_ts": 1748212776.0,
+      "exit_ts": 1748214361.0,
+      "direction": "LONG",
+      "side": "Buy",
+      "entry_price": 21142.5,
+      "exit_price": 21202.25,
+      "pnl_dollars": 119.5,
+      "mae_dollars": 7.0,
+      "is_marginal": false,
+      "original_timestamp": 1748212860.0
+    },
+    {
+      "entry_ts": 1748214362.0,
+      "exit_ts": 1748215859.0,
+      "direction": "SHORT",
+      "side": "Sell",
+      "entry_price": 21199.0,
+      "exit_price": 21162.5,
+      "pnl_dollars": 73.0,
+      "mae_dollars": 0.0,
+      "is_marginal": false,
+      "original_timestamp": 1748214480.0
+    }
+  ]
+}

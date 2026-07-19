@@ -1,0 +1,56 @@
+{
+  "episode_id": "2025_12_18_1766088788_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "ac701ed6b026f8e0",
+      "ts": 1784402347.3030272
+    },
+    {
+      "frame": 1,
+      "nonce": "0184162e3f35feda",
+      "ts": 1784402502.3047583
+    },
+    {
+      "frame": 2,
+      "nonce": "f24beb21e5edcddd",
+      "ts": 1784402645.0759542
+    },
+    {
+      "frame": 3,
+      "nonce": "87808e2d032d9657",
+      "ts": 1784402728.4524195
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "ac701ed6b026f8e0",
+      "decision": "HOLD",
+      "reason": "No explicit instruction was provided for a trade decision based on the Genome rules. The provided data is raw statistical and time-series information. Therefore, the default action is to HOLD until a specific trading objective or signal is requested."
+    },
+    {
+      "frame": 1,
+      "nonce": "0184162e3f35feda",
+      "decision": "HOLD",
+      "reason": "The observed price action shows a pullback or retrace (1m bar closed lower than the previous high), which satisfies the condition for G0.3 (giveback/retrace). There are no active multi-family fires reported, thus G0.2 is not triggered."
+    },
+    {
+      "frame": 2,
+      "nonce": "f24beb21e5edcddd",
+      "decision": "HOLD",
+      "reason": "Failed to parse json"
+    },
+    {
+      "frame": 3,
+      "nonce": "87808e2d032d9657",
+      "decision": "EXIT",
+      "reason": "The input data indicates 'fires<=3m: KMDR-against(0m ago), PROPP-against(1m ago)', which suggests multiple conflicting signals or adverse movements (multi-family fires). This triggers rule [G0.2]: IF multi-family fires AND accelerating loss THEN EXIT."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 3,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

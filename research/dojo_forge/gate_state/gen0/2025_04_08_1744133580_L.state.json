@@ -10,6 +10,21 @@
       "frame": 1,
       "nonce": "e4323fe5ffbcc1e2",
       "ts": 1784398661.1498294
+    },
+    {
+      "frame": 2,
+      "nonce": "fb7aad090fe50ff1",
+      "ts": 1784398829.2086818
+    },
+    {
+      "frame": 3,
+      "nonce": "13c84959562c147e",
+      "ts": 1784399000.26782
+    },
+    {
+      "frame": 4,
+      "nonce": "5a5b3e945720d122",
+      "ts": 1784399165.2132976
     }
   ],
   "commits": [
@@ -18,14 +33,35 @@
       "nonce": "5ff7b1a045ee6ec1",
       "decision": "HOLD",
       "reason": "No explicit trigger for EXIT was met based on the provided Genome rules (G0.1, G0.2, G0.3). The data does not indicate an adverse excursion on a clean entry, multi-family fires with accelerating loss, or a giveback/retrace where the trend is intact."
+    },
+    {
+      "frame": 1,
+      "nonce": "e4323fe5ffbcc1e2",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 29%' occurred in the last 5 minutes. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD. There are no explicit signals confirming multi-family fires leading to accelerating loss (G0.2) or an adverse excursion on a clean entry (G0.1)."
+    },
+    {
+      "frame": 2,
+      "nonce": "fb7aad090fe50ff1",
+      "decision": "HOLD",
+      "reason": "The system is currently exhibiting signs of a pullback or retrace ('giveback 44%'). According to rule [G0.3], if a giveback/retrace occurs and the trend is intact, the action should be HOLD. While there are multiple structural conflicts indicated by 'fires' (HA-against, PROPP-against), there is no explicit evidence of 'accelerating loss' required to trigger an EXIT under rule [G0.2]. Therefore, holding is the appropriate response while observing the trend integrity."
+    },
+    {
+      "frame": 3,
+      "nonce": "13c84959562c147e",
+      "decision": "HOLD",
+      "reason": "No explicit condition for EXIT (G0.2: multi-family fires AND accelerating loss) is definitively met based solely on the provided data. The available signals suggest volatility and potential retracement (giveback 21%), which aligns with HOLD conditions (G0.3), but do not trigger an immediate exit."
+    },
+    {
+      "frame": 4,
+      "nonce": "5a5b3e945720d122",
+      "decision": "EXIT",
+      "reason": "The system indicates 'multi-family fires' (HA-with, PROPP-against) and a significant price pullback ('giveback 55%'). This combination suggests that momentum is being challenged or reversing, triggering the condition for EXIT based on rule [G0.2]."
     }
   ],
-  "pending": {
-    "frame": 1,
-    "nonce": "e4323fe5ffbcc1e2"
-  },
-  "closed": false,
-  "exit_frame": null,
-  "finished": false,
-  "summary": null
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
 }

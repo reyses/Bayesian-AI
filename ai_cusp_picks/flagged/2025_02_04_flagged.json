@@ -1,0 +1,116 @@
+{
+  "flagged": [
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738629600.0,
+      "direction": "SHORT",
+      "entry_price": 21563.25,
+      "adverse_pts": 2.25,
+      "reason": "price broke past entry (mae > 1.10)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738642920.0,
+      "direction": "SHORT",
+      "entry_price": 21475.0,
+      "adverse_pts": 1.5,
+      "reason": "price broke past entry (mae > 1.35)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738646460.0,
+      "direction": "LONG",
+      "entry_price": 21242.75,
+      "adverse_pts": 2.0,
+      "reason": "price broke past entry (mae > 1.49)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738649820.0,
+      "direction": "LONG",
+      "entry_price": 21346.5,
+      "adverse_pts": 2.25,
+      "reason": "price broke past entry (mae > 1.78)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738650900.0,
+      "direction": "LONG",
+      "entry_price": 21333.75,
+      "adverse_pts": 5.25,
+      "reason": "price broke past entry (mae > 1.78)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738655460.0,
+      "direction": "SHORT",
+      "entry_price": 21422.75,
+      "adverse_pts": 2.0,
+      "reason": "price broke past entry (mae > 2.00)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738664400.0,
+      "direction": "SHORT",
+      "entry_price": 21399.25,
+      "adverse_pts": 2.25,
+      "reason": "price broke past entry (mae > 1.68)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738672860.0,
+      "direction": "SHORT",
+      "entry_price": 21490.25,
+      "adverse_pts": 6.75,
+      "reason": "price broke past entry (mae > 1.79)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738678860.0,
+      "direction": "LONG",
+      "entry_price": 21413.0,
+      "adverse_pts": 8.0,
+      "reason": "price broke past entry (mae > 2.03)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738695000.0,
+      "direction": "SHORT",
+      "entry_price": 21646.0,
+      "adverse_pts": 2.0,
+      "reason": "price broke past entry (mae > 1.64)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738702560.0,
+      "direction": "SHORT",
+      "entry_price": 21684.25,
+      "adverse_pts": 8.75,
+      "reason": "price broke past entry (mae > 1.52)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738703280.0,
+      "direction": "LONG",
+      "entry_price": 21617.25,
+      "adverse_pts": 6.5,
+      "reason": "price broke past entry (mae > 1.52)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738705320.0,
+      "direction": "LONG",
+      "entry_price": 21573.0,
+      "adverse_pts": 2.0,
+      "reason": "price broke past entry (mae > 1.37)"
+    },
+    {
+      "date": "2025_02_04",
+      "turn_ts": 1738705800.0,
+      "direction": "SHORT",
+      "entry_price": 21601.5,
+      "adverse_pts": 1.75,
+      "reason": "price broke past entry (mae > 1.43)"
+    }
+  ]
+}

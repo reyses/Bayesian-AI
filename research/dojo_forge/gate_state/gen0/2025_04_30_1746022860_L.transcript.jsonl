@@ -1,1 +1,7 @@
-{"ts": 1784398605.914506, "event": "serve", "frame": 0, "nonce": "e888266e1d57a120"}
+{"ts": 1784403791.8534155, "event": "serve", "frame": 0, "nonce": "84a7e36334e554cf"}
+{"ts": 1784403929.869097, "event": "commit", "frame": 0, "nonce": "84a7e36334e554cf", "decision": "HOLD", "reason": "No explicit instruction was given for EXIT, and the provided rules ([G0.1], [G0.2], [G0.3]) require specific conditions (adverse excursion, multi-family fires, giveback/retrace) that are not explicitly confirmed by the raw data alone. Therefore, the default action based on the absence of triggering conditions is HOLD."}
+{"ts": 1784403929.874412, "event": "serve", "frame": 1, "nonce": "63a2a3ceccd5bb01"}
+{"ts": 1784404075.4953473, "event": "commit", "frame": 1, "nonce": "63a2a3ceccd5bb01", "decision": "HOLD", "reason": "No explicit conditions for EXIT (G0.2) or HOLD (G0.1, G0.3) are definitively met based on the provided data and rules. While firing events are noted, there is no clear signal of 'accelerating loss' or a qualifying 'giveback/retrace' with an intact trend to trigger an exit or hold based on the defined genome."}
+{"ts": 1784404075.5001636, "event": "serve", "frame": 2, "nonce": "bfc0a69cbad82d3e"}
+{"ts": 1784404216.1205494, "event": "commit", "frame": 2, "nonce": "bfc0a69cbad82d3e", "decision": "EXIT", "reason": "The data indicates the presence of multiple adverse signals ('fires<=3m: HA-against(0m ago), PROPP-with(0m ago)') combined with a significant price retracement ('giveback 55%'). This aligns with the condition for G0.2 (multi-family fires AND accelerating loss), suggesting an exit is warranted."}
+{"ts": 1784404216.1252654, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 2, "n_commits": 3}

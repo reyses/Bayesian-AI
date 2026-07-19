@@ -1,0 +1,67 @@
+{
+  "episode_id": "2025_04_09_1744207060_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "72062a677649443a",
+      "ts": 1784405424.7169683
+    },
+    {
+      "frame": 1,
+      "nonce": "03e5f9cb8afa1808",
+      "ts": 1784405520.0430946
+    },
+    {
+      "frame": 2,
+      "nonce": "a3b21cbb3f7cf05f",
+      "ts": 1784405602.9867158
+    },
+    {
+      "frame": 3,
+      "nonce": "6ee394c8a64d9481",
+      "ts": 1784405694.7257066
+    },
+    {
+      "frame": 4,
+      "nonce": "8dced49ff92a95bc",
+      "ts": 1784405776.819271
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "72062a677649443a",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a complex state involving increasing volatility and specific firing conditions, but no immediate, clear signal for an adverse excursion or multi-family fire that would trigger an EXIT based on the defined rules. The metrics suggest ongoing movement (positive price means) and established risk parameters (ER10 0.55). Therefore, maintaining the current position is the prudent action until a clearer pattern emerges."
+    },
+    {
+      "frame": 1,
+      "nonce": "03e5f9cb8afa1808",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 17%'. According to rule [G0.3] ('IF giveback/retrace AND trend is intact THEN HOLD'), this condition is met, suggesting a HOLD action."
+    },
+    {
+      "frame": 2,
+      "nonce": "a3b21cbb3f7cf05f",
+      "decision": "HOLD",
+      "reason": "The data indicates a 'giveback 28%' over the last 9 minutes, suggesting a retrace. According to rule [G0.3], if there is a giveback/retrace and the trend is intact, the action is HOLD."
+    },
+    {
+      "frame": 3,
+      "nonce": "6ee394c8a64d9481",
+      "decision": "HOLD",
+      "reason": "The provided data indicates a complex, high-volatility environment with specific momentum and reversion signals. While there is significant volatility observed across both 15m and 1h frames (indicated by the $\\sigma$ and $\\text{vol}$ metrics), the explicit trade context suggests a recent pullback or consolidation phase: \n\n1. **Giveback/Reversion:** The local summary explicitly mentions a 'giveback' of 168% and a specific amplitude, suggesting that the immediate momentum has reversed significantly from the prior move.\n2. **Entry Context:** The signal flags indicate HA-against (Head and Shoulders against) and PROPP-with conditions, which often precede consolidation or mean-reversion opportunities after an aggressive move.\n3. **Trend Intactness:** Although volatility is high, the decision to HOLD aligns with the G0.3 rule: 'IF giveback/retrace AND trend is intact THEN HOLD.' The current state suggests a pause rather than an immediate continuation of the adverse excursion."
+    },
+    {
+      "frame": 4,
+      "nonce": "8dced49ff92a95bc",
+      "decision": "EXIT",
+      "reason": "Triggered by Genome rule [G0.2]. The data indicates 'multi-family fires' (KMDR-against, HA-with, PROPP-with) combined with a significant price retracement ('giveback 183%'), suggesting accelerating loss or high market stress."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 4,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

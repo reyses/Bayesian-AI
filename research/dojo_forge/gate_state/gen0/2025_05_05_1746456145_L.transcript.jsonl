@@ -1,0 +1,7 @@
+{"ts": 1784406820.1189902, "event": "serve", "frame": 0, "nonce": "73a80cadcde9cd7d"}
+{"ts": 1784406868.3045278, "event": "commit", "frame": 0, "nonce": "73a80cadcde9cd7d", "decision": "HOLD", "reason": "No explicit instruction was provided for me to execute a trade or make a decision based on the provided data and rules. The input consists of complex statistical data and a system status report, but no specific question requiring an EXIT or HOLD decision was posed."}
+{"ts": 1784406868.3092802, "event": "serve", "frame": 1, "nonce": "9f962aba7e7ab17d"}
+{"ts": 1784406911.3100317, "event": "commit", "frame": 1, "nonce": "9f962aba7e7ab17d", "decision": "HOLD", "reason": "The data suggests a giveback/retrace occurred (indicated by 'giveback 15%'), which aligns with condition [G0.3]. Since there is no explicit indication of multi-family fires or accelerating loss, the conditions for EXIT are not met."}
+{"ts": 1784406911.3137002, "event": "serve", "frame": 2, "nonce": "e4e4a7c61b128f7b"}
+{"ts": 1784406953.9169624, "event": "commit", "frame": 2, "nonce": "e4e4a7c61b128f7b", "decision": "EXIT", "reason": "The input summary indicates 'fires<=3m: HA-against(0m ago), PROPP-against(1m ago), none-else'. This signals the presence of multiple adverse conditions ('multi-family fires') combined with high volatility and acceleration in the recent bars, satisfying the condition for EXIT according to rule [G0.2]."}
+{"ts": 1784406953.920247, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 2, "n_commits": 3}

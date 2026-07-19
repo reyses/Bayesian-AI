@@ -1,0 +1,45 @@
+{
+  "episode_id": "2025_11_14_1763131700_L",
+  "served": [
+    {
+      "frame": 0,
+      "nonce": "7c169a01460e5462",
+      "ts": 1784402591.2408278
+    },
+    {
+      "frame": 1,
+      "nonce": "e22b31eb3abc0460",
+      "ts": 1784402738.7694027
+    },
+    {
+      "frame": 2,
+      "nonce": "a17e8d8879841e77",
+      "ts": 1784402885.7775571
+    }
+  ],
+  "commits": [
+    {
+      "frame": 0,
+      "nonce": "7c169a01460e5462",
+      "decision": "HOLD",
+      "reason": "The provided rules do not contain sufficient information to determine an action. The input data and the final request appear to be a set of market statistics followed by a specific, pre-formatted output string, rather than a scenario requiring application of G0.1, G0.2, or G0.3."
+    },
+    {
+      "frame": 1,
+      "nonce": "e22b31eb3abc0460",
+      "decision": "HOLD",
+      "reason": "The input data indicates a 'giveback 2%' in the summary line, which aligns with the condition specified in rule [G0.3] (IF giveback/retrace AND trend is intact THEN HOLD). No immediate signals for EXIT based on multi-family fires or adverse excursions were detected."
+    },
+    {
+      "frame": 2,
+      "nonce": "a17e8d8879841e77",
+      "decision": "EXIT",
+      "reason": "The system detected multi-family fires (KMDR-against, PROPP-against) in the recent timeframe, which triggers rule [G0.2] if accelerating loss is present. The price action shows negative movement (-9.25pts) and high volatility, indicating adverse conditions that warrant an exit."
+    }
+  ],
+  "pending": null,
+  "closed": true,
+  "exit_frame": 2,
+  "finished": true,
+  "summary": "Finished by dojo_forge"
+}

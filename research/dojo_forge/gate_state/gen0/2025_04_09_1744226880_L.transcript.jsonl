@@ -1,0 +1,5 @@
+{"ts": 1784398932.0267181, "event": "serve", "frame": 0, "nonce": "5e0ba992c69dbe86"}
+{"ts": 1784399094.3647995, "event": "commit", "frame": 0, "nonce": "5e0ba992c69dbe86", "decision": "HOLD", "reason": "The provided data indicates a state where no immediate trigger for EXIT conditions (G0.2) is met, and the conditions for HOLD (G0.1 or G0.3) are not explicitly violated based on the visible metrics. The system appears to be in a stable or pending state, awaiting further confirmation of adverse excursion or trend integrity."}
+{"ts": 1784399094.3684754, "event": "serve", "frame": 1, "nonce": "74dfb0e30d9513c3"}
+{"ts": 1784399260.6774085, "event": "commit", "frame": 1, "nonce": "74dfb0e30d9513c3", "decision": "EXIT", "reason": "G0.2 triggered. The data indicates 'multi-family fires' (KMDR-against, HA-against) alongside a recent price pullback ('giveback 32%'). This combination suggests accelerating loss conditions warranting an exit."}
+{"ts": 1784399260.6805496, "event": "finish", "summary": "Finished by dojo_forge", "exit_frame": 1, "n_commits": 2}
