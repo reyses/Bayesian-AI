@@ -1,0 +1,36 @@
+==============================================================================
+P2c R-trigger replay -- day 2025_10_16
+==============================================================================
+
+-- regime: HARNESS (prior-day tail, start=2500) -- the 100%-parity input
+   RTH minutes           : 406
+   min_rev (full-day)    : 167 ticks   first_rth idx=11011
+   min_rev across trunc  : [167]
+   zz_confirm!=0 full-day: 40 minutes
+   zz_confirm!=0 trunc   : 40 minutes
+   trunc vs full mismatch: 0 minutes
+   confirms MISSED by trunc (full!=0, trunc==0): 0
+   exits if held LONG  : full-day=20  trunc(runtime)=20
+   exits if held SHORT : full-day=20  trunc(runtime)=20
+   TRADE-SIM stop=OFF  : RTRIG=19 STOP=0 SESSION=50  giveback=1012 pts
+   TRADE-SIM stop=50pt : RTRIG=19 STOP=4 SESSION=50  giveback=929 pts
+
+-- regime: COLD (NT8 wrapper: RTH-only, start=0, no tail)
+   RTH minutes           : 406
+   min_rev (full-day)    : 428 ticks   first_rth idx=0
+   min_rev across trunc  : [4, 428]
+   zz_confirm!=0 full-day: 7 minutes
+   zz_confirm!=0 trunc   : 9 minutes
+   trunc vs full mismatch: 2 minutes
+   confirms MISSED by trunc (full!=0, trunc==0): 0
+   exits if held LONG  : full-day=3  trunc(runtime)=4
+   exits if held SHORT : full-day=4  trunc(runtime)=5
+   TRADE-SIM stop=OFF  : RTRIG=4 STOP=0 SESSION=50  giveback=426 pts
+   TRADE-SIM stop=50pt : RTRIG=3 STOP=4 SESSION=50  giveback=328 pts
+VERDICT 2025_10_16
+  v0.2 (cold, no tail)  runtime min_rev=[4, 428]  confirms/day=9
+  v0.3 (warm tail)      runtime min_rev=167  confirms/day=40
+  v0.3 runtime==full-day zz_confirm at 406/406 minutes (truncation-invariant)
+  => the fix restores 9->40 confirmed reversals/day; each is reachable by the
+     exit gate at the SAME minute the full-day run confirms it.
+
