@@ -159,7 +159,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--verify', action='store_true',
                     help='Compare rebin output against existing parquet for 2026_03_20')
+    ap.add_argument('--raw-root', default=None,
+                    help='override RAW_NT8 root (default: %(default)s = the D: mirror)')
     args = ap.parse_args()
+    if args.raw_root:
+        global RAW_ROOT
+        RAW_ROOT = Path(args.raw_root)
+    print(f"RAW_ROOT: {RAW_ROOT}")
 
     print('Building NT8 Parquet from Raw CSVs...')
     roll_events = _build_roll_calendar(2020, 2035)
