@@ -161,6 +161,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool   tradeAllowedToday = true;
         private int    openDir = 0;                     // +1 long / -1 short / 0 flat
         private double openEntryPrice = double.NaN;
+        private bool wrongSubstrate = false;                    // P2-1b: set if primary != 5s
         private int    dayStartIdx = 0;                 // Ctx.Start (P2-12 warmup/tail)
 
         protected override void OnStateChange()
@@ -208,11 +209,28 @@ namespace NinjaTrader.NinjaScript.Strategies
             else if (State == State.DataLoaded)
             {
                 tmpl = new Tmpl0();                         // embedded codebook (P2-2 / P2-4)
+
+                // ---- v0.4 GUARD (P2-1b): enforce the 5-SECOND substrate ----
+                // The decision core detects zigzag pivots on 5s CLOSES and the golden
+                // parity is 5s. Running the Strategy Analyzer / chart on any other primary
+                // TF silently feeds the core wrong-resolution bars -- a 1m-chart backtest
+                // matched the harness only ~55%. Refuse to run on the wrong substrate.
+                if (BarsPeriods[BIP_5S].BarsPeriodType != BarsPeriodType.Second
+                    || BarsPeriods[BIP_5S].Value != 5)
+                {
+                    Log("EnsembleRunner_v0.4-RC: PRIMARY series must be 5-Second (got "
+                        + BarsPeriods[BIP_5S].Value + " " + BarsPeriods[BIP_5S].BarsPeriodType
+                        + "). Set the Strategy Analyzer / chart data series to 5 Second. "
+                        + "DISABLED.", LogLevel.Error);
+                    wrongSubstrate = true;
+                }
             }
         }
 
         protected override void OnBarUpdate()
         {
+            if (wrongSubstrate) return;                    // P2-1b: 5s substrate not satisfied
+
             // ---------- 1-minute series: native z_se (P2-3) ----------
             if (BarsInProgress == BIP_1M)
             {
