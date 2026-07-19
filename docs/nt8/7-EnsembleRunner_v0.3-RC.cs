@@ -100,10 +100,23 @@ namespace NinjaTrader.NinjaScript.Strategies
         private const int    ZSE_WINDOW_1M = 15;                // N_BASE[1m]=15 -> L3_1m_z_se_15
         private const int    ZSE_OLS_DDOF  = 2;                 // residual std ddof=2 (endpoint OLS)
 
-        // ---- session calendar (America/Chicago RTH; NT8 exchange-local) ----
+        // ---- session calendar (America/Chicago RTH) ----
+        // P2-5 FIX (P3 diff, 2026-07-18): NT8's Times[] arrive in the PC-DISPLAY
+        // timezone (empirically US/Pacific on this box -> the v0.2 backtest traded
+        // 10:30-16:00 CT, two hours late). ALL session logic below runs on CT, so
+        // every bar time is converted local->CT at ingestion via CT_TZ (DST-correct).
+        private static readonly TimeZoneInfo CT_TZ =
+            TimeZoneInfo.FindSystemTimeZoneById("Central Standard Time");
         private const int RTH_OPEN_HH = 8,  RTH_OPEN_MM = 30;   // 08:30 CT
         private const int RTH_CLOSE_HH = 15, RTH_CLOSE_MM = 15; // 15:15 CT (bar-close gate)
         private const int B9_HH = 8, B9_MM = 35;                // opening-range = 08:30-08:35 CT
+
+        // Convert an NT8 bar time (PC-display tz, Kind=Unspecified) to Central Time.
+        private static DateTime ToExchangeTime(DateTime t)
+        {
+            return TimeZoneInfo.ConvertTime(
+                DateTime.SpecifyKind(t, DateTimeKind.Unspecified), TimeZoneInfo.Local, CT_TZ);
+        }
 
         // ---- secondary-series indices ----
         private const int BIP_5S = 0;   // primary chart series MUST be 5s
@@ -192,7 +205,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             // ---------- 5-second primary series: buffer + decide ----------
             if (BarsInProgress != BIP_5S) return;
 
-            DateTime t = Times[BIP_5S][0];
+            DateTime t = ToExchangeTime(Times[BIP_5S][0]); // P2-5: PC-display tz -> CT
             RollSession(t);                                // new-day reset of buffers + guards
 
             long ts = ToEpoch(t);
@@ -3083,6 +3096,14 @@ using System.Collections.Generic;
 //         the 14:00 NT8-session-template close vs 15:55 flatten mismatch (P2-5/P2-11).
 //       CAVEAT: exact BIT-parity of the warmup tail vs the Databento export is still
 //         P2-12 (the tail now comes from the NT8 tape). This restores FUNCTIONAL warmth.
+//       P2-5 FIX (same rev, from the P3 trade-by-trade diff): NT8 Times[] arrive in the
+//         PC-DISPLAY timezone (US/Pacific on this box), NOT exchange time -- pinned
+//         empirically by exact price matches (entries 10:38-10:40 CT, session close
+//         16:00 CT = 2h late). The v0.2 backtest therefore traded a 10:30-16:00 CT
+//         session. FIX: ToExchangeTime() converts every ingested bar time local->CT
+//         (TimeZoneInfo, DST-correct) before session roll / RTH gate / epoch / flatten.
+//         If your NT8 display tz IS already CT, the conversion is a no-op only when
+//         the PC tz is CT -- otherwise set the chart/PC consistently and re-verify.
 //
 //   v0.2.0-RC (2026-07-18, research/nt8_port P2b): DECISION CORE PORTED IN.
 //     Resolves the v0.1 stub TODOs:
