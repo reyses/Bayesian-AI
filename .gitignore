@@ -402,3 +402,6 @@ research/nt8_port/csharp/harness_data/
 research/nt8_port/csharp/out/
 research/nt8_port/csharp/bin/
 research/nt8_port/csharp/obj/
+research/nt8_port/csharp/v02/**/bin/
+research/nt8_port/csharp/v02/**/obj/
+research/nt8_port/csharp/v02/out_v02/

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <!-- P2-13: compile the ACTUAL NinjaScript strategy at C#7.3 against a stubbed
+         NT8 API. Green build == the strategy wrapper is 7.3-clean + type-plausible. -->
+    <LangVersion>7.3</LangVersion>
+    <Deterministic>true</Deterministic>
+    <NoWarn>0169;0649;0414;0108</NoWarn>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Nt8Stub.cs" />
+    <Compile Include="..\..\..\..\..\docs\nt8\7-EnsembleRunner_v0.2-RC.cs" />
+  </ItemGroup>
+</Project>
