@@ -14,6 +14,7 @@ CANON = os.path.join(HERE, "EnsembleCoreV02.region.cs")
 SHIMGEN = os.path.join(HERE, "shim", "EnsembleCoreV02.gen.cs")
 STRAT = os.path.join(REPO, "docs", "nt8", "7-EnsembleRunner_v0.2-RC.cs")
 STRAT_V03 = os.path.join(REPO, "docs", "nt8", "7-EnsembleRunner_v0.3-RC.cs")
+STRAT_V04 = os.path.join(REPO, "docs", "nt8", "7-EnsembleRunner_v0.4-RC.cs")
 
 
 def region(path):
@@ -43,5 +44,11 @@ if os.path.exists(STRAT_V03):
     h3 = h(strat3)
     print("strat v0.3 region sha256:", h3, "MATCH" if h3 == hc else "MISMATCH")
     ok = ok and (h3 == hc)
-print("VERDICT:", "PASS -- one identical region in canon + strategy(+v0.3) + shim" if ok else "FAIL")
+# v0.4-RC is a WRAPPER-only stop change; its SHARED-CORE region MUST also match.
+if os.path.exists(STRAT_V04):
+    strat4 = region(STRAT_V04)
+    h4 = h(strat4)
+    print("strat v0.4 region sha256:", h4, "MATCH" if h4 == hc else "MISMATCH")
+    ok = ok and (h4 == hc)
+print("VERDICT:", "PASS -- one identical region in canon + strategy(+v0.3/v0.4) + shim" if ok else "FAIL")
 sys.exit(0 if ok else 1)
