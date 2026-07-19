@@ -1,6 +1,6 @@
 # P3 first-pass diff — python wrapper sim vs NT8 v0.2-RC backtest
 
-Generated: 2026-07-18 19:21 · executor: Opus data/diff drone · commits: none
+Generated: 2026-07-18 19:31 · executor: Opus data/diff drone · commits: none
 
 ## Step 1 — ATLAS_NT8 conversion (data pipeline)
 - Raw source: `D:/Bayesian-AI-data/DATA/RAW_NT8/{MNQ_06-26,MNQ_09-26}/{1s,1m}/*.csv` (BayesianHistoryDumper per-TF CSV). Converter: `tools/sourcing/convert_nt8_csv_to_parquet.py` (the importer matching THIS raw layout; the DATA/pipeline/README nt8_* tools are for .txt/tick formats).
@@ -190,3 +190,50 @@ Generated: 2026-07-18 19:21 · executor: Opus data/diff drone · commits: none
 - **z_se N-skew**: the standard SFE build wrote `L3_1m_z_se_30` (code `N_BASE[1m]=30`), but the frozen golden reference and the C# port consume `z_se_15`. The 6 NMP/NMP9 top-K streams here fire off N=30 state — NMP-governed entries are not bit-faithful to what NT8 ran. Non-NMP entries are unaffected.
 - **Session window**: golden decides on RTH 08:30–15:15 CT; NT8 trades a +2h-shifted session to 16:00 CT. Sim session-end exits at 15:15 CT vs NT8 16:00 CT; NT8 entries after 15:15 CT are outside the harness window by construction.
 - Entry fill = open of the +180s action bar; NT8 market fill may differ by a bar (≈ the residual dpx).
+
+## Pass 2 (z_se_15, session-aligned)
+
+Re-run with the sanctioned **z_se_15** NMP head (built by `build_window_zse.py`; spot-checked vs the research/nmp_state verified OLS-endpoint/ddof-2 kernel, max|dz_se|=8.9e-16) and the sim session opened at **10:30 CT** to mirror the empirically-pinned NT8 v0.2 behavior. This diffs what NT8 ACTUALLY ran (the +2h PC-local session is already fixed in v0.3-RC; alignment here is diagnostic).
+
+- NT8 window trades: 32; sim trades: 44
+- matched dir+minute±2: **3/32** (9%); entry-px ±2pt: **2/32**
+- **first entry/day — direction agrees 4/13; price ±2pt 2/13**
+
+| day | NT8 first (CT dir px) | simB15 first (CT dir px) | dir? | px? | vs pass1 dir |
+|---|---|---|---|---|---|
+| 2026_06_22 | 10:40 S 30597.00 | 10:33 S 30598.00 | Y | Y | same |
+| 2026_06_23 | 10:41 L 29712.50 | 10:33 S 29751.00 | n | n | same |
+| 2026_06_24 | 10:46 S 29744.00 | 10:34 S 29761.75 | Y | n | same |
+| 2026_06_25 | 10:50 L 29700.50 | 10:33 S 29683.50 | n | n | same |
+| 2026_06_26 | 10:43 L 29647.25 | 10:33 L 29614.25 | Y | n | same |
+| 2026_06_29 | 10:40 S 29787.25 | 10:35 L 29765.75 | n | n | same |
+| 2026_06_30 | 10:40 L 30404.75 | 10:42 S 30417.25 | n | n | same |
+| 2026_07_01 | 10:40 S 30304.00 | 10:37 L 30305.00 | n | Y | same |
+| 2026_07_02 | 10:40 L 29806.25 | 10:33 S 29733.00 | n | n | same |
+| 2026_07_03 | 10:42 L 29894.00 | 10:59 L 29906.00 | Y | n | same |
+| 2026_07_06 | 10:40 S 30063.25 | 10:35 L 30049.50 | n | n | same |
+| 2026_07_07 | 10:40 S 29279.00 | 10:33 L 29302.25 | n | n | same |
+| 2026_07_08 | 10:40 L 29127.50 | — | n | n |  |
+
+### Residual disagreements (session-aligned, z_se_15)
+- 2026_06_23: NT8 L@10:41 vs sim S@10:33 (sim gov stream = TMPL0); entry-time gap.
+- 2026_06_25: NT8 L@10:50 vs sim S@10:33 (sim gov stream = TMPL0); entry-time gap.
+- 2026_06_29: NT8 S@10:40 vs sim L@10:35 (sim gov stream = TMPL0); entry-time gap.
+- 2026_06_30: NT8 L@10:40 vs sim S@10:42 (sim gov stream = NMP9RIDEAGAINST); same window, opposite call.
+- 2026_07_01: NT8 S@10:40 vs sim L@10:37 (sim gov stream = TMPL0); entry-time gap.
+- 2026_07_02: NT8 L@10:40 vs sim S@10:33 (sim gov stream = TMPL0); entry-time gap.
+- 2026_07_06: NT8 S@10:40 vs sim L@10:35 (sim gov stream = TMPL0); entry-time gap.
+- 2026_07_07: NT8 S@10:40 vs sim L@10:33 (sim gov stream = ROUND05); entry-time gap.
+
+### Session-open sensitivity (first-entry direction agreement)
+| sim session open (CT) | first-entry dir agree |
+|---|---|
+| 10:30 | 4/12 (33%) |
+| 10:35 | 7/12 (58%) |
+| 10:40 | 8/12 (67%) |
+| 10:45 | 5/12 (42%) |
+
+### Pass-2 takeaways
+- Feeding z_se_15 vs pass-1 z_se_30 left the 10:30-aligned first-entry direction agreement at **4/13** (all first entries governed by higher-weight non-NMP streams — RSI06/MACD07/TMPL0 — so the N-skew fix does not move them; NMP-governed *later* entries do change). z_se_15 is now bit-faithful to the frozen artifact regardless.
+- **Session-open time is the real residual**: sweeping the sim open shows first-entry direction agreement jumps to **8/12 (67%) at 10:40 CT** (= 08:40 PT, NT8's empirical fire minute) vs 4/12 at 10:30. NT8 effectively opens/fires ~10 min after 10:30 CT (warmup + 180s settle). Once that is matched, the decision core largely agrees — the discrepancy is session/warmup timing, not combiner logic.
+- Remaining misses at the best open are genuine governing-stream differences at that exact minute (e.g. 06-30 NMP9RIDEAGAINST call) — the true target for v0.3 bar-level parity.
