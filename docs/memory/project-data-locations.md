@@ -19,6 +19,11 @@ metadata:
   `Desktop_RAW` (the databento_to_atlas ingest source, formerly `Desktop/RAW`).
   Path constants updated in `config/settings.py`, `DATA/pipeline/databento_to_atlas.py`,
   `tools/sourcing/convert_nt8_csv_to_parquet.py`, order_flow_ablation builders.
+  **CAVEAT (2026-07-18): D: RAW_NT8 is a STALE MIRROR** — the live
+  BayesianHistoryDumper (v2.4.2-RC default OutputDirectory) writes to the
+  **repo-local `DATA\RAW_NT8\{contract}\{tf}\`** and refreshed through 07-17
+  during Moises' NT8 session. Check the repo path FIRST for fresh NT8 raw;
+  D: only for pre-07-08 history. (P3 drone burned an hour on this.)
 - **ATLAS stays in-repo** under the [[project-atlas-keep-policy]] (OHLCV 1s→1D + SFE
   feature stores only). `artifacts/` and `checkpoints/` were emptied 2026-07-16
   (Moises-approved, incl. research_A segment .pth) — treat their contents as ephemeral.
