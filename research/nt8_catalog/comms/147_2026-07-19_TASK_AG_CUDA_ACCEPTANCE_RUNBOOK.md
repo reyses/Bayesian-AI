@@ -59,3 +59,19 @@ diagnose, report; do NOT let a degenerate run burn the day.
 Tainted gemma gen-0 stays OUT of everything (146 §2 — no control-arm reuse).
 No gate arithmetic on these results — acceptance is descriptive only.
 Commit the jsonl + CSV + your comms doc; nothing else.
+
+## ADDENDUM (VRAM guardrails added to the runner — Moises directive)
+eval_native_ckpt.py now has REAL VRAM protection (was missing; the 500MB cap
+was HOST-RAM only):
+1. `preflight_vram()` runs on --engine cuda BEFORE model load: nvidia-smi
+   free-VRAM query -> fits n_gpu_layers to actual free VRAM with a 1.6GB
+   margin (KV + compute + display). Auto-reduces from -1 (all 41) if a
+   display/other proc holds VRAM; ABORTS if <20 layers fit (refuses a fake
+   "cuda" run). Prints the budget math. If nvidia-smi is missing it WARNS and
+   proceeds with the request (never silent).
+2. n_batch 512 -> 256: prompt processed in smaller CHUNKS, bounding the VRAM
+   compute spike.
+Effect on the runbook: the Step-1 smoke load line now prints a `[vram]` line;
+ACCEPT only if it shows USING >=35 blocks (else free VRAM first). If it
+auto-reduces below ~35, per-frame speed drops (CPU spillover) — note it.
+Everything else in this runbook stands.
