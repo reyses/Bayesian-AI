@@ -1,4 +1,4 @@
-﻿import os
+import os
 import time
 import math
 from llama_cpp import Llama
@@ -36,14 +36,14 @@ def extract_p_exit(llm, prompt_text):
     print(f"P(EXIT)  -> {p_exit:.6f}")
     return p_exit
 
-llm = Llama(model_path=r"D:\ollama\models\blobs\sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e", n_gpu_layers=-1, n_ctx=4096, seed=42, temperature=0.0, logits_all=True)
+llm = Llama(model_path="/mnt/d/ollama/models/blobs/sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e", n_gpu_layers=0, n_ctx=4096, seed=42, temperature=0.0, logits_all=True)
 
 # Simulate system prompt + frame 1
-text1 = "<|im_start|>system\nYou are an expert trader. Given the state, respond with EXIT or HOLD.<|im_end|>\n<|im_start|>user\nFrame 1: Price 100. Action:<|im_end|>\n<|im_start|>assistant\n"
+text1 = "<|im_start|>system\nYou are an expert trader. Given the state, respond with EXIT or HOLD.<|im_end|>\n<|im_start|>user\nFrame 1: Price 100. Action:<|im_end|>\n<|im_start|>assistant\n<think>\n</think>\n"
 print("\n--- Cold Cache (System Prompt + Frame 1) ---")
 extract_p_exit(llm, text1)
 
 # Simulate frame 2
-text2 = text1 + "HOLD<|im_end|>\n<|im_start|>user\nFrame 2: Price 90. Action:<|im_end|>\n<|im_start|>assistant\n"
+text2 = text1 + "HOLD<|im_end|>\n<|im_start|>user\nFrame 2: Price 90. Action:<|im_end|>\n<|im_start|>assistant\n<think>\n</think>\n"
 print("\n--- Warm Cache (Frame 2) ---")
 extract_p_exit(llm, text2)

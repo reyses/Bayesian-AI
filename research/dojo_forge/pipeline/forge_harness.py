@@ -138,8 +138,8 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
     sys_len = len(sys_tokens)
     
     # Get token IDs for "EXIT" and "HOLD"
-    token_exit = llm.tokenize(b"EXIT")[1] if len(llm.tokenize(b"EXIT")) > 1 else llm.tokenize(b"EXIT")[0]
-    token_hold = llm.tokenize(b"HOLD")[1] if len(llm.tokenize(b"HOLD")) > 1 else llm.tokenize(b"HOLD")[0]
+    token_exit = llm.tokenize(b"EXIT", add_bos=False)[0]
+    token_hold = llm.tokenize(b"HOLD", add_bos=False)[0]
 
     while True:
         k, frame_text, nonce = gate.serve()
@@ -150,7 +150,7 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
         llm.n_tokens = sys_len
         
         user_prefix = llm.tokenize(b"<|im_start|>user\n", add_bos=False, special=True)
-        assistant_suffix = llm.tokenize(b"<|im_end|>\n<|im_start|>assistant\n", add_bos=False, special=True)
+        assistant_suffix = llm.tokenize(b"<|im_end|>\n<|im_start|>assistant\n<think>\n</think>\n", add_bos=False, special=True)
         frame_tokens = llm.tokenize(frame_text.encode("utf-8"), add_bos=False, special=False)
         
         max_frame_len = llm._n_ctx - sys_len - len(user_prefix) - len(assistant_suffix) - 128
@@ -161,8 +161,9 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
             frame_tokens = frame_tokens[-max_frame_len:]
             
         new_tokens = user_prefix + frame_tokens + assistant_suffix
-            
-        llm.eval(new_tokens)
+        
+        for i in range(0, len(new_tokens), llm.n_batch):
+            llm.eval(new_tokens[i:i + llm.n_batch])
         
         import numpy as np
         # Extract P(EXIT) from logits
@@ -179,7 +180,10 @@ def run_episode_llama(gate: InProcessGate, llm, system_prompt: str, grammar):
 
         output = ""
         while True:
-            token = llm.sample(grammar=grammar)
+            if grammar is not None:
+                token = llm.sample(grammar=grammar)
+            else:
+                token = llm.sample()
             if token == llm.token_eos():
                 break
             output += llm.detokenize([token]).decode('utf-8', errors='ignore')
@@ -286,10 +290,12 @@ if __name__ == '__main__':
             gate = InProcessGate(args.run_id, eid)
             run_episode_ollama(gate, args.fallback_url, system_prompt)
     else:
-        from llama_cpp import Llama, LlamaGrammar
-        grammar = LlamaGrammar.from_string(GBNF_GRAMMAR)
-        llm = Llama(model_path=args.model_blob, n_gpu_layers=-1, n_ctx=4096, n_batch=512, seed=42, temperature=0.0, logits_all=True)
+        from llama_cpp import Llama
+        print(f"DEBUG: Starting Llama initialization with {args.model_blob}...")
+        llm = Llama(model_path=args.model_blob, n_gpu_layers=20, n_ctx=4096, seed=42, temperature=0.0, logits_all=True, verbose=True)
+        print("DEBUG: Llama initialization complete!")
         
         for eid in args.episodes:
+            print(f"DEBUG: Running episode {eid}...")
             gate = InProcessGate(args.run_id, eid)
-            run_episode_llama(gate, llm, system_prompt, grammar)
+            run_episode_llama(gate, llm, system_prompt, None)

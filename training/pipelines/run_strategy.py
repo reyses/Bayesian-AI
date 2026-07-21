@@ -40,6 +40,16 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import time
+from datetime import datetime
+
+try:
+    from telegram_mcp import send_telegram_alert, send_telegram_media
+except ImportError:
+    def send_telegram_alert(msg): print(msg)
+    def send_telegram_media(path, caption=""): print(f"Media: {path} | {caption}")
+
+from core_v2.telemetry.reporter import TelemetryReporter
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -229,6 +239,16 @@ def main():
         print(f'No days resolved for target={args.target}.')
         return
 
+    # ── Telemetry GUI and Timers ──────────────────────────────────────────
+    t0 = time.time()
+    dt_start = datetime.now().strftime("%I:%M %p")
+    
+    subprocess.Popen(
+        [sys.executable, "core_v2/telemetry/gui.py"], 
+        creationflags=subprocess.CREATE_NEW_CONSOLE if os.name == 'nt' else 0
+    )
+    my_reporter = TelemetryReporter(f"strategy_{args.strategy}_{args.target}")
+
     out_path = args.out or str(OUT_DIR / f'{args.strategy}_{args.target}_atr{int(args.atr_mult)}.csv')
     out_p = Path(out_path); out_p.parent.mkdir(parents=True, exist_ok=True)
 
@@ -240,9 +260,13 @@ def main():
     print('')
 
     all_trades = []
-    for day in tqdm(days, desc='days'):
+    for i, day in enumerate(tqdm(days, desc='days')):
+        my_reporter.update(i, len(days), f"Processing {day}")
         trades = run_day(day, atlas_root, features_root, args.strategy, args.atr_mult)
         all_trades.extend(trades)
+    
+    my_reporter.update(len(days), len(days), "Done")
+    my_reporter.clear()
 
     if not all_trades:
         print('No trades produced.')
@@ -277,6 +301,17 @@ def main():
                             '--layers', 'L0', 'L1', 'L2', 'L3', 'L4'],
                            check=False)
 
+    # ── Telegram Alert ──────────────────────────────────────────────────
+    t1 = time.time()
+    dt_end = datetime.now().strftime("%I:%M %p")
+    dur_mins = (t1 - t0) / 60.0
+
+    msg = (f"✔️ Strategy {args.strategy.upper()} finished! ({args.target})\n"
+           f"⏱️ {dt_start} -> {dt_end}\n"
+           f"⏳ Duration: {dur_mins:.1f} mins\n"
+           f"💰 PnL: ${tot:,.0f} | WR: {100.0 * win_n / len(df):.1f}%")
+
+    send_telegram_alert(msg)
 
 if __name__ == '__main__':
     main()

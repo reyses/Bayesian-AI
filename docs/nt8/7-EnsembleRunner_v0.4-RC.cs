@@ -164,6 +164,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool wrongSubstrate = false;                    // P2-1b: set if primary != 5s
         private int    dayStartIdx = 0;                 // Ctx.Start (P2-12 warmup/tail)
 
+
+
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
@@ -320,10 +322,22 @@ namespace NinjaTrader.NinjaScript.Strategies
             // ---- EXIT first: R-trigger reversal against the open leg (ride-only) ----
             // zz_confirm is CAUSAL -> final at minute close (no settle needed).
             BarRec cur;
-            if (openDir != 0 && byTs.TryGetValue(curMin, out cur)
-                && cur.ZzConfirm != 0 && cur.ZzConfirm == -openDir)
+            if (byTs.TryGetValue(curMin, out cur))
             {
-                FlattenPosition("RTriggerReversal");        // P2-9
+                // Diagnostic output
+                if (IsRth(now))
+                {
+                    double p_val = cur.P;
+                    string gov = cur.Gov ?? "NONE";
+                    string dirStr = cur.GovDir == 1 ? "buy" : (cur.GovDir == -1 ? "sell" : "flat");
+                    Print(string.Format("{0} | P(): {1:F2} | Gov: {2} | Dir: {3}", 
+                        now.ToString("MM/dd/yyyy HH:mm:ss"), p_val, gov, dirStr));
+                }
+
+                if (openDir != 0 && cur.ZzConfirm != 0 && cur.ZzConfirm == -openDir)
+                {
+                    FlattenPosition("RTriggerReversal");        // P2-9
+                }
             }
 
             // ---- ENTRY: act on the minute whose ±180s consensus has now settled ----
