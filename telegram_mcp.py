@@ -5,8 +5,8 @@ import time
 import threading
 import subprocess
 import requests
-import pyperclip
-import pyautogui
+import asyncio
+from google.antigravity import Agent, LocalAgentConfig, CapabilitiesConfig
 import re
 from pathlib import Path
 from mcp.server.fastmcp import FastMCP
@@ -100,21 +100,30 @@ def run_autoplot(arg: str) -> str:
     except Exception as e:
         return f"Failed to run autoplot: {str(e)}"
 
+async def _inject_prompt_async(message):
+    print(f"[Agent] Processing message: {message}", file=sys.stderr)
+    config = LocalAgentConfig(
+        system_instructions="You are an autonomous agent connected to Telegram. You have access to run commands, edit files, and research the codebase.",
+        capabilities=CapabilitiesConfig()
+    )
+    try:
+        async with Agent(config) as agent:
+            response = await agent.chat(message)
+            full_reply = ""
+            async for token in response:
+                full_reply += token
+                
+            if full_reply.strip():
+                send_telegram_alert(full_reply)
+            else:
+                send_telegram_alert("Agent produced an empty response.")
+    except Exception as e:
+        print(f"[Agent Error] {e}", file=sys.stderr)
+        send_telegram_alert(f"Agent encountered an error: {e}")
+
 def inject_prompt(message):
-    """Uses Pyperclip and PyAutoGUI to paste the message instantly."""
-    print(f"Injecting message: {message}", file=sys.stderr)
-    
-    # Copy message to OS clipboard
-    pyperclip.copy(message)
-    
-    # Paste instantly using Ctrl+V
-    pyautogui.hotkey('ctrl', 'v')
-    
-    # Give a tiny delay for the UI to register the paste
-    time.sleep(0.1)
-    
-    # Press Enter to send it to the agent
-    pyautogui.press('enter')
+    """Spawns an Antigravity SDK Agent to process the message and reply."""
+    asyncio.run(_inject_prompt_async(message))
 
 def download_telegram_file(file_id: str, ext: str = "") -> str:
     """Downloads a file from Telegram given its file_id and returns the local path."""
@@ -256,7 +265,6 @@ def poll_telegram():
             time.sleep(2)
 
 if __name__ == "__main__":
-    pyautogui.FAILSAFE = True
     
     # Start the polling loop in a daemon thread so it runs in the background
     # and dies automatically when the MCP server shuts down.

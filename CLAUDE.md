@@ -98,6 +98,13 @@ physics — physics metaphors are historical and fully purged.
 - Checkpoints: checkpoints/ (gitignored)
 - Progress bars mandatory (tqdm) for any loop > 100 iterations
 - Update `docs/daily/YYYY-MM-DD.md` at end of every session
+- **Memory = reusable-only (effective 2026-07-21).** Promote to `docs/memory/` ONLY
+  what a FUTURE session can act on (durable facts, decisions, preferences, patterns,
+  reusable tools). Do NOT hoard one-off or conversation-scoped detail — that lives in
+  the daily journal (`docs/daily/`), not durable memory. Litmus test: "would a session
+  weeks from now reuse this?" No → journal it, don't promote it. Applies to new memory
+  AND to pruning: a memory that no future session could reuse is a cleanup candidate,
+  not a keepsake (deletion still follows the append-not-delete rule for `MEMORY.md`).
 
 ## Metric Definitions — MANDATORY (effective 2026-04-22, refined 2026-04-25)
 When reporting trade or daily statistics, use these definitions exactly.

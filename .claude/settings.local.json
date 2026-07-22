@@ -28,5 +28,19 @@
     "additionalDirectories": [
       "C:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash tools/memory_loop/rebuild_on_write.sh",
+            "statusMessage": "Refreshing memory index…"
+          }
+        ]
+      }
+    ]
   }
 }

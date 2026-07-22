@@ -28,6 +28,15 @@ a queryable mirror.
 Run at session wrap-up (this is IN ADDITION to the existing HARD-RULES journal
 updates — it does not replace them):
 
+**Reusability gate (effective 2026-07-21) — apply BEFORE promoting anything.**
+Promote to `docs/memory/` ONLY what a FUTURE session can act on: durable facts,
+decisions, preferences, patterns, reusable tools. Litmus test: "would a session
+weeks from now reuse this?" No → it stays in the daily journal (`docs/daily/`),
+not durable memory. One-off task logs, run-specific numbers, and conversation-scoped
+detail are journal material, not memory. This gate also governs pruning: a memory
+no future session could reuse is a cleanup candidate (still append-not-delete for
+`MEMORY.md` / `PROJECT_HISTORY.md`).
+
 1. **Corrections** the user made this session → one dated line each. Feedback →
    a `docs/memory/feedback-*.md` file (or append a dated note); a factual fix →
    the relevant `MEMORY.md` section (append with date, never delete — CLAUDE.md rule).
@@ -36,9 +45,12 @@ updates — it does not replace them):
 3. **Decisions with lasting impact** → `MEMORY.md` (append, dated) and/or the
    active roadmap.
 4. **Unfinished threads** stay in the volatile journal (`docs/daily/`), not promoted.
-5. **Dual-copy rule**: any edit to `MEMORY.md` / `PROJECT_HISTORY.md` must be made
-   in BOTH copies (private `~/.claude/projects/<hash>/memory/` AND repo
-   `docs/memory/`) or the commit hook reverts it.
+5. **Single source of truth = `docs/memory/`** (updated 2026-07-21, Linux migration).
+   The old dual-copy sync (private `~/.claude/projects/<hash>/memory/` → repo via the
+   `pre-commit` hook) is RETIRED: that hook pointed at the Windows project-hash path,
+   is a no-op on Linux, and was disabled (`.git/hooks/pre-commit.disabled`). Edit
+   `docs/memory/` files directly — they are authoritative. Do NOT rely on any private-
+   dir mirror; the Linux private memory dir is empty and unused.
 6. **Rebuild the derived mirror** (last, after the markdown edits):
    ```
    python3.11 tools/memory_loop/build_memory_db.py
