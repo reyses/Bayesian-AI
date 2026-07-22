@@ -17,6 +17,9 @@ working protocol"). Goal: reduce Fable usage as much as possible.**
   from a written spec (new tools, studies, interpretation). Light review tax.
 - **Sonnet workers**: mechanical verifiable runs — frozen-script sweeps, grids,
   fan-out searches, formatting. Output must be checkable from artifacts alone.
+  For the "N independent items each needing the same judgment → swarm one agent per
+  item with a structured verdict schema, synthesize a decision table" shape, see
+  [[feedback-swarm-review-pattern]].
 - **Haiku workers**: watchers, timers, polling (ag-watcher pattern).
 - **AG (Antigravity/Gemini, external executor)**: also a working tier — but its task
   docs must be EXTRA clear and specific on reasoning and constraints or it goes AWOL
