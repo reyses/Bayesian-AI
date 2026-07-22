@@ -1,0 +1,8 @@
+# Line-ending policy (added 2026-07-21, Linux migration).
+# This repo was authored on Windows with core.autocrlf=true, which rewrites
+# checked-out files to CRLF. That breaks executable shell scripts on Linux —
+# a trailing \r on the `#!/usr/bin/env bash` shebang yields "bad interpreter".
+# Pin script line endings to LF so they run on every machine regardless of
+# each clone's autocrlf setting. Load-bearing for tools/memory_loop/rebuild_on_write.sh
+# (the PostToolUse memory-index hook).
+*.sh text eol=lf
