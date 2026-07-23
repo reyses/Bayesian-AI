@@ -335,11 +335,19 @@ def rebuild_csv(csv_path, records):
 
 
 def main():
+    # doc 148: --num-ctx reassigns the module global so all sites (taint check,
+    # KV sizing, preflight, record rows) see the same budget. Declared first —
+    # the argparse default below reads NUM_CTX, so the global stmt must precede it.
+    global NUM_CTX
     ap = argparse.ArgumentParser(description="Crash-safe checkpointed native acceptance eval (v2)")
     ap.add_argument('--engine', choices=['cpu', 'cuda'], required=True)
     ap.add_argument('--model-blob', default=None)
     ap.add_argument('--n-gpu-layers', type=int, default=None,
                     help="Override offload (cuda default -1; OOM fallback 40/35/30)")
+    ap.add_argument('--num-ctx', type=int, default=NUM_CTX,
+                    help="Context budget override (default 8192 per doc 140; "
+                         "doc 148 gen-0b uses 12288 — KV grows ~160MB/1k tokens, "
+                         "so bigger ctx = fewer GPU layers)")
     ap.add_argument('--ckpt', default=DEFAULT_CKPT)
     ap.add_argument('--csv', default=DEFAULT_CSV)
     ap.add_argument('--packets-dir', default=PACKETS_DIR)
@@ -348,6 +356,7 @@ def main():
     ap.add_argument('--dry-run', action='store_true',
                     help="Exercise skip/append logic with a MOCK model (no llama_cpp)")
     args = ap.parse_args()
+    NUM_CTX = args.num_ctx
 
     if args.model_blob:
         model_blob = args.model_blob
