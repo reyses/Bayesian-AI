@@ -271,7 +271,9 @@ def run_episode_ollama(gate: InProcessGate, url: str, system_prompt: str):
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--episodes', nargs='+', required=True)
-    ap.add_argument('--model-blob', default='/mnt/c/Users/reyse/.ollama/models/blobs/sha256-4e30e2665218745ef463f722c0bf86be0cab6ee676320f1cfadf91e989107448')
+    # qwen3:14b (a8cc) on the native-Linux ollama store (2026-07-22). Was the gemma4 (4e30)
+    # blob on a dead /mnt/c path — gemma4 is also truncated; qwen3 is THE teacher.
+    ap.add_argument('--model-blob', default='/media/moi/WindowsCode/ollama/models/blobs/sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e')
     ap.add_argument('--fallback-url', default=None, help='http://localhost:11434/api/chat')
     ap.add_argument('--run-id', required=True, help='Unique ID for this run (e.g. F1-run-1)')
     args = ap.parse_args()

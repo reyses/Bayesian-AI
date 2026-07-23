@@ -468,6 +468,7 @@ def build_rows(sources: set[str] | None = None) -> tuple[list[dict], dict]:
             doc_paths += glob.glob(os.path.join(REPO, "docs", sub, "*.md"))
         doc_paths += glob.glob(os.path.join(REPO, "research", "*", "README.md"))
         for singleton in (
+            os.path.join(REPO, "docs", "ONBOARDING.md"),
             os.path.join(REPO, "docs", "WOW_TEMPLATE.md"),
             os.path.join(REPO, "ROADMAP_LAMBDA_COMPLETION.md"),
             os.path.join(REPO, "rl_whitepaper.md"),

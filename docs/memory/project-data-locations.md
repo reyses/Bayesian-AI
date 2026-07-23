@@ -7,6 +7,20 @@ metadata:
   originSessionId: 49f1ab8b-f170-41ec-955f-86beb538417f
 ---
 
+**⚡ SUPERSEDED 2026-07-21 — migrated to NATIVE LINUX (Ubuntu 26.04) to run Mamba.**
+The WSL/Windows locations below are HISTORICAL; on this box use:
+- **Env**: conda env **`bayesian`, Python 3.12** at `~/miniforge3/envs/bayesian` (ext4).
+  `conda activate bayesian`. `torch 2.5.1+cu121`, CUDA works (RTX 3060). The old
+  `/home/reyses/venvs/bayesian-ai` does NOT exist here — scripts referencing it must be
+  repointed. mamba_ssm 2.2.4 + causal_conv1d 1.5.0.post8 (cp312/abiFALSE) + a
+  transformers-5.x import stub (`sitecustomize.py`). See [[ONBOARDING]].
+- **Repo**: `/media/moi/WindowsCode/Bayesian-AI` (an NTFS/fuseblk mount — do NOT put the
+  venv here; NTFS breaks symlinks). DATA/ATLAS + DATA/ATLAS_NT8 present in-repo.
+- **Ollama model store**: `/media/moi/WindowsCode/ollama/models/` (~32.6 GB, 4 GGUFs incl.
+  `qwen3:14b` = dojo teacher). Set `OLLAMA_MODELS` here, or load the blob directly via llama_cpp.
+- **DEAD on this box**: every `C:/Users/reyse/OneDrive/...`, `/mnt/c/...`, `D:\Bayesian-AI-data\`,
+  `/home/reyses/...` path. The raw-dump `D:` locations below are unreachable until a drive is mounted.
+
 **Data/venv locations after the 2026-07-16 reorganization (post 0-bytes-free incident):**
 - **WSL venv**: `/home/reyses/venvs/bayesian-ai` (ext4). The old `.venv_wsl` inside the
   OneDrive repo is DELETED. All launchers (`run_sweeps*.sh`, leg_clock `_*.sh`,

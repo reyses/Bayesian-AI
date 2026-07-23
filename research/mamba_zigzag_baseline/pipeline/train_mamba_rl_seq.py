@@ -184,10 +184,11 @@ def train():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Seq-window trainer | device {device} | W={args.tbptt_window}")
 
-    if os.name == 'posix' and 'microsoft' in os.uname().release.lower():
-        atlas_root = "/mnt/c/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
-    else:
-        atlas_root = "C:/Users/reyse/OneDrive/Desktop/Bayesian-AI/DATA/ATLAS"
+    # Repo-root-relative ATLAS (native Linux, 2026-07-22). The old WSL/Windows
+    # os.uname heuristic hardcoded dead /mnt/c and C:/Users/reyse/OneDrive paths;
+    # --atlas-root overrides. pipeline/ -> mamba_zigzag_baseline/ -> research/ -> repo.
+    _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    atlas_root = getattr(args, "atlas_root", None) or os.path.join(_repo_root, "DATA", "ATLAS")
 
     env = MambaRLTradingEnv(
         atlas_root=atlas_root,

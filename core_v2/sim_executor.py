@@ -16,12 +16,15 @@ from core_v2.ledger import Ledger
 from core_v2.engine_signals import DecisionBatch
 
 # Feature indices for entry context (same constants as nightmare_blended.py).
-from core_v2.features import FEATURE_NAMES
-_1M_Z_IDX = FEATURE_NAMES.index('L3_1m_z_se_15')
-_1M_VELOCITY_IDX = FEATURE_NAMES.index('L2_1m_price_velocity_15')
-_1H_Z_IDX = FEATURE_NAMES.index('L3_1h_z_se_12')
+from core_v2.features import FEATURE_NAMES, N_BASE
+# Feature-name window suffixes follow N_BASE (uniform 30 since 2026-06-27, commit
+# 4330a59e). Resolve dynamically so a future N_BASE change can't silently reintroduce
+# the ValueError that broke the live path for ~24 days (fixed 2026-07-22).
+_1M_Z_IDX = FEATURE_NAMES.index(f"L3_1m_z_se_{N_BASE['1m']}")
+_1M_VELOCITY_IDX = FEATURE_NAMES.index(f"L2_1m_price_velocity_{N_BASE['1m']}")
+_1H_Z_IDX = FEATURE_NAMES.index(f"L3_1h_z_se_{N_BASE['1h']}")
 _1M_VOL_REL_IDX = FEATURE_NAMES.index('L1_1m_vol_velocity_1b')
-_5M_VELOCITY_IDX = FEATURE_NAMES.index('L2_5m_price_velocity_9')
+_5M_VELOCITY_IDX = FEATURE_NAMES.index(f"L2_5m_price_velocity_{N_BASE['5m']}")
 
 # RIDE exit patience tiers (must match nightmare_blended.py constants)
 RIDE_EXIT_BARS_TIERS = {'strong': 5, 'medium': 3, 'weak': 2}

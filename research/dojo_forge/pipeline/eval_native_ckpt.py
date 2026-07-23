@@ -83,9 +83,11 @@ VRAM_PER_LAYER_MB = 210.0    # ~8.4GB Q4 weights / 40 blocks
 VRAM_KV_MB_AT_8192 = 1300.0  # KV cache at n_ctx=8192 (scales linearly with n_ctx)
 VRAM_COMPUTE_MARGIN_MB = 1600.0  # compute buffers + fragmentation + display headroom
 
-BLOB_NAME = 'sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e'
+BLOB_NAME = 'sha256-a8cc1361f3145dc01f6d77c6c82c9116b9ffe3c97b34716fe20418455876c40e'  # qwen3:14b
 DEFAULT_BLOB_WIN = r"D:\ollama\models\blobs\{}".format(BLOB_NAME)
 DEFAULT_BLOB_WSL = "/mnt/d/ollama/models/blobs/{}".format(BLOB_NAME)
+# native Linux (2026-07-21 migration): the ollama store lives beside the repo on the mounted drive
+DEFAULT_BLOB_LINUX = "/media/moi/WindowsCode/ollama/models/blobs/{}".format(BLOB_NAME)
 
 # Assistant scaffold whose closed </think> forces the next token to be the answer.
 THINK_SUFFIX = "<|im_start|>assistant\n<think>\nDecision bypassed for native logprobs.\n</think>\n"
@@ -351,6 +353,8 @@ def main():
         model_blob = args.model_blob
     elif platform.system() == 'Windows':
         model_blob = DEFAULT_BLOB_WIN
+    elif os.path.exists(DEFAULT_BLOB_LINUX):
+        model_blob = DEFAULT_BLOB_LINUX          # native Linux (2026-07-21)
     else:
         model_blob = DEFAULT_BLOB_WSL
     model_name = os.path.basename(model_blob)

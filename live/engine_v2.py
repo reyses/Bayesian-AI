@@ -60,11 +60,13 @@ logger = logging.getLogger("engine_v2")
 from live.config import LiveConfig
 from live.nt8_client import NT8Client
 from live.protocol import MsgType, subscribe, place_order, close_position
-from core_v2.features import FEATURE_NAMES, N_FEATURES
+from core_v2.features import FEATURE_NAMES, N_FEATURES, N_BASE
 
-IDX_1M_Z_SE = FEATURE_NAMES.index("L3_1m_z_se_15")
-IDX_1M_RPROB = FEATURE_NAMES.index("L3_1m_reversion_prob_15")
-IDX_1M_VEL = FEATURE_NAMES.index("L2_1m_price_velocity_15")
+# Window suffixes follow N_BASE (uniform 30 since 2026-06-27, commit 4330a59e).
+# Resolve dynamically — hardcoding _15 broke live/engine_v2 import for ~24 days (fixed 2026-07-22).
+IDX_1M_Z_SE = FEATURE_NAMES.index(f"L3_1m_z_se_{N_BASE['1m']}")
+IDX_1M_RPROB = FEATURE_NAMES.index(f"L3_1m_reversion_prob_{N_BASE['1m']}")
+IDX_1M_VEL = FEATURE_NAMES.index(f"L2_1m_price_velocity_{N_BASE['1m']}")
 FEATURES_EPOCH = (
     "2026_03_20"  # first day with valid ATLAS_NT8 5s data; earlier days lack...
 )
