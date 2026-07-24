@@ -15,63 +15,63 @@
     "anchor_tokens": 5680,
     "logit_tol": 0.0001
   },
-  "anchor_eval_s": 7.812201410997659,
+  "anchor_eval_s": 7.812472231016727,
   "per_frame": {
     "1": {
       "n_tok": 7862,
-      "baseline_prefill_s": 11.272625495010288,
+      "baseline_prefill_s": 11.06787962600356,
       "cached_remainder_tok": 2171,
-      "cached_prefill_s": 4.1873079870129,
+      "cached_prefill_s": 4.178111468005227,
       "max_abs_delta": 1.120896577835083,
       "pass_tol": false
     },
     "5": {
       "n_tok": 8180,
-      "baseline_prefill_s": 11.604953126981854,
+      "baseline_prefill_s": 11.50981807601056,
       "cached_remainder_tok": 2489,
-      "cached_prefill_s": 4.452981281006942,
+      "cached_prefill_s": 4.497090193006443,
       "max_abs_delta": 1.2105941772460938,
       "pass_tol": false
     },
     "8": {
       "n_tok": 9063,
-      "baseline_prefill_s": 13.319076662010048,
+      "baseline_prefill_s": 13.354938875010703,
       "cached_remainder_tok": 3372,
-      "cached_prefill_s": 6.1672849979950115,
+      "cached_prefill_s": 6.182464537996566,
       "max_abs_delta": 1.6993391513824463,
       "pass_tol": false
     },
     "12": {
       "n_tok": 8723,
-      "baseline_prefill_s": 13.64983759901952,
+      "baseline_prefill_s": 13.092077876994153,
       "cached_remainder_tok": 3032,
-      "cached_prefill_s": 5.344362863019342,
+      "cached_prefill_s": 5.329828397021629,
       "max_abs_delta": 1.822774887084961,
       "pass_tol": false
     },
     "15": {
       "n_tok": 8970,
-      "baseline_prefill_s": 13.56920729498961,
+      "baseline_prefill_s": 13.16938227499486,
       "cached_remainder_tok": 3279,
-      "cached_prefill_s": 5.8118662550114095,
+      "cached_prefill_s": 5.776355672016507,
       "max_abs_delta": 2.3493900299072266,
       "pass_tol": false
     },
     "19": {
       "n_tok": 9285,
-      "baseline_prefill_s": 13.628686789015774,
+      "baseline_prefill_s": 13.601484733022517,
       "cached_remainder_tok": 3594,
-      "cached_prefill_s": 6.712600527011091,
+      "cached_prefill_s": 6.713939501001732,
       "max_abs_delta": 1.3624086380004883,
       "pass_tol": false
     }
   },
   "summary": {
-    "mean_baseline_prefill_s": 12.840731161171183,
-    "mean_cached_prefill_s": 5.446067318509449,
-    "mean_cached_amortized_s": 6.748100887009059,
-    "speedup_raw": 2.357798831742242,
-    "speedup_amortized": 1.9028659138589943,
+    "mean_baseline_prefill_s": 12.632596910339393,
+    "mean_cached_prefill_s": 5.446298294841351,
+    "mean_cached_amortized_s": 6.748377000010805,
+    "speedup_raw": 2.319483110630351,
+    "speedup_amortized": 1.8719459375667906,
     "worst_max_abs_delta": 2.3493900299072266,
     "all_pass_tol": false
   }

@@ -113,6 +113,29 @@ def main():
         print(f"[baseline] f{i:02d}: {len(toks)} tok  prefill={dt:.3f}s  "
               f"hash={base_rows[i]['hash'][:10]}", flush=True)
 
+    # ---- (a2) DETERMINISM CONTROL (E2b): rerun baseline identically -----------
+    # If repeat-baseline logits differ from themselves, raw-logit tolerance is
+    # unachievable on this stack (chunked-CUDA prefill fp drift) and the honest
+    # equivalence metric is decision-level (argmax + EXIT/HOLD p-delta).
+    print("\n=== (a2) DETERMINISM CONTROL (baseline rerun) ===", flush=True)
+    floor = 0.0
+    for i in idxs:
+        llm.reset()
+        llm.eval(full_toks[i])
+        d = bc.max_abs_delta(reader(), base_rows[i]['logits'])
+        floor = max(floor, d)
+        print(f"[det]      f{i:02d}: max|Δlogit| vs first run = {d:.2e}", flush=True)
+    print(f"[det] NOISE FLOOR (same tokens, same path) = {floor:.2e}", flush=True)
+
+    # decision-level readout helpers (what the harness actually consumes)
+    id_exit = llm.tokenize(b"EXIT", add_bos=False, special=False)[0]
+    id_hold = llm.tokenize(b"H", add_bos=False, special=False)[0]
+    def p_exit_of(logits):
+        import math
+        le, lh = float(logits[id_exit]), float(logits[id_hold])
+        m = max(le, lh)
+        return math.exp(le-m)/(math.exp(le-m)+math.exp(lh-m))
+
     # ---- (b) ANCHOR-CACHED: eval prefix once, save_state, load+eval remainder --
     print("\n=== (b) ANCHOR-CACHED ===", flush=True)
     llm.reset()
@@ -134,12 +157,15 @@ def main():
         dt = time.perf_counter() - t0
         logits = reader()
         md = bc.max_abs_delta(logits, base_rows[i]['logits'])
+        am = int(np.argmax(logits)) == int(np.argmax(base_rows[i]['logits']))
+        dpe = abs(p_exit_of(logits) - p_exit_of(base_rows[i]['logits']))
         cache_rows[i] = dict(prefill_s=dt, n_rem=len(remainder),
                              max_abs_delta=md, hash=bc.hash_logits(logits),
+                             argmax_match=am, dp_exit=dpe,
                              pass_tol=md <= LOGIT_TOL)
-        verdict = 'OK' if md <= LOGIT_TOL else 'FAIL'
+        verdict = 'OK' if md <= LOGIT_TOL else ('DECISION-OK' if am and dpe <= 1e-3 else 'FAIL')
         print(f"[cached]   f{i:02d}: rem={len(remainder)} tok  load+eval={dt:.3f}s  "
-              f"max|Δlogit|={md:.2e} [{verdict}]", flush=True)
+              f"max|Δlogit|={md:.2e} argmax_match={am} Δp_exit={dpe:.2e} [{verdict}]", flush=True)
 
     # ---- summary --------------------------------------------------------------
     mean_base = np.mean([base_rows[i]['prefill_s'] for i in idxs])
@@ -148,6 +174,12 @@ def main():
     mean_cache_amort = mean_cache + anchor_eval_s / len(idxs)
     worst_delta = max(cache_rows[i]['max_abs_delta'] for i in idxs)
     all_pass = all(cache_rows[i]['pass_tol'] for i in idxs)
+    all_decision = all(cache_rows[i]['argmax_match'] and cache_rows[i]['dp_exit'] <= 1e-3
+                       for i in idxs)
+    worst_dpe = max(cache_rows[i]['dp_exit'] for i in idxs)
+    print(f"[E2b] noise floor={floor:.2e}  worst Δlogit={worst_delta:.2e}  "
+          f"worst Δp_exit={worst_dpe:.2e}  decision-equiv={'PASS' if all_decision else 'FAIL'}",
+          flush=True)
 
     result = dict(
         eid=args.eid, config=dict(n_ctx=args.n_ctx, n_batch=base.N_BATCH,
