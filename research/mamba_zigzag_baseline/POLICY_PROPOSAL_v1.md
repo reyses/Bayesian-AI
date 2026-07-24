@@ -128,3 +128,44 @@ optimal policy; this provably does not.
 
 — End of proposal v1. Feedback welcome on any layer, the sequencing, or the
 pre-registration; adversarial readings preferred.
+
+---
+# AMENDMENTS v1.1 (consultant-1 review, 2026-07-24 — approve-conditional resolved)
+1. **ENTRY SCOPE (was blocking).** RESOLUTION (recommended, owner-ratify): the
+   entry head is FROZEN to the external certified entry signal (top-decile
+   combiner); the student learns ride-management ONLY. Rationale: the program's
+   own thesis (entry solved separately, edge is ride-length), and it makes
+   "churn-capped by construction" true — every action the student controls is
+   teacher-labeled. Alternatives (extend genome to entry-veto labels; descope)
+   recorded and rejected for scope creep / abandoning the measured failure.
+2. **Layer-3 γ-form corrected.** F = γΦ(s′) − Φ(s) with **γ = 1 pinned**
+   (episodic returns) — the v1 form was only valid at γ=1, and γ<1 would bias
+   toward early exit, fighting the measured duration edge. Stated plainly: the
+   shaping pays per-bar MTM increments in place of the terminal payout —
+   exactly equivalent, standard. Φ's mark = the execution model's mark, so the
+   telescoping is exact (resolves §5.5; gap/halt bars add nothing beyond mark
+   quality).
+3. **CE target specified.** Soft cross-entropy against teacher P(exit).
+   Margin weighting REMOVED as a separate factor (soft targets already
+   down-weight near-ties — double counting). Class imbalance handled by
+   EXIT-EVENT reweighting (balance exit-events vs hold-bars in the loss);
+   without it an always-hold student scores well and "cannot freeze" is
+   overclaimed — acknowledged.
+4. **Fidelity metric pre-registered** separately from outcomes: per-decision
+   agreement rate + trade-rate match (student vs teacher). Distinguishes
+   "failed to learn the teacher" from "teacher edge died in fills."
+5. **Leash form + off-distribution test.** HARD KL constraint (no adaptive
+   Lagrangian coefficient — a tuning backdoor). Pre-committed cheap test before
+   any DAgger: teacher-relabel a sample of student-trajectory states; compare
+   imitation loss on- vs off-trajectory; ONE DAgger round only if the gap is
+   large (teacher throughput is now ~2.6x cheaper — affordable).
+6. **Gate margin economics.** Sequencing gate #2 requires teacher-through-fills
+   PnL above a PRE-SET margin covering the expected distillation gap (a few
+   ticks), not merely CI > 0 — the student starts ≤ teacher.
+7. **Pre-reg additions:** L1 convergence criterion (imitation "done" =
+   pre-stated fidelity plateau), DAgger trigger threshold, and a next-5s-bar
+   slippage variant reported alongside the 1s model (fast-tape adversity).
+8. **§5.1 answered per review:** do NOT expect student > teacher through ε;
+   the leash buys back distillation losses + fill adaptation. The road up is
+   TEACHER GENERATIONS (the cheap text loop). State-dependent ε (wider where
+   teacher margin is small) recorded as the principled future option.
