@@ -78,7 +78,7 @@ def build_user_content(frames, i, decisions):
 
 
 def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_prompt,
-                        engine, model_name, num_ctx):
+                        engine, model_name, num_ctx, prefill_mode="oneshot"):
     frames = packet.get('frames', [])
     rec_frames = []
     decisions = []
@@ -87,11 +87,28 @@ def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_promp
     exit_frame = None
     t0 = time.time()
 
+    # anchor2p (E2 promotion, 2026-07-24): the system+genome+anchor prefix is
+    # byte-identical across every frame of an episode — eval it ONCE, save the
+    # KV state, and per frame restore + eval only the remainder. E2c showed
+    # cached and uncached TWO-PHASE prefill are bitwise identical; the layout
+    # delta vs one-shot is a known convention difference (noise-floor class),
+    # so a run must use ONE mode throughout — never mix within a comparison.
+    anchor_state = None
+    prefix_toks = None
+    prefix_fallbacks = 0
+    if prefill_mode == "anchor2p" and frames:
+        prefix_seg = (f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+                      f"<|im_start|>user\n{frames[0]['text']}")
+        prefix_toks = llm.tokenize(prefix_seg.encode('utf-8'),
+                                   add_bos=True, special=True)
+        llm.reset()
+        llm.eval(prefix_toks)
+        anchor_state = llm.save_state()
+
     for i, frame in enumerate(frames):
         content = frame['text'] if i == 0 else build_user_content(frames, i, decisions)
         seg = (f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
                f"<|im_start|>user\n{content}<|im_end|>\n{base.THINK_SUFFIX}")
-        llm.reset()                                    # per-frame rebuild (decay)
         toks = llm.tokenize(seg.encode('utf-8'), add_bos=True, special=True)
         if len(toks) >= num_ctx:
             tainted = True
@@ -102,7 +119,15 @@ def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_promp
                                    hard_fail="ctx"))
             decisions.append(None)
             continue                                   # later frames may still fit
-        llm.eval(toks)
+        if (anchor_state is not None
+                and toks[:len(prefix_toks)] == prefix_toks):
+            llm.load_state(anchor_state)               # restore anchor KV
+            llm.eval(toks[len(prefix_toks):])          # remainder only
+        else:
+            if anchor_state is not None:
+                prefix_fallbacks += 1                  # BPE boundary mismatch
+            llm.reset()                                # full rebuild (decay)
+            llm.eval(toks)
         logits = reader()
         lp_e, lp_h, p_exit = base.logsoftmax_two(logits, id_exit, id_hold)
         decision = "EXIT" if p_exit > 0.5 else "HOLD"
@@ -119,6 +144,9 @@ def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_promp
         readout=base.READOUT + "+tiered_w20", tainted=tainted,
         taint_reason=taint_reason, exit_frame=exit_frame,
         n_frames_evaluated=len(rec_frames),
+        prefill_mode=prefill_mode,
+        prefix_tokens=(len(prefix_toks) if prefix_toks else None),
+        prefix_fallbacks=prefix_fallbacks,
         elapsed_s=round(time.time() - t0, 3), ts=time.time(), frames=rec_frames,
     )
 
@@ -133,6 +161,9 @@ def main():
     ap.add_argument('--csv', default=DEFAULT_CSV)
     ap.add_argument('--packets-dir', default=base.PACKETS_DIR)
     ap.add_argument('--limit', type=int, default=None)
+    ap.add_argument('--prefill', choices=['oneshot', 'anchor2p'], default='oneshot',
+                    help="anchor2p = E2 anchor-KV two-phase prefill (~2x). One "
+                         "mode per run/comparison — never mix (layout delta).")
     args = ap.parse_args()
 
     base.NUM_CTX = args.num_ctx                     # keep base guardrail math honest
@@ -164,7 +195,8 @@ def main():
     if args.limit is not None:
         todo = todo[:args.limit]
     print(f"[plan] TIERED w={HIST_MIN}m engine={args.engine} num_ctx={num_ctx} "
-          f"model={model_name}\n[plan] {len(todo)} episodes this pass", flush=True)
+          f"prefill={args.prefill} model={model_name}\n"
+          f"[plan] {len(todo)} episodes this pass", flush=True)
 
     if args.engine == 'cuda':
         n_gpu_layers = base.preflight_vram(n_gpu_layers, num_ctx)
@@ -181,7 +213,8 @@ def main():
     for k, (eid, path) in enumerate(todo, 1):
         packet = json.load(open(path))
         rec = eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet,
-                                  system_prompt, args.engine, model_name, num_ctx)
+                                  system_prompt, args.engine, model_name, num_ctx,
+                                  prefill_mode=args.prefill)
         base.append_checkpoint(args.ckpt, rec)
         completed[eid] = rec
         base.rebuild_csv(args.csv, list(completed.values()))
