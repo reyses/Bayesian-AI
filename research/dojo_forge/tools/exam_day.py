@@ -30,7 +30,8 @@ from eval_native_tiered import filter_hist, HIST_MIN
 PACKETS = os.path.join(DOJO, 'reports', 'gen0', 'packets')
 EXAM_DIR = os.path.join(DOJO, 'reports', 'exam_2025_11_19')
 NUM_CTX = 13312
-MAX_GEN = 420
+MAX_GEN = 2600   # v3: 1400 STILL truncated m0 — thinks on this content exceed 1400 tok.
+                 # 2600 + an explicit think-brevity instruction; TRUNCATED stays loud.
 
 EXAM_SYSTEM = (
     "THIS IS AN EXAM. You are trading one episode minute by minute. Your examiner "
@@ -43,6 +44,8 @@ EXAM_SYSTEM = (
     "MAY deviate from a rule, but ONLY in this licensed form inside REASON — "
     "'DEVIATING from [rule-id]: observed <the observation>; I expect <falsifiable "
     "expectation>'. A deviation without that form is graded as noise.\n\n"
+    "Keep your <think> block UNDER 250 words — long deliberation is not graded; "
+    "an unfinished answer scores zero.\n\n"
     "RULES (Genome):\n"
 )
 
@@ -86,7 +89,11 @@ def parse_answer(text):
     d = re.search(r'DECISION:\s*(HOLD|EXIT)', text, re.I)
     c = re.search(r'CONFIDENCE:\s*([01]?\.?\d+)', text)
     r = re.search(r'REASON:\s*(.+?)(?:\n\n|\Z)', text, re.S)
-    return dict(decision=(d.group(1).upper() if d else 'HOLD'),
+    if not d:
+        # v2: NEVER silently default a truncated/unparseable answer to HOLD —
+        # that manufactured a fake all-HOLD episode. Mark it loudly instead.
+        return dict(decision='TRUNCATED', conf='?', reason=text[-200:])
+    return dict(decision=d.group(1).upper(),
                 conf=(c.group(1) if c else '?'),
                 reason=(r.group(1).strip()[:400] if r else text[:200]))
 
@@ -155,7 +162,7 @@ def main():
                  "to flip you back?")
             pans = visible(chat(llm, system,
                                 [("user", content), ("assistant", ans),
-                                 ("user", probe)], max_tokens=260))
+                                 ("user", probe)], max_tokens=1200))  # v2: 260 truncated mid-think
             md.write(f"**{probe}**\n\n{pans}\n\n")
             print(f"   probe> {pans[:80]}", flush=True)
 
@@ -163,7 +170,7 @@ def main():
     final_content = build_exam_content(frames, len(frames) - 1, trail)
     for q in DEBRIEF:
         dans = visible(chat(llm, system, [("user", final_content),
-                                          ("user", q)], max_tokens=300))
+                                          ("user", q)], max_tokens=1200))  # v2: 300 truncated mid-think
         md.write(f"**{q}**\n\n{dans}\n\n")
         print(f"debrief> {dans[:80]}", flush=True)
 

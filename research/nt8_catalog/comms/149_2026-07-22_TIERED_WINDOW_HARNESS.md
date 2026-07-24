@@ -88,6 +88,23 @@ Burn granularity = the WHOLE DAY (owner-confirmed 2026-07-23): episodes within
 a day are correlated (the program's unit of independence is the day — the
 pseudoreplication rule), so sibling episodes can't be treated as unseen once
 any of them gated. Burn the day, ledger it, replenish with fresh days.
+**MEMO protocol v1 (owner directive 2026-07-23 "unload to long-term memory /
+compress context / make it smarter"):** after each DECISION the model may emit
+`MEMO: <=30 words` — its own salience compression. Memos ride in later frames
+under YOUR MEMOS; the mechanical 1m/5m history window shrinks 20→10 min in
+exchange (net context DOWN, information quality UP). v1 = within-episode only
+(zero leakage). v2 = the cross-episode journal above, under the ratified
+lifecycle. SEQUENCING: current exam day completes under the current protocol;
+handbook-genome + MEMO ship together as the NEXT gate configuration (one
+config change per gate).
+**SQL memory form factor (owner directive 2026-07-23):** the teacher's memory
+uses the project's own architecture — entries as source of truth + SQLite FTS5
+derived index (`teacher_memory.db`: memos(episode, day, minute, tags, text) +
+FTS mirror). Per-frame retrieval replaces carrying: a DETERMINISTIC query built
+from the NOW frame's state (regime, giveback bucket, velocity signs) pulls
+top-k memos into a RELEVANT MEMORY block — context stays flat regardless of
+knowledge size; fixed query template + fixed k + rowid tie-break keeps runs
+reproducible. Lifecycle (branch/burn) applies to the DB per the protocol above.
 
 ## v1 GATE FAILURE + v2 correction (same night — the gate worked)
 v1's verify-then-stop FAILED: deep frames hit 23–25k REAL tokens (13–20 taint

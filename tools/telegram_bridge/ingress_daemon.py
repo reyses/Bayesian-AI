@@ -101,6 +101,11 @@ def download_attachment(msg):
     for file_id, name in candidates:
         try:
             info = requests.get(f"{API}/getFile", params={"file_id": file_id}, timeout=30).json()
+            if not info.get("ok"):
+                # Bot API getFile hard-caps at 20MB — surface the failure loudly
+                # instead of silently dropping the message (owner report 2026-07-23).
+                paths.append(f"DOWNLOAD_FAILED({name}): {info.get('description','?')}")
+                continue
             fp = info["result"]["file_path"]
             data = requests.get(f"{FILE_API}/{fp}", timeout=120).content
             out = DOWNLOADS / f"{int(time.time())}_{name}"
@@ -108,6 +113,7 @@ def download_attachment(msg):
             paths.append(str(out))
         except Exception as e:
             print(f"attachment download failed: {e!r}", file=sys.stderr)
+            paths.append(f"DOWNLOAD_FAILED({name}): {e!r:.80}")
     return paths
 
 def main():
@@ -140,8 +146,13 @@ def main():
                     ack_received(msg)
                     continue                     # command handled; not queued
                 files = download_attachment(msg)
-                if not text and not files:
+                has_attachment = any(k in msg for k in ("document", "photo", "voice",
+                                                        "video", "audio", "sticker"))
+                if not text and not files and not has_attachment:
                     continue
+                if has_attachment and not files:
+                    # unsupported attachment type — queue a note, never silent-drop
+                    files = [f"UNSUPPORTED_ATTACHMENT: keys={[k for k in msg if k not in ('chat','from','date','message_id')]}"]
                 entry = {"ts": int(time.time()), "update_id": upd["update_id"],
                          "text": text, "files": files}
                 with INBOX.open("a", encoding="utf-8") as fh:
