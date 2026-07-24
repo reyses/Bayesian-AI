@@ -104,14 +104,16 @@ def main():
     print(f"alerted: {n_pending} pending, no watcher; fallback spawned={spawned}")
 
 
+AGY_BIN = "/home/moi/.local/bin/agy"          # Antigravity CLI, own Google auth
 GEMINI_BIN = "/home/moi/.npm-global/bin/gemini"
 ATTEMPT_F = STATE / "fallback_attempt.txt"
 
 # Second-provider prompt (owner 2026-07-24: "fallback on antigravity cli so it
 # is failproof"). Deliberately NARROWER than the Claude prompt: acknowledge +
-# triage only, no repairs — gemini -p has no project-permission layer, so the
+# triage only, no repairs — agy/gemini have no project-permission layer, so the
 # prompt is the only scope control. Provider order: Claude first (permissioned,
-# full repair), Gemini second (acknowledge-only), template alert always.
+# full repair), Antigravity agy second, gemini-cli third (dormant until
+# GEMINI_API_KEY exists — its OAuth tier was closed), template alert always.
 GEMINI_PROMPT = """You are an emergency responder for this repo's Telegram
 bridge; the primary AI is unreachable. Do ONLY this: (1) read
 tools/telegram_bridge/state/inbox.jsonl — messages after the count in
@@ -148,9 +150,10 @@ def spawn_fallback():
         providers.append(("claude", ["timeout", str(FALLBACK_TIMEOUT_S),
                                      CLAUDE_BIN, "-p", FALLBACK_PROMPT,
                                      "--model", FALLBACK_MODEL]))
-    if os.path.exists(GEMINI_BIN) and (
-            os.environ.get("GEMINI_API_KEY")
-            or (Path.home() / ".gemini" / "oauth_creds.json").exists()):
+    if os.path.exists(AGY_BIN):
+        providers.append(("agy", ["timeout", str(FALLBACK_TIMEOUT_S),
+                                  AGY_BIN, "--prompt", GEMINI_PROMPT]))
+    if os.path.exists(GEMINI_BIN) and os.environ.get("GEMINI_API_KEY"):
         providers.append(("gemini", ["timeout", str(FALLBACK_TIMEOUT_S),
                                      GEMINI_BIN, "-p", GEMINI_PROMPT,
                                      "--approval-mode", "yolo"]))
