@@ -169,3 +169,30 @@ pre-registration; adversarial readings preferred.
    the leash buys back distillation losses + fill adaptation. The road up is
    TEACHER GENERATIONS (the cheap text loop). State-dependent ε (wider where
    teacher margin is small) recorded as the principled future option.
+
+---
+# AMENDMENTS v1.2 (consultant-2 review part 1, 2026-07-24; part 2 lost in transit)
+Confirmations: root-cause diagnosis, layer purposes, and the leash concept all
+endorsed. Re-flagged items already resolved in v1.1: γ-distortion (γ=1 pinned),
+margin-weighting calibration risk (weighting REMOVED — soft targets carry it),
+slippage optimism (next-5s-bar variant pre-registered). Distribution shift now
+formalized as O(εT²) compounding — v1.1's pre-committed on-vs-off-trajectory
+test + one-DAgger-round protocol stands as the response, with the O(εT²) bound
+noted as the reason the test is mandatory, not optional.
+
+**NEW ATTACK (accepted — the review's keeper): absorbing-state asymmetry.**
+EXIT is absorbing (ends the episode). Under a tight symmetric KL leash the
+student cannot explore LONGER rides whenever the anchor leans early; widening ε
+restores exploration but erodes the leash's churn protection. Symmetric ε
+cannot serve both.
+**RESOLUTION (v1.2): the ASYMMETRIC LEASH.** The KL budget is decomposed by
+deviation direction: deviations that EXTEND holding (student HOLDs where anchor
+would EXIT) get a wide budget ε_hold; deviations that SHORTEN (student EXITs
+where anchor would HOLD) get a tight budget ε_exit ≪ ε_hold. Rationale: the
+measured domain truth (never-bail frontier, N=23,378) says the danger is
+exiting too early, not holding too long — the leash's protection should be
+asymmetric in exactly the direction the physics is. Churn protection is
+retained where it matters (early exits) while duration exploration — the only
+direction with measured upside — is cheap. Both budgets pre-registered from
+teacher label statistics; the asymmetry ratio is a REGISTERED constant, not a
+tuned knob.
