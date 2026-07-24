@@ -96,14 +96,33 @@ def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_promp
     anchor_state = None
     prefix_toks = None
     prefix_fallbacks = 0
-    if prefill_mode == "anchor2p" and frames:
+    if prefill_mode == "anchor2p" and len(frames) > 1:
         prefix_seg = (f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
                       f"<|im_start|>user\n{frames[0]['text']}")
-        prefix_toks = llm.tokenize(prefix_seg.encode('utf-8'),
-                                   add_bos=True, special=True)
-        llm.reset()
-        llm.eval(prefix_toks)
-        anchor_state = llm.save_state()
+        raw_prefix = llm.tokenize(prefix_seg.encode('utf-8'),
+                                  add_bos=True, special=True)
+        # BPE can merge the anchor's tail with the separator that follows it,
+        # making the byte-boundary prefix unreachable in full-prompt token
+        # streams (ep-dependent; observed 19/20 fallbacks on such an episode).
+        # Cache the COMMON TOKEN PREFIX of the raw prefix and a real frame
+        # tokenization instead — frames 1+ share the identical separator, so
+        # whatever the merge does, this prefix is exact for all of them.
+        probe_seg = (f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+                     f"<|im_start|>user\n"
+                     f"{build_user_content(frames, 1, ['HOLD'])}"
+                     f"<|im_end|>\n{base.THINK_SUFFIX}")
+        probe_toks = llm.tokenize(probe_seg.encode('utf-8'),
+                                  add_bos=True, special=True)
+        k = 0
+        for a, b in zip(raw_prefix, probe_toks):
+            if a != b:
+                break
+            k += 1
+        prefix_toks = raw_prefix[:k]
+        if prefix_toks:
+            llm.reset()
+            llm.eval(prefix_toks)
+            anchor_state = llm.save_state()
 
     for i, frame in enumerate(frames):
         content = frame['text'] if i == 0 else build_user_content(frames, i, decisions)
