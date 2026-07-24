@@ -49,12 +49,20 @@ ANSWER_SPEC = (
 DEC_RE = re.compile(r"DECISION:\s*(HOLD|EXIT)", re.IGNORECASE)
 
 
+NEUTRAL_CWD = "/tmp/claude-dojo-neutral"   # NOT the repo: running from the repo
+# loads CLAUDE.md + project memory into the subject — which contain our
+# CONCLUSIONS (never-bail, ride-only). That is the answer key leaking into the
+# exam. The subject must see genome + frame ONLY, exactly like qwen.
+
+
 def ask_claude(prompt, model):
+    os.makedirs(NEUTRAL_CWD, exist_ok=True)
     try:
         r = subprocess.run(
             [CLAUDE_BIN, "-p", prompt, "--model", model,
              "--output-format", "json"],
-            capture_output=True, text=True, timeout=PER_CALL_TIMEOUT_S)
+            capture_output=True, text=True, timeout=PER_CALL_TIMEOUT_S,
+            cwd=NEUTRAL_CWD)
     except subprocess.TimeoutExpired:
         return None, "timeout"
     if r.returncode != 0:
