@@ -68,6 +68,98 @@ def handle_command(text, msg):
     never queued to the session. /wake opens VS Code with the repo on the
     desktop (GUI env injected — the daemon runs headless under systemd)."""
     cmd = text.strip().lower()
+    parts = text.strip().split(None, 1)
+    verb = parts[0].lower() if parts else ""
+    arg = parts[1] if len(parts) > 1 else ""
+    if verb in ("/memq", "/memaudit", "/memstats"):
+        # Teacher memory-bank query + audit from the phone (owner 2026-07-24).
+        # Read-only by construction (sqlite URI mode=ro): these commands can
+        # never create, mutate, or lock the bank a live run is writing to.
+        import sqlite3
+        db = str(REPO / "research/dojo_forge/gate_state/teacher_memory.db")
+        ledger = REPO / "research/dojo_forge/gate_state/memory_ledger.jsonl"
+        reply = ""
+        if verb == "/memq":
+            if not os.path.exists(db):
+                reply = "memory bank empty — the memory pilot hasn't run yet."
+            elif not arg:
+                reply = "usage: /memq <search terms>  (FTS over qwen's memos)"
+            else:
+                try:
+                    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                    rows = con.execute(
+                        "SELECT m.day, m.minute, m.text FROM memos_fts "
+                        "JOIN memos m ON m.id = memos_fts.rowid "
+                        "WHERE memos_fts MATCH ? "
+                        "ORDER BY bm25(memos_fts) ASC, m.id ASC LIMIT 5",
+                        (arg,)).fetchall()
+                    con.close()
+                    reply = ("\n———\n".join(
+                        f"[{d} m{m}] {t[:400]}" for d, m, t in rows)
+                        or f"no memos match '{arg}'")
+                except sqlite3.Error as e:
+                    reply = f"memq error: {e}"
+        elif verb == "/memaudit":
+            if not ledger.exists():
+                reply = "ledger empty — no memory events recorded yet."
+            else:
+                try:
+                    n = max(1, min(int(arg), 30)) if arg.strip().isdigit() else 8
+                    events = ledger.read_text(encoding="utf-8").splitlines()[-n:]
+                    out = []
+                    for ln in events:
+                        try:
+                            e = json.loads(ln)
+                        except ValueError:
+                            continue
+                        ev = e.get("event", "?")
+                        if ev == "write_admitted":
+                            out.append(f"✍️ WRITE {e.get('day')} m{e.get('minute')} "
+                                       f"id={e.get('memo_id')} tags={e.get('tags')}")
+                        elif ev == "write_rejected":
+                            out.append(f"🚫 REJECTED {e.get('day')} m{e.get('minute')} "
+                                       f"({e.get('reason')})")
+                        elif ev == "retrieve":
+                            out.append(f"🔍 RETRIEVE ep-day={e.get('episode_day')} "
+                                       f"q='{str(e.get('query'))[:60]}' "
+                                       f"granted={e.get('granted_ids')}")
+                        else:
+                            out.append(f"• {ev}: {str(e)[:90]}")
+                    reply = "\n".join(out) or "ledger unparseable"
+                except OSError as e:
+                    reply = f"memaudit error: {e}"
+        else:  # /memstats
+            if not os.path.exists(db):
+                reply = "memory bank empty — the memory pilot hasn't run yet."
+            else:
+                try:
+                    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                    total = con.execute("SELECT COUNT(*) FROM memos").fetchone()[0]
+                    per_day = con.execute(
+                        "SELECT day, COUNT(*) FROM memos GROUP BY day "
+                        "ORDER BY day").fetchall()
+                    con.close()
+                    counts = {}
+                    if ledger.exists():
+                        for ln in ledger.read_text(encoding="utf-8").splitlines():
+                            try:
+                                ev = json.loads(ln).get("event", "?")
+                            except ValueError:
+                                continue
+                            counts[ev] = counts.get(ev, 0) + 1
+                    reply = (f"memos: {total} total\n"
+                             + "\n".join(f"  {d}: {c}" for d, c in per_day)
+                             + "\nledger: "
+                             + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+                except sqlite3.Error as e:
+                    reply = f"memstats error: {e}"
+        try:
+            requests.get(f"{API}/sendMessage",
+                         params={"chat_id": CHAT_ID, "text": reply[:4000]},
+                         timeout=10)
+        except Exception:
+            pass
+        return True
     if cmd in ("/health", "/status"):
         # On-demand full-loop diagnostic, answered by the daemon itself so it
         # works even when no Claude session is alive (owner request 2026-07-24
