@@ -84,3 +84,16 @@ correct inference unit. All future gate CIs: day-block by default.
 ## Owner asks
 1. Ratify the adoptions (esp. #9's retrieval-placement revision to docs 149/151).
 2. Frontier stratification (#8): priority vs memory pilot?
+
+## Cost-model spec (owner directive, 2026-07-24 — for the student reward + gate-first fills)
+- **Commission: fixed $1.00 per round-trip** (simplified from the confirmed $0.78;
+  conservative).
+- **Slippage/friction: sampled WITHIN the range of the NEXT 1s bar after the
+  decision** (DATA/ATLAS/1s) — fill uncertainty bounded by actual immediate
+  market movement, data-driven rather than assumed.
+- **Determinism guard (mandatory):** the sample is seeded per-trade
+  (hash(episode_id, bar_index)) so identical runs produce identical fills —
+  random-in-distribution, reproducible-in-run. Uniform within [low, high];
+  adverse-side fill is the pre-registered STRESS variant.
+- Applies to: (a) the student's PnL/KL-correction layer; (b) doc-152 #7
+  "gate-first" realistic-fills execution of teacher labels.
