@@ -68,10 +68,81 @@ def compose_with_sonnet(items):
     return None
 
 
+def inbound_deep_check():
+    """Owner design (2026-07-24): a nudge with no reply is ambiguous — busy
+    owner, or owner DID reply into a broken receive leg. Check + self-heal the
+    three detectable inbound killers; return list of anomalies found/fixed."""
+    fixed = []
+    # (a) webhook set on the token kills getUpdates entirely
+    try:
+        info = requests.get(f"https://api.telegram.org/bot{TOKEN}/getWebhookInfo",
+                            timeout=30).json().get("result", {})
+        if info.get("url"):
+            requests.get(f"https://api.telegram.org/bot{TOKEN}/deleteWebhook",
+                         timeout=30)
+            fixed.append(f"a webhook was set ({info['url'][:40]}) — deleted it")
+    except Exception:
+        pass
+    # (b) competing poller stealing updates (daemon writes marker on 409)
+    conflict_f = STATE / "conflict409.txt"
+    try:
+        if time.time() - float(conflict_f.read_text().strip()) < 1800:
+            subprocess.run(["pkill", "-f", "telegram_bridge/bridge.py"])
+            subprocess.run(["pkill", "-f", "telegram_mcp.py"])
+            subprocess.run(["systemctl", "--user", "restart", "tg-ingress.service"])
+            fixed.append("another poller was stealing messages (409) — killed "
+                         "stale pollers, restarted ingress")
+    except (FileNotFoundError, ValueError):
+        pass
+    # (c) daemon not polling at all
+    hb = STATE / "heartbeat.txt"
+    if not hb.exists() or time.time() - hb.stat().st_mtime > 180:
+        subprocess.run(["systemctl", "--user", "restart", "tg-ingress.service"])
+        fixed.append("daemon was not polling — restarted it")
+    return fixed
+
+
+def post_nudge_escalation():
+    """If the last nudge got no owner reply within one timer cycle, verify the
+    owner CAN reply (inbound path), self-heal, and follow up once."""
+    esc_f = STATE / "nudge_escalated.txt"
+    try:
+        last_nudge = float(LAST_NUDGE_F.read_text().strip())
+    except Exception:
+        return
+    if last_owner_activity() > last_nudge:
+        esc_f.unlink(missing_ok=True)          # owner replied — cycle closed
+        return
+    if time.time() - last_nudge < 1800:
+        return                                  # give them one cycle to answer
+    try:
+        if float(esc_f.read_text().strip()) >= last_nudge:
+            return                              # already escalated this nudge
+    except Exception:
+        pass
+    fixed = inbound_deep_check()
+    if fixed:
+        text = ("🔧 No reply to my last check-in, so I verified the RECEIVE "
+                "path and found+fixed:\n" + "\n".join(f"• {f}" for f in fixed)
+                + "\nIf you replied earlier, it may have been lost — please resend.")
+    else:
+        text = ("ℹ️ No reply to my check-in — receive path verified CLEAN "
+                "(polling live, no webhook, no competing poller). If you DID "
+                "reply and your message has no 👍 on it, send /health; if even "
+                "that gets no answer, the loop is down and I'm wrong. "
+                "Otherwise ignore me — the pending items keep.")
+    if TOKEN and CHAT_ID:
+        requests.get(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                     params={"chat_id": CHAT_ID, "text": text}, timeout=30)
+    esc_f.write_text(str(time.time()))
+    print(f"post-nudge escalation: fixed={fixed or 'none, path clean'}")
+
+
 def main():
     h = time.localtime().tm_hour
     if not (NUDGE_WINDOW[0] <= h < NUDGE_WINDOW[1]):
         return
+    post_nudge_escalation()
     try:
         pending = json.loads(PENDING_F.read_text())
         items = pending.get("items") or []

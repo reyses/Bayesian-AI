@@ -212,6 +212,13 @@ def main():
             # liveness heartbeat: tg-verify alerts+restarts if this goes stale,
             # catching a daemon that is alive-as-a-process but not polling.
             (STATE / "heartbeat.txt").touch()
+            if res.get("error_code") == 409:
+                # another poller is stealing this token's updates — inbound is
+                # BROKEN even though we look alive. Marker lets tg_nudge/verify
+                # detect + self-heal (kill stale pollers) instead of guessing.
+                (STATE / "conflict409.txt").write_text(str(time.time()))
+                print("409 conflict: another getUpdates poller on this token",
+                      file=sys.stderr)
             if not res.get("ok"):
                 time.sleep(3)
                 continue

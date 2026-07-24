@@ -71,6 +71,7 @@ def main():
     except Exception:
         n_consumed = 0
     if len(lines) <= n_consumed:
+        ATTEMPT_F.unlink(missing_ok=True)             # breakdown over — reset
         return                                        # queue drained — healthy
     oldest = json.loads(lines[n_consumed])
     if time.time() - oldest.get("ts", 0) < STALE_S:
@@ -103,26 +104,65 @@ def main():
     print(f"alerted: {n_pending} pending, no watcher; fallback spawned={spawned}")
 
 
-def spawn_fallback():
-    """Spawn one independent headless Sonnet; refuse if one is already running."""
-    if FALLBACK_LOCK.exists():
-        try:
-            pid = int(FALLBACK_LOCK.read_text().strip())
-            os.kill(pid, 0)                      # raises if dead
-            return False                          # live fallback already on it
-        except (ValueError, ProcessLookupError, PermissionError):
-            FALLBACK_LOCK.unlink(missing_ok=True)
-    if not os.path.exists(CLAUDE_BIN):
-        FALLBACK_LOG.write_text("CLAUDE_BIN missing — update path in watchdog.py\n")
+GEMINI_BIN = "/home/moi/.npm-global/bin/gemini"
+ATTEMPT_F = STATE / "fallback_attempt.txt"
+
+# Second-provider prompt (owner 2026-07-24: "fallback on antigravity cli so it
+# is failproof"). Deliberately NARROWER than the Claude prompt: acknowledge +
+# triage only, no repairs — gemini -p has no project-permission layer, so the
+# prompt is the only scope control. Provider order: Claude first (permissioned,
+# full repair), Gemini second (acknowledge-only), template alert always.
+GEMINI_PROMPT = """You are an emergency responder for this repo's Telegram
+bridge; the primary AI is unreachable. Do ONLY this: (1) read
+tools/telegram_bridge/state/inbox.jsonl — messages after the count in
+tools/telegram_bridge/state/consumed.txt are unanswered; (2) send the owner ONE
+Telegram message via curl using TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID from
+./.env: introduce yourself as the Gemini emergency fallback, list their
+unanswered messages back to them, and say the primary AI is down so answers
+wait for it. (3) Append a note of what you sent to
+tools/telegram_bridge/state/fallback_handoff.md. Do NOT modify anything else,
+do NOT advance consumed.txt, do NOT run repairs."""
+
+
+def _alive(pidfile):
+    try:
+        os.kill(int(pidfile.read_text().strip()), 0)
+        return True
+    except (ValueError, ProcessLookupError, PermissionError, FileNotFoundError):
         return False
+
+
+def spawn_fallback():
+    """Failover chain: Claude Sonnet -> Gemini CLI -> (caller's template alert).
+    One live fallback at a time; provider escalates per breakdown episode and
+    resets when the queue drains (main() only calls this while pending>0)."""
+    if FALLBACK_LOCK.exists() and _alive(FALLBACK_LOCK):
+        return False                              # live fallback already on it
+    FALLBACK_LOCK.unlink(missing_ok=True)
+    try:
+        attempt = int(ATTEMPT_F.read_text().strip())
+    except Exception:
+        attempt = 0
+    providers = []
+    if os.path.exists(CLAUDE_BIN):
+        providers.append(("claude", ["timeout", str(FALLBACK_TIMEOUT_S),
+                                     CLAUDE_BIN, "-p", FALLBACK_PROMPT,
+                                     "--model", FALLBACK_MODEL]))
+    if os.path.exists(GEMINI_BIN) and (
+            os.environ.get("GEMINI_API_KEY")
+            or (Path.home() / ".gemini" / "oauth_creds.json").exists()):
+        providers.append(("gemini", ["timeout", str(FALLBACK_TIMEOUT_S),
+                                     GEMINI_BIN, "-p", GEMINI_PROMPT,
+                                     "--approval-mode", "yolo"]))
+    if attempt >= len(providers):
+        return False                              # chain exhausted -> template alert
+    name, cmd = providers[attempt]
     with open(FALLBACK_LOG, "a") as logf:
-        logf.write(f"\n===== fallback spawn {time.strftime('%F %T')} =====\n")
-        proc = subprocess.Popen(
-            ["timeout", str(FALLBACK_TIMEOUT_S), CLAUDE_BIN, "-p",
-             FALLBACK_PROMPT, "--model", FALLBACK_MODEL],
-            cwd=str(REPO), stdout=logf, stderr=logf,
-            start_new_session=True)              # survives watchdog exit
+        logf.write(f"\n===== fallback spawn [{name}] {time.strftime('%F %T')} =====\n")
+        proc = subprocess.Popen(cmd, cwd=str(REPO), stdout=logf, stderr=logf,
+                                start_new_session=True)  # survives watchdog exit
     FALLBACK_LOCK.write_text(str(proc.pid))
+    ATTEMPT_F.write_text(str(attempt + 1))
     return True
 
 if __name__ == "__main__":
