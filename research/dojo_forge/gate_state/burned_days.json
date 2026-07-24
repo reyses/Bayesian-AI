@@ -1,0 +1,30 @@
+{
+ "_doc": "Burned-day registry (doc 152 adoption #2). Days whose results humans or the loop have inspected \u2014 never usable for FINAL held-out claims. Final claims only on never-touched forward days.",
+ "burned": {
+  "2025_01_21": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_01_23": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_01_31": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_03_13": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_08": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_09": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_14": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_16": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_25": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_04_30": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_05_05": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_05_16": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_06_13": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_06_17": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_07_29": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_08_06": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_08_14": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_10_07": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_11_14": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_11_19": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_11_27": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_11_28": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2025_12_18": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2026_01_19": "gen0 curriculum + human-inspected 2026-07-22/24",
+  "2026_03_05": "gen0 curriculum + human-inspected 2026-07-22/24"
+ }
+}
