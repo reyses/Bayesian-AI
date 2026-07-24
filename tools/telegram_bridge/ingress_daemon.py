@@ -101,6 +101,42 @@ def handle_command(text, msg):
         except Exception:
             pass
         return True
+    if cmd in ("/fix", "/restart"):
+        # Owner one-button repair (2026-07-24): mechanically repair every leg
+        # the daemon can reach, report what it did. The one leg it cannot
+        # revive is a dead Claude session — for that it states so plainly.
+        import subprocess
+        did = []
+        r = subprocess.run(["systemctl", "--user", "restart",
+                            "tg-verify.timer", "tg-watchdog.timer"],
+                           capture_output=True, text=True)
+        did.append("timers: " + ("restarted" if r.returncode == 0 else f"FAILED {r.stderr[:80]}"))
+        watcher = subprocess.run(["pgrep", "-f", "wait_inbox|inbox_stream"],
+                                 capture_output=True).returncode == 0
+        try:
+            n_inbox = sum(1 for _ in open(STATE / "inbox.jsonl", encoding="utf-8"))
+            n_consumed = int((STATE / "consumed.txt").read_text().strip())
+        except Exception:
+            n_inbox = n_consumed = 0
+        pending = max(0, n_inbox - n_consumed)
+        if watcher:
+            did.append(f"session consumer: alive ({pending} pending will be delivered)")
+        else:
+            did.append(f"session consumer: DEAD — {pending} message(s) held safe; "
+                       "a daemon cannot restart the AI session. Use /wake to "
+                       "open VS Code, or wait for the session to re-arm.")
+        if cmd == "/restart":
+            did.append("daemon: restarting itself now (systemd brings it back in ~10s)")
+        reply = "🔧 /fix report:\n" + "\n".join(f"• {d}" for d in did)
+        try:
+            requests.get(f"{API}/sendMessage",
+                         params={"chat_id": CHAT_ID, "text": reply}, timeout=10)
+        except Exception:
+            pass
+        if cmd == "/restart":
+            # exit non-zero; Restart=always relaunches with persisted offset
+            os._exit(1)
+        return True
     if cmd in ("/wake", "/vscode", "/open"):
         env = dict(os.environ,
                    DISPLAY=":0", WAYLAND_DISPLAY="wayland-0",
