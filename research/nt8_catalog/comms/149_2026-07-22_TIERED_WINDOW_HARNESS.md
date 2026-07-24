@@ -105,6 +105,15 @@ from the NOW frame's state (regime, giveback bucket, velocity signs) pulls
 top-k memos into a RELEVANT MEMORY block — context stays flat regardless of
 knowledge size; fixed query template + fixed k + rowid tie-break keeps runs
 reproducible. Lifecycle (branch/burn) applies to the DB per the protocol above.
+**Conservation + day-carry (owner rulings 2026-07-23):** (1) All play stays
+inside the existing 25-day/156-episode curriculum — no new day-burns without a
+priced reason. (2) DAY-CARRY memory mode: with consecutive days the teacher
+carries yesterday's memory (ranges/levels/behavior) forward, strictly
+time-ordered. The current curriculum contains 4 adjacent pairs (01_21→23,
+04_08→09, 04_14→16, 11_27→28) — a free natural experiment: day-2 WITH day-1
+memory vs COLD, the delta = measured value of persistence, N=4 pairs, zero
+lockbox cost. (3) Future training-side curriculum selection prefers CONSECUTIVE
+day runs (mirrors live deployment, which is continuous).
 
 ## v1 GATE FAILURE + v2 correction (same night — the gate worked)
 v1's verify-then-stop FAILED: deep frames hit 23–25k REAL tokens (13–20 taint
