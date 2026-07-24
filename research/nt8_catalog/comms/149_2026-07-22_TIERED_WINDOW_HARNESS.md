@@ -53,6 +53,17 @@ accumulating). Cannot be applied at harness level to gen-0 packets (each frame
 carries only the latest closed bar per TF — no bar series to decimate); lands
 in the gen-1 packet builder and the student's feature-stream design.
 
+## Gen-1 addendum: text-definition spec required (Moises, 2026-07-23 early)
+The 7 residual taints (0.24%: single frames 29–183 tokens over budget) trace to
+UNSPECIFIED text serialization — frame text width varies with market state
+(wider numerics on volatile minutes, conditional 5m blocks), so token cost is
+only statistically predictable. Owner directive: the gen-1 packet builder gets
+an explicit TEXT-DEFINITION SPEC — fixed-precision/fixed-width numeric
+formatting, per-TF line templates with a token budget EACH, deterministic
+optional-block rules — so every frame's token count is EXACT by construction
+and ctx budgets stop being estimates. Pairs with the log-decay retention
+principle above.
+
 ## v1 GATE FAILURE + v2 correction (same night — the gate worked)
 v1's verify-then-stop FAILED: deep frames hit 23–25k REAL tokens (13–20 taint
 frames/episode). Root cause: the "~9.8k plateau" estimate used chars/4; this
