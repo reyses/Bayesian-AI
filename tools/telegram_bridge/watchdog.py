@@ -31,7 +31,7 @@ ALERT_COOLDOWN_S = 1800    # at most one alert per 30 min
 # watchdog SPAWNS an independent headless Sonnet — no cron, no standing cost;
 # it exists only while a breakdown does. It triages the queued messages,
 # repairs what is mechanical, answers the owner, and leaves a handoff note.
-CLAUDE_BIN = "/home/moi/.vscode/extensions/anthropic.claude-code-2.1.218-linux-x64/resources/native-binary/claude"
+CLAUDE_BIN = "/home/moi/.local/bin/claude"
 FALLBACK_MODEL = "claude-sonnet-5"
 FALLBACK_TIMEOUT_S = 600
 FALLBACK_LOCK = STATE / "fallback.pid"
@@ -76,7 +76,8 @@ def main():
     if time.time() - oldest.get("ts", 0) < STALE_S:
         return                                        # fresh — session may be mid-turn
     watcher_alive = subprocess.run(
-        ["pgrep", "-f", "wait_inbox.py"], capture_output=True).returncode == 0
+        ["pgrep", "-f", "wait_inbox.py|inbox_stream"],
+        capture_output=True).returncode == 0
     if watcher_alive:
         return                                        # session listening — just busy
     try:
