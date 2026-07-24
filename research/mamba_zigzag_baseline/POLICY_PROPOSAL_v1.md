@@ -196,3 +196,33 @@ retained where it matters (early exits) while duration exploration — the only
 direction with measured upside — is cheap. Both budgets pre-registered from
 teacher label statistics; the asymmetry ratio is a REGISTERED constant, not a
 tuned knob.
+
+---
+# AMENDMENTS v1.3 (consultant-2 part 2 — implementation sequence triaged)
+1. **Teacher calibration (ADOPTED, new):** temperature-scale the teacher's
+   P(exit) against realized outcomes BEFORE generating the Layer-1 dataset, so
+   soft-CE targets reflect true probabilities. LEAKAGE GUARD: the calibration
+   fit uses training-side days only; the temperature is frozen and hashed into
+   the run record like the genome.
+2. **BC+DAgger 50/50 (TEST-GATED, reconciling the two consultants):**
+   consultant-1 says one DAgger round only if the on/off-trajectory gap is
+   large; consultant-2 says 50/50 from the start. RESOLUTION: run the cheap
+   gap test first (pre-registered threshold); if the gap exceeds it, the 50/50
+   teacher-relabeled protocol becomes the standing recipe (affordable at the
+   new teacher throughput). Blind 50/50 adoption rejected — it doubles labeling
+   cost against an unmeasured need.
+3. **γ=1:** already pinned in v1.1 (concordant across both consultants).
+4. **Beta-skewed adverse fill (PUSHBACK — keeping owner's spec):** the ratified
+   model (uniform-in-next-1s-bar + adverse-side stress variant) BRACKETS
+   reality with zero free parameters; a Beta skew introduces a shape parameter
+   = a tunable knob on the cost model, which is exactly the class of dial we
+   distrust. Recorded as an alternative if the bracket proves too loose.
+5. **State-gated leash (ADOPTED, fuses with v1.2):** the leash becomes
+   ε(direction, duration) — direction-asymmetric (v1.2: wide for hold-longer,
+   tight for exit-earlier) AND duration-gated (wider late in rides, where the
+   anchor is off-distribution and the never-bail physics says holding is
+   cheap). The full ε surface is PRE-REGISTERED as a fixed function; no
+   component is tuned against outcomes.
+**Policy plan status: consultant cycle COMPLETE (2 reviews, 3 amendment
+rounds). Frozen pending: owner ratifies (entry-head freeze, asymmetric+gated
+leash, calibration step) + a gate-passing teacher exists.**
