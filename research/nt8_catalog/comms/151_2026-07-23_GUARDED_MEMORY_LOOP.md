@@ -53,6 +53,21 @@ trader ask for?), and the ledger is the leakage proof for the gate record.
   genome gate run → (3) MEMO v1 + SQL store → (4) gatekeeper (this doc) →
   (5) day-carry natural experiment (WITH vs COLD on the 4 pairs).
 
+## GUARD v2 — mechanical-first (owner simplification, 2026-07-23)
+Owner: "mechanically only allow lookback up to a certain amount of days so they
+are always out of reach." Adopted, with one correction: a lookback cap ALONE
+does not protect an INTERLEAVED lockbox (a held-out day falling inside the
+window would be visible). Fully-mechanical guard, three layers, zero judgment:
+1. **Store admission**: the prior-day store NEVER INGESTS lockbox/burned days —
+   protection by construction; there is nothing to leak.
+2. **Lookback cap**: retrieval limited to the last N trading days (default
+   N=10) behind the episode's day.
+3. **Timestamp wall**: nothing with timestamp ≥ episode start (intraday guard).
+Sonnet's role SHRINKS to optional librarian work (relevance ranking, grant
+compression) — a quality layer, not a security layer; v1 can ship without it
+(plain FTS top-k), Sonnet added later if grants prove noisy. Request/grant
+ledger retained (audit + the information-seeking data channel).
+
 ## Open questions (owner)
 1. Request format: free-text asks (Sonnet interprets) vs a fixed menu of query
    types (cheaper, more auditable)?
