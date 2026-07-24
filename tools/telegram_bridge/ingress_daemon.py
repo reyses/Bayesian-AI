@@ -68,6 +68,39 @@ def handle_command(text, msg):
     never queued to the session. /wake opens VS Code with the repo on the
     desktop (GUI env injected — the daemon runs headless under systemd)."""
     cmd = text.strip().lower()
+    if cmd in ("/health", "/status"):
+        # On-demand full-loop diagnostic, answered by the daemon itself so it
+        # works even when no Claude session is alive (owner request 2026-07-24
+        # after the dead-consumer incident).
+        import subprocess
+        try:
+            n_inbox = sum(1 for _ in open(STATE / "inbox.jsonl", encoding="utf-8"))
+        except Exception:
+            n_inbox = 0
+        try:
+            n_consumed = int((STATE / "consumed.txt").read_text().strip())
+        except Exception:
+            n_consumed = 0
+        watcher = subprocess.run(["pgrep", "-f", "wait_inbox.py"],
+                                 capture_output=True).returncode == 0
+        try:
+            hb_age = int(time.time() - (STATE / "heartbeat.txt").stat().st_mtime)
+        except Exception:
+            hb_age = -1
+        pending = max(0, n_inbox - n_consumed)
+        verdict = ("✅ loop healthy" if watcher and pending == 0
+                   else "⚠️ messages waiting, session listening" if watcher
+                   else "🔴 NO session listening — replies will stall")
+        reply = (f"{verdict}\ndaemon: alive (this reply proves polling)\n"
+                 f"heartbeat age: {hb_age}s\nqueue: {pending} pending "
+                 f"({n_consumed}/{n_inbox} consumed)\n"
+                 f"session watcher: {'armed' if watcher else 'ABSENT'}")
+        try:
+            requests.get(f"{API}/sendMessage",
+                         params={"chat_id": CHAT_ID, "text": reply}, timeout=10)
+        except Exception:
+            pass
+        return True
     if cmd in ("/wake", "/vscode", "/open"):
         env = dict(os.environ,
                    DISPLAY=":0", WAYLAND_DISPLAY="wayland-0",
@@ -130,6 +163,9 @@ def main():
             if offset is not None:
                 params["offset"] = offset
             res = requests.get(f"{API}/getUpdates", params=params, timeout=60).json()
+            # liveness heartbeat: tg-verify alerts+restarts if this goes stale,
+            # catching a daemon that is alive-as-a-process but not polling.
+            (STATE / "heartbeat.txt").touch()
             if not res.get("ok"):
                 time.sleep(3)
                 continue
