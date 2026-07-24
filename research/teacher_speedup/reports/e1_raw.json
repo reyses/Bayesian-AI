@@ -1,0 +1,944 @@
+{
+  "config": {
+    "n_ctx": 11264,
+    "max_tokens": 800,
+    "n_batch": 256,
+    "seed": 42,
+    "temperature": 0.0,
+    "bench_episodes": [
+      "2025_01_21_1737469980_S",
+      "2025_01_21_1737471780_S",
+      "2025_01_21_1737475200_L"
+    ],
+    "frames": {
+      "2025_01_21_1737469980_S": [
+        2,
+        6,
+        10,
+        13,
+        17
+      ],
+      "2025_01_21_1737471780_S": [
+        2,
+        7,
+        12,
+        16,
+        21
+      ],
+      "2025_01_21_1737475200_L": [
+        2,
+        8,
+        12,
+        18,
+        22
+      ]
+    }
+  },
+  "arms": {
+    "baseline": {
+      "rows": [
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"leg age 4m amp 29.8pts giveback 8%\". The giveback is 8%, which is a retracement from the entry point. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. \n\nChecking the trend integrity. The price_velocity_30 is -0.775, which is negative, but the reversion_prob_30 is 0.994, indicating a high probability of reversion. However, the trend might still be considered intact if the overall direction hasn't changed. Also, the Hurst exponent is 0.366, which is less than 0.5, suggesting mean reversion, but the trend might still be present. \n\nLooking at the fires: KMDR-against, HA-with, PROPP-with. The presence of HA and PROPP with might indicate some support, but KMDR against could be a negative signal. However, G0.3 doesn't mention fires, so maybe it's not directly relevant here. \n\nThe giveback is 8%, which is a retracement, but not a full reversal. The trend's integrity is a bit ambiguous, but since the reversion probability is high, maybe the trend isn't intact. Wait, but G0.3 says if the trend is intact, then HOLD. If the trend isn't intact, maybe we should exit. But how do I determine if the trend is intact?\n\nLooking at the price_velocity_30 and price_accel_30. The 30-period velocity is negative, but the acceleration is also negative. That might indicate a continuing downtrend. However, the reversion probability is very high, which might suggest that the price is likely to reverse. This is conflicting. \n\nAlternatively, the giveback is 8%, which is a partial retracement. If the trend is still considered intact despite the retracement, then HOLD. But if the retracement is significant enough to suggest the trend is not intact, then maybe EXIT. However, the rule G0.3 specifically says if giveback and trend is intact, HOLD. So the key is whether the trend is intact. \n\nGiven that the Hurst exponent is 0.366 (mean reversion), but the price is still moving downward (negative velocity), maybe the trend is not intact. But the rule says if the trend is intact, then HOLD. If the trend isn't intact, then maybe another rule applies. However, there's no mention of accelerating loss or multi-family fires here. \n\nAlternatively, maybe the trend is considered intact because the overall direction is still down, even with a retracement. In that case, G0.3 would apply, leading to HOLD. The confidence might be around 0.7 because there's some ambiguity in trend integrity, but the giveback is not too large (8%), and the reversion probability is high, which might mean the trend is not intact. Hmm, this is tricky. \n\nWait, the reversion probability is 0.994, which is very high. That suggests that the price is likely to revert, meaning the trend might not be intact. Therefore, G0.3's condition of \"trend is intact\" might not be met. If the trend isn't intact, then G0.3 doesn't apply. Are there other rules? G0.1 is about adverse excursion on a clean entry, but there's no mention of that here. G0.2 is about multi-family fires and accelerating loss. The fires here are KMDR-against, HA",
+          "n_out": 800,
+          "total_s": 71.013432473992,
+          "prefill_s": 11.677757999999999,
+          "decode_s": 59.335674473992,
+          "e2e_toks": 11.265474321255947,
+          "decode_toks": 13.482614078157244,
+          "text_hash": "985235523aac8e3a2c7410da49ed13c0d843920c8207e75ecd424fd1c55422bc",
+          "perf": {
+            "t_prefill_ms": 11677.758,
+            "n_prefill": 7980,
+            "t_decode_ms": 58800.143000000004,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 2,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info shows a leg age of 1m, amp 72.8pts, giveback 0%. The fires within 3m include KMDR-against (2m ago) and PROPP-with (0m ago). \n\nChecking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, HOLD. But here, the giveback is 0%, so maybe no adverse movement yet. \n\nRule G0.2 mentions multi-family fires and accelerating loss. The fires here are KMDR-against and PROPP-with. Not sure if that's multi-family fires. Also, the price velocity and acceleration might indicate direction. The 1m bar has price_velocity_1b=-25.000 and price_accel_1b=+3.750. Negative velocity but positive acceleration, which might mean slowing down in a downtrend? Not sure if accelerating loss.\n\nRule G0.3: giveback/retrace with trend intact. The giveback is 0%, so no retrace. The trend might be intact if the price is still moving in the original direction. But the current price is at +59.75pts, and the entry point isn't clear. However, the leg amp is 72.8pts, which might indicate a strong move. \n\nSince there's no adverse excursion (G0.1), and no clear multi-family fires with accelerating loss (G0.2), and the giveback is 0% with trend possibly intact (G0.3), maybe HOLD is the decision. But need to check if any rules apply. The PROPP-with fire might be a positive signal, but KMDR-against could be negative. However, the rules don't mention specific fire types, just multi-family fires. \n\nConfidence might be around 0.6 because the data is mixed but no clear rule violation. So, HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback is 0% (no retrace) and trend appears intact (price remains elevated at +59.75pts with leg amp 72.8pts). No adverse excursion (G0.1) or multi-family fires with accelerating loss (G0.2). PROPP-with fire suggests supportive momentum.",
+          "n_out": 546,
+          "total_s": 52.21065144700697,
+          "prefill_s": 11.961294,
+          "decode_s": 40.249357447006965,
+          "e2e_toks": 10.457636226856541,
+          "decode_toks": 13.565433950563646,
+          "text_hash": "245c9bc9ade0cb25e1e78431767bedf15bbd11d4acbfbe7b7c738be66e699645",
+          "perf": {
+            "t_prefill_ms": 11961.294,
+            "n_prefill": 8320,
+            "t_decode_ms": 39947.6,
+            "n_decode": 546
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 6,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. But I need to check if the entry was clean. The local info mentions \"leg age 5m amp 115.0pts giveback 22%\". Giveback refers to the price retracting from the entry point. A 22% giveback might indicate a retracement, but not sure if it's an adverse excursion yet. Wait, the entry was 5 minutes ago, and the current price is +79.00pts. The amp (amplitude) is 115.0pts, so the entry might have been a long trade, and the price has moved against it by 22%? Or maybe the giveback is from the high? Not entirely clear, but maybe the giveback is part of a retracement.\n\nLooking at Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 22%, which is a retrace. But is the trend still intact? The price_velocity_1b for the 1m bar is -2.000, and the price_velocity_30 is -3.883. That suggests a negative trend over the 30-minute period. However, the current 1m bar's close is +79.00pts, which might be part of a larger trend. Wait, the local info says \"leg age 5m amp 115.0pts giveback 22%\". If the leg is a long trade, and the price has given back 22%, but the overall trend (from the 30-minute velocity) is negative, that might mean the trend is not intact. But I need to check if the trend is still considered intact. Alternatively, maybe the trend is still up, but there's a retracement.\n\nAlternatively, looking at the 1m bar's price_velocity_1b is -2.000, but the 5m bar's price_velocity_1b was +10.000 (from earlier data). Wait, the current 1m bar's price_velocity_1b is -2.000, but the 5m bar's velocity was +10.000. That might indicate a recent reversal. However, the 30-minute velocity is still negative. This is confusing. Maybe the trend isn't intact because the 1m bar is moving against the 5m trend. But the 30-minute velocity is negative, which might indicate a longer-term trend. However, the giveback is 22%, which is a retrace. If the trend is still intact (as per the 30-minute data), then Rule G0.3 would apply, leading to HOLD. But if the trend is not intact, maybe another rule applies.\n\nLooking at Rule G0.2: multi-family fires and accelerating loss. The local fires mention PROPP-against(0m ago). \"Multi-family fires\" might refer to multiple signals indicating adverse movement. However, the description is unclear. The current fire is PROPP-against, but there's no mention of other fires. So maybe not applicable here.\n\nBack to Rule G0.3. If there's a giveback (which there is, 22%) and the trend is intact. The 30-minute price_velocity is -3.883, which is negative. If the trade was a long entry, then the trend is against the trade. But the",
+          "n_out": 800,
+          "total_s": 72.64121564198285,
+          "prefill_s": 12.479442,
+          "decode_s": 60.161773641982855,
+          "e2e_toks": 11.013031554191688,
+          "decode_toks": 13.297480303036375,
+          "text_hash": "038ba08393533cbc9b311754f6034138ae74a8446b3be58652bb85b77ca5e229",
+          "perf": {
+            "t_prefill_ms": 12479.442000000001,
+            "n_prefill": 8626,
+            "t_decode_ms": 59619.603,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 10,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the initial trade direction. But looking at the current data, the price is at +62.50pts, and the leg age is 2m with an amp of 40.5pts. The giveback is 0%, which means there's no retrace from the entry point. So maybe there's no adverse movement here yet.\n\nRule G0.2 mentions multi-family fires and accelerating loss. The local fires listed are KMDR-against (1m ago), HA-against (2m ago), PROPP-against (2m ago). \"Multi-family fires\" might refer to multiple signals indicating potential issues. However, the term \"accelerating loss\" isn't clearly present here. The price velocity and acceleration might need checking. The 5m price_velocity is -16.75, but the 1m velocity is -15.00. Not sure if this is accelerating loss. Maybe not enough info here.\n\nRule G0.3 states if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend's integrity isn't clear. The price has moved up, but with some volatility. The ER10 is 0.43, which is low, indicating possible trend continuation. However, the reversion probability is 0.000, suggesting no reversion, so trend might be intact.\n\nLooking at the price action, the current bar at 5m shows a close of +74.75, but the price_velocity_1b is negative. However, the overall trend from the 1D bar shows a large range but the close is lower than the open. However, the local leg is at +62.50, which might be part of a larger trend. The giveback is 0%, so no retrace. Since there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no retrace (G0.3), maybe the decision is to HOLD. But I need to check if any of the rules apply.\n\nWait, the local fires are against, but the rule G0.2 requires both multi-family fires and accelerating loss. The ER10 is 0.43, which is low, but not sure if that's accelerating loss. Maybe the price is moving against the trend, but without a clear adverse excursion or retrace, and no accelerating loss, the best fit is G0.3 isn't triggered because there's no giveback. So, perhaps HOLD based on no applicable rules. But I need to make sure.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.75  \nREASON: No adverse excursion (G0.1) or multi-family fires with accelerating loss (G0.2). Giveback is 0% (no retrace), and trend appears intact (low ER10, no reversion_prob_30 trigger). G0.3 not triggered as trend remains intact despite minor volatility.",
+          "n_out": 707,
+          "total_s": 70.41836536998744,
+          "prefill_s": 15.377606,
+          "decode_s": 55.04075936998744,
+          "e2e_toks": 10.039994485605114,
+          "decode_toks": 12.845026269486974,
+          "text_hash": "bcda616fa542b6f7d2c40a27369c9bf2052fc69d0e4cfe0656e0301446008ff9",
+          "perf": {
+            "t_prefill_ms": 15377.606,
+            "n_prefill": 10245,
+            "t_decode_ms": 54590.292,
+            "n_decode": 707
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 13,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. But looking at the current data, the price is at +45.00pts, and the leg age is 6m with an amp of 83.2pts. The giveback is 29%, which might indicate some retracement. However, I need to check if this is an adverse move. Since the entry point isn't specified, it's a bit tricky. But maybe the giveback isn't enough to trigger G0.1 yet.\n\nNext, Rule G0.2 mentions multi-family fires and accelerating loss. The local fires show PROPP-with(0m ago), but no other fires. Multi-family fires would require multiple simultaneous events, which isn't evident here. Also, there's no mention of accelerating loss, so maybe this rule doesn't apply.\n\nRule G0.3 states if there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 29%, which is a retrace. Now, checking the trend. The price_velocity_30 is +0.358, which is positive, and the trend might still be intact. The reversion_prob_30 is 0.897, which is high, suggesting a possible reversion, but the trend could still be considered intact. So, according to G0.3, since there's a retrace and the trend is intact, HOLD makes sense.\n\nLooking at the price action, the 1m bar shows a close of +27.75, which is lower than the open of +41.50, indicating some downward movement. However, the overall 30-period velocity is still positive. The Hurst exponent is 0.58, which is around 0.5, suggesting a possible mean-reverting trend, but not strongly. The reversion probability is high, but the trend might still be considered intact. \n\nConsidering all this, the giveback/retrace is present, and the trend isn't clearly broken. Therefore, applying G0.3, the decision should be HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback/retrace (29% giveback) with trend intact (price_velocity_30=+0.358, reversion_prob_30=0.897 suggests mean-reversion but trend not yet broken). No multi-family fires (only PROPP-with) or accelerating loss to trigger G0.2.",
+          "n_out": 597,
+          "total_s": 58.40902356497827,
+          "prefill_s": 13.339977000000001,
+          "decode_s": 45.069046564978265,
+          "e2e_toks": 10.221023457717207,
+          "decode_toks": 13.246341902069654,
+          "text_hash": "2d02c565e02f711bdfac792e60d52973adbce3dfbf140cb66a5be7050798abe7",
+          "perf": {
+            "t_prefill_ms": 13339.977,
+            "n_prefill": 9151,
+            "t_decode_ms": 44720.322,
+            "n_decode": 597
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 17,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"giveback 9%\". From the rules, G0.3 mentions if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 9%, which is a retrace. But is the trend intact?\n\nLooking at the price velocity and acceleration. At the 1m bar, price_velocity_1b is +13.000 and price_accel_1b is +23.000. That suggests the price is still moving upwards, albeit with some volatility. The trend might still be intact despite the giveback. \n\nAlso, the ER10 is 0.02, which is low, indicating possible mean reversion. But the reversion_prob_30 is +1.000, which is high, meaning the price might revert. However, the trend's direction is still positive. \n\nCheck for adverse excursion. The giveback is 9%, but the trend is still up. So G0.1 (adverse excursion on clean entry) doesn't apply here. \n\nAre there multiple family fires? The fires mentioned are KMDR-against and PROPP-with. Not sure if that's multiple families. The rule G0.2 is about multi-family fires and accelerating loss. But the price is still moving up, so maybe not accelerating loss. \n\nSo, applying G0.3: giveback (9%) and trend intact (price velocity positive). Therefore, decision is HOLD. Confidence around 0.6 because the trend is still there but the giveback is significant. Need to check if the trend is truly intact. The 1m bar's price is up, but the 5m and 1D bars show mixed results. However, the immediate 1m data shows upward movement. So HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback (9% retrace) with trend intact (price_velocity_1b=+13.00, price_accel_1b=+23.00). No adverse excursion (G0.1) or multi-family fires (G0.2).",
+          "n_out": 510,
+          "total_s": 48.74589160500909,
+          "prefill_s": 11.468913,
+          "decode_s": 37.27697860500909,
+          "e2e_toks": 10.46242017958274,
+          "decode_toks": 13.681366330785961,
+          "text_hash": "b1165459d4eb285b182e2a5fffef416f5990c8c1ee9ecda4e6155b4799283ae5",
+          "perf": {
+            "t_prefill_ms": 11468.913,
+            "n_prefill": 7999,
+            "t_decode_ms": 37002.354,
+            "n_decode": 510
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 2,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price is at -11.00pts, leg age is 2m, amp is 51.0pts, giveback is 40%. The vol(5m) is 13.1pts, which is an increase of +1.6 from the previous. ER10 is 0.11. The fires within 3m include HA-against (3m ago) and PROPP-with (1m ago).\n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see a clean entry mentioned here. Rule G0.2: multi-family fires and accelerating loss would mean EXIT. However, the fires here are HA-against and PROPP-with. Not sure if that's multi-family. Also, accelerating loss? The price is down, but I need to check if losses are accelerating. The giveback is 40%, which might indicate a significant retrace. Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 40%, which is a retrace. But is the trend intact? The ER10 is 0.11, which is low, suggesting possible trend weakness. However, the price_velocity_30 is -0.050, which might indicate a slight downward trend. But the reversion_prob_30 is 0.967, high, suggesting possible mean reversion. \n\nWait, the giveback is 40%, which is a significant retrace. If the trend is intact, then G0.3 would say HOLD. But if the trend isn't intact, maybe G0.2 applies. However, the fires are not clearly multi-family. The PROPP-with might be a single fire. Also, accelerating loss? The price is down, but the velocity and acceleration metrics might show if it's accelerating. The price_velocity_1b is +17.250, but that's for the 1m bar. The price_velocity_30 is -0.050, which is a slight negative. Not sure if that's accelerating loss. \n\nAlternatively, since there's a giveback of 40% and the trend might not be intact (given the low ER10 and possible mean reversion), maybe G0.3 applies. But the trend being intact is unclear. If the trend is not intact, then maybe G0.2 isn't triggered. However, the user's previous decisions were HOLD, so maybe the trend is considered intact. \n\nAlternatively, the adverse excursion might be present. The price is down, but the entry point isn't clear. Without a clean entry, G0.1 might not apply. \n\nThis is a bit confusing. But given the giveback of 40% and the possibility that the trend is intact (even with low ER10), maybe G0.3 applies, leading to HOLD. However, the reversion probability is high, which might suggest exiting. But the rules don't mention reversion. \n\nAlternatively, since there's a significant giveback and the trend might not be intact, maybe EXIT. But I need to check the rules again. \n\nRule G0.3: giveback/retrace AND trend is intact \u2192 HOLD. If the trend is not intact, then maybe not. But how to determine trend? The price_velocity_30 is slightly negative, but the reversion_prob_30 is high. Maybe the trend is not intact. If the trend isn't intact, then G0",
+          "n_out": 800,
+          "total_s": 71.34975953999674,
+          "prefill_s": 12.07791,
+          "decode_s": 59.27184953999674,
+          "e2e_toks": 11.212371354265626,
+          "decode_toks": 13.497132385925612,
+          "text_hash": "7b457864057a0356a917078e459c53d9bdbab3780a744444dd78344f0ac041fd",
+          "perf": {
+            "t_prefill_ms": 12077.91,
+            "n_prefill": 8401,
+            "t_decode_ms": 58722.487,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 7,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price is at +61.25pts, leg age is 3m with an amp of 98.8pts and a giveback of 4%. The volume over 5m is 31.1pts, down from previous. ER10 is 0.49. The fires mentioned are KMDR-against 3m ago, PROPP-with 1m ago, and none else.\n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, HOLD. But I don't see any mention of an adverse excursion here. The giveback is 4%, which might be a retracement, but not sure if it's adverse.\n\nRule G0.2: Multi-family fires and accelerating loss. The fires listed are KMDR against and PROPP with. Not sure if that's multi-family fires. Also, accelerating loss isn't mentioned. The price is still positive, so maybe not.\n\nRule G0.3: Giveback/retrace and trend intact. The giveback is 4%, which is a retrace. The trend might still be intact if the overall direction is positive. The price is up 61.25pts, so maybe the trend is still up. So according to G0.3, if there's a retrace and trend is intact, HOLD.\n\nSo, applying G0.3, since there's a giveback (4%) and the trend seems intact (price is still positive), the decision would be HOLD. Confidence might be around 0.7 because the trend is intact but there's some retracement. Need to check if the trend is indeed intact. The ER10 is 0.49, which is moderate. The price velocity and acceleration might indicate direction. The 1m bar has a negative price velocity but positive acceleration. Not sure. But overall, the price is still up, so trend might be intact. So HOLD with confidence 0.7.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: G0.3 applies: giveback (4% retracement) with trend intact (price +61.25pts, ER10=0.49, no accelerating loss). No multi-family fires (only KMDR-against and PROPP-with, not accelerating). No adverse excursion on clean entry.",
+          "n_out": 548,
+          "total_s": 53.838082280999515,
+          "prefill_s": 12.790822,
+          "decode_s": 41.04726028099952,
+          "e2e_toks": 10.178668644618488,
+          "decode_toks": 13.35046471429581,
+          "text_hash": "6a0e47573354d1f87adfd31052cbece7587955cc000b1dc4efb1710fa8dc80cb",
+          "perf": {
+            "t_prefill_ms": 12790.822,
+            "n_prefill": 8774,
+            "t_decode_ms": 40737.471,
+            "n_decode": 548
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 12,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +3.25pts, with a leg age of 1m, amplitude of 61.5pts, and a giveback of 6%. The volume over 5m is 19.5pts, which is an increase of +4.7 from the previous period. The ER10 is 0.20, which is low, indicating possible trend weakness. The fires mentioned are HA-against (2m ago) and PROPP-with (0m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, HOLD. But I don't see any mention of an adverse excursion here. Rule G0.2: multi-family fires and accelerating loss. The fires here are HA-against and PROPP-with. Not sure if that's multi-family fires. Also, accelerating loss isn't evident from the data provided. Rule G0.3: giveback/retrace with trend intact. The giveback is 6%, which is a retrace. But is the trend intact? The ER10 is low (0.20), which might suggest the trend isn't strong. However, the price is still in a range (clsInRng 0.83), so maybe the trend isn't clearly broken. \n\nWait, the giveback is 6%, which could be a retrace. If the trend is intact, then per G0.3, we should HOLD. But if the trend isn't intact, maybe EXIT. However, the ER10 is low, which might indicate a weak trend. But the price hasn't broken below a key level yet. The local data shows the price is still within a range. Also, the volume is increasing, which might indicate some support. \n\nAlternatively, the giveback of 6% might be considered a retrace, and if the trend is still intact (even with low ER10), then HOLD. But I'm not entirely sure. The ER10 being low might suggest that the trend is not strong, but without a clear break, maybe it's still considered intact. \n\nI think the best fit here is G0.3: giveback (6%) and trend is intact (assuming the range is still holding). Therefore, the decision would be HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback/retrace (6% giveback) with trend intact (price within 0.83 range, no clear break). Low ER10 (0.20) suggests weak momentum but no definitive trend failure.",
+          "n_out": 608,
+          "total_s": 59.2948990840232,
+          "prefill_s": 13.392931,
+          "decode_s": 45.901968084023196,
+          "e2e_toks": 10.25383311873826,
+          "decode_toks": 13.245619422833041,
+          "text_hash": "49ae78bb8d3d8b08896dd94cd1ea327975528f88a803a27e2e5cec0df44ddedb",
+          "perf": {
+            "t_prefill_ms": 13392.931,
+            "n_prefill": 9118,
+            "t_decode_ms": 45539.936,
+            "n_decode": 608
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 16,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the current minute's data: the price is at -7.00pts from entry, with a leg age of 0m and an amplitude of 16.2pts. The giveback is 0%, which might be important. The volume over 5 minutes is 6.9pts, down from -2.6. The ER10 is 0.59. The fires mentioned are HA-against (0m ago) and PROPP-with (1m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But here, the giveback is 0%, so maybe no adverse excursion yet? Wait, the price is down from entry, but giveback is 0%\u2014maybe the entry was a long, and the price is down, but giveback is calculated differently. Hmm, need to clarify. If the entry was a long and the price is down, that's an adverse move. But giveback is 0%, which might mean that the price hasn't retraced from the entry point. Maybe the entry was a short, and the price is down, which would be a positive move. But the problem is that the user hasn't specified the trade direction. Wait, the initial entry's direction isn't given here. That's a problem. Without knowing if it's a long or short, how can I apply the rules?\n\nWait, looking back at the initial data. The first entry at [t=0m] shows a closed-bar with O+4.00, H+2.00, L+5.00, C+4.50. So the entry might be a long, as the open is higher than the close? Or maybe not. Wait, the \"pts fr entry\" is the points from entry. So if the entry was at a certain level, and the price is moving from there. But without knowing the entry direction, it's tricky. However, the user might assume that the trade is a long, given the initial data. Alternatively, maybe the entry is a long, and the current price is down from entry, which would be an adverse move. But the giveback is 0%, which might mean that the price hasn't retraced from the entry. Wait, giveback is the percentage of the entry price that has been retraced. If it's 0%, then the price hasn't retraced, so maybe the entry is still in the direction of the trade. But this is confusing.\n\nAlternatively, maybe the trade is a long, and the current price is down from entry, but giveback is 0%\u2014so the entry was a long, and the price hasn't retraced, meaning the trade is still in the direction of the entry. Wait, that doesn't make sense. If the price is down from entry, that's a loss for a long trade. But giveback is 0%\u2014maybe the entry was a short, and the price is down, which is a gain. But the initial entry's direction isn't clear. This is a problem. Without knowing the trade direction, applying the rules is difficult. However, the user might have assumed a long trade based on the initial data. Let me check the initial entry again. The first closed-bar at 5s has O+4.00, H+2.00, L+5.00, C+4.50. If the entry was a long, then the open is higher than the close, which might indicate a bearish bar. But the entry could be a long at the open,",
+          "n_out": 800,
+          "total_s": 75.27413325398811,
+          "prefill_s": 14.245011,
+          "decode_s": 61.02912225398811,
+          "e2e_toks": 10.627820811973482,
+          "decode_toks": 13.108495918892588,
+          "text_hash": "c5dd42d706bd9a7efd964b188d13e705421edb6db981f51ac17ce4f8ede6f026",
+          "perf": {
+            "t_prefill_ms": 14245.011,
+            "n_prefill": 9486,
+            "t_decode_ms": 60478.837,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 21,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at -19.25pts, leg age is 11m, amp is 31.5pts, giveback is 94%. The volume over 5m is 11.8pts, which is an increase of +3.4 from the previous. The ER10 is 0.04. Fires in the last 3m include HA-against (1m ago) and PROPP-against (0m ago). \n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I need to check if there's an adverse movement. The giveback is 94%, which is a significant retrace. However, the term \"adverse excursion\" might refer to a sharp move against the trend. But the current price is down 19.25pts, which could be part of a larger move. However, the leg age is 11m, so maybe the entry was earlier. Not sure yet.\n\nG0.2: If multi-family fires and accelerating loss, then EXIT. The fires mentioned are HA-against and PROPP-against. Are these considered multi-family fires? The term \"multi-family\" might refer to multiple types of fires (like different indicators). Also, accelerating loss would mean the losses are increasing. The volume is up, but the price is down. However, the ER10 is 0.04, which is low, indicating low efficiency. Not sure if this is accelerating loss.\n\nG0.3: If giveback/retrace and trend is intact, then HOLD. The giveback is 94%, which is a retrace. But is the trend intact? The amp is 31.5pts, which might indicate the overall trend's strength. However, with a 94% giveback, the trend might not be intact. But the rules say if the trend is intact despite the retrace, hold. However, if the trend is broken, then maybe exit.\n\nWait, the current price is down 19.25pts from entry. The leg's amplitude is 31.5pts, so the giveback is 94% of that. That suggests a significant retrace. If the trend is intact, then G0.3 would say HOLD. But if the trend is not intact, then maybe not. However, the rules don't mention trend intactness in G0.3, just that if there's a retrace and the trend is intact, hold. But how do I determine if the trend is intact?\n\nLooking at the price_velocity_30 and other indicators. The price_velocity_30 is -0.950, which is negative, suggesting a downward trend. However, the reversion_prob_30 is 0.860, which is lower than 1, indicating some probability of reversion. But the trend might still be downward. However, the giveback is massive, so maybe the trend is not intact. Alternatively, the trend could be intact but with a retracement.\n\nAlternatively, looking at the 1m bar: price_velocity_1b is -24.75, which is a big drop. The bar_range is +27.50, with a large body down. This might indicate a strong bearish move, which could mean the trend is not intact but rather accelerating downward. However, the rules for G0.2 require multi-family fires",
+          "n_out": 800,
+          "total_s": 70.25386868300848,
+          "prefill_s": 11.531039,
+          "decode_s": 58.72282968300848,
+          "e2e_toks": 11.387273256219798,
+          "decode_toks": 13.623321701601872,
+          "text_hash": "6d5a3513f76767d0ec80ce99855d33d3f0de89452d4590c059578e825ccf2b72",
+          "perf": {
+            "t_prefill_ms": 11531.039,
+            "n_prefill": 8045,
+            "t_decode_ms": 58172.544,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 2,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +14.50pts, leg age is 2 minutes, amplitude is 35.8pts, giveback is 0%. Volatility over 5 minutes is 11.0pts, which is an increase of +0.7 from the previous period. The ER10 is 0.18, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include HA-with (3m ago) and PROPP-against (1m ago), but none else.\n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. However, the giveback here is 0%, which suggests no retrace. So maybe not applicable here.\n\nG0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires mentioned are HA-with and PROPP-against. But \"multi-family fires\" might refer to multiple types of fires occurring simultaneously. However, the description here only mentions two fires, and it's unclear if they are considered \"multi-family.\" Also, accelerating loss isn't explicitly mentioned. The price is currently up, so maybe not a loss scenario. This might not trigger G0.2.\n\nG0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend's integrity isn't directly stated, but the price is moving upwards with positive velocity and acceleration. However, the ER10 is 0.18, which is low, suggesting possible mean reversion. But the reversion_prob_30 is 0.988, which is very high, indicating a strong mean reversion tendency. However, the trend being intact isn't clear. If the trend is still considered intact despite the high reversion probability, maybe G0.3 isn't triggered.\n\nWait, the giveback is 0%, so no retrace. Therefore, G0.3's condition isn't met. The other rules: G0.1 doesn't apply because no adverse excursion. G0.2's conditions aren't clearly met. So maybe none of the rules apply, but the user wants a decision.\n\nAlternatively, looking at the price_velocity_1b and price_accel_1b. At 1m, price_velocity is +12.75, acceleration +3.5. The trend seems to be upwards. However, the reversion probability is high. But the rules don't mention reversion directly. The rules are about adverse excursions, multi-family fires, and retraces.\n\nSince none of the rules' conditions are met (no adverse excursion, no multi-family fires with accelerating loss, no giveback), the default would be to HOLD. But I need to check if any of the rules are triggered.\n\nWait, the local info says \"fires<=3m: HA-with(3m ago), PROPP-against(1m ago), none-else\". HA and PROPP are types of fires. If \"multi-family fires\" refers to multiple types, then HA and PROPP could be considered as two different families. However, the rule G0.2 requires \"multi-family fires AND accelerating loss\". The accelerating loss isn't mentioned here. The price is moving up, so maybe not a loss. Therefore, G0.2 might not apply.\n\nIn that case, since none of",
+          "n_out": 800,
+          "total_s": 71.8978729689843,
+          "prefill_s": 12.378732,
+          "decode_s": 59.5191409689843,
+          "e2e_toks": 11.126893842118367,
+          "decode_toks": 13.44105420501421,
+          "text_hash": "c4e841e408ef1ad599c7e6b01888aabfdc46d798f683ca0270fd2c2346c9bc8d",
+          "perf": {
+            "t_prefill_ms": 12378.732,
+            "n_prefill": 8484,
+            "t_decode_ms": 58963.752,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 8,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +19.25pts, leg age is 6 minutes, amplitude is 49.5pts, giveback is 17%. The volume over 5 minutes is 5.5pts, which is a decrease of 1.6 from the previous. The ER10 is 0.60, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include KMDR-against (3m ago), HA-against (0m ago), and PROPP-with (0m ago). \n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. However, the current price is +19.25pts, which seems to be a gain, but the giveback is 17%. Wait, giveback refers to a retracement after a move. If the trade was entered and there's a retracement, but the overall trend is still intact? Not sure yet. Need to check other factors.\n\nG0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires listed are KMDR-against, HA-against, and PROPP-with. \"Multi-family fires\" might refer to multiple signals indicating risk. However, the PROPP is with, which might be a positive signal. But the other two are against. However, the term \"accelerating loss\" isn't clearly present here. The ER10 is 0.60, which is moderate, not sure if it's accelerating loss.\n\nG0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 17%, which is a retrace. The trend's integrity depends on other factors. The price is still up at +19.25pts, but the giveback suggests some pullback. However, the ER10 is 0.60, which might indicate some momentum still present. If the trend is considered intact despite the giveback, then G0.3 would suggest HOLD.\n\nLooking at the 1m bar data: the closed-bar is O+20.50, H+26.00, L+12.00, C+17.75. The price velocity is -2.75, but the acceleration is +0.50. The volume velocity is +258, and acceleration is +2258. The bar range is +14.00, body is -2.75 (so the close is lower than open, but the overall trend might still be up given the high and low). The price mean over 30 is +21624.242, sigma is +14.222. The z-score for close vs high is +0.824, which is not too extreme. The band position is +1.866, indicating above the band, which might be a continuation of the trend.\n\nThe reversion probability is 0.959, which is high, suggesting that the price might revert, but the trend is still intact? Or maybe not. The Hurst exponent is 0.517, which is around 0.5, indicating a random walk, but slightly mean-reverting. However, the reversion probability is high, so maybe there's",
+          "n_out": 800,
+          "total_s": 73.28375166398473,
+          "prefill_s": 12.805768,
+          "decode_s": 60.47798366398473,
+          "e2e_toks": 10.916471684857255,
+          "decode_toks": 13.227954232812962,
+          "text_hash": "d85aa1ff886eaf3d951504dd2f00010b0bbdc6a6b2e39a72e62c8357d4c26b1f",
+          "perf": {
+            "t_prefill_ms": 12805.768,
+            "n_prefill": 8825,
+            "t_decode_ms": 59917.321,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 12,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +15.25, with a close in range of 0.18. The price velocity is -5.75, and acceleration is -0.5. Volume velocity is +277, which is a big increase. The bar range is +9.75, body is -5.75, so it's a bearish bar. The upper wick is +2.25, lower wick +1.75. \n\nNow, checking the 30-period metrics: price mean is +21628.133, sigma +16.59. VWAP is +21626.072. Z-score for close vs high is -0.787, vs low +0.029. Hurst exponent is 0.418, which suggests mean reversion. Reversion probability is 0.987, so high chance of mean reversion. \n\nLooking at the local info: leg age is 6m, amplitude 19.0pts, giveback 9%. Volatility (5m) is 5.2pts, with a delta of +1.5. ER10 is 0.10, which is low, indicating low efficiency. Fires in the last 3m: HA-against (1m ago), PROPP-against (0m ago). \n\nNow, applying the Genome rules. Let's check each rule:\n\nG0.1: Adverse excursion on a clean entry? The current bar is bearish, but the entry isn't mentioned. However, the giveback is 9%, which might indicate some retracement. But not sure if it's an adverse excursion yet.\n\nG0.2: Multi-family fires and accelerating loss? The fires are HA and PROPP against, but it's not clear if they are multiple families. Accelerating loss? The price is decreasing, but the acceleration is -0.5, which is a small negative. Not sure if accelerating loss.\n\nG0.3: Giveback/retrace and trend intact? The giveback is 9%, which is a retrace. The trend's integrity: the Hurst exponent is 0.418 (mean reversion), but the price is in a range with low ER10. The trend might not be intact. However, the reversion probability is high, so maybe the trend is mean-reverting rather than trending.\n\nWait, the current bar's close is +15.25, but the entry point isn't specified. The leg age is 6m, so maybe the entry was earlier. If the entry was a long, and the price is now lower, that's a giveback. But the trend's integrity is unclear. The Hurst exponent suggests mean reversion, so maybe the trend isn't intact. \n\nLooking at the 30-period band position: +0.036, which is near the center. Z-score for close vs high is -0.787, so the close is below the high. The reversion probability is high, so maybe the price is likely to revert. \n\nBut the current bar is bearish, and the volume is increasing. The price velocity is negative, but the acceleration is slightly negative. Not sure if it's accelerating loss. \n\nConsidering G0.3: if there's a giveback (9%) and the trend is intact. But if the trend is mean-reverting, maybe the trend isn't intact. However, the reversion probability is high, so maybe the",
+          "n_out": 800,
+          "total_s": 74.66903580899816,
+          "prefill_s": 14.061473,
+          "decode_s": 60.60756280899816,
+          "e2e_toks": 10.713945765235048,
+          "decode_toks": 13.199672828309593,
+          "text_hash": "c3a253189999ad0ef1e2abbab16efd3a4ab0f929f20368a2535fd0260cef531a",
+          "perf": {
+            "t_prefill_ms": 14061.473,
+            "n_prefill": 9243,
+            "t_decode_ms": 60055.161,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 18,
+          "arm": "baseline"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price has a giveback of 57%, which is a significant retracement. The trend's integrity might be in question here. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. But wait, the giveback is 57%, which is quite large. However, the trend's status isn't explicitly mentioned. The price_velocity_30 is +0.300, which is slightly positive, suggesting the trend might still be intact. However, the reversion_prob_30 is 0.979, indicating a high probability of reversion, which could mean the trend isn't intact. \n\nAlso, looking at the 1m bar, the price closed at +9.25, but the giveback is 57%. The local info mentions \"leg age 10m amp 27.0pts giveback 57%\". A high giveback might indicate a potential reversal. However, G0.3 says to HOLD if the trend is intact. But if the trend isn't intact, maybe G0.2 applies? G0.2 is about multi-family fires and accelerating loss. The fires mentioned are HA-with(1m ago) and PROPP-against(0m ago). Not sure if that's multi-family fires. The ER10 is 0.18, which is low, suggesting possible inefficiency or lack of momentum.\n\nAlternatively, since there's a significant giveback and the reversion probability is high, maybe the trend isn't intact. But the rules don't mention reversion directly. G0.3's condition is giveback/retrace AND trend intact. If the trend isn't intact, then G0.3 doesn't apply. But how do I determine if the trend is intact? The price_velocity_30 is positive, but the reversion_prob is high. Maybe the trend is not intact, so G0.3 doesn't apply. However, without explicit info on trend direction, it's tricky. \n\nAlternatively, maybe the high giveback and reversion probability suggest that the trend is not intact, so G0.3 doesn't apply. But then, is there another rule? G0.1 is about adverse excursion on a clean entry. The current situation might not be an adverse excursion. The user hasn't mentioned any adverse movement from the entry point. The giveback is 57%, but if the entry was a long, then a retracement might be a pullback. However, the rules don't specify entry type. \n\nGiven the ambiguity, but the high reversion probability and significant giveback, maybe the trend isn't intact. However, without clear info on trend status, it's hard. But since the giveback is high and reversion is likely, perhaps the trend is not intact. Therefore, G0.3's condition isn't met, so we might not HOLD. But the user's previous decisions were HOLD. Maybe the trend is still considered intact despite the giveback. \n\nAlternatively, the high reversion probability might indicate that the trend is not intact, so G0.3 doesn't apply. But without a clear rule for this scenario, maybe the best is to apply G0.3 if the trend is intact. Since the price_velocity_30 is positive, maybe the trend is still intact. Therefore, HOLD. But the giveback is 57%, which is a lot. However, the rule says if giveback and trend intact, HOLD. So the answer would be HOLD with confidence based on G0.3.\n</think>\n\nDECISION: HOLD  \nCONFID",
+          "n_out": 800,
+          "total_s": 74.60723884799518,
+          "prefill_s": 13.865681,
+          "decode_s": 60.741557847995175,
+          "e2e_toks": 10.722820095646755,
+          "decode_toks": 13.170554532071565,
+          "text_hash": "4cb2c78b705999255875e081e15e88908d354049fbcf26e860c21c92c5b6fefd",
+          "perf": {
+            "t_prefill_ms": 13865.681,
+            "n_prefill": 9466,
+            "t_decode_ms": 60189.287000000004,
+            "n_decode": 799
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 22,
+          "arm": "baseline"
+        }
+      ],
+      "summary": {
+        "n": 15,
+        "mean_decode_toks": 13.33216885172381,
+        "mean_e2e_toks": 10.70664525325882,
+        "mean_decode_s": 53.63019101566235,
+        "mean_total_s": 66.52714814899566
+      },
+      "config": {
+        "draft": null,
+        "logits_all": false
+      }
+    },
+    "prompt_lookup": {
+      "rows": [
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"leg age 4m amp 29.8pts giveback 8%\". The giveback is 8%, which is a retracement from the entry point. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. \n\nChecking the trend integrity. The price_velocity_30 is -0.775, which is negative, but the reversion_prob_30 is 0.994, indicating a high probability of reversion. However, the trend might still be considered intact if the overall direction hasn't changed. Also, the Hurst exponent is 0.366, which is less than 0.5, suggesting mean reversion, but the trend might still be present. \n\nLooking at the fires: KMDR-against, HA-with, PROPP-with. The presence of HA and PROPP with might indicate some support, but KMDR against could be a negative signal. However, the main rule here is G0.3. Since there's a giveback (8%) and the trend might still be intact (depending on the overall direction), HOLD seems appropriate. \n\nConfidence is around 0.7 because the trend's integrity isn't entirely clear, but the giveback is present and the rule applies.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: G0.3 applies: 8% giveback/retrace observed (leg age 4m, amp 29.8pts), but trend remains intact per Hurst 0.366 (mean-reverting) and reversion_prob_30=0.994. No accelerating loss or multi-family fires confirm EXIT.",
+          "n_out": 416,
+          "total_s": 87.7627260320005,
+          "prefill_s": 73.61157800000001,
+          "decode_s": 14.151148032000492,
+          "e2e_toks": 4.7400533097424065,
+          "decode_toks": 29.39690822675902,
+          "text_hash": "86901218c1be147bc36cc6ba73789d48cbae6d547b098073e8e00c66ff11b6f2",
+          "perf": {
+            "t_prefill_ms": 73611.57800000001,
+            "n_prefill": 10272,
+            "t_decode_ms": 8000.064,
+            "n_decode": 105
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 2,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"leg age 1m amp 72.8pts giveback 0%\". Giveback is 0%, which might relate to G0.3, which mentions giveback/retrace. But the trend is intact? The price is at +59.75pts, and the leg's amplitude is 72.8pts. Since giveback is 0%, maybe there's no retrace yet. The rule G0.3 says if giveback/retrace and trend is intact, then HOLD. But here, there's no giveback, so maybe that rule doesn't apply.\n\nLooking at other rules. G0.1 is about adverse excursion on a clean entry. The current bar's price_velocity_1b is -25.000, but the close is +46.50. Not sure if that's an adverse excursion. The entry point isn't clear here. Maybe the entry was earlier, and now there's a move against it? But without knowing the entry direction, it's hard to say. However, the giveback is 0%, so maybe the entry is still holding.\n\nG0.2 mentions multi-family fires and accelerating loss. The fires listed are KMDR-against(2m ago), PROPP-with(0m ago). Multi-family fires might mean multiple signals. But accelerating loss? The price_velocity_30 is -2.633, which is negative, but the 1m bar's close is up. Not sure if losses are accelerating. The ER10 is 0.53, which is moderate. Maybe not accelerating loss.\n\nLooking at the 1m bar: price_velocity_1b is -25.000, but the close is +46.50. The body is -24.50, which is a bearish bar, but the close is still higher than the open. Maybe there's some volatility. The volume is high, but the trend isn't clearly breaking. Since there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no giveback (so G0.3 doesn't apply), maybe the decision is to HOLD. The confidence might be medium, around 0.6, because the trend isn't clearly broken, but there are some negative indicators.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.60  \nREASON: No adverse excursion (G0.1) or multi-family fires (G0.2). Giveback is 0% with trend intact (G0.3 applies if retrace, but none here). Price remains above entry with positive 1m close (+46.50) despite bearish bar body (-24.50). Volatility and mixed signals (PROPP-with) suggest holding.",
+          "n_out": 643,
+          "total_s": 122.90541410297737,
+          "prefill_s": 111.18542,
+          "decode_s": 11.719994102977381,
+          "e2e_toks": 5.231665380186237,
+          "decode_toks": 54.86350883373315,
+          "text_hash": "ceccecdb6aee19da03dab05f00136dbb7344717b4ad2ff971947e18748c22a98",
+          "perf": {
+            "t_prefill_ms": 111185.42,
+            "n_prefill": 11941,
+            "t_decode_ms": 9785.528,
+            "n_decode": 128
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 6,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. The task is to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, I need to check the current market conditions against the rules. The rules mentioned are G0.1, G0.2, and G0.3. Let me go through each one.\n\nLooking at G0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. But in the current data, the price is at +79.00pts, and the leg age is 5m with an amp of 115.0pts. The giveback is 22%, which might indicate some retracement. However, I need to check if this is an adverse move. Since the entry isn't specified, maybe the initial entry was in a different direction. But without knowing the entry direction, it's hard to say. However, the giveback is 22%, which could be a retracement, but not necessarily an adverse excursion if the trend is still intact.\n\nNext, G0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires mentioned here are PROPP-against(0m ago). Multi-family fires might refer to multiple signals or events happening simultaneously. However, the data shows only one fire (PROPP-against) at 0m ago. The term \"multi-family\" might imply more than one, so maybe this rule isn't triggered here. Also, accelerating loss isn't clearly indicated. The ER10 is 0.73, which is a measure of efficiency ratio, but I'm not sure how that ties into accelerating loss. Maybe the volume or price velocity indicates loss, but the data shows mixed signals.\n\nThen G0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 22%, which is a retrace. The trend's integrity can be assessed by looking at the price velocity and acceleration. The price_velocity_1b is -2.000, and price_accel_1b is +31.250. The acceleration is positive, which might indicate that despite the retracement, the trend is still moving upwards. The ER10 is 0.73, which is above 0.5, suggesting a strong trend. Also, the band_pos_30 is -1.398, which might indicate the price is below the band, but the trend could still be intact. The reversion_prob_30 is 0.786, which is lower than 1, meaning less likelihood of reversion, supporting that the trend is intact.\n\nPutting this together, the giveback (retrace) is present, and the trend seems to be intact based on the acceleration and ER10. Therefore, G0.3 applies, leading to a HOLD decision. The other rules don't seem to be triggered as clearly. The confidence would be around 0.7 because the trend's integrity is somewhat supported but there's some retracement.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: G0.3 applies: giveback (22% retracement) is present, but trend integrity is supported by positive 1m price acceleration (+31.25) and ER10=0.73 (strong trend). No multi-family fires (only PROPP-against) or accelerating loss to trigger G0.2.",
+          "n_out": 753,
+          "total_s": 157.68575713099563,
+          "prefill_s": 143.15203400000001,
+          "decode_s": 14.533723130995611,
+          "e2e_toks": 4.775320318717523,
+          "decode_toks": 51.81053699819702,
+          "text_hash": "569bef17b9b21ab564ebe42cd42521db4b162de33f7c75b85d81dffcf82e3256",
+          "perf": {
+            "t_prefill_ms": 143152.034,
+            "n_prefill": 13300,
+            "t_decode_ms": 12356.502,
+            "n_decode": 160
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 10,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the initial trade direction. But looking at the current data, the price is at +62.50pts, and the leg age is 2m with an amp of 40.5pts. The giveback is 0%, which means there's no retrace from the entry point. So maybe there's no adverse movement here yet.\n\nRule G0.2 mentions multi-family fires and accelerating loss. The local fires listed are KMDR-against (1m ago), HA-against (2m ago), PROPP-against (2m ago). \"Multi-family fires\" might refer to multiple signals indicating potential issues. However, the term \"accelerating loss\" isn't clearly present here. The price velocity and acceleration might need checking. The 5m price_velocity is -16.75, but the 1m velocity is -15.00. Not sure if this is accelerating loss. Maybe not enough info here.\n\nRule G0.3 states if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend's integrity isn't clear. The price has moved up, but with some volatility. The ER10 is 0.43, which is low, indicating possible trend continuation. However, the reversion probability is 0.000, suggesting no reversion, so trend might be intact.\n\nLooking at the price action, the current bar at 5m shows a close of +74.75, but the price_velocity_1b is negative. However, the overall trend from the 1D bar shows a large range but the close is lower than the open. However, the local leg is at +62.50, which might be part of a larger trend. The giveback is 0%, so no retrace. Since there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no retrace (G0.3), maybe the decision is to HOLD. But I need to check if any of the rules apply.\n\nWait, the local fires are against, but the rule G0.2 requires both multi-family fires and accelerating loss. The ER10 is 0.43, which is low, but not sure if that's accelerating loss. Maybe the price is moving against the trend, but without a clear adverse excursion or retrace, and no accelerating loss, the best fit is G0.3 isn't triggered because there's no retrace. So, no rule is triggered, so default to HOLD? Or maybe the absence of any rule triggers means HOLD. Alternatively, if none of the rules apply, the default is to hold. Therefore, the decision is HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: No adverse excursion (G0.1) or retrace (G0.3) observed; trend remains intact with 0% giveback and low ER10 (0.43) suggesting persistence. Multi-family fires exist but lack accelerating loss (G0.2).",
+          "n_out": 729,
+          "total_s": 174.2845724229992,
+          "prefill_s": 159.65700400000003,
+          "decode_s": 14.627568422999161,
+          "e2e_toks": 4.182814289670304,
+          "decode_toks": 49.837401468160735,
+          "text_hash": "57ddc2b96927c0314f62d7bef103317be2aa22ebc8b296ec8f946a688a10dc0b",
+          "perf": {
+            "t_prefill_ms": 159657.00400000002,
+            "n_prefill": 14631,
+            "t_decode_ms": 11960.339,
+            "n_decode": 147
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 13,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +45.00pts, leg age is 6m with an amplitude of 83.2pts and a giveback of 29%. The volume over 5m is 17.3pts, which is an increase of +1.5. The ER10 is 0.22, and there's a fire mentioned as PROPP-with(0m ago), none-else. \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see any mention of an adverse excursion here. The giveback is 29%, which might be a retracement, but not sure if it's adverse yet.\n\nRule G0.2: multi-family fires and accelerating loss. The fires here are PROPP-with(0m ago), but no other fires mentioned. Also, the price is up 45pts, so maybe not accelerating loss. Not sure if this applies.\n\nRule G0.3: if giveback/retrace and trend is intact, then HOLD. The giveback is 29%, which is a retrace. The trend's status isn't directly stated, but the price is still positive. However, the ER10 is 0.22, which is low, indicating possible trend weakness. But the amplitude is high (83.2pts), suggesting a strong move. Maybe the trend is still intact despite the giveback. \n\nWait, the giveback is 29% of the leg's amplitude. If the leg is 6m old, and the giveback is 29%, that's a significant retrace but not necessarily an adverse excursion. Since the trend might still be intact (as the price is still above entry), G0.3 would suggest HOLD. \n\nAlso, the PROPP fire is with(0m ago), but no other fires. Rule G0.2 requires multi-family fires, which isn't the case here. So G0.2 doesn't apply. \n\nTherefore, based on G0.3, since there's a giveback (29%) and the trend might still be intact (price is up), the decision is HOLD. Confidence would be around 0.65, as the trend's integrity is a bit uncertain but the retrace isn't extreme yet.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback (29% retrace) with trend intact (price +45.00pts, leg amp 83.2pts). No multi-family fires (only PROPP-with(0m ago)), and no accelerating loss. HOLD to let trend reassert.",
+          "n_out": 622,
+          "total_s": 135.74743519801996,
+          "prefill_s": 124.018856,
+          "decode_s": 11.728579198019958,
+          "e2e_toks": 4.5820386889274545,
+          "decode_toks": 53.03285159254475,
+          "text_hash": "0e2cd467fefd441bf444bc81651e6a95011f94d08aeb8e1410375f87bfd63480",
+          "perf": {
+            "t_prefill_ms": 124018.856,
+            "n_prefill": 12915,
+            "t_decode_ms": 9832.721,
+            "n_decode": 124
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 17,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"giveback 9%\". From G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. The giveback is mentioned here, so that's a point for HOLD. \n\nBut wait, are there any other rules that might apply? Let me check the other rules. G0.1 is about adverse excursion on a clean entry, but the data here doesn't mention an adverse excursion. G0.2 involves multi-family fires and accelerating loss. The fires mentioned are KMDR-against and PROPP-with. Not sure if that's multi-family fires. The accelerating loss isn't clearly indicated here. \n\nThe trend being intact is part of G0.3. The price velocity and other metrics might indicate the trend. The price_velocity_30 is negative in some bars but positive in others. However, the giveback is 9%, which is a retrace. If the overall trend is still considered intact despite the retrace, then G0.3 applies. \n\nConfidence would be around 0.7 because the giveback is present, and trend seems intact, but there's some conflicting data in the velocity and acceleration. However, the main trigger here is the giveback with an intact trend, so HOLD is the decision.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: Giveback/retrace (9% leg giveback) with trend intact (price_velocity_30=-3.05, reversion_prob_30=1.00 suggests mean-reversion pressure but no clear trend breakdown). G0.3 applies: giveback + intact trend \u2192 HOLD. No multi-family fires (only KMDR-against and PROPP-with) or accelerating loss to trigger G0.2.",
+          "n_out": 423,
+          "total_s": 87.07535805599764,
+          "prefill_s": 76.93395100000001,
+          "decode_s": 10.141407055997632,
+          "e2e_toks": 4.8578611612251,
+          "decode_toks": 41.71018850385634,
+          "text_hash": "733f1efe4efb167324f12eafba60b57d862c6049a613b99103237578a2c33f94",
+          "perf": {
+            "t_prefill_ms": 76933.951,
+            "n_prefill": 10407,
+            "t_decode_ms": 8689.806,
+            "n_decode": 114
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 2,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at -11.00pts, leg age is 2m, amplitude is 51.0pts, and giveback is 40%. The volume over 5m is 13.1pts, which is an increase of +1.6 from the previous period. The ER10 is 0.11, which is low, indicating possible trend continuation. The fires mentioned are HA-against (3m ago) and PROPP-with (1m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see any mention of a clean entry here. Rule G0.2: multi-family fires and accelerating loss would mean EXIT. However, the fires listed are HA-against and PROPP-with. Not sure if that's considered multi-family fires. Also, accelerating loss isn't clearly indicated here. Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 40%, which is significant. But is the trend intact? The ER10 is low (0.11), which might suggest a strong trend, but the giveback could indicate a retrace. \n\nWait, the giveback is 40%, which is a large retracement. However, the trend's integrity isn't clear. The ER10 being low might mean the trend is strong, but the high giveback might suggest a possible reversal. However, according to G0.3, if the trend is intact despite the giveback, we should HOLD. But how do I determine if the trend is intact? The price_velocity_30 is -0.050, which is slightly negative, but the price_mean_30 is +21622.842. The z_close_vs_high_30 is +0.515, which is above the mean, but not extremely high. The hurst_30 is 0.514, which is close to 0.5, suggesting a possible mean-reverting trend, but not certain. \n\nAlternatively, looking at the 1m bar's price_velocity_1b is +17.250, which is positive, but the price_accel_1b is +8.250, indicating acceleration. However, the overall trend might be mixed. The giveback is 40%, which is a significant retrace, but if the trend is still considered intact (maybe due to the positive acceleration), then G0.3 would apply, leading to HOLD. However, if the trend isn't intact, maybe G0.2 applies. But I don't see clear signs of accelerating loss. \n\nAlternatively, since the giveback is 40% and the trend might be considered intact (due to the positive acceleration in the 1m bar), then G0.3 would suggest HOLD. But I'm not entirely sure. The ER10 is low, which might indicate a strong trend, but the giveback is large. Maybe the trend isn't intact. However, without explicit information on the trend's direction, it's a bit ambiguous. \n\nAnother angle: the local data shows a leg age of 2m, which might be part of a larger trend. The amplitude is 51.0pts, which is a big move. The giveback of 40% could be a retracement within a larger trend. If the trend is still considered intact despite the retracement, then HOLD. Otherwise, EXIT",
+          "n_out": 800,
+          "total_s": 156.83899362100055,
+          "prefill_s": 143.834285,
+          "decode_s": 13.00470862100056,
+          "e2e_toks": 5.100772336841117,
+          "decode_toks": 61.516180278589694,
+          "text_hash": "62003fd089ad792330ded38566ef056750cc06832bd91f2e09f6aa83cf7f0a6e",
+          "perf": {
+            "t_prefill_ms": 143834.285,
+            "n_prefill": 13219,
+            "t_decode_ms": 10903.414,
+            "n_decode": 141
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 7,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. But looking at the current data, the price is at +61.25pts, and the leg age is 3m with an amp of 98.8pts. The giveback is 4%, which might indicate some retracement. However, I need to check if this is an adverse move. Since the entry was a clean one, and the price is still positive, maybe not adverse yet.\n\nRule G0.2 mentions multi-family fires and accelerating loss. The fires listed are KMDR-against (3m ago), PROPP-with (1m ago). Multi-family fires could mean multiple signals conflicting. But the current data shows a giveback of 4%, but not sure if losses are accelerating. The ER10 is 0.49, which is moderate. Not sure if this rule applies here.\n\nRule G0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 4%, which is a retrace. The trend's integrity depends on other factors. The price_velocity_30 is -3.25, which might indicate a slight negative trend, but the band_pos_30 is -1.271, suggesting the price is below the band, maybe in a downtrend. However, the current bar's price is still positive. Wait, the current price is +61.25pts, but the 30-period mean is +21615.467, and the price is at +21615.467 +61.25? Wait, the data might be in points from entry. So the entry point is 0, and the current price is +61.25. The 30-period mean is +21615.467, but that's the actual price level, not from entry. Maybe I need to focus on the price movement relative to the entry. The giveback is 4%, which is a retrace from the high. If the trend is still intact, then G0.3 would suggest HOLD. But if the trend is broken, maybe EXIT.\n\nLooking at the price_velocity_1b for the 1m bar is -5.5, but the 30-period velocity is -3.25. The acceleration is +18.75, which might indicate a slowing down or changing direction. The reversion_prob_30 is 0.887, which is high, suggesting a possible reversal. However, the trend's integrity isn't clear. The current bar's close is +61.75, which is still above the entry. The giveback is 4%, so maybe a retracement but not a full reversal. If the trend is considered intact, then HOLD. But if the reversion probability is high, maybe the trend is not intact. However, the rules don't mention reversion probability directly. \n\nAlternatively, looking at the 1m bar's price_velocity_1b is -5.5, but the 30-period velocity is -3.25. The acceleration is positive, which might mean the downward momentum is slowing. The Hurst exponent is 0.382, which is less than 0.5, indicating mean-reverting behavior. That might support a retracement. If the trend is mean-reverting, then the giveback (retrace) with trend intact (if the overall trend is still up) would",
+          "n_out": 800,
+          "total_s": 160.81210622898652,
+          "prefill_s": 147.635622,
+          "decode_s": 13.17648422898651,
+          "e2e_toks": 4.974749841662103,
+          "decode_toks": 60.714222860761794,
+          "text_hash": "c714e0c68f3b179c5747446d0576c3f57e4af2d0d8d1f0f878542e262d41dd7f",
+          "perf": {
+            "t_prefill_ms": 147635.622,
+            "n_prefill": 13537,
+            "t_decode_ms": 11030.485,
+            "n_decode": 142
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 12,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +3.25pts, with a leg age of 1m, amplitude of 61.5pts, and a giveback of 6%. The volume over 5m is 19.5pts, which is an increase of +4.7 from the previous period. The ER10 is 0.20, which is low, indicating possible trend weakness. The fires mentioned are HA-against (2m ago) and PROPP-with (0m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see any mention of an adverse excursion here. Rule G0.2: multi-family fires and accelerating loss would mean EXIT. However, the fires here are HA-against and PROPP-with. Not sure if that's considered multi-family fires. Also, there's no clear indication of accelerating loss. Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 6%, which is a retrace. But is the trend intact? The ER10 is 0.20, which is low, suggesting possible trend weakness. However, the price_velocity_30 is -2.317, which might indicate a downward trend. But the current 1m bar shows a close of +15.50, which might be a counter-trend move. \n\nWait, the giveback is 6%, which could be a retrace. If the trend is intact, then G0.3 would apply. But if the trend isn't intact, maybe there's a reversal. However, the ER10 is low, which might mean the trend is not strong. But the price_velocity_30 is negative, suggesting a possible downtrend. However, the current bar's close is positive. This is conflicting. \n\nAlternatively, looking at the 5s and 15s bars, the price_velocity_1b for the 5s bar is -2.5, and for 15s it's +7.0. The volume velocity is positive in the 15s bar. Maybe there's some volatility here. \n\nSince the giveback is 6%, which is a retrace, and if the trend is considered intact (maybe the overall 30-period trend is still down), then G0.3 would suggest HOLD. But I'm not entirely sure about the trend's integrity. However, the rules don't mention ER10, so maybe I should focus on the given rules. \n\nThe fires are HA-against and PROPP-with. Not sure if that's multi-family fires. If it's not, then G0.2 might not apply. Since there's a giveback (retrace) and assuming the trend is intact (maybe based on the 30-period data), then G0.3 would apply, leading to HOLD. The confidence might be around 0.6 because there's some uncertainty about the trend's integrity, but the retrace is present.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback/retrace (6% giveback) with trend intact (price_velocity_30=-2.317, negative momentum suggests ongoing downtrend). No multi-family fires or accelerating loss (G0.2) to trigger EXIT.",
+          "n_out": 777,
+          "total_s": 170.28499239200028,
+          "prefill_s": 156.958526,
+          "decode_s": 13.32646639200027,
+          "e2e_toks": 4.562938806793535,
+          "decode_toks": 58.30502829065209,
+          "text_hash": "9c7a089c4b6569903d640052b60d246ec94b9e7ae0e05ee7546ef80570eead39",
+          "perf": {
+            "t_prefill_ms": 156958.526,
+            "n_prefill": 13980,
+            "t_decode_ms": 11147.345,
+            "n_decode": 141
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 16,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nLooking at the latest 1m bar: the price is at -7.00pts from entry, with a leg age of 0m and an amplitude of 16.2pts. The giveback is 0%, which means there's no retrace from the entry point. The volume over 5m is 6.9pts, which is a decrease of 2.6 compared to the previous period. The ER10 is 0.59, indicating moderate efficiency. \n\nNow, checking the fires: HA-against(0m ago) and PROPP-with(1m ago). The other fires are none. The rules mention multi-family fires and accelerating loss for G0.2. But here, there's only HA and PROPP. However, the term \"multi-family fires\" might refer to multiple fire types. But in this case, it's two fires, maybe considered as multi-family. However, the accelerating loss isn't clear. The price velocity and acceleration might indicate that. \n\nLooking at the price_velocity_1b for the 1m bar: +4.250, and price_accel_1b: +21.500. That seems like the price is accelerating upwards. But the current price is negative from entry. Wait, maybe I'm confused. The price_velocity_1b is the velocity of the price over the 1m bar. If it's positive, that means the price is moving up during that bar. However, the closed-bar points from entry are O-5.50, H-12.50, L+7.00, C-9.25. So the close is -9.25, which is a loss from entry. But the velocity is positive. That might be because the bar had a lower low but closed lower. Maybe the price moved up during the bar but ended lower. \n\nThe vol_velocity_1b is +679.000, which is a big increase in volume. Vol_accel_1b is +3072.000, indicating accelerating volume. That might be a sign of increased activity, possibly due to the HA-against fire. \n\nNow, checking the rules again. G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But the giveback is 0%, so maybe there's no adverse excursion yet. The entry is clean, but the price is down. However, the rule might apply if there's a significant adverse move. \n\nG0.2: If multi-family fires and accelerating loss, then EXIT. The fires here are HA-against and PROPP-with. Are these considered multi-family? Maybe. The accelerating loss would be if the price is losing value rapidly. The current close is -9.25, but the velocity is positive. However, the overall trend might be negative. The price_velocity_30 is -1.825, indicating a negative trend over 30 minutes. So maybe the loss is accelerating. \n\nBut the price_velocity_1b is positive for the 1m bar. That's conflicting. Maybe the accelerating loss refers to the overall trend, not the immediate bar. If the 30-minute velocity is negative and the 1m bar's velocity is positive, perhaps the loss isn't accelerating. \n\nAlternatively, looking at the 5m and 15m bars, the price has been fluctuating but overall seems to be in a downtrend. The reversion probability is high (0.985), suggesting that the price might revert, but the trend is unclear. \n\nAnother angle: the give",
+          "n_out": 800,
+          "total_s": 188.46386958201765,
+          "prefill_s": 173.92390600000002,
+          "decode_s": 14.539963582017634,
+          "e2e_toks": 4.2448454537958416,
+          "decode_toks": 55.02077054645471,
+          "text_hash": "959456a29fed21e05d41432a2db513bf6a4f17ea11c6f90c87a645d286abc8d8",
+          "perf": {
+            "t_prefill_ms": 173923.90600000002,
+            "n_prefill": 14734,
+            "t_decode_ms": 12234.267,
+            "n_decode": 154
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 21,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at -19.25pts, leg age is 11m, amp is 31.5pts, giveback is 94%. The volume over 5m is 11.8pts, which is an increase of +3.4 from the previous. The ER10 is 0.04. Fires in the last 3m include HA-against (1m ago) and PROPP-against (0m ago). \n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I need to check if there's an adverse movement. The giveback is 94%, which is a significant retrace. However, the term \"adverse excursion\" might refer to a sharp move against the trend. But the current price is down 19.25pts, which could be part of a larger move. However, the leg age is 11m, so maybe the entry was earlier. Not sure yet.\n\nG0.2: If multi-family fires and accelerating loss, then EXIT. The fires mentioned are HA-against and PROPP-against. Are these considered multi-family fires? The term \"multi-family\" might refer to multiple types of fires (like different indicators). Also, accelerating loss would mean the losses are increasing. The volume is up, but the price is down. However, the ER10 is 0.04, which is low, indicating low efficiency. Not sure if this is accelerating loss.\n\nG0.3: If giveback/retrace and trend is intact, then HOLD. The giveback is 94%, which is a retrace. But is the trend intact? The amp is 31.5pts, which might indicate the overall trend's strength. However, with a 94% giveback, the trend might not be intact. But the rules say if the trend is intact despite the retrace, hold. However, if the trend is broken, then maybe exit.\n\nWait, the current price is down 19.25pts from entry. The leg's amplitude is 31.5pts, so the giveback is 94% of that. That suggests a significant retrace. If the trend is intact, then G0.3 would say HOLD. But if the trend is not intact, then maybe not. However, the rules don't mention trend intactness in G0.3, just that if there's a retrace and trend is intact, hold. But how do I determine if the trend is intact?\n\nLooking at the price_velocity_30 and other indicators. The price_velocity_30 is -0.950, which is negative, suggesting a downward trend. However, the reversion_prob_30 is 0.860, which is lower than 1, indicating some probability of reversion. But the trend might still be downward. However, the giveback is massive, so maybe the trend is not intact. Alternatively, the trend could be intact but with a retracement.\n\nAlternatively, looking at the 1m bar: price_velocity_1b is -24.75, which is a big drop. The bar_range is +27.50, with a large body down. This might indicate a strong move against the original trend. If the original entry was in a bullish trend, this could be a bearish move. But without knowing the original entry direction",
+          "n_out": 800,
+          "total_s": 154.75076312798774,
+          "prefill_s": 141.108308,
+          "decode_s": 13.642455127987745,
+          "e2e_toks": 5.169602939782301,
+          "decode_toks": 58.64047141769852,
+          "text_hash": "134f3f1f1f3d72f696f870c9825b195420cda3ced68d69aa46216f4f9d7eca56",
+          "perf": {
+            "t_prefill_ms": 141108.308,
+            "n_prefill": 12836,
+            "t_decode_ms": 11581.184000000001,
+            "n_decode": 151
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 2,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +14.50pts, leg age is 2 minutes, amplitude is 35.8pts, giveback is 0%. Volatility over 5 minutes is 11.0pts, which is an increase of +0.7 from the previous period. The ER10 is 0.18, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include HA-with (3m ago) and PROPP-against (1m ago), but none else.\n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. However, the giveback here is 0%, which suggests no retrace. So maybe not applicable here.\n\nG0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires mentioned are HA-with and PROPP-against. But \"multi-family fires\" might refer to multiple types of fires occurring simultaneously. However, the description here only mentions two fires, and it's unclear if they are considered \"multi-family.\" Also, accelerating loss isn't explicitly mentioned. The price is actually moving up (since the entry is at +14.50pts and the leg is 2 minutes old with no giveback), so maybe not a loss. So G0.2 might not apply.\n\nG0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend might still be intact if the price is moving upwards. However, the ER10 is 0.18, which is low, suggesting possible mean reversion. But the trend's integrity isn't directly stated. However, since there's no giveback, maybe the trend is still in place.\n\nLooking at the price velocity and acceleration. At 1m, the price_velocity_1b is +12.75, and price_accel_1b is +3.50, indicating positive momentum. The volume velocity is +382, which is high, suggesting strong buying pressure. The bar range is +16.50, which is a wide range, but the body is +13.00, showing a strong close near the high. This might indicate a continuation of the trend.\n\nSince there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no giveback (G0.3), the rules don't trigger an EXIT. Therefore, the decision is to HOLD. The confidence would be moderate because while the trend seems intact, the ER10 is low, which might suggest some mean reversion risk, but the rules don't explicitly require exiting here.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: No adverse excursion (G0.1) or multi-family fires (G0.2). Giveback is 0% with trend intact (G0.3). Price velocity (+12.75) and volume (+382) show strong upward momentum, no retrace. Hurst exponent (0.536) suggests persistent trend, not mean reversion.",
+          "n_out": 764,
+          "total_s": 156.53923412098084,
+          "prefill_s": 142.156543,
+          "decode_s": 14.382691120980837,
+          "e2e_toks": 4.880565592965308,
+          "decode_toks": 53.119405372302715,
+          "text_hash": "d58ee5d2430eeb54bdaf3d3bdd8f91ef930ac4ec034b51e36f59f6be1e530dee",
+          "perf": {
+            "t_prefill_ms": 142156.543,
+            "n_prefill": 13157,
+            "t_decode_ms": 12306.868,
+            "n_decode": 159
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 8,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +19.25pts, leg age is 6 minutes, amplitude is 49.5pts, giveback is 17%. The volume over 5 minutes is 5.5pts, which is a decrease of 1.6 from the previous. The ER10 is 0.60, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include KMDR-against (3m ago), HA-against (0m ago), and PROPP-with (0m ago). \n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. However, the current price is +19.25pts, and the giveback is 17%. Giveback refers to the retracement from the entry point. If the trade was long, a giveback of 17% might be a retracement, but the trend is still intact? Wait, the reason for G0.3 is if there's a giveback/retrace and the trend is intact, then HOLD. \n\nLooking at the current data, the price has moved up from the entry point (assuming the entry was at a lower level), but there's a giveback of 17%. However, the trend might still be intact if the overall direction is positive. The ER10 is 0.60, which is positive, suggesting some momentum. But the giveback could be a retracement. \n\nG0.3 says if giveback/retrace and trend is intact, HOLD. So if the trend is still up, even with a retracement, we should hold. The price is still higher than the entry point, so the trend might be intact. \n\nG0.2: If multi-family fires and accelerating loss, then EXIT. The fires here are KMDR-against, HA-against, PROPP-with. Multi-family fires might refer to multiple signals indicating potential issues. However, the PROPP is with, which might be a positive signal. But the KMDR and HA are against. However, the term \"accelerating loss\" isn't clearly present here. The volume is decreasing, but the ER10 is 0.60, which is positive. Not sure if this meets G0.2's criteria. \n\nSo, considering G0.3, since there's a giveback (17%) but the trend seems intact (price is still up, ER10 positive), the decision would be HOLD. The confidence would be around 0.75, as the trend is intact despite the retracement. \n\nI need to check if the trend is indeed intact. The price is at +19.25pts, and the amplitude is 49.5pts, which is a large move. The giveback is 17%, which is a partial retracement. The ER10 is 0.60, indicating that the price is moving in the direction of the trend, albeit with some volatility. Therefore, G0.3 applies here, leading to HOLD.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.75  \nREASON: G0.3 applies: giveback (17% retracement) with trend intact (price +19.25pts, ER10=0.60 momentum). No multi-family fires accelerating loss (G",
+          "n_out": 800,
+          "total_s": 157.99170206900453,
+          "prefill_s": 144.218797,
+          "decode_s": 13.772905069004537,
+          "e2e_toks": 5.06355706991872,
+          "decode_toks": 58.08505874337094,
+          "text_hash": "946ec50571d7f80346bf627dc4e2bfdb90eee7381307cf4e4a9f1c5110b3aa7d",
+          "perf": {
+            "t_prefill_ms": 144218.797,
+            "n_prefill": 13457,
+            "t_decode_ms": 11640.195,
+            "n_decode": 149
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 12,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +15.25, with a close in range of 0.18. The price velocity is -5.75, and acceleration is -0.5. Volume velocity is +277, which is a big increase. The bar range is +9.75, body is -5.75, so it's a bearish bar. The upper wick is +2.25, lower wick +1.75. \n\nNow, checking the 30-period metrics: price mean is +21628.133, sigma +16.59. The z-score for close vs high is -0.787, which suggests the close is below the high, but not extremely. The Hurst exponent is 0.418, indicating mean reversion. Reversion probability is 0.987, which is very high. \n\nLooking at the local info: leg age is 6m, amplitude 19.0pts, giveback 9%. Volatility over 5m is 5.2pts, with a delta of +1.5. ER10 is 0.10, which is low, suggesting low efficiency. Fires in the last 3m: HA-against (1m ago), PROPP-against (0m ago). \n\nNow, applying the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see a clear adverse excursion here. The price is moving down, but the giveback is only 9%, which might not be enough for an adverse excursion. \n\nRule G0.2: multi-family fires and accelerating loss. The fires mentioned are HA and PROPP against, but it's not clear if they are multi-family. Also, the price acceleration is -0.5, which is a slight deceleration, not accelerating loss. So maybe not applicable here.\n\nRule G0.3: giveback/retrace and trend is intact. The giveback is 9%, which is a retrace. The trend's integrity is questionable. The Hurst exponent is 0.418 (mean reversion), but the price is in a downtrend. However, the reversion probability is very high, suggesting a possible reversal. If the trend is not intact, then G0.3 might not apply. \n\nWait, the current bar is bearish, but the reversion probability is high. If the trend is mean-reverting, maybe the trend isn't intact. However, the giveback is only 9%, which might not be enough for a retrace. \n\nAlternatively, since the price is moving down but with high reversion probability, maybe it's a setup for a reversal. But the rules don't mention that. The rules are about when to exit or hold based on specific conditions. \n\nLooking back, the current situation doesn't seem to trigger G0.1 or G0.2. For G0.3, if there's a retrace (giveback) and the trend is intact. The trend here is down, but with high reversion, maybe the trend isn't intact. So maybe G0.3 doesn't apply. \n\nSince none of the rules are clearly triggered, but the giveback is 9% and the trend might be reversing, perhaps the best action is to HOLD, as there's no clear signal to exit. However, the high reversion probability might suggest a potential reversal, but without a clear rule, it's safer to hold.\n</think>\n\n",
+          "n_out": 800,
+          "total_s": 184.1499396369909,
+          "prefill_s": 169.33608900000002,
+          "decode_s": 14.813850636990878,
+          "e2e_toks": 4.344285974662904,
+          "decode_toks": 54.00351465690916,
+          "text_hash": "a980da3981f03e38bafaab36aa4d52116d937033bcd830c871d7a51e4ac750ab",
+          "perf": {
+            "t_prefill_ms": 169336.089,
+            "n_prefill": 14375,
+            "t_decode_ms": 12544.99,
+            "n_decode": 155
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 18,
+          "arm": "prompt_lookup"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price has a giveback of 57%, which is a significant retracement. The trend's integrity might be in question here. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. But wait, the giveback is 57%, which is quite large. However, the trend's status isn't explicitly mentioned. The price_velocity_30 is +0.300, which is slightly positive, but the reversion_prob_30 is 0.979, indicating a high probability of reversion. That might suggest the trend isn't intact. \n\nAlso, looking at the 1m bar, the price closed at +9.25, but the giveback is 57% from the entry. The local info says \"leg age 10m amp 27.0pts giveback 57%\". A high giveback could imply that the initial move is being undone, which might mean the trend isn't holding. However, the price_velocity_30 is still positive, albeit small. \n\nBut the reversion probability is very high, which might mean that the price is likely to reverse, so the trend might not be intact. If the trend isn't intact, then G0.3 doesn't apply. Alternatively, if the trend is still considered intact despite the giveback, then HOLD. However, with such a high giveback, it's possible that the trend is no longer intact. \n\nAnother angle: the local info mentions \"fires<=3m: HA-with(1m ago), PROPP-against(0m ago), none-else\". The PROPP-against might indicate some conflicting signals. But the rules don't mention fires in the context of G0.3. \n\nAlternatively, looking at G0.1: adverse excursion on a clean entry. But the entry here isn't specified as clean. The giveback is 57%, which might be considered an adverse excursion. However, the rule says \"clean entry,\" which isn't mentioned here. \n\nGiven the high giveback and the reversion probability, maybe the trend isn't intact. If the trend is not intact, then G0.3 doesn't apply. However, without explicit info on the trend's status, it's a bit ambiguous. But since the giveback is significant, and the reversion probability is high, it's possible that the trend is not intact. Therefore, maybe G0.3 isn't triggered, and we need to check other rules. \n\nAlternatively, if the trend is considered intact despite the giveback, then HOLD. But with a 57% giveback, that's a lot. Maybe the answer is EXIT because the giveback is too large, but the rules don't have a direct rule for that. The closest is G0.3, which requires the trend to be intact. If the trend is not intact, then maybe EXIT. But without clear info on the trend's status, it's tricky. \n\nWait, the user's local info says \"leg age 10m amp 27.0pts giveback 57%\". The \"amp\" is 27.0pts, which might be the amplitude of the leg. The giveback is 57% of that. So the price has retraced 57% of the leg's amplitude. That's a significant retracement. In such a case, even if the trend is intact, the giveback might be a sign of weakness. However, according to G0.3, if the trend is intact, we HOLD. But if the",
+          "n_out": 800,
+          "total_s": 173.21921548101818,
+          "prefill_s": 159.000193,
+          "decode_s": 14.219022481018186,
+          "e2e_toks": 4.618425258297433,
+          "decode_toks": 56.26265807427812,
+          "text_hash": "7daea5483d74b00cdd2d9a591e79565c89a1fcab458dd8e3a4e3aa0a67a63fa5",
+          "perf": {
+            "t_prefill_ms": 159000.193,
+            "n_prefill": 14288,
+            "t_decode_ms": 11977.11,
+            "n_decode": 151
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 22,
+          "arm": "prompt_lookup"
+        }
+      ],
+      "summary": {
+        "n": 15,
+        "mean_decode_toks": 53.08791372428459,
+        "mean_e2e_toks": 4.755299761545886,
+        "mean_decode_s": 13.452064480198493,
+        "mean_total_s": 151.23413861353183
+      },
+      "config": {
+        "draft": "LlamaPromptLookupDecoding",
+        "max_ngram_size": 2,
+        "num_pred_tokens": 10,
+        "logits_all": true
+      }
+    },
+    "model_draft": {
+      "rows": [
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"leg age 4m amp 29.8pts giveback 8%\". The giveback is 8%, which is a retracement from the entry point. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. \n\nChecking the trend integrity. The price_velocity_30 is -0.775, which is negative, but the reversion_prob_30 is 0.994, indicating a high probability of reversion. However, the trend might still be considered intact if the overall direction hasn't changed. Also, the band_pos_30 is +0.519, suggesting the price is above the mean, which could mean an uptrend. \n\nBut there's also a KMDR-against fire at 0m ago, which might indicate some adverse movement. However, G0.1 says if there's an adverse excursion on a clean entry, HOLD. But the giveback is only 8%, not a full excursion. \n\nLooking at the 1m bar: price_velocity_1b is +4.5, which is positive, and the body is +4.00, showing a bullish close. The volume velocity is negative, but the price is still moving up. \n\nConsidering G0.3 again: giveback (retrace) of 8% and trend intact (since the 30-period velocity is negative but reversion probability is high, maybe the trend is not strongly broken). So, HOLD makes sense here. \n\nConfidence would be around 0.7 because the trend isn't clearly broken, and the giveback is moderate. No multi-family fires mentioned, so G0.2 doesn't apply. \n\nSo, the decision is HOLD with confidence 0.7, citing G0.3.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: Giveback/retrace (8% leg giveback) with trend intact (price_velocity_30=-0.775, reversion_prob_30=0.994, band_pos_30=+0.519). G0.3 applies: retracement without trend breakdown.",
+          "n_out": 518,
+          "total_s": 204.8957836460031,
+          "prefill_s": 76.09731,
+          "decode_s": 128.79847364600312,
+          "e2e_toks": 2.5281144920724414,
+          "decode_toks": 4.021786790918812,
+          "text_hash": "d2e32f9dc9b44db991fce5d0629087afa82fe5cdca25d4ea66f5c582d5d4534c",
+          "perf": {
+            "t_prefill_ms": 76097.31,
+            "n_prefill": 9718,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 2,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info shows a leg age of 1m, amp 72.8pts, giveback 0%. The fires within 3m include KMDR-against (2m ago) and PROPP-with (0m ago). \n\nChecking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, HOLD. But here, the giveback is 0%, so maybe no adverse movement yet. \n\nRule G0.2 mentions multi-family fires and accelerating loss. The fires here are KMDR-against and PROPP-with. Not sure if that's multi-family fires. Also, the price velocity and acceleration might indicate direction. The 1m bar has price_velocity_1b=-25.000 and price_accel_1b=+3.750. Negative velocity but positive acceleration, which might mean slowing down in loss, not accelerating. So maybe not G0.2.\n\nRule G0.3: giveback/retrace with trend intact. The giveback is 0%, so no retrace. The trend might be intact if the price is still moving in the original direction. However, the current price is at +59.75pts, but the amp is 72.8pts. Not sure about the trend direction. \n\nLooking at the 1m bar's close: C+46.50, which is a positive close. The price_velocity_1b is negative, but the close is higher than the entry? Wait, the entry point isn't clear here. The local px is +59.75pts from entry. If the entry was earlier, maybe the trend is still up. But the giveback is 0%, so maybe the price hasn't retraced. \n\nSince there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no retrace (G0.3), maybe HOLD is the decision. But I need to check if any rules apply. The PROPP fire is with, but not sure if that's a factor. The confidence might be medium since the data is mixed but no clear rule triggers an EXIT.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: No adverse excursion (G0.1) or accelerating loss (G0.2). Giveback is 0% with trend intact (G0.3). Price velocity (-25.00) and acceleration (+3.75) suggest decelerating decline, not clear exit signals. Volatility (vol_accel_1b=+2987) and mixed fire signals (KMDR-against, PROPP-with) lack consensus for EXIT.",
+          "n_out": 620,
+          "total_s": 228.40221960100462,
+          "prefill_s": 90.71582400000001,
+          "decode_s": 137.68639560100462,
+          "e2e_toks": 2.7145095222063813,
+          "decode_toks": 4.502986640718454,
+          "text_hash": "772b631b57552595c7d4bdd5f7e60c7b328056af5e839f62b8d18f2b7426a8b6",
+          "perf": {
+            "t_prefill_ms": 90715.82400000001,
+            "n_prefill": 10333,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 6,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and data points. The task is to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, I need to check the current market conditions against the rules. The rules mentioned are G0.1, G0.2, and G0.3. Let me go through each one.\n\nLooking at G0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. But in the current data, the price is at +79.00pts, and the leg age is 5m with an amp of 115.0pts. The giveback is 22%, which might indicate some retracement, but not sure if it's an adverse excursion yet. Need more context on the entry direction.\n\nNext, G0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires mentioned here are PROPP-against(0m ago). Multi-family fires could mean multiple signals indicating trouble. However, the description says \"none-else,\" so maybe only one fire. Accelerating loss isn't clearly stated here. The ER10 is 0.73, which is a measure of efficiency ratio. Not sure if that's related to accelerating loss.\n\nThen G0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 22%, which is a retrace. The trend's integrity needs checking. The price_velocity_1b is -2.000, and price_accel_1b is +31.250. The acceleration is positive, which might indicate the trend is still intact despite the retrace. The ER10 is 0.73, which is above 0.5, suggesting the trend might still be valid.\n\nPutting it all together: The giveback is 22%, which is a retrace, and the trend seems intact based on the positive acceleration and ER10. So G0.3 applies here, leading to HOLD. There's no clear indication of multi-family fires or accelerating loss for G0.2. Adverse excursion isn't confirmed for G0.1. Therefore, the decision is HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback/retrace (22% giveback) with trend intact (price_accel_1b=+31.25, ER10=0.73 > 0.5). No multi-family fires (only PROPP-against) or accelerating loss to trigger G0.2. No adverse excursion on clean entry (G0.1).",
+          "n_out": 590,
+          "total_s": 213.84473668099963,
+          "prefill_s": 85.194356,
+          "decode_s": 128.65038068099963,
+          "e2e_toks": 2.7590110898082356,
+          "decode_toks": 4.586072710215751,
+          "text_hash": "3bf1208cd20a2ac78bdda298aa58c68dbd93423a94fbb3b11672a25b11592eba",
+          "perf": {
+            "t_prefill_ms": 85194.356,
+            "n_prefill": 10419,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 10,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the initial trade direction. But looking at the current data, the price is at +62.50pts, and the leg age is 2m with an amp of 40.5pts. The giveback is 0%, which means there's no retrace from the entry point. So maybe there's no adverse movement here yet.\n\nRule G0.2 mentions multi-family fires and accelerating loss. The local fires listed are KMDR-against (1m ago), HA-against (2m ago), PROPP-against (2m ago). \"Multi-family fires\" might refer to multiple signals indicating potential issues. However, the term \"accelerating loss\" isn't clearly present here. The price velocity and acceleration might need checking. The 5m price_velocity is -16.75, but the 1m velocity is -15.00. Not sure if this is accelerating loss. Maybe not enough info here.\n\nRule G0.3 states if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend's integrity isn't directly mentioned, but looking at the price movement, the current price is higher than the entry point (assuming the entry was at +0.00pts as per the local px). The trend might still be intact. However, the reversion_prob_30 is 0.000, which suggests no reversion, so the trend might be strong.\n\nLooking at the price_velocity_30 and other indicators, the 30-period velocity is negative, but the current price is still up. The Hurst exponent is 0.497, which is less than 0.5, indicating mean-reverting behavior. However, the reversion_prob_30 is 0.000, which might contradict that. Maybe the Hurst is for a different period. The 1m price_velocity is negative, but the 5m is also negative. However, the overall trend from the history shows that the price has been increasing over the past 12 minutes, with multiple HOLD decisions. \n\nThe current situation has no giveback, so G0.3 might not apply. The fires are against, but not sure if they're multi-family. The term \"multi-family fires\" might refer to multiple signals, but the user's data shows three against signals. However, the rule requires accelerating loss, which isn't clearly present. The price is still up, so maybe not accelerating loss.\n\nSince there's no adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no giveback (G0.3), the decision might be to HOLD. But I need to check if any of the rules apply. The absence of adverse movement and the trend being intact (as per the price still being up) might lead to HOLD. However, the reversion probability is zero, which might suggest the trend is strong. Therefore, the confidence might be medium, around 0.6.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.60  \nREASON: No adverse excursion (G0.1) or multi-family fires with accelerating loss (G0.2). Giveback is 0% (no retrace), and trend remains intact (price +62.50pts, no reversion_prob_30 signal). G0.3 applies: giveback/retrace absent, trend intact.",
+          "n_out": 798,
+          "total_s": 370.81563954797457,
+          "prefill_s": 152.159383,
+          "decode_s": 218.65625654797458,
+          "e2e_toks": 2.1520127925908534,
+          "decode_toks": 3.6495639896081076,
+          "text_hash": "f5edca18b2b7a661f35ede6289c6135c707e80518c3086ae7dea7cd197919346",
+          "perf": {
+            "t_prefill_ms": 152159.383,
+            "n_prefill": 13061,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 13,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the rules again.\n\nRule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would be a move against the trade direction. But looking at the current data, the price is at +45.00pts, and the leg age is 6m with an amp of 83.2pts. The giveback is 29%, which might indicate some retracement. However, I need to check if this is an adverse move. Since the entry point isn't specified, it's a bit tricky. But maybe the giveback isn't enough to trigger G0.1 yet.\n\nNext, Rule G0.2 mentions multi-family fires and accelerating loss. The local fires show PROPP-with(0m ago), but no other fires. Multi-family fires would require multiple concurrent fires, which isn't the case here. So G0.2 might not apply.\n\nRule G0.3 states if there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 29%, which is a retrace. Now, checking the trend. The price_velocity_30 is -1.592, which is negative, suggesting a downward trend. However, the current price is higher than the entry point (assuming the entry was lower). Wait, the local px is +45.00pts, but the entry isn't clear. Maybe the trend is not intact? Or maybe the 30-period velocity is conflicting. Alternatively, the trend might still be considered intact if the overall direction hasn't changed. But with a negative 30-period velocity, maybe the trend is bearish. However, the current bar's price is up, so there's some contradiction here. Maybe the trend isn't intact, so G0.3 doesn't apply.\n\nLooking at the price_velocity_1b for the 1m bar is +13.75, which is positive, but the 30-period velocity is negative. This could indicate a short-term up move but a longer-term down trend. If the trend is considered intact (bearish), then a giveback (retrace) would mean HOLD per G0.3. However, if the trend isn't intact, maybe it's a reversal. But without knowing the entry direction, it's hard. Assuming the trade was long, a giveback (retrace) with a bearish trend would mean HOLD. But if the trend is not intact, maybe EXIT. However, the data is unclear on the entry direction.\n\nAlternatively, looking at the 1m bar's close is +27.75, which is lower than the open of +41.50, indicating a bearish bar. The price_velocity_1b is +13.75, but the close is lower than the open. Wait, that seems conflicting. Wait, the 1m bar's open is +41.50, close is +27.75, so it's a down bar. The price_velocity_1b is +13.75? That might be a typo or misunderstanding. Wait, the price_velocity_1b is calculated as (close - open) / time, but if the close is lower than the open, it should be negative. Maybe the data has an error here. Alternatively, maybe the velocity is positive because of higher high or low? Not sure. This might be a data inconsistency, but I have to work with what's given.\n\nAssuming the data is correct, the 1m bar's price_velocity_1b is positive, but the close is lower than the open. That's confusing. Maybe the velocity",
+          "n_out": 800,
+          "total_s": 333.32014621800045,
+          "prefill_s": 131.46215,
+          "decode_s": 201.85799621800044,
+          "e2e_toks": 2.4000949509867855,
+          "decode_toks": 3.963182113112946,
+          "text_hash": "7cbc51c3f4995a8ccc7a7e334a822fd4137f4af3f43c31c651edf483d63c2400",
+          "perf": {
+            "t_prefill_ms": 131462.15,
+            "n_prefill": 11923,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737469980_S",
+          "frame": 17,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The local info says \"giveback 9%\". From G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. The giveback is mentioned here, so that's a point for HOLD. \n\nBut wait, are there any other rules that might apply? Let's check the other rules. G0.1 is about adverse excursion on a clean entry, but the data here doesn't mention an adverse excursion. G0.2 talks about multi-family fires and accelerating loss. The fires mentioned are KMDR-against and PROPP-with. Not sure if that's multi-family fires. The accelerating loss isn't clearly indicated here. \n\nThe trend being intact is part of G0.3. The price velocity and other metrics might indicate the trend. The price_velocity_30 is negative in some bars but positive in others. However, the giveback is 9%, which is a retrace. If the overall trend is still considered intact despite the retrace, then G0.3 applies. \n\nSo, based on G0.3, since there's a giveback but the trend is intact, the decision is HOLD. The confidence would be around 0.7 because the trend's integrity isn't entirely clear, but the giveback is present.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.70  \nREASON: Giveback/retrace (9% leg giveback) with trend intact (price_velocity_30=-3.05, reversion_prob_30=1.00 suggests mean-reversion pressure but no clear adverse excursion). G0.3 applies: giveback + trend intact \u2192 HOLD. No multi-family fires or accelerating loss (G0.2 inapplicable).",
+          "n_out": 412,
+          "total_s": 171.08905102600693,
+          "prefill_s": 68.060446,
+          "decode_s": 103.02860502600693,
+          "e2e_toks": 2.4081026665895333,
+          "decode_toks": 3.9988894336286624,
+          "text_hash": "ba78f8d48f1fe48be01e55202b0248df34b26b615fbe2e10417de66377cfd721",
+          "perf": {
+            "t_prefill_ms": 68060.446,
+            "n_prefill": 9451,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 2,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price is at -11.00pts, leg age is 2m, amp is 51.0pts, giveback is 40%. The vol(5m) is 13.1pts, which is an increase of +1.6 from the previous. ER10 is 0.11. The fires within 3m include HA-against (3m ago) and PROPP-with (1m ago).\n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see a clean entry mentioned here. Rule G0.2: multi-family fires and accelerating loss would mean EXIT. The fires here are HA-against and PROPP-with. Are these considered multi-family fires? Maybe, but accelerating loss isn't clear. The giveback is 40%, which is a significant retrace. Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The trend might not be intact here because of the large giveback and the negative price movement. However, the ER10 is 0.11, which is low, suggesting possible trend continuation. But the giveback is 40%, which is a big retracement. \n\nWait, the giveback is 40% of the leg's amplitude. The leg's amp is 51.0pts, so 40% of that is about 20.4pts. The current price is -11.00pts from entry. So maybe the retracement is significant. But the trend's integrity is unclear. If the trend is not intact, then G0.3 doesn't apply. However, the presence of multiple fires (HA and PROPP) might indicate multi-family fires. If the loss is accelerating, then G0.2 would trigger an EXIT. But the ER10 is low, which might indicate a possible reversal. However, the user's data shows that the price is moving against the entry, which could be an adverse excursion. But G0.1 requires a clean entry. Since the entry isn't specified as clean, maybe that's not applicable. \n\nAlternatively, the giveback is 40%, which is a retrace. If the trend is still intact despite the retracement, then G0.3 would say HOLD. But if the trend isn't intact, then maybe EXIT. However, without clear info on the trend's status, it's tricky. The ER10 being 0.11 is low, which might suggest a possible trend continuation, but the large giveback might indicate a breakdown. \n\nConsidering the rules again, G0.3 applies if there's a retrace and the trend is intact. If the trend is not intact, then maybe G0.2 applies if there's accelerating loss. But the data doesn't explicitly state accelerating loss. The vol(5m) increased by 1.6, but that's not necessarily accelerating loss. \n\nHmm. The giveback is 40%, which is a significant retrace. If the trend is still considered intact, then HOLD. But if the trend is broken, then maybe EXIT. However, the user's data doesn't explicitly state the trend's status. Given the ambiguity, but the presence of a retrace (giveback), and assuming the trend might still be intact (since ER10 is low), then G0.3 would suggest HOLD. But I'm not entirely sure. Alternatively, the multi-family fires (HA and PROPP) might indicate G0.2, but",
+          "n_out": 800,
+          "total_s": 288.38839442800963,
+          "prefill_s": 113.729052,
+          "decode_s": 174.65934242800964,
+          "e2e_toks": 2.774036734684564,
+          "decode_toks": 4.5803447378129265,
+          "text_hash": "6cf994192326628f786621d48145ca4e39a1d37c7d2a7738534b33ee96bf2d95",
+          "perf": {
+            "t_prefill_ms": 113729.052,
+            "n_prefill": 10931,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 7,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +61.25pts, leg age is 3m with an amplitude of 98.8pts and a giveback of 4%. The volume over 5m is 31.1pts, which is a decrease of 3.7 from the previous period. The ER10 is 0.49, which is moderate. The fires within the last 3m include KMDR-against (3m ago), PROPP-with (1m ago), and none else.\n\nNow, checking the Genome rules. The first rule, G0.1, says if there's an adverse excursion on a clean entry, then HOLD. But I don't see any mention of an adverse excursion here. The giveback is 4%, which might be a retracement, but not sure if it's adverse yet.\n\nNext, G0.2: if there are multi-family fires and accelerating loss, then EXIT. The fires listed are KMDR-against and PROPP-with. However, \"multi-family fires\" might refer to multiple fire signals, but here it's two different types. Also, accelerating loss isn't clearly indicated. The volume is down, but price is still moving. Not sure if this applies.\n\nG0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 4%, which is a retrace. The trend's integrity is questionable. The price has had some volatility, but the latest 1m bar shows a close of +61.25, which might indicate the trend is still up. However, the ER10 is 0.49, which is not very high, suggesting possible mean reversion. But the reversion_prob_30 is 0.985, which is high, meaning strong mean reversion. However, the trend might still be considered intact if the overall direction is up despite the retracement.\n\nWait, the giveback is 4%, which is a retrace. If the trend is intact, then according to G0.3, we should HOLD. But I need to check if the trend is indeed intact. The price has had a leg of 3m with a large amplitude, but the current position is +61.25. However, the 1m bar shows a close that's lower than the open, but the overall trend might still be up. The ER10 is 0.49, which is moderate, not indicating a strong trend. However, the reversion probability is high, which might suggest that the trend isn't intact. But the giveback is only 4%, which is a small retrace. \n\nAlternatively, maybe the adverse excursion is present. The giveback is 4%, but the entry was clean. If the price is retracing but not breaking below a key level, maybe the trend is still intact. So, applying G0.3, since there's a giveback (retrace) and the trend is intact, the decision would be HOLD. \n\nBut I need to confirm if the trend is intact. The price is still in a positive territory, but with some volatility. The ER10 is 0.49, which is not extremely high, but not low either. The reversion probability is high, but that might be due to the mean reversion in the market. However, the overall movement is still upwards. \n\nTherefore, considering G0.3, the presence of a giveback (4%) and the trend being intact (as the price is still positive), the decision is HOLD.",
+          "n_out": 800,
+          "total_s": 305.0623843839858,
+          "prefill_s": 119.332054,
+          "decode_s": 185.73033038398577,
+          "e2e_toks": 2.6224144337409694,
+          "decode_toks": 4.307320179456152,
+          "text_hash": "a2f761f731a256f7a3937b0c0c3eab5f6998c4aded3f91d1d941b7afa1ad12bd",
+          "perf": {
+            "t_prefill_ms": 119332.054,
+            "n_prefill": 11370,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 12,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the latest 1m bar: the price is at +3.25pts, with a leg age of 1m, amplitude of 61.5pts, and a giveback of 6%. The volume over 5m is 19.5pts, which is an increase of +4.7 from the previous period. The ER10 is 0.20, which is low, indicating possible trend weakness. The fires mentioned are HA-against (2m ago) and PROPP-with (0m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I don't see any mention of an adverse excursion here. Rule G0.2: multi-family fires and accelerating loss would mean EXIT. However, the fires here are HA-against and PROPP-with. Not sure if that's considered multi-family fires. Also, there's no clear indication of accelerating loss. Rule G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 6%, which is a retrace. But is the trend intact? The ER10 is 0.20, which is low, suggesting possible trend weakness. However, the price_velocity_30 is -2.317, which might indicate a downward trend. But the current 1m bar shows a close of +15.50, which might be a counter-trend move. \n\nWait, the giveback is 6%, which could be a retrace. If the trend is intact, then G0.3 would apply. But if the trend isn't intact, maybe G0.2? However, the fires are not clearly multi-family. The PROPP-with might be a single fire. Also, the ER10 is low, which might indicate a possible reversal. But the rules don't mention ER10. \n\nAlternatively, since there's a giveback (retrace) and the trend might be intact (if the overall direction is still up despite the retrace), then G0.3 would suggest HOLD. But I need to check if the trend is intact. The price_velocity_30 is negative, but the 1m bar is positive. It's conflicting. Maybe the trend isn't intact. However, without clear info on accelerating loss, G0.2 might not apply. \n\nGiven the giveback of 6% and the possibility that the trend is still intact (maybe the overall direction is up), I might lean towards HOLD under G0.3. But I'm not entirely sure about the trend's status. The confidence might be around 0.6 because there's some ambiguity in the trend's direction.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.60  \nREASON: G0.3 applies: giveback (6%) with trend intact (price_velocity_30=-2.317, but recent 1m bar shows +15.50 close). No multi-family fires (only HA-against and PROPP-with) or accelerating loss, so EXIT not triggered.",
+          "n_out": 706,
+          "total_s": 278.21345399299753,
+          "prefill_s": 110.28851,
+          "decode_s": 167.92494399299753,
+          "e2e_toks": 2.5376199097034666,
+          "decode_toks": 4.20425925542926,
+          "text_hash": "e37afe1f129d513b7daed8b67bbadab81ed272d160e2dc9ebc6f59927ed36cb0",
+          "perf": {
+            "t_prefill_ms": 110288.51000000001,
+            "n_prefill": 11395,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 16,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data and the rules again.\n\nFirst, looking at the current minute's data. The price is at -7.00pts from entry, with a leg age of 0m and an amplitude of 16.2pts. The giveback is 0%, which might be important. The volume over 5m is 6.9pts, down from previous values. The ER10 is 0.59, which is a measure of efficiency ratio, maybe indicating some trend strength. The fires within 3m are HA-against (0m ago) and PROPP-with (1m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But here, the giveback is 0%, so maybe no adverse excursion yet? Wait, the price is down from entry, but giveback is 0%\u2014maybe the entry was a long, and the price is down, but giveback refers to retracement. Hmm, need to clarify. If the entry was a long and the price is down, that's a negative move, but giveback being 0% might mean no retrace yet. Not sure yet.\n\nRule G0.2: If multi-family fires and accelerating loss, then EXIT. The fires here are HA-against and PROPP-with. Are these considered multi-family fires? The term \"multi-family fires\" might refer to multiple signals indicating risk. HA-against could be a bearish signal, PROPP-with might be a bullish one. But since they are conflicting, maybe that's not multi-family. Also, accelerating loss\u2014looking at the price velocity and acceleration. The price_velocity_1b is +4.25, but that's for the 1m bar. Wait, the current 1m bar's price_velocity_1b is +4.25, but the price is down from entry. Maybe I need to check the overall trend. The 30-period price mean is +21596.617, and the current price is lower, but the velocity is positive. Not sure if that's accelerating loss.\n\nRule G0.3: If giveback/retrace and trend is intact, then HOLD. The giveback is 0%, so maybe no retrace. The trend's integrity\u2014looking at the Hurst exponent (0.333), which is below 0.5, suggesting mean-reverting, so trend might not be intact. But the reversion_prob_30 is 0.96, which is high, meaning high probability of mean reversion. However, the trend being intact might depend on other factors. \n\nWait, the current price is down from entry, but the giveback is 0%. Maybe the entry was a long, and the price is down, but the giveback is 0% because the entry hasn't been breached yet. So, no adverse excursion yet. Therefore, G0.1 might not apply. \n\nLooking at the fires: HA-against (bearish) and PROPP-with (bullish). If they are conflicting, maybe not multi-family fires. Also, the accelerating loss\u2014price_velocity_1b is +4.25, but the price is down from entry. Maybe the overall trend is not accelerating loss. \n\nSince there's no clear adverse excursion (G0.1), no multi-family fires with accelerating loss (G0.2), and no retrace (G0.3), maybe the decision is to HOLD. But I need to check the rules again. \n\nAlternatively, the price is down, but the trend might not be intact. If",
+          "n_out": 800,
+          "total_s": 335.798545180005,
+          "prefill_s": 133.033416,
+          "decode_s": 202.76512918000503,
+          "e2e_toks": 2.3823807800333365,
+          "decode_toks": 3.9454515834909603,
+          "text_hash": "51f1d18cf428e2f8366a9104cf2bb802c1e8cc01c8346254b3ef1bbfa8f62f51",
+          "perf": {
+            "t_prefill_ms": 133033.416,
+            "n_prefill": 12203,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737471780_S",
+          "frame": 21,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at -19.25pts, leg age is 11m, amp is 31.5pts, giveback is 94%. The volume over 5m is 11.8pts, which is an increase of +3.4 from the previous. The ER10 is 0.04. Fires in the last 3m include HA-against (1m ago) and PROPP-against (0m ago). \n\nNow, checking the Genome rules. Rule G0.1 says if there's an adverse excursion on a clean entry, then HOLD. But I need to see if that's the case here. The giveback is 94%, which is a significant retrace. However, the trend's integrity isn't mentioned here. Wait, the current price is down 19.25pts from the entry, which might be an adverse move. But is this considered an adverse excursion? The term \"clean entry\" might refer to a fresh entry without prior trades. However, the leg age is 11m, so maybe it's not a clean entry anymore. \n\nLooking at G0.3: if there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 94%, which is a major retrace. But is the trend still intact? The price is down significantly, but the ER10 is 0.04, which is low, indicating possible mean reversion. However, the reversion_prob_30 is 0.970, which is high, suggesting a strong mean reversion. But the trend's direction isn't clear. The price has moved down a lot, but the volume is increasing, which might indicate continued pressure. \n\nWait, the fires are HA-against and PROPP-against. HA (Head and Shoulders) and PROPP (a type of pattern) being against the trend. If the trend was up, these patterns being against would suggest a possible reversal. However, the current price is down, so maybe the trend is down. But the giveback is 94%, which is a big move against the original entry. \n\nAlternatively, maybe the original entry was a long position, and the price has dropped sharply, leading to a large giveback. If the trend is not intact (since the price has reversed so much), then G0.3 might not apply. However, the reversion probability is high, which might mean that the price is reverting to the mean, but that's not necessarily the same as the trend being intact. \n\nAnother angle: the volume is increasing, which could indicate more selling pressure. The price_velocity_1b is negative, showing downward movement. The price_accel_1b is also negative, indicating acceleration in the downward direction. This might suggest that the trend is not intact but rather accelerating downward. However, the reversion_prob_30 is high, which might be conflicting. \n\nWait, the reversion_prob_30 is 0.970, which is very high, meaning the price is likely to revert. But if the trend is accelerating downward, that might not be a reversion. Maybe the reversion is to a lower level. This is confusing. \n\nLooking back at the rules, G0.2 is about multi-family fires and accelerating loss. The fires here are HA and PROPP against, which might be considered as multiple patterns (multi-family fires) indicating a potential exit. Also, the price is accelerating downward (price_accel_1b is -26.000), which could be accelerating loss",
+          "n_out": 800,
+          "total_s": 317.30355477301055,
+          "prefill_s": 121.285302,
+          "decode_s": 196.01825277301054,
+          "e2e_toks": 2.5212449969944273,
+          "decode_toks": 4.0812525807298226,
+          "text_hash": "b119714944b6ae6a4692e082e2a3c56ab16f4388d0171ffc21d80621b4482cff",
+          "perf": {
+            "t_prefill_ms": 121285.302,
+            "n_prefill": 10883,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 2,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide between HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +14.50pts, leg age is 2 minutes, amplitude is 35.8pts, giveback is 0%. Volatility over 5 minutes is 11.0pts, which is an increase of +0.7 from the previous period. The ER10 is 0.18, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include HA-with (3m ago) and PROPP-against (1m ago), but none else.\n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. However, the giveback here is 0%, which suggests no retrace. So maybe not applicable here.\n\nG0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires mentioned are HA-with and PROPP-against. But \"multi-family fires\" might refer to multiple types of fires occurring simultaneously. However, the description here only mentions two fires, and it's unclear if they are considered \"multi-family.\" Also, accelerating loss isn't explicitly mentioned. The price is currently up, so maybe not a loss scenario. This might not trigger G0.2.\n\nG0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback here is 0%, so no retrace. The trend's integrity isn't directly stated, but the price is moving upwards with positive velocity and acceleration. However, the ER10 is 0.18, which is low, suggesting possible mean reversion. But the reversion_prob_30 is 0.988, which is very high, indicating a strong mean reversion tendency. However, the trend being intact isn't clear. If the trend is still considered intact despite the high reversion probability, maybe G0.3 isn't triggered.\n\nWait, the giveback is 0%, so no retrace. Therefore, G0.3's condition isn't met. The other rules: G0.1 doesn't apply because no adverse excursion. G0.2's conditions aren't clearly met. So maybe none of the rules apply, but the user wants a decision.\n\nAlternatively, looking at the price_velocity_1b and price_accel_1b. At 1m, price_velocity is +12.75, acceleration +3.5. That's positive momentum. However, the reversion probability is high. But the trend might still be intact. However, the giveback is 0%, so no retrace. Maybe the trend is intact, but the high reversion probability suggests potential reversal. However, the rules don't mention reversion probability directly.\n\nAlternatively, looking at the ER10 of 0.18, which is low, indicating possible mean reversion. But the rules don't mention ER10. The Genome rules are based on specific conditions like adverse excursion, multi-family fires, giveback, etc.\n\nSince none of the rules seem to be triggered (no adverse excursion, no multi-family fires with accelerating loss, no giveback), the default might be to HOLD. But the user might expect an EXIT if there's a potential for reversal. However, according to the rules, unless one of the conditions is met, we can't apply the rules. Therefore, the decision might be HOLD with moderate confidence, as there's no explicit trigger",
+          "n_out": 800,
+          "total_s": 309.26120982700377,
+          "prefill_s": 120.470089,
+          "decode_s": 188.79112082700377,
+          "e2e_toks": 2.586810031712378,
+          "decode_toks": 4.237487422584187,
+          "text_hash": "54e7f1e515e0800694beb4b77a573458074883472e0b53e414e6a33b2e48ba2f",
+          "perf": {
+            "t_prefill_ms": 120470.089,
+            "n_prefill": 11201,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 8,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data.\n\nFirst, looking at the local info: the price is at +19.25pts, leg age is 6 minutes, amplitude is 49.5pts, giveback is 17%. The volume over 5 minutes is 5.5pts, which is a decrease of 1.6 from the previous. The ER10 is 0.60, which is a measure of efficiency ratio, indicating some momentum. The fires within 3 minutes include KMDR-against (3m ago), HA-against (0m ago), and PROPP-with (0m ago). \n\nNow, checking the Genome rules. The rules are G0.1, G0.2, G0.3. Let's go through each.\n\nG0.1: If there's an adverse excursion on a clean entry, then HOLD. An adverse excursion would mean the price is moving against the entry direction. However, the current price is +19.25pts, which might be a gain, but I need to check if there's a recent adverse move. The giveback is 17%, which could indicate a retracement. But the leg age is 6 minutes, so maybe the entry was a while ago. Not sure yet.\n\nG0.2: If there are multi-family fires and accelerating loss, then EXIT. The fires listed are KMDR-against, HA-against, and PROPP-with. \"Multi-family fires\" might refer to multiple signals or indicators firing. However, the term \"accelerating loss\" isn't clearly present here. The ER10 is 0.60, which is moderate, not necessarily accelerating loss. Maybe not applicable here.\n\nG0.3: If there's a giveback/retrace and the trend is intact, then HOLD. The giveback is 17%, which is a retrace. The trend's integrity depends on other factors. The price is still positive, but the retrace might be a pullback. If the overall trend is still upward, then HOLD. The ER10 being 0.60 suggests some momentum, but not sure if the trend is intact.\n\nLooking at the 1m bar data: price_velocity_1b is -2.75, price_accel_1b is +0.5. The velocity is negative, but acceleration is positive. This might indicate a possible reversal or a slowdown in the downward movement. However, the body of the bar is -2.75, which is a bearish candle, but the upper wick is +5.5, suggesting some resistance. The volume velocity is positive, indicating increased buying pressure. \n\nThe 5s and 15s bars show mixed signals. The 5s bar has a positive close, but the 15s bar has a negative close. However, the overall trend from the 1m bar is still positive, but with some retracement. The giveback of 17% might be a retrace, and if the trend is still considered intact (as per the positive ER10 and some buying volume), then G0.3 would apply, leading to HOLD.\n\nAlso, there's no clear indication of accelerating loss or multi-family fires that would trigger G0.2. The adverse excursion in G0.1 isn't clearly present here since the price is still above the entry point, even with a giveback. Therefore, the most applicable rule is G0.3, leading to HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback (17% retr",
+          "n_out": 800,
+          "total_s": 310.031734891003,
+          "prefill_s": 120.49480100000001,
+          "decode_s": 189.536933891003,
+          "e2e_toks": 2.580381006096856,
+          "decode_toks": 4.220813239809271,
+          "text_hash": "ce3829ad4b3272dc84eb4a9c00e1e031ed342816e6dadca306b96f6cd589ebb2",
+          "perf": {
+            "t_prefill_ms": 120494.801,
+            "n_prefill": 11487,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 12,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed market data snapshot and wants me to decide whether to HOLD or EXIT based on the Genome rules. Let me start by reviewing the current data and the rules again.\n\nFirst, looking at the current minute's data. The local info says \"leg age 6m amp 19.0pts giveback 9%\". The giveback is 9%, which might be relevant. The rules mention G0.3: IF giveback/retrace AND trend is intact THEN HOLD. So if there's a giveback and the trend is still intact, we should HOLD.\n\nBut wait, what's the trend here? The price is at +5.00pts from entry. The leg has a giveback of 9%, but the overall trend might still be up. The 1m bar shows a close of +15.25, but the price_velocity_1b is -5.75, which is a negative velocity. However, the 30-period price_mean is +21628.133, and the current price is +21646.094 (from ldist_level). So maybe the trend is still upwards, but there's a retracement.\n\nAlso, looking at the 1m bar's price_velocity_1b is negative, but the 30-period price_velocity_30 is +1.175, which is positive. That suggests the longer-term trend is still up. The giveback is 9%, which is a retrace, but the trend is intact. So according to G0.3, we should HOLD.\n\nAre there any other rules that might apply? G0.1 is about adverse excursion on a clean entry, but the current data doesn't mention an adverse excursion. G0.2 is about multi-family fires and accelerating loss. The local info mentions \"fires<=3m: HA-against(1m ago), PROPP-against(0m ago), none-else\". So there are some fires, but not sure if they are accelerating loss. The price_velocity_1b is negative, but the 30-period is still positive. Maybe the loss isn't accelerating. So G0.2 might not apply here.\n\nTherefore, the main applicable rule is G0.3. The giveback is present, and the trend (as per 30-period velocity) is intact. So the decision should be HOLD with moderate confidence.\n</think>\n\nDECISION: HOLD  \nCONFIDENCE: 0.65  \nREASON: G0.3 applies: giveback (9%) with trend intact (30-period price_velocity_30=+1.175, ldist_level=+21643.408 above entry). No adverse excursion (G0.1) or accelerating loss (G0.2).",
+          "n_out": 601,
+          "total_s": 248.56119647299056,
+          "prefill_s": 100.75141400000001,
+          "decode_s": 147.80978247299055,
+          "e2e_toks": 2.417915622100357,
+          "decode_toks": 4.066036698956792,
+          "text_hash": "2b7e1a8c39bd6d9257b2cff2958040cd5ca2520b0abaf1659adb67bfbc67415e",
+          "perf": {
+            "t_prefill_ms": 100751.414,
+            "n_prefill": 11223,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 18,
+          "arm": "model_draft"
+        },
+        {
+          "text": "<think>\nOkay, let's see. The user provided a detailed trade scenario with various time frames and metrics. I need to decide whether to HOLD or EXIT based on the Genome rules.\n\nFirst, looking at the current minute's data. The price has a giveback of 57%, which is a significant retracement. The trend's integrity might be in question here. According to G0.3, if there's a giveback/retrace and the trend is intact, we should HOLD. But wait, the giveback is 57%, which is quite large. However, the trend's status isn't explicitly mentioned. The price_velocity_30 is +0.300, which is slightly positive, but the reversion_prob_30 is 0.979, indicating a high probability of reversion. That might suggest the trend isn't intact. \n\nAlso, looking at the 1m bar, the price closed at +9.25, but the giveback is 57% from the entry. The local info says \"leg age 10m amp 27.0pts giveback 57%\". A high giveback could imply that the trend is not holding, but the rules don't mention giveback percentage specifically. G0.3 mentions giveback/retrace, so if the trend is still considered intact despite the giveback, HOLD. However, if the trend is not intact, maybe EXIT. But the rules don't have a direct rule for high giveback leading to exit. \n\nAnother point: the price_velocity_1b is +4.500, but the price_accel_1b is -0.500, indicating slowing momentum. The vol_velocity_1b is +53.000, but the vol_accel_1b is +968.000, which is a huge acceleration in volume. High volume acceleration might indicate a potential reversal. However, the Genome rules don't mention volume acceleration directly. \n\nLooking at the other rules: G0.1 is about adverse excursion on a clean entry, but the entry here isn't mentioned as clean. G0.2 involves multi-family fires and accelerating loss, but the fires mentioned are HA-with and PROPP-against, which might not be multi-family. \n\nSo, based on G0.3, if the giveback is present and the trend is intact, HOLD. But with a 57% giveback, it's a substantial retrace. However, the price_velocity_30 is still slightly positive, and reversion_prob_30 is high, which might mean the trend is not intact. But the rule says \"trend is intact\" then HOLD. If the trend isn't intact, maybe EXIT. However, without explicit info on trend status, it's ambiguous. \n\nAlternatively, since the giveback is significant, maybe it's considered a retrace, and if the trend is not intact, but the rule requires trend intact for HOLD. Since the trend might not be intact, perhaps EXIT. But I'm not sure. The confidence here is low because the trend's status isn't clear. Maybe the high reversion probability suggests the trend isn't intact, leading to EXIT. But the rules don't directly link reversion probability to the decision. \n\nHmm, this is tricky. Given the high giveback and possible trend reversal, but the rule G0.3 requires trend intact. Without clear evidence of trend intact, maybe it's safer to EXIT. But I'm not certain. The confidence would be around 0.4, as there's some ambiguity.\n</think>\n\nDECISION: EXIT  \nCONFIDENCE: 0.40  \nREASON: G0.3 triggers due to 57% giveback/retrace, but trend integrity is ambiguous (price_velocity_30=+0.300",
+          "n_out": 800,
+          "total_s": 360.1740861979779,
+          "prefill_s": 144.066952,
+          "decode_s": 216.1071341979779,
+          "e2e_toks": 2.2211481354609774,
+          "decode_toks": 3.701867608253562,
+          "text_hash": "aedc388e4e06e0def6e749a93fde7b7a60d4b87a0483c5e3a7fce44c9bede78f",
+          "perf": {
+            "t_prefill_ms": 144066.952,
+            "n_prefill": 12337,
+            "t_decode_ms": 0.0,
+            "n_decode": 1
+          },
+          "eid": "2025_01_21_1737475200_L",
+          "frame": 22,
+          "arm": "model_draft"
+        }
+      ],
+      "summary": {
+        "n": 15,
+        "mean_decode_toks": 4.137820998981711,
+        "mean_e2e_toks": 2.5070531443187707,
+        "mean_decode_s": 172.53473852446487,
+        "mean_total_s": 285.01080912446486
+      },
+      "config": {
+        "draft": "Qwen3-0.6B-Q8_0",
+        "draft_engine": "cpu",
+        "num_pred_tokens": 10,
+        "target_gpu_layers": null,
+        "logits_all": true
+      }
+    }
+  }
+}
