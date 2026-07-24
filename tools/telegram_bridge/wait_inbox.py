@@ -28,19 +28,29 @@ def consumed():
 
 def main():
     STATE.mkdir(exist_ok=True)
-    # start from current backlog position? NO — deliver backlog too: a queued
-    # message from a dead period should still reach the session that picks it up.
+    # v2 (2026-07-24): consumption is ATOMIC (flock) and MONOTONIC — the counter
+    # was found rewound to 2/80, causing full-inbox replays to the session.
+    # Racing watcher instances now serialize on the lock, and a stale writer can
+    # never move the counter backwards.
+    import fcntl
+    lock_path = STATE / "consumed.lock"
     while True:
         try:
-            lines = INBOX.read_text(encoding="utf-8").splitlines() if INBOX.exists() else []
-            n = consumed()
-            if len(lines) > n:
-                entry = json.loads(lines[n])
-                CONSUMED_F.write_text(str(n + 1))
-                print(f"NEW_MESSAGE:{entry.get('text','')}")
-                if entry.get("files"):
-                    print("FILES:" + ";".join(entry["files"]))
-                sys.exit(0)
+            with open(lock_path, "w") as lk:
+                fcntl.flock(lk, fcntl.LOCK_EX)
+                lines = INBOX.read_text(encoding="utf-8").splitlines() if INBOX.exists() else []
+                n = consumed()
+                if len(lines) > n:
+                    entry = json.loads(lines[n])
+                    nxt = n + 1
+                    if nxt > n:                       # monotonic guard
+                        CONSUMED_F.write_text(str(nxt))
+                    fcntl.flock(lk, fcntl.LOCK_UN)
+                    print(f"NEW_MESSAGE:{entry.get('text','')}")
+                    if entry.get("files"):
+                        print("FILES:" + ";".join(entry["files"]))
+                    sys.exit(0)
+                fcntl.flock(lk, fcntl.LOCK_UN)
         except Exception as e:
             print(f"watch error: {e!r}", file=sys.stderr)
         time.sleep(1)
