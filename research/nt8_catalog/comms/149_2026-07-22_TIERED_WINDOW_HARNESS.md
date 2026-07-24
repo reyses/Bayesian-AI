@@ -64,6 +64,31 @@ optional-block rules — so every frame's token count is EXACT by construction
 and ctx budgets stop being estimates. Pairs with the log-decay retention
 principle above.
 
+## Gen-2 lever: memory-augmented teacher (owner, 2026-07-23 — design notes)
+Long-term disk memory completing the hierarchy (tiered window = working memory):
+(a) within-episode retrieval of dropped mid-history; (b) cross-episode "trader
+journal" — learning WITHOUT weight updates, a third evolution channel besides
+genome + student. HARD GUARDS: strictly TIME-CAUSAL (episode k sees only
+journals of episodes ended before k) — walk-forward memory only; and for OOS:
+**snapshot isolation** (owner-ratified): checkpoint the brain → OOS runs on a
+copy-on-write branch (writes normally) → post-OOS rollback. Template-leak rule:
+templates persist ONLY if derived from training-side episodes (option A); if an
+OOS-derived template is ever kept, those episodes are BURNED from the held-out
+pool with an alpha-ledger entry. Mirrors the student's MacroBank slow-tier
+(SPEC_ARCH_LOCK_MACRO_MEMORY.md) — same architecture both sides.
+**Memory-lifecycle protocol (owner+Claude synthesis, 2026-07-23):** day-agnostic
+scrubbing alone is NOT leak-free (a rule distilled from OOS episodes encodes
+them whether or not it names the day — the rule IS the leak on reuse). Sound
+form = single-use-then-graduate: (1) OOS episodes gate ONCE on a memory branch;
+(2) harvest day-agnostic templates (scrub all day-identifiable specifics);
+(3) those episodes GRADUATE to the training side, never gate again (alpha-
+ledger entry); (4) the lockbox replenishes from the test-base expansion. The
+teacher's brain grows without contaminating any live held-out claim.
+Burn granularity = the WHOLE DAY (owner-confirmed 2026-07-23): episodes within
+a day are correlated (the program's unit of independence is the day — the
+pseudoreplication rule), so sibling episodes can't be treated as unseen once
+any of them gated. Burn the day, ledger it, replenish with fresh days.
+
 ## v1 GATE FAILURE + v2 correction (same night — the gate worked)
 v1's verify-then-stop FAILED: deep frames hit 23–25k REAL tokens (13–20 taint
 frames/episode). Root cause: the "~9.8k plateau" estimate used chars/4; this
