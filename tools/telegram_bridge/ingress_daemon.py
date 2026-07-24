@@ -122,9 +122,19 @@ def handle_command(text, msg):
         if watcher:
             did.append(f"session consumer: alive ({pending} pending will be delivered)")
         else:
-            did.append(f"session consumer: DEAD — {pending} message(s) held safe; "
-                       "a daemon cannot restart the AI session. Use /wake to "
-                       "open VS Code, or wait for the session to re-arm.")
+            # dead session -> spawn the independent fallback Sonnet right now
+            # (owner one-button repair; same spawner the watchdog uses)
+            try:
+                import watchdog as wd
+                spawned = wd.spawn_fallback()
+                did.append(f"session consumer: DEAD ({pending} pending) — "
+                           + ("independent fallback Sonnet SPAWNED; it will "
+                              "answer here shortly."
+                              if spawned else
+                              "fallback Sonnet already running on it."))
+            except Exception as e:
+                did.append(f"session consumer: DEAD; fallback spawn failed "
+                           f"({e!r:.60}) — /wake to open VS Code instead.")
         if cmd == "/restart":
             did.append("daemon: restarting itself now (systemd brings it back in ~10s)")
         reply = "🔧 /fix report:\n" + "\n".join(f"• {d}" for d in did)
