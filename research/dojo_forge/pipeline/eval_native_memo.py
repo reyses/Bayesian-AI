@@ -77,6 +77,28 @@ MEMO_SYSTEM = (
     "RULES (Genome):\n"
 )
 
+# v2 (owner 2026-07-24, "seed memo #9 as the expected"): pilot arm A showed the
+# v1 wording ("durable, day-agnostic lesson") over-generalizes into genome-echo
+# mottos — 17/18 memos were rule restatements; the ONE useful memo carried a
+# concrete magnitude (reversion_prob split). v2 seeds that format with the
+# teacher's OWN best memo as exemplar (no human alpha enters the bank), makes
+# no-memo the default, and bans rule restatement. Day-agnostic ban unchanged —
+# favorable-signed magnitudes are entry-relative and do not identify days.
+MEMO_SYSTEM_V2 = MEMO_SYSTEM.replace(
+    "You MAY then add ONE line:\n"
+    "MEMO: <=30 words — a durable, day-agnostic lesson for your future self (a "
+    "recurring signature and what it meant), NO date/day references. Omit MEMO if "
+    "nothing is worth remembering.\n",
+    "MOST frames deserve NO memo. Only when you observe a NEW, reusable market "
+    "signature — not on any frame where you would merely restate a rule — add "
+    "ONE line:\n"
+    "MEMO: <=30 words with AT LEAST ONE concrete magnitude (a feature value, "
+    "signed-points level, or duration) and what it resolved into. NEVER restate "
+    "a Genome rule (you already know them); NO date/day references.\n"
+    "Format exemplar (from your own notes): "
+    "\"MEMO: reversion_prob_30 split 0.80(1m)/0.97(5m) during gb>40% resolved "
+    "as continuation - multi-TF split favored holding.\"\n")
+
 _RE_MEMO = re.compile(r'^\s*MEMO:\s*(.+?)\s*$', re.M)
 
 
@@ -296,6 +318,9 @@ def main():
     ap.add_argument('--write-memos', choices=['on', 'off'], default='off')
     ap.add_argument('--limit', type=int, default=None, help="max NEW episodes this pass")
     ap.add_argument('--arm-tag', default='untagged', help="names the artifacts")
+    ap.add_argument('--memo-style', choices=['v1', 'v2seed'], default='v1',
+                    help="v2seed = #9-exemplar format (concrete magnitude, "
+                         "no-memo default, no rule restatement)")
     ap.add_argument('--packets-dir', default=PACKETS)
     ap.add_argument('--db', default=None, help="memory DB path (default gate_state/teacher_memory.db)")
     ap.add_argument('--ledger', default=None, help="ledger path (default gate_state/memory_ledger.jsonl)")
@@ -344,7 +369,8 @@ def main():
     mem = TeacherMemory(db_path=db, ledger_path=ledger,
                         write_allowlist=set(days), run_tag=args.arm_tag,
                         top_k=TOP_K_MEMO)
-    system = MEMO_SYSTEM + base.load_genome()
+    chosen = MEMO_SYSTEM_V2 if args.memo_style == 'v2seed' else MEMO_SYSTEM
+    system = chosen + base.load_genome()
 
     if args.dry_run:
         llm = make_canned_llm()
