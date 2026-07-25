@@ -449,7 +449,7 @@ def main():
                     help="max NEW episodes PER DAY (episodes sort lexically, so "
                          "a flat --limit starves later days in multi-day runs)")
     ap.add_argument('--arm-tag', default='untagged', help="names the artifacts")
-    ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
+    ap.add_argument('--knowledge', choices=['off', 'v1', 'v2'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
                          "before the Genome rules; hash logged per record")
     ap.add_argument('--gauge', choices=['off', 'on'], default='off',
@@ -535,9 +535,9 @@ def main():
     else:
         chosen = MEMO_SYSTEM_V2 if args.memo_style == 'v2seed' else MEMO_SYSTEM
     knowledge_hash = None
-    if args.knowledge == 'v1':
+    if args.knowledge in ('v1', 'v2'):
         import hashlib as _h
-        kp = os.path.join(DOJO, 'genome', 'KNOWLEDGE_PACK_v1.md')
+        kp = os.path.join(DOJO, 'genome', f'KNOWLEDGE_PACK_{args.knowledge}.md')
         raw = open(kp, encoding='utf-8').read()
         knowledge_hash = _h.sha256(raw.encode()).hexdigest()[:16]
         education = '== YOUR EDUCATION' + raw.split('== YOUR EDUCATION')[1]
