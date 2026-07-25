@@ -47,6 +47,8 @@ import eval_native_ckpt as base                      # shared machinery (loader,
 from eval_native_tiered import filter_hist           # 1m/5m closed-bar line filter
 from exam_day import chat, visible, parse_answer     # generation chat + answer parse
 from teacher_memory import TeacherMemory             # the memory bank (GUARD v2)
+sys.path.insert(0, os.path.join(DOJO, '..', 'leg_volume_dossier', 'pipeline'))
+from leg_health_gauge import LegHealthGauge, SICK_DETECTORS  # causal leg gauge
 
 PACKETS = os.path.join(DOJO, 'reports', 'gen0', 'packets')
 GATE_STATE = os.path.join(DOJO, 'gate_state')
@@ -244,8 +246,34 @@ def rebuild_csv(csv_path, records):
                         f"{fr['conf']},{1 if fr['memo'] else 0}\n")
 
 
+_GKV = re.compile(r'(\w+)=([+-]?\d+(?:\.\d+)?)')
+_GLEG = re.compile(r'leg age (\d+)m')
+_GNEED = sorted({f for f, _ in SICK_DETECTORS} | {'body', 'bar_range'})
+
+
+def gauge_step(gauge, frame_text):
+    """Feed one frame to the causal gauge; return the context line (or '')."""
+    feats, leg = {}, None
+    for ln in frame_text.splitlines():
+        t = ln.strip()
+        if t.startswith('[1m]'):
+            for k, v in _GKV.findall(t):
+                if k in _GNEED:
+                    feats[k] = float(v)
+        elif t.startswith('local:'):
+            m = _GLEG.search(t)
+            if m:
+                leg = float(m.group(1))
+    if leg is None or not feats:
+        return ''
+    st_ = gauge.update(leg_age=leg, feats=feats)
+    return (f"== LEG HEALTH GAUGE (causal early-warning) ==\n"
+            f"vigor={st_['vigor']} anomalies={st_['sick']} "
+            f"terminal-phase-warning={'ARMED' if st_['armed'] else 'no'}")
+
+
 def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos,
-                      guard='mechanical'):
+                      guard='mechanical', gauge_on=False):
     """Run one episode frame-by-frame in generation mode with the memory loop."""
     frames = packet['frames']
     eday = day_of(eid)
@@ -256,6 +284,7 @@ def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos,
     retrievals_used = 0
     exit_frame = None
     t0 = time.time()
+    gauge = LegHealthGauge() if gauge_on else None
 
     for i in range(len(frames)):
         granted = []
@@ -264,6 +293,10 @@ def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos,
             if granted:
                 retrievals_used += 1
         content = build_memo_content(frames, i, trail, render_memory_block(granted))
+        if gauge is not None:
+            gl = gauge_step(gauge, frames[i]['text'])
+            if gl:
+                content += "\n\n" + gl
         turns = [("user", content
                   + "\n\nYour decision for THIS minute (DECISION/CONFIDENCE/REASON"
                     " + optional MEMO):")]
@@ -418,6 +451,10 @@ def main():
     ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
                          "before the Genome rules; hash logged per record")
+    ap.add_argument('--gauge', choices=['off', 'on'], default='off',
+                    help="inject the causal LegHealthGauge state (vigor/sick/"
+                         "armed) into each frame — the teacher SEES the "
+                         "early-warning instrument live (owner 2026-07-25)")
     ap.add_argument('--guard', choices=['mechanical', 'reflection'],
                     default='mechanical',
                     help="reflection = teacher reviews candidates vs the actual "
@@ -525,7 +562,8 @@ def main():
     for k, (eid, path) in enumerate(todo, 1):
         packet = json.load(open(path))
         rec = eval_episode_memo(llm, eid, packet, system, mem, use_memory,
-                                write_memos, guard=args.guard)
+                                write_memos, guard=args.guard,
+                                gauge_on=(args.gauge == 'on'))
         base.append_checkpoint(ckpt, rec)
         completed[eid] = rec
         rebuild_csv(csv_path, list(completed.values()))
