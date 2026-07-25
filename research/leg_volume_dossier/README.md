@@ -41,3 +41,12 @@ Episodes: dojo packets (`research/dojo_forge/reports/gen0/packets/`).
 Day-block CIs on cohort deltas; volume-dynamics (velocity/accel) under
 leg-pure normalization; climax-as-feature for the exit head (phase-of-climax,
 effort-since-climax); extend beyond the 25-day dojo set.
+
+## SYNTHESIS (2026-07-25, "bring it all together")
+The composite gauge — VIGOR (conviction fade) × SICKNESS (dynamics anomaly
+count) — is the dossier's product. Money contrast: [FADED & sick≥2] vs
+[ALIVE & clean] = **−7.96 pts / 3 bars, 95% CI [−13.86, −2.64], SIGNIFICANT**
+(4497 frame-obs, 25 days). Hold while alive-and-clean (+5.0); the gauge arms
+as vigor fades; 2+ sickness = the tape has turned. All screening → fresh-day
+confirmation is the ship-gate for: exit-head features, KNOWLEDGE_PACK v2
+lines, control-plane strike inputs. Tool: tools/composite_gauge.py.
