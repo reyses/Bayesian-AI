@@ -90,6 +90,45 @@ def service_uptime_s():
         return 1e9
 
 
+REPAIR_LOCK = STATE / "code_repair.pid"
+CLAUDE_BIN = os.path.expanduser("~/.local/bin/claude")
+
+REPAIR_PROMPT = (
+    "INCIDENT: the Telegram ingress daemon (tools/telegram_bridge/"
+    "ingress_daemon.py, systemd user unit tg-ingress.service) is DOWN and a "
+    "plain restart did NOT bring it back — likely a crash-loop from a code "
+    "error. Diagnose: `journalctl --user -u tg-ingress.service -n 60 "
+    "--no-pager` and read the traceback. Fix the bug in ingress_daemon.py "
+    "(smallest correct change), then `systemctl --user restart "
+    "tg-ingress.service`, wait ~15s, verify active AND that journal shows "
+    "polling (no new traceback). Then report what was broken and what you "
+    "changed via Telegram sendMessage using TELEGRAM_BOT_TOKEN and "
+    "TELEGRAM_CHAT_ID from the repo-root .env (curl). Touch NOTHING outside "
+    "tools/telegram_bridge/.")
+
+
+def spawn_code_repair():
+    """Restart didn't heal -> the daemon code itself is likely broken; spawn
+    the repair-armed Sonnet (Edit scoped to the bridge dir). One at a time."""
+    try:
+        os.kill(int(REPAIR_LOCK.read_text().strip()), 0)
+        return False
+    except (ValueError, ProcessLookupError, PermissionError, FileNotFoundError):
+        pass
+    with open(STATE / "code_repair.log", "a") as logf:
+        logf.write(f"\n===== repair spawn {time.strftime('%F %T')} =====\n")
+        proc = subprocess.Popen(
+            ["timeout", "600", CLAUDE_BIN, "-p", REPAIR_PROMPT,
+             "--model", "claude-sonnet-5", "--allowedTools",
+             "Bash(systemctl:*),Bash(journalctl:*),Bash(curl:*),"
+             "Bash(python3:*),Bash(pgrep:*),Bash(cat:*),Bash(tail:*),"
+             "Bash(head:*),Bash(ls:*),Read,Grep,Glob,"
+             "Edit(tools/telegram_bridge/**),Write(tools/telegram_bridge/**)"],
+            cwd=str(REPO), stdout=logf, stderr=logf, start_new_session=True)
+    REPAIR_LOCK.write_text(str(proc.pid))
+    return True
+
+
 def main():
     STATE.mkdir(exist_ok=True)
     if not service_active():
@@ -97,8 +136,15 @@ def main():
         time.sleep(5)
         state = "RESTARTED-OK" if service_active() else "RESTART-FAILED"
         log(f"ingress INACTIVE -> {state}")
-        alert(f"🔴 tg-verify: ingress daemon was DOWN (accidental close?) — "
-              f"{state.lower()}. See state/health.log.")
+        if state == "RESTART-FAILED":
+            spawned = spawn_code_repair()
+            log(f"code-repair sonnet spawned={spawned}")
+            alert("🔴 tg-verify: daemon DOWN and restart FAILED — likely a "
+                  "code error. A repair-armed Sonnet has been spawned to "
+                  "diagnose the crash-loop, fix the code, and report here.")
+        else:
+            alert(f"🔴 tg-verify: ingress daemon was DOWN (accidental close?) — "
+                  f"{state.lower()}. See state/health.log.")
         return
     if service_uptime_s() < HEARTBEAT_STALE_S:
         log("ok (startup grace — daemon recently started, first long-poll pending)")

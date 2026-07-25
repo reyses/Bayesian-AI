@@ -222,11 +222,32 @@ def handle_command(text, msg):
         # the daemon can reach, report what it did. The one leg it cannot
         # revive is a dead Claude session — for that it states so plainly.
         import subprocess
+
+        def active(unit):
+            return subprocess.run(
+                ["systemctl", "--user", "is-active", "--quiet", unit]
+            ).returncode == 0
+
         did = []
-        r = subprocess.run(["systemctl", "--user", "restart",
-                            "tg-verify.timer", "tg-watchdog.timer"],
-                           capture_output=True, text=True)
-        did.append("timers: " + ("restarted" if r.returncode == 0 else f"FAILED {r.stderr[:80]}"))
+        # diagnose -> fix -> verify, per leg (owner 2026-07-24: /fix must
+        # SHOW the diagnosis, not just claim repairs)
+        for unit in ("tg-verify.timer", "tg-watchdog.timer",
+                     "ag-sentinel.timer"):
+            before = active(unit)
+            if not before:
+                subprocess.run(["systemctl", "--user", "restart", unit],
+                               capture_output=True)
+                after = active(unit)
+                did.append(f"{unit}: was DOWN -> "
+                           + ("restarted OK" if after else "RESTART FAILED"))
+            else:
+                did.append(f"{unit}: healthy")
+        try:
+            hb_age = int(time.time() - (STATE / "heartbeat.txt").stat().st_mtime)
+            did.append(f"poller heartbeat: {hb_age}s ago"
+                       + ("" if hb_age < 180 else " (STALE)"))
+        except OSError:
+            did.append("poller heartbeat: MISSING")
         watcher = subprocess.run(["pgrep", "-f", "wait_inbox|inbox_stream"],
                                  capture_output=True).returncode == 0
         try:
