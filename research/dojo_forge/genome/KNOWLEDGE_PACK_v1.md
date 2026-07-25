@@ -1,6 +1,8 @@
-# KNOWLEDGE PACK v1 — DRAFT (owner review required before any run)
+# KNOWLEDGE PACK v1 — FROZEN 2026-07-24 (owner approved: "proceed as is")
 <!--
-Status: DRAFT — not frozen, not hashed, no run may use it yet.
+Status: FROZEN. body=797 real tokens (qwen tokenizer, vocab-only measure).
+sha256[:16]=cafcb60b716faf6f (of the DRAFT file at freeze; runners re-hash live).
+Changes require a NEW version (v2), never edits here — label immutability.
 Purpose: the teacher's EDUCATION (evidence + mechanism), complementing the
 GENOME (rules + numbers). Owner directive 2026-07-24: "have the teacher ingest
 an abridged version of all the dossier … we are asking it to trade with rules

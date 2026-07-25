@@ -78,7 +78,8 @@ def build_user_content(frames, i, decisions):
 
 
 def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_prompt,
-                        engine, model_name, num_ctx, prefill_mode="oneshot"):
+                        engine, model_name, num_ctx, prefill_mode="oneshot",
+                        knowledge_hash=None):
     frames = packet.get('frames', [])
     rec_frames = []
     decisions = []
@@ -164,6 +165,7 @@ def eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet, system_promp
         taint_reason=taint_reason, exit_frame=exit_frame,
         n_frames_evaluated=len(rec_frames),
         prefill_mode=prefill_mode,
+        knowledge_hash=knowledge_hash,
         prefix_tokens=(len(prefix_toks) if prefix_toks else None),
         prefix_fallbacks=prefix_fallbacks,
         elapsed_s=round(time.time() - t0, 3), ts=time.time(), frames=rec_frames,
@@ -180,6 +182,9 @@ def main():
     ap.add_argument('--csv', default=DEFAULT_CSV)
     ap.add_argument('--packets-dir', default=base.PACKETS_DIR)
     ap.add_argument('--limit', type=int, default=None)
+    ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
+                    help="v1 = prepend frozen KNOWLEDGE_PACK_v1 (education tier) "
+                         "between instructions and genome; hash logged per record")
     ap.add_argument('--prefill', choices=['oneshot', 'anchor2p'], default='oneshot',
                     help="anchor2p = E2 anchor-KV two-phase prefill (~2x). One "
                          "mode per run/comparison — never mix (layout delta).")
@@ -206,8 +211,17 @@ def main():
     base.rebuild_csv(args.csv, list(completed.values()))
     print(f"[resume] {len(completed)} of {len(packet_files)} episodes already done", flush=True)
 
+    knowledge_txt, knowledge_hash = "", None
+    if args.knowledge == 'v1':
+        kp = os.path.join(os.path.dirname(__file__), '..', 'genome',
+                          'KNOWLEDGE_PACK_v1.md')
+        raw = open(kp, encoding='utf-8').read()
+        import hashlib as _h
+        knowledge_hash = _h.sha256(raw.encode()).hexdigest()[:16]
+        knowledge_txt = '== YOUR EDUCATION' + raw.split('== YOUR EDUCATION')[1]
     system_prompt = (f"Decide to HOLD or EXIT based on the frame. If EXIT, provide a reason."
-                     f"\n\nRULES (Genome):\n{base.load_genome()}")
+                     + (f"\n\n{knowledge_txt}" if knowledge_txt else "")
+                     + f"\n\nRULES (Genome):\n{base.load_genome()}")
 
     todo = [(os.path.basename(p).replace('.json', ''), p) for p in packet_files]
     todo = [(eid, p) for eid, p in todo if eid not in completed]
@@ -233,7 +247,8 @@ def main():
         packet = json.load(open(path))
         rec = eval_episode_tiered(llm, reader, id_exit, id_hold, eid, packet,
                                   system_prompt, args.engine, model_name, num_ctx,
-                                  prefill_mode=args.prefill)
+                                  prefill_mode=args.prefill,
+                                  knowledge_hash=knowledge_hash)
         base.append_checkpoint(args.ckpt, rec)
         completed[eid] = rec
         base.rebuild_csv(args.csv, list(completed.values()))
