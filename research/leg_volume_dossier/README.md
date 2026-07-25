@@ -50,3 +50,13 @@ count) — is the dossier's product. Money contrast: [FADED & sick≥2] vs
 as vigor fades; 2+ sickness = the tape has turned. All screening → fresh-day
 confirmation is the ship-gate for: exit-head features, KNOWLEDGE_PACK v2
 lines, control-plane strike inputs. Tool: tools/composite_gauge.py.
+
+## PRODUCT IDENTITY (owner reframe, 2026-07-25 midday)
+The gauge is an **EARLY WARNING of leg-end approach** — not an exit trigger.
+Holdout timing: fires on ~half of episodes, median 8 min before the true
+peak (IQR −2..+18). Its 3-bar adversity prediction is real; the market's
+recovery from local sickness (the never-bail moat, re-derived by our own
+instrument) is why the warning must escalate ATTENTION, not force action:
+control-plane strike input, student state feature ("terminal-phase warning"),
+knowledge-pack evidence line. Next quantification when data allows: hazard
+lift P(peak within X min | ARMED) vs base, per X.
