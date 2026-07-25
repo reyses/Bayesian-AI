@@ -71,6 +71,30 @@ def handle_command(text, msg):
     parts = text.strip().split(None, 1)
     verb = parts[0].lower() if parts else ""
     arg = parts[1] if len(parts) > 1 else ""
+    if verb in ("/cli", "/agy"):
+        # One-shot AI answer from the phone: /cli <q> -> Sonnet, /agy <q> ->
+        # Antigravity. Runs DETACHED via run_cli.py (a blocking call here
+        # would stall the poll loop); that process replies to Telegram itself.
+        import subprocess
+        reply = None
+        if not arg:
+            reply = f"usage: {verb} <question>"
+        else:
+            provider = "sonnet" if verb == "/cli" else "agy"
+            try:
+                subprocess.Popen(
+                    [sys.executable, str(HERE / "run_cli.py"), provider, arg],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    start_new_session=True)
+                reply = f"⏳ {provider} working on it — answer follows here."
+            except OSError as e:
+                reply = f"spawn failed: {e!r:.80}"
+        try:
+            requests.get(f"{API}/sendMessage",
+                         params={"chat_id": CHAT_ID, "text": reply}, timeout=10)
+        except Exception:
+            pass
+        return True
     if verb in ("/memq", "/memaudit", "/memstats"):
         # Teacher memory-bank query + audit from the phone (owner 2026-07-24).
         # Read-only by construction (sqlite URI mode=ro): these commands can
