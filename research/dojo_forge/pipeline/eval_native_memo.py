@@ -150,7 +150,7 @@ def render_memory_block(granted):
     return "\n".join(lines)
 
 
-REFLECT_MAX_GEN = 1400   # reflection is a single structured pass; no <think> flood
+REFLECT_MAX_GEN = 2600   # exam v3 lesson RE-LEARNED: 1400 truncates mid-<think> on 18-candidate reviews; parse got zero lines (hyptest, 2026-07-25)
 
 REFLECT_RE_KEEP = re.compile(r'^\s*KEEP:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
 REFLECT_RE_DROP = re.compile(r'^\s*DISCARD:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
@@ -210,6 +210,14 @@ def reflect_and_admit(llm, eid, eday, frames, candidates, mem, system=''):
                        [("user", prompt)], max_tokens=REFLECT_MAX_GEN))
     kept = REFLECT_RE_KEEP.findall(ans)
     dropped = REFLECT_RE_DROP.findall(ans)
+    if not kept and not dropped:
+        # LOUD failure (exam v3 rule): an unparseable reflection must never
+        # silently discard the episode's candidates.
+        mem._ledger(dict(event='reflection_parse_empty', episode_id=eid,
+                         day=eday, candidates=len(candidates),
+                         truncated=('</think>' not in ans), raw=ans[:400]))
+        print(f"[{eid} reflection] PARSE-EMPTY (truncated="
+              f"{'</think>' not in ans}) — no admissions", flush=True)
     admitted = 0
     for minute, text in kept[:4]:                      # hard backstop
         res = mem.write_memo(eid, eday, int(minute), text.strip(), '')
