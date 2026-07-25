@@ -150,6 +150,67 @@ def render_memory_block(granted):
     return "\n".join(lines)
 
 
+REFLECT_MAX_GEN = 1400   # reflection is a single structured pass; no <think> flood
+
+REFLECT_RE_KEEP = re.compile(r'^\s*KEEP:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
+REFLECT_RE_DROP = re.compile(r'^\s*DISCARD:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
+
+
+def reflect_and_admit(llm, eid, eday, frames, candidates, mem):
+    """REFLECTION-AS-GUARD (owner 2026-07-25: "reflection is the guard").
+
+    The episode is over; the teacher reviews its own candidate memos AGAINST
+    THE ACTUAL OUTCOME and selects/rewrites what enters the bank. Mechanical
+    guards remain as safety+backstop only (allowlist, day-agnostic, cap,
+    dedup). Every verdict is ledgered — the teacher's own curation rationale
+    becomes auditable.
+    Returns (n_admitted, raw_verdict_text).
+    """
+    if not candidates:
+        return 0, "(no candidates)"
+    # FULL-TAPE LOOKBACK (owner 2026-07-25: "it needs to look back on the tape
+    # and curate — this worked BECAUSE of this"): the whole episode as compact
+    # 1m/5m closed-bar lines, so each verdict can trace its causal warrant.
+    tape = []
+    for j, fr in enumerate(frames):
+        fl = filter_hist(fr['text'])
+        if fl:
+            tape.append(f"[m{j:02d}] {fl.splitlines()[0]}")
+    tape_block = "\n".join(tape)
+    final_tail = "\n".join(frames[-1]['text'].splitlines()[:8])
+    cand_block = "\n".join(f"- minute {m}: {t}" for m, t in candidates)
+    prompt = (
+        "THE EPISODE IS OVER. Look back on the FULL TAPE (favorable-signed, "
+        "entry=0.00), one 1m closed bar per minute:\n"
+        f"{tape_block}\n\nFinal state:\n{final_tail}\n\n"
+        "Your candidate memos from this episode:\n"
+        f"{cand_block}\n\n"
+        "Reflect: for each candidate, check what the tape ACTUALLY did after "
+        "its minute. Select AT MOST 4 worth keeping for future days; rewrite "
+        "for accuracy if the in-flight claim was wrong; every KEEP must state "
+        "its causal warrant from the tape. Discard the redundant and the "
+        "falsified. NO date/day references. Reply EXACTLY in this format "
+        "(nothing else):\n"
+        "KEEP: <minute>: <memo with a concrete magnitude> | BECAUSE: <what "
+        "the tape did after that minute that proves it>\n"
+        "DISCARD: <minute>: <one-line reason>\n"
+        "Keep your <think> under 150 words.")
+    ans = visible(chat(llm, "You are reviewing your own trading journal.",
+                       [("user", prompt)], max_tokens=REFLECT_MAX_GEN))
+    kept = REFLECT_RE_KEEP.findall(ans)
+    dropped = REFLECT_RE_DROP.findall(ans)
+    admitted = 0
+    for minute, text in kept[:4]:                      # hard backstop
+        res = mem.write_memo(eid, eday, int(minute), text.strip(), '')
+        admitted += bool(res['admitted'])
+    mem._ledger(dict(event='reflection', episode_id=eid, day=eday,
+                     candidates=len(candidates),
+                     kept=[int(m) for m, _ in kept[:4]],
+                     discarded=[(int(m), r[:80]) for m, r in dropped],
+                     raw=ans[:800]))
+    return admitted, ans
+
+
 # --------------------------------------------------------------------------- #
 #  Checkpoint CSV (per doc convention: eid,frame_idx,decision,conf,memo_present) #
 # --------------------------------------------------------------------------- #
@@ -164,12 +225,14 @@ def rebuild_csv(csv_path, records):
                         f"{fr['conf']},{1 if fr['memo'] else 0}\n")
 
 
-def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos):
+def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos,
+                      guard='mechanical'):
     """Run one episode frame-by-frame in generation mode with the memory loop."""
     frames = packet['frames']
     eday = day_of(eid)
     trail = []
     frame_recs = []
+    candidates = []
     memos_written = 0
     retrievals_used = 0
     exit_frame = None
@@ -192,10 +255,13 @@ def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos):
 
         memo_written = False
         if write_memos and memo:
-            res = mem.write_memo(eid, eday, i, memo, frames[i]['text'])
-            memo_written = res['admitted']
-            if memo_written:
-                memos_written += 1
+            if guard == 'reflection':
+                candidates.append((i, memo))           # staged; admitted post-episode
+            else:
+                res = mem.write_memo(eid, eday, i, memo, frames[i]['text'])
+                memo_written = res['admitted']
+                if memo_written:
+                    memos_written += 1
 
         frame_recs.append(dict(frame_idx=i, decision=a['decision'], conf=a['conf'],
                                reason=a['reason'], memo=memo,
@@ -207,8 +273,17 @@ def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos):
               f"mem={len(granted)} memo={'Y' if memo else '-'} :: {a['reason'][:60]}",
               flush=True)
 
+    reflection_raw = None
+    if write_memos and guard == 'reflection':
+        memos_written, reflection_raw = reflect_and_admit(
+            llm, eid, eday, frames, candidates, mem)
+        print(f"[{eid} reflection] candidates={len(candidates)} "
+              f"admitted={memos_written}", flush=True)
+
     return dict(episode_id=eid, day=eday, use_memory=use_memory,
-                write_memos=write_memos, exit_frame=exit_frame,
+                write_memos=write_memos, guard=guard,
+                reflection_raw=(reflection_raw[:400] if reflection_raw else None),
+                exit_frame=exit_frame,
                 n_frames=len(frame_recs), memos_written=memos_written,
                 retrievals_used=retrievals_used,
                 elapsed_s=round(time.time() - t0, 1), ts=time.time(),
@@ -324,6 +399,11 @@ def main():
     ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
                          "before the Genome rules; hash logged per record")
+    ap.add_argument('--guard', choices=['mechanical', 'reflection'],
+                    default='mechanical',
+                    help="reflection = teacher reviews candidates vs the actual "
+                         "outcome at episode end and selects what enters the "
+                         "bank (owner design); mechanical stays as backstop")
     ap.add_argument('--curation', type=int, default=None,
                     help="bank-side selectivity: max admitted memos/episode + "
                          "near-dup rejection (GUARD C). None = off")
@@ -425,7 +505,8 @@ def main():
 
     for k, (eid, path) in enumerate(todo, 1):
         packet = json.load(open(path))
-        rec = eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos)
+        rec = eval_episode_memo(llm, eid, packet, system, mem, use_memory,
+                                write_memos, guard=args.guard)
         base.append_checkpoint(ckpt, rec)
         completed[eid] = rec
         rebuild_csv(csv_path, list(completed.values()))
