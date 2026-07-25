@@ -170,8 +170,12 @@ def spawn_fallback():
                 "Read,Grep,Glob"]
     with open(FALLBACK_LOG, "a") as logf:
         logf.write(f"\n===== fallback spawn [{name}] {time.strftime('%F %T')} =====\n")
+        # systemd-run: own transient unit/cgroup — a plain Popen child is
+        # KILLED when this oneshot unit exits (drill finding, 2026-07-24)
+        cmd = ["systemd-run", "--user", "--collect", "--same-dir",
+               "--unit=tg-fallback"] + cmd
         proc = subprocess.Popen(cmd, cwd=str(REPO), stdout=logf, stderr=logf,
-                                start_new_session=True)  # survives watchdog exit
+                                start_new_session=True)
     FALLBACK_LOCK.write_text(str(proc.pid))
     ATTEMPT_F.write_text(str(attempt + 1))
     return True

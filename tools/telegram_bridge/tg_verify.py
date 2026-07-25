@@ -117,8 +117,12 @@ def spawn_code_repair():
         pass
     with open(STATE / "code_repair.log", "a") as logf:
         logf.write(f"\n===== repair spawn {time.strftime('%F %T')} =====\n")
+        # systemd-run: own transient unit/cgroup — a plain Popen child is
+        # KILLED when this oneshot unit exits (drill finding, 2026-07-24)
         proc = subprocess.Popen(
-            ["timeout", "600", CLAUDE_BIN, "-p", REPAIR_PROMPT,
+            ["systemd-run", "--user", "--collect", "--same-dir",
+             "--unit=code-repair",
+             "timeout", "600", CLAUDE_BIN, "-p", REPAIR_PROMPT,
              "--model", "claude-sonnet-5", "--allowedTools",
              "Bash(systemctl:*),Bash(journalctl:*),Bash(curl:*),"
              "Bash(python3:*),Bash(pgrep:*),Bash(cat:*),Bash(tail:*),"
