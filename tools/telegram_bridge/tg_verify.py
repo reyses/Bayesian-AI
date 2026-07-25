@@ -150,12 +150,31 @@ def main():
         log("ok (startup grace — daemon recently started, first long-poll pending)")
         return
     hb_age = (time.time() - HEARTBEAT.stat().st_mtime) if HEARTBEAT.exists() else 1e9
+    strikes_f = STATE / "stale_strikes.txt"
     if hb_age > HEARTBEAT_STALE_S:
+        try:
+            strikes = int(strikes_f.read_text().strip()) + 1
+        except (OSError, ValueError):
+            strikes = 1
+        strikes_f.write_text(str(strikes))
+        # A crash-AFTER-startup bug samples as "active + stale heartbeat" and
+        # a plain restart looks like it worked; two consecutive stale rounds
+        # despite restarts = the code itself is broken -> escalate.
+        if strikes >= 2:
+            spawned = spawn_code_repair()
+            strikes_f.write_text("0")
+            log(f"heartbeat stale x{strikes} despite restart -> code-repair "
+                f"sonnet spawned={spawned}")
+            alert("🔴 tg-verify: daemon keeps dying after restarts (heartbeat "
+                  "never recovers) — code error suspected. Repair-armed Sonnet "
+                  "spawned to fix the daemon source and report here.")
+            return
         subprocess.run(["systemctl", "--user", "restart", "tg-ingress.service"])
-        log(f"ingress heartbeat stale ({int(hb_age)}s) -> restarted")
+        log(f"ingress heartbeat stale ({int(hb_age)}s) -> restarted (strike {strikes})")
         alert(f"🟠 tg-verify: daemon alive but NOT POLLING "
               f"(heartbeat {int(hb_age)}s old) — restarted it.")
         return
+    strikes_f.write_text("0")
     log(f"ok (heartbeat {int(hb_age)}s)")
 
 
