@@ -318,6 +318,9 @@ def main():
     ap.add_argument('--write-memos', choices=['on', 'off'], default='off')
     ap.add_argument('--limit', type=int, default=None, help="max NEW episodes this pass")
     ap.add_argument('--arm-tag', default='untagged', help="names the artifacts")
+    ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
+                    help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
+                         "before the Genome rules; hash logged per record")
     ap.add_argument('--memo-style', choices=['v1', 'v2seed'], default='v1',
                     help="v2seed = #9-exemplar format (concrete magnitude, "
                          "no-memo default, no rule restatement)")
@@ -370,6 +373,15 @@ def main():
                         write_allowlist=set(days), run_tag=args.arm_tag,
                         top_k=TOP_K_MEMO)
     chosen = MEMO_SYSTEM_V2 if args.memo_style == 'v2seed' else MEMO_SYSTEM
+    knowledge_hash = None
+    if args.knowledge == 'v1':
+        import hashlib as _h
+        kp = os.path.join(DOJO, 'genome', 'KNOWLEDGE_PACK_v1.md')
+        raw = open(kp, encoding='utf-8').read()
+        knowledge_hash = _h.sha256(raw.encode()).hexdigest()[:16]
+        education = '== YOUR EDUCATION' + raw.split('== YOUR EDUCATION')[1]
+        chosen = chosen.replace("RULES (Genome):\n",
+                                education + "\n\nRULES (Genome):\n")
     system = chosen + base.load_genome()
 
     if args.dry_run:
