@@ -317,6 +317,9 @@ def main():
     ap.add_argument('--use-memory', choices=['on', 'off'], default='off')
     ap.add_argument('--write-memos', choices=['on', 'off'], default='off')
     ap.add_argument('--limit', type=int, default=None, help="max NEW episodes this pass")
+    ap.add_argument('--limit-per-day', type=int, default=None,
+                    help="max NEW episodes PER DAY (episodes sort lexically, so "
+                         "a flat --limit starves later days in multi-day runs)")
     ap.add_argument('--arm-tag', default='untagged', help="names the artifacts")
     ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
@@ -364,6 +367,15 @@ def main():
     todo = [(eid, p) for eid, p in todo if eid not in completed]
     if args.limit is not None:
         todo = todo[:args.limit]
+    if args.limit_per_day is not None:
+        seen = {}
+        capped = []
+        for eid, p in todo:
+            d = day_of(eid)
+            if seen.get(d, 0) < args.limit_per_day:
+                capped.append((eid, p))
+                seen[d] = seen.get(d, 0) + 1
+        todo = capped
     print(f"[plan] arm={args.arm_tag} days={days} use_memory={use_memory} "
           f"write_memos={write_memos} | {len(todo)} episodes this pass "
           f"({len(completed)} already done)", flush=True)
