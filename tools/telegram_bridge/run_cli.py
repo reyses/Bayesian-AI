@@ -44,7 +44,13 @@ def main():
     provider, prompt = sys.argv[1], sys.argv[2]
     t0 = time.time()
     if provider == "sonnet":
-        cmd = [CLAUDE_BIN, "-p", prompt, "--model", "claude-sonnet-5"]
+        # Same scoped repair surface as the watchdog fallback — /cli can fix
+        # daemon issues (owner 2026-07-24) but holds no broader write powers.
+        cmd = [CLAUDE_BIN, "-p", prompt, "--model", "claude-sonnet-5",
+               "--allowedTools",
+               "Bash(systemctl:*),Bash(curl:*),Bash(python3:*),"
+               "Bash(flock:*),Bash(cat:*),Bash(echo:*),Bash(pgrep:*),"
+               "Read,Grep,Glob"]
         label = "🧠 Sonnet"
     else:
         cmd = [AGY_BIN, "--prompt", prompt]

@@ -160,6 +160,14 @@ def spawn_fallback():
     if attempt >= len(providers):
         return False                              # chain exhausted -> template alert
     name, cmd = providers[attempt]
+    if name == "claude":
+        # Headless runs deny Bash by default (verified 2026-07-24: fallback
+        # would have been repair-impotent). Grant EXACTLY the repair surface:
+        # service control, Telegram send, bridge scripts, queue bookkeeping.
+        cmd += ["--allowedTools",
+                "Bash(systemctl:*),Bash(curl:*),Bash(python3:*),"
+                "Bash(flock:*),Bash(cat:*),Bash(echo:*),Bash(pgrep:*),"
+                "Read,Grep,Glob"]
     with open(FALLBACK_LOG, "a") as logf:
         logf.write(f"\n===== fallback spawn [{name}] {time.strftime('%F %T')} =====\n")
         proc = subprocess.Popen(cmd, cwd=str(REPO), stdout=logf, stderr=logf,
