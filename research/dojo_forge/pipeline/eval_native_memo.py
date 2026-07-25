@@ -156,7 +156,7 @@ REFLECT_RE_KEEP = re.compile(r'^\s*KEEP:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
 REFLECT_RE_DROP = re.compile(r'^\s*DISCARD:\s*(\d+)\s*:\s*(.+?)\s*$', re.M)
 
 
-def reflect_and_admit(llm, eid, eday, frames, candidates, mem):
+def reflect_and_admit(llm, eid, eday, frames, candidates, mem, system=''):
     """REFLECTION-AS-GUARD (owner 2026-07-25: "reflection is the guard").
 
     The episode is over; the teacher reviews its own candidate memos AGAINST
@@ -195,7 +195,18 @@ def reflect_and_admit(llm, eid, eday, frames, candidates, mem):
         "the tape did after that minute that proves it>\n"
         "DISCARD: <minute>: <one-line reason>\n"
         "Keep your <think> under 150 words.")
-    ans = visible(chat(llm, "You are reviewing your own trading journal.",
+    # THE CURATOR MUST KNOW WHAT THE TRADER KNOWS (owner 2026-07-25: "part
+    # of the mechanism is the knowledge"): reflection judges with the same
+    # education + genome the in-flight decisions used, else warrants are
+    # uninformed. Extract education+rules from the trading system prompt.
+    for marker in ("== YOUR EDUCATION", "RULES (Genome):"):
+        k = system.find(marker)
+        if k >= 0:
+            break
+    knowledge = system[k:] if k >= 0 else ""
+    reflect_system = ("You are reviewing your own trading journal at episode "
+                      "end. Judge with your education and rules:\n\n" + knowledge)
+    ans = visible(chat(llm, reflect_system,
                        [("user", prompt)], max_tokens=REFLECT_MAX_GEN))
     kept = REFLECT_RE_KEEP.findall(ans)
     dropped = REFLECT_RE_DROP.findall(ans)
@@ -276,7 +287,7 @@ def eval_episode_memo(llm, eid, packet, system, mem, use_memory, write_memos,
     reflection_raw = None
     if write_memos and guard == 'reflection':
         memos_written, reflection_raw = reflect_and_admit(
-            llm, eid, eday, frames, candidates, mem)
+            llm, eid, eday, frames, candidates, mem, system=system)
         print(f"[{eid} reflection] candidates={len(candidates)} "
               f"admitted={memos_written}", flush=True)
 
