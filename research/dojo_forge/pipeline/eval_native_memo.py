@@ -267,8 +267,9 @@ def gauge_step(gauge, frame_text):
     if leg is None or not feats:
         return ''
     st_ = gauge.update(leg_age=leg, feats=feats)
+    comps = ",".join(st_['active']) if st_['active'] else "none"
     return (f"== LEG HEALTH GAUGE (causal early-warning) ==\n"
-            f"vigor={st_['vigor']} anomalies={st_['sick']} "
+            f"vigor={st_['vigor']} anomalies={st_['sick']}[{comps}] "
             f"terminal-phase-warning={'ARMED' if st_['armed'] else 'no'}")
 
 

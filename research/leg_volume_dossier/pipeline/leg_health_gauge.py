@@ -96,9 +96,11 @@ class LegHealthGauge:
             self._buffer.pop(0)
 
         # --- emit ----------------------------------------------------------
-        sick = sum(1 for t0 in self._events.values() if (i - t0) >= LAG)
+        active = sorted(f for (f, _t), t0 in self._events.items()
+                        if (i - t0) >= LAG)
+        sick = len(active)
         faded = self._fade_at is not None and (i - self._fade_at) >= LAG
         vigor = 'FADED' if faded else 'ALIVE'
         cell = f"{vigor}-{'2+' if sick >= SICK_ARM else sick}"
-        return dict(vigor=vigor, sick=sick, cell=cell,
+        return dict(vigor=vigor, sick=sick, cell=cell, active=active,
                     armed=(faded and sick >= SICK_ARM))
