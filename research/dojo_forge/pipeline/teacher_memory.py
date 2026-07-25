@@ -128,7 +128,7 @@ class TeacherMemory:
 
     def __init__(self, db_path=DEFAULT_DB, ledger_path=DEFAULT_LEDGER,
                  write_allowlist=None, run_tag='', lookback_days=LOOKBACK_DAYS,
-                 top_k=TOP_K):
+                 top_k=TOP_K, curation_cap=None, near_dup_jaccard=0.6):
         self.db_path = db_path
         self.ledger_path = ledger_path
         # ADMISSION allowlist: the ONLY days whose memos may be written (guard a).
@@ -136,6 +136,11 @@ class TeacherMemory:
         self.run_tag = run_tag
         self.lookback_days = lookback_days
         self.top_k = top_k
+        # GUARD C — CURATION (2026-07-24, sprint finding): at temp-0 the model
+        # pattern-completes a memo EVERY frame; selectivity is enforced here
+        # by construction instead of by instruction. None = off (back-compat).
+        self.curation_cap = curation_cap          # max admitted memos/episode
+        self.near_dup_jaccard = near_dup_jaccard  # token-overlap dup threshold
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         # Rollback-journal (default) mode: a single .db file is a consistent unit
         # to copy for snapshot()/restore() when no transaction is open.
@@ -197,6 +202,26 @@ class TeacherMemory:
             self._ledger(dict(event='write_rejected', episode_id=episode_id,
                               day=day, minute=minute, reason='not_in_allowlist'))
             return dict(admitted=False, reason='not_in_allowlist', id=None)
+        if self.curation_cap is not None:
+            rows = self.conn.execute(
+                "SELECT text FROM memos WHERE episode_id = ?",
+                (episode_id,)).fetchall()
+            def toks(t):
+                return set(t.lower().split())
+            cand = toks(memo_text)
+            for r in rows:
+                prior = toks(r['text'].split(') ', 1)[-1])  # strip state tags
+                j = len(cand & prior) / max(1, len(cand | prior))
+                if j >= self.near_dup_jaccard:
+                    self._ledger(dict(event='write_rejected',
+                                      episode_id=episode_id, day=day,
+                                      minute=minute, reason='near_duplicate',
+                                      jaccard=round(j, 3)))
+                    return dict(admitted=False, reason='near_duplicate', id=None)
+            if len(rows) >= self.curation_cap:
+                self._ledger(dict(event='write_rejected', episode_id=episode_id,
+                                  day=day, minute=minute, reason='episode_cap'))
+                return dict(admitted=False, reason='episode_cap', id=None)
         tags = state_tags(now_frame_text)
         stored = _tag_memo_text(memo_text, tags)
         cur = self.conn.execute(

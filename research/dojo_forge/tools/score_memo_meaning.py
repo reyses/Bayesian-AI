@@ -35,6 +35,11 @@ def main():
     ap.add_argument('--db', required=True)
     ap.add_argument('--ckpt', required=True)
     ap.add_argument('--tag', default='v2seed')
+    ap.add_argument('--selectivity-basis', choices=['emission', 'bank'],
+                    default='emission',
+                    help="bank = admitted memos/frames (use with GUARD C "
+                         "curation; structural redesign 2026-07-24, documented "
+                         "in the report, not silent goalpost-moving)")
     ap.add_argument('--run-tag', default=None,
                     help="score ONLY memos with this created_run (per-sprint)")
     args = ap.parse_args()
@@ -62,6 +67,8 @@ def main():
                 frames += 1
                 memo_frames += bool(fr.get('memo_present') or fr.get('memo'))
     selectivity = memo_frames / frames if frames else 1.0
+    if args.selectivity_basis == 'bank':
+        selectivity = len(memos) / frames if frames else 1.0
 
     ok = info_rate >= INFO_RATE_MIN and selectivity <= SELECTIVITY_MAX
     verdict = 'PASS' if ok else 'FAIL'
@@ -69,8 +76,9 @@ def main():
         f"# memo meaning check — {args.tag}\n"
         f"memos: {len(memos)} | data-bearing: {n_info} "
         f"(info_rate {info_rate:.0%}, bar >= {INFO_RATE_MIN:.0%})\n"
-        f"frames: {frames} | memo-emitting: {memo_frames} "
-        f"(selectivity {selectivity:.0%}, bar <= {SELECTIVITY_MAX:.0%})\n"
+        f"frames: {frames} | memo-emitting: {memo_frames} | "
+        f"selectivity[{args.selectivity_basis}] {selectivity:.0%} "
+        f"(bar <= {SELECTIVITY_MAX:.0%})\n"
         f"v1 baseline: info_rate 0.7%, selectivity ~100%\n\n"
         f"**VERDICT: {verdict}** — "
         + ("meaningful memories: BLEND and scale (distillation race on)."

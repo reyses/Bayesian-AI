@@ -324,6 +324,9 @@ def main():
     ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
                          "before the Genome rules; hash logged per record")
+    ap.add_argument('--curation', type=int, default=None,
+                    help="bank-side selectivity: max admitted memos/episode + "
+                         "near-dup rejection (GUARD C). None = off")
     ap.add_argument('--memo-system-file', default=None,
                     help="SPRINT overlay: read the pre-genome system template "
                          "from this file (overrides --memo-style); must "
@@ -387,6 +390,7 @@ def main():
     # ADMISSION allowlist = the run's --days set (writes only for days being run).
     mem = TeacherMemory(db_path=db, ledger_path=ledger,
                         write_allowlist=set(days), run_tag=args.arm_tag,
+                        curation_cap=args.curation,
                         top_k=TOP_K_MEMO)
     if args.memo_system_file:
         chosen = open(args.memo_system_file, encoding='utf-8').read()
