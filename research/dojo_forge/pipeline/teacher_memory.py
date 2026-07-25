@@ -203,9 +203,13 @@ class TeacherMemory:
                               day=day, minute=minute, reason='not_in_allowlist'))
             return dict(admitted=False, reason='not_in_allowlist', id=None)
         if self.curation_cap is not None:
+            # scope to THIS run: sprint iterations share episodes+bank; a
+            # prior run's writes must not consume this run's cap (bug found
+            # live: sprint4 got 18/18 rejections against sprints 1-3 rows)
             rows = self.conn.execute(
-                "SELECT text FROM memos WHERE episode_id = ?",
-                (episode_id,)).fetchall()
+                "SELECT text FROM memos WHERE episode_id = ? "
+                "AND created_run = ?",
+                (episode_id, self.run_tag)).fetchall()
             def toks(t):
                 return set(t.lower().split())
             cand = toks(memo_text)
