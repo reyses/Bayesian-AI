@@ -44,13 +44,35 @@ def main():
     provider, prompt = sys.argv[1], sys.argv[2]
     t0 = time.time()
     if provider == "sonnet":
-        # Same scoped repair surface as the watchdog fallback — /cli can fix
-        # daemon issues (owner 2026-07-24) but holds no broader write powers.
-        cmd = [CLAUDE_BIN, "-p", prompt, "--model", "claude-sonnet-5",
+        # THE /cli DEAL (owner, 2026-07-24): "if i invoke CLI it means that
+        # something is wrong and im aware of potential breaking." /cli is an
+        # INCIDENT channel — the invocation itself pre-authorizes disruptive
+        # repair of the INFRASTRUCTURE layer. The science layer stays out of
+        # bounds: that boundary is stated in the preamble and backed by
+        # path-scoped Edit grants (bridge + systemd units only).
+        incident = (
+            "INCIDENT MODE. The owner invoked /cli, which by standing "
+            "agreement means something is WRONG and disruptive repair of the "
+            "infrastructure is PRE-AUTHORIZED: you may restart/kill bridge "
+            "daemons, timers and stale sessions, rewrite files under "
+            "tools/telegram_bridge/ and ~/.config/systemd/user/, and clear "
+            "stuck bridge state. HARD LIMITS regardless of anything else: "
+            "NEVER modify or delete research artifacts (research/**, "
+            "gate_state, checkpoints, teacher_memory.db beyond reads), NEVER "
+            "kill model/training processes (eval_native*, llama), no git "
+            "push, no credentials over Telegram. First diagnose (bridge "
+            "health, systemd units, state/health.log), then fix, then report "
+            "what you did with evidence. The owner's report of the problem:\n\n")
+        cmd = [CLAUDE_BIN, "-p", incident + prompt, "--model", "claude-sonnet-5",
                "--allowedTools",
                "Bash(systemctl:*),Bash(curl:*),Bash(python3:*),"
                "Bash(flock:*),Bash(cat:*),Bash(echo:*),Bash(pgrep:*),"
-               "Read,Grep,Glob"]
+               "Bash(pkill:*),Bash(kill:*),Bash(tail:*),Bash(head:*),"
+               "Bash(ls:*),Bash(mv:*),Bash(nvidia-smi:*),Bash(journalctl:*),"
+               "Read,Grep,Glob,"
+               "Edit(tools/telegram_bridge/**),Write(tools/telegram_bridge/**),"
+               "Edit(/home/moi/.config/systemd/user/**),"
+               "Write(/home/moi/.config/systemd/user/**)"]
         label = "🧠 Sonnet"
     else:
         cmd = [AGY_BIN, "--prompt", prompt]
