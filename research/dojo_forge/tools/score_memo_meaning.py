@@ -35,10 +35,16 @@ def main():
     ap.add_argument('--db', required=True)
     ap.add_argument('--ckpt', required=True)
     ap.add_argument('--tag', default='v2seed')
+    ap.add_argument('--run-tag', default=None,
+                    help="score ONLY memos with this created_run (per-sprint)")
     args = ap.parse_args()
 
     con = sqlite3.connect(f"file:{args.db}?mode=ro", uri=True)
-    memos = [r[0] for r in con.execute("SELECT text FROM memos")]
+    if args.run_tag:
+        memos = [r[0] for r in con.execute(
+            "SELECT text FROM memos WHERE created_run = ?", (args.run_tag,))]
+    else:
+        memos = [r[0] for r in con.execute("SELECT text FROM memos")]
     n_info = sum(1 for t in memos if MAGNITUDE.search(RULE_ID.sub('', t)))
     info_rate = n_info / len(memos) if memos else 0.0
 

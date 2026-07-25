@@ -324,6 +324,10 @@ def main():
     ap.add_argument('--knowledge', choices=['off', 'v1'], default='off',
                     help="v1 = insert frozen KNOWLEDGE_PACK_v1 (education) "
                          "before the Genome rules; hash logged per record")
+    ap.add_argument('--memo-system-file', default=None,
+                    help="SPRINT overlay: read the pre-genome system template "
+                         "from this file (overrides --memo-style); must "
+                         "contain the 'RULES (Genome):' marker")
     ap.add_argument('--memo-style', choices=['v1', 'v2seed'], default='v1',
                     help="v2seed = #9-exemplar format (concrete magnitude, "
                          "no-memo default, no rule restatement)")
@@ -384,7 +388,11 @@ def main():
     mem = TeacherMemory(db_path=db, ledger_path=ledger,
                         write_allowlist=set(days), run_tag=args.arm_tag,
                         top_k=TOP_K_MEMO)
-    chosen = MEMO_SYSTEM_V2 if args.memo_style == 'v2seed' else MEMO_SYSTEM
+    if args.memo_system_file:
+        chosen = open(args.memo_system_file, encoding='utf-8').read()
+        assert "RULES (Genome):" in chosen, "overlay missing genome marker"
+    else:
+        chosen = MEMO_SYSTEM_V2 if args.memo_style == 'v2seed' else MEMO_SYSTEM
     knowledge_hash = None
     if args.knowledge == 'v1':
         import hashlib as _h
