@@ -159,10 +159,26 @@ def main():
         '| feature | tail | n events | fwd-px delta | 95% CI | sig |',
         '|---|---|---|---|---|---|',
     ]
-    for r in results[:25]:
+    for r in results:
         lines.append(f"| {r['feat']} | {r['tail']} | {r['n']} "
                      f"| {r['delta']:+.2f} | [{r['lo']:+.2f}, {r['hi']:+.2f}] "
                      f"| {'YES' if r['sig'] else ''} |")
+    fams = {}
+    for r in results:
+        fam = r['feat'].split('_')[0]
+        if r['feat'].startswith(('price_velocity', 'price_accel', 'price_mean', 'price_sigma')):
+            fam = 'price_' + r['feat'].split('_')[1]
+        d = fams.setdefault(fam, dict(n=0, sig=0, best=None))
+        d['n'] += 1
+        d['sig'] += r['sig']
+        if d['best'] is None or abs(r['delta']) > abs(d['best']['delta']):
+            d['best'] = r
+    lines += ['', '## Family rollup (all tails tested)',
+              '| family | tails | sig | best row |', '|---|---|---|---|']
+    for fam, d in sorted(fams.items(), key=lambda kv: -kv[1]['sig']):
+        b = d['best']
+        lines.append(f"| {fam} | {d['n']} | {d['sig']} | {b['feat']} {b['tail']} "
+                     f"{b['delta']:+.1f} [{b['lo']:+.1f},{b['hi']:+.1f}] |")
     with open(OUT_MD, 'w') as f:
         f.write('\n'.join(lines) + '\n')
 
