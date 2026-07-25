@@ -346,6 +346,7 @@ def main():
             if offset is not None:
                 params["offset"] = offset
             res = requests.get(f"{API}/getUpdates", params=params, timeout=60).json()
+            _ = drill_broken_reference  # PHASE-2 DRILL: intentional NameError
             # liveness heartbeat: tg-verify alerts+restarts if this goes stale,
             # catching a daemon that is alive-as-a-process but not polling.
             (STATE / "heartbeat.txt").touch()

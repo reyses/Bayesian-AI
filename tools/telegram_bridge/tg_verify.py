@@ -123,7 +123,7 @@ def spawn_code_repair():
              "Bash(systemctl:*),Bash(journalctl:*),Bash(curl:*),"
              "Bash(python3:*),Bash(pgrep:*),Bash(cat:*),Bash(tail:*),"
              "Bash(head:*),Bash(ls:*),Read,Grep,Glob,"
-             "Edit(tools/telegram_bridge/**),Write(tools/telegram_bridge/**)"],
+             "Edit(tools/telegram_bridge/**)"],
             cwd=str(REPO), stdout=logf, stderr=logf, start_new_session=True)
     REPAIR_LOCK.write_text(str(proc.pid))
     return True

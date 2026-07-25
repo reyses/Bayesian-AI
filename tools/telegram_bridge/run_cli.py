@@ -70,9 +70,9 @@ def main():
                "Bash(pkill:*),Bash(kill:*),Bash(tail:*),Bash(head:*),"
                "Bash(ls:*),Bash(mv:*),Bash(nvidia-smi:*),Bash(journalctl:*),"
                "Read,Grep,Glob,"
-               "Edit(tools/telegram_bridge/**),Write(tools/telegram_bridge/**),"
+               "Edit(tools/telegram_bridge/**),"
                "Edit(/home/moi/.config/systemd/user/**),"
-               "Write(/home/moi/.config/systemd/user/**)"]
+               ]
         label = "🧠 Sonnet"
     else:
         cmd = [AGY_BIN, "--prompt", prompt]
