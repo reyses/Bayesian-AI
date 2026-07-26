@@ -37,3 +37,29 @@ early-exit disease by construction — the teacher can only express exits where
 the physics licenses them — then re-score the gate. Iterate the teacher until
 it has a real, state-dependent ride-exit edge. THEN distill. The 3 mamba
 ratifications stay parked behind this gate.
+
+## FORK RESOLVED (the exit edge IS real — the teacher just can't capture it)
+Per-day oracle exit headroom (peak − never-bail-final) on ride episodes:
+**20 of 22 days have >20 pts/ep of headroom; average +48 pts/ep.** A perfect
+exit would add a fortune. So exit-timing is NOT edgeless and the curriculum is
+NOT barren — it is FULL of exit-teachable situations.
+
+The failure is specific: the prize is +48 pts/ep (hindsight ceiling), and
+- raw teacher exits: NET NEGATIVE (mistimed, forfeit rides)
+- gauge-gated exits: ≈ never-bail (safe, captures ~none of the headroom)
+- causal signals (leg warning) LEAD the peak ~8min but don't PINPOINT it, and
+  exiting on the warning forfeits the rest of the ride (asymmetric cost).
+
+## Refined verdict
+The teacher isn't ready because it hasn't LEARNED to capture a large, real,
+available exit edge — not because none exists. Distilling now clones the
+teacher's failure to capture +48 pts/ep. The Mamba exit-head has a rich target;
+the teacher can't yet label it.
+
+## Next teacher research (before mamba, no lockbox)
+The open question is how to ACT on the ~8-min leg-end warning better than
+"exit now" (forfeits) or "ignore" (gives back): e.g. warning -> tighten a
+trailing reference / exit-on-first-confirmation / scale-out. The teacher (or a
+mechanical policy) must convert warning-time into captured points. Measure the
+achievable (causal) fraction of the +48 oracle headroom; THAT number is the
+real ride-exit edge and the true precondition for the mamba.
