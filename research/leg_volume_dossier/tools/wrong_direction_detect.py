@@ -172,8 +172,49 @@ def main():
     ax.grid(alpha=0.25, axis='x')
     fig.tight_layout()
     fig.savefig(OUT_PNG)
-    print('\n'.join(lines))
+    verdict = composite_tune_holdout(rows_out, days, rng)
+    with open(OUT_MD, 'a') as f:
+        f.write('\n' + verdict + '\n')
+    print(verdict)
     print('chart:', OUT_PNG)
+
+
+def composite_tune_holdout(rows_out, days, rng):
+    """Owner protocol on the composite: score = no_recovery + mostly_under +
+    low_ER - d_ldist_std (the 4 significant screens). Tune the threshold on a
+    random 1/4 of days; holdout lift with day-block CI on the rest."""
+    for r in rows_out:
+        r['score'] = (r['no_recovery'] + r['mostly_under'] + r['low_ER']
+                      - r['d_ldist_std'])
+    tune_days = set(rng.sample(days, max(1, len(days) // 4)))
+    tune = [r for r in rows_out if r['day'] in tune_days]
+    test = [r for r in rows_out if r['day'] not in tune_days]
+    best_t, best_obj = None, -1
+    for t in (1, 2, 3):
+        on = [r['wrong'] for r in tune if r['score'] >= t]
+        if len(on) >= 5:
+            obj = st.mean(on) - st.mean([r['wrong'] for r in tune])
+            if obj > best_obj:
+                best_t, best_obj = t, obj
+    tdays = sorted({r['day'] for r in test})
+    by = {d: [r for r in test if r['day'] == d] for d in tdays}
+    base = st.mean([r['wrong'] for r in test])
+    on = [r['wrong'] for r in test if r['score'] >= best_t]
+    lift0 = st.mean(on) - base if on else 0
+    boots = []
+    for _ in range(4000):
+        ss = [r for d in rng.choices(tdays, k=len(tdays)) for r in by[d]]
+        o = [r['wrong'] for r in ss if r['score'] >= best_t]
+        if o:
+            boots.append(st.mean(o) - st.mean([r['wrong'] for r in ss]))
+    boots.sort()
+    lo, hi = boots[int(0.025 * len(boots))], boots[int(0.975 * len(boots))]
+    return (f"COMPOSITE tune/holdout: threshold>={best_t} (tuned on "
+            f"{len(tune_days)} days) -> HOLDOUT P(wrong|on)="
+            f"{st.mean(on):.0%} vs base {base:.0%}, lift {lift0:+.0%}, "
+            f"95% CI [{lo:+.0%}, {hi:+.0%}] over {len(on)} fired / "
+            f"{len(test)} eps -> "
+            + ("GENERALIZES" if lo > 0 else "does not generalize"))
 
 
 if __name__ == '__main__':

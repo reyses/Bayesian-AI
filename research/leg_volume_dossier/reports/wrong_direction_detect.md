@@ -20,3 +20,5 @@ BASELINE TO BEAT: early_neg (px<0 at minute 10).
 | d_swing_noise_30 | 49 | 35% | -2% | [-14%, +10%] |  |
 | d_price_accel_1b | 31 | 32% | -4% | [-18%, +10%] |  |
 | d_ldist_std | 15 | 13% | -23% | [-39%, -5%] |  |
+
+COMPOSITE tune/holdout: threshold>=2 (tuned on 6 days) -> HOLDOUT P(wrong|on)=73% vs base 43%, lift +31%, 95% CI [+16%, +47%] over 15 fired / 103 eps -> GENERALIZES
