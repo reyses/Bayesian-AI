@@ -36,6 +36,9 @@ OUT_PNG = os.path.join(PROJ, 'reports', 'assets', 'wrong_direction.png')
 KV = re.compile(r'(\w+)=([+-]?\d+(?:\.\d+)?)')
 PX = re.compile(r'px ([+-]?\d+(?:\.\d+)?)pts')
 LEG = re.compile(r'leg age (\d+)m')
+ER = re.compile(r'ER10 ([\d.]+)')
+FW = re.compile(r'(\w+)-with\(')
+FA = re.compile(r'(\w+)-against\(')
 NEED = sorted({f for f, _ in SICK_DETECTORS} | {'body', 'bar_range'})
 W = 10
 N_BOOT = 4000
@@ -57,6 +60,11 @@ def parse(text):
             m = LEG.search(s)
             if m:
                 leg = float(m.group(1))
+            m = ER.search(s)
+            if m:
+                feats['ER10'] = float(m.group(1))
+            feats['fires_with'] = len(FW.findall(s))
+            feats['fires_against'] = len(FA.findall(s))
     return feats, px, leg
 
 
@@ -87,8 +95,18 @@ def main():
             early_px.append(px)
         if not early_px:
             continue
+        trough = min(early_px)
+        recov = early_px[-1] - trough
+        under_frac = st.mean([1 if p < 0 else 0 for p in early_px])
+        last = rows[:W][-1][0] if rows[:W] else {}
         rows_out.append(dict(
             day=day, wrong=int(wrong),
+            no_recovery=int(early_px[-1] < 0 and recov < 5),
+            recovering=int(early_px[-1] < 0 and recov >= 10),
+            mostly_under=int(under_frac >= 0.7),
+            fires_against=int(sum(r[0].get('fires_against', 0) for r in rows[:W]) >= 2),
+            fires_with=int(sum(r[0].get('fires_with', 0) for r in rows[:W]) >= 2),
+            low_ER=int(last.get('ER10', 1) < 0.2),
             early_neg=int(early_px[-1] < 0),
             deep_adverse=int(min(early_px) < -10),
             sick2=int(max_sick >= 2),
@@ -99,7 +117,9 @@ def main():
     days = sorted({r['day'] for r in rows_out})
     by_day = {d: [r for r in rows_out if r['day'] == d] for d in days}
     base = st.mean([r['wrong'] for r in rows_out])
-    signals = ['early_neg', 'deep_adverse', 'sick2', 'faded', 'conv_neg'] + \
+    signals = ['early_neg', 'no_recovery', 'recovering', 'mostly_under',
+               'fires_against', 'fires_with', 'low_ER',
+               'deep_adverse', 'sick2', 'faded', 'conv_neg'] + \
               [f'd_{f}' for f, _ in SICK_DETECTORS]
     rng = random.Random(SEED)
     results = []
