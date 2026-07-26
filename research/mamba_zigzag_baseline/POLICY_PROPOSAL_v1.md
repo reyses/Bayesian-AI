@@ -226,3 +226,45 @@ tuned knob.
 **Policy plan status: consultant cycle COMPLETE (2 reviews, 3 amendment
 rounds). Frozen pending: owner ratifies (entry-head freeze, asymmetric+gated
 leash, calibration step) + a gate-passing teacher exists.**
+
+---
+# RATIFICATIONS RETIRED — 2026-07-26 (owner: "the 3 ratifications no longer make sense")
+The three pending ratifications were ALL premised on the teacher's EXIT
+judgment being the distillable asset. Today's evidence (dev-holdout, 22 days,
+CPU) killed that premise:
+- **Exit-timing has no causal edge.** Every exit policy class loses to
+  never-bail: binary (teacher −0.15 vs 5m-hold, ≈never-bail on Q2), AND
+  trailing/scale-out/gauge-tightened (all significantly negative; tighter =
+  worse). The +46 pts/ep oracle headroom is a HINDSIGHT MIRAGE — a mid-ride
+  pullback is causally indistinguishable from the top, so any exit-on-pullback
+  forfeits ride. Never-bail is the optimal causal exit. (Reproduces doc-107 at
+  the whole-policy-class level.)
+
+Consequences for each ratification:
+1. **Entry-head freeze — RETIRED (was actively wrong).** It freezes ENTRY,
+   which is the one place a causal edge appeared today (wrong-direction score,
+   73% precision, passed tune/holdout). Freezing the edge-bearing half to learn
+   the edge-free half is backwards.
+2. **Asymmetric ε(direction,duration) leash — RETIRED (moot).** No exit policy
+   to leash if never-bail is optimal; the absorbing-state problem it solved was
+   an exit-action-space problem that no longer exists. (Leash-as-KL-stability
+   may return for an ENTRY policy.)
+3. **Teacher exit-calibration — RETIRED (moot/premature).** Calibrating a
+   P(exit) that neither discriminates nor profits does nothing. (Calibration
+   returns for whatever probabilistic signal we actually distill.)
+
+**Meta-lesson:** this proposal was architected around exit as the asset. That
+premise failed empirically. The exit problem is SOLVED (hold / never-bail).
+The open, UNEXAMINED question is ENTRY SELECTION — which trades to take — which
+we have been freezing (external zigzag) and never studying, because the teacher
+only labels exits. Doc-107 already hinted it: "'cut losers fast' is already
+implemented by the ENTRY layer (not firing)."
+
+**Caveat (anti-doom rule):** 22 days, dev-holdout, my policy sims + capture
+metric. Strong PRIOR, not a closed verdict — re-test on the lockbox before
+committing. But strong enough that exit-centric ratifications should not be
+ratified.
+
+**Recommended reframe:** redirect the program from exit-timing to entry-quality
+research before any further teacher/mamba spend. Validate where the edge is,
+THEN design a policy around it.
