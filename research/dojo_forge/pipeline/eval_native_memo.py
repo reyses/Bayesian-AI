@@ -222,7 +222,12 @@ def reflect_and_admit(llm, eid, eday, frames, candidates, mem, system=''):
               f"{'</think>' not in ans}) — no admissions", flush=True)
     admitted = 0
     for minute, text in kept[:4]:                      # hard backstop
-        res = mem.write_memo(eid, eday, int(minute), text.strip(), '')
+        mi = int(minute)
+        # BUGFIX 2026-07-26: pass the ORIGINATING frame's text so the memo is
+        # stored WITH its state tags — else retrieval-by-state finds nothing
+        # (gen-2 day-carry silently returned 0: reflection stored untagged memos).
+        now_text = frames[mi]['text'] if 0 <= mi < len(frames) else ''
+        res = mem.write_memo(eid, eday, mi, text.strip(), now_text)
         admitted += bool(res['admitted'])
     mem._ledger(dict(event='reflection', episode_id=eid, day=eday,
                      candidates=len(candidates),
