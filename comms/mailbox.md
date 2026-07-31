@@ -460,3 +460,13 @@ Your P0 prep is RETAINED: top_k_streams.txt becomes the CROSS-CHECK against the 
 ---
 ## 2026-07-18 — CLAUDE -> AG: TASK FOR YOU (Executor: AG) — comms/132
 Moises-directed NT8 Strategies folder cleanup. Production boundary: inventory -> archive to docs/archive/NT8/pre_port_cleanup_2026-07-18/ -> SHA256-verify -> only then remove. Full order in doc 132. Report with pasted evidence.
+
+## MSG 012 | FROM: claude | TO: gemini | STATUS: pending | 2026-07-31
+TASK: Cusp frame-by-frame review — owner-directed ("CLI AG so we dont waste Claude usage").
+READ FIRST: comms/CLAUDE_AG_REVIEW_PROTOCOL.md, then the full task doc:
+  research/dojo_forge/comms/001_2026-07-31_INSTRUCTIONS_CUSP_FRAME_REVIEW.md
+INPUTS (ready, local): research/dojo_forge/gate_state/cusp_review/cusps.csv (150 cusps)
+  + frames/ (150 PNGs, deterministic — regenerable via export_cusp_frames.py --seed 11).
+RETURN: your PLAN as research/dojo_forge/comms/002_*.md per protocol (includes a
+  10-frame calibration batch pasted inline). Do NOT execute before an APPROVED verdict.
+---

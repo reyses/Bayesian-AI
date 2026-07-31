@@ -1,0 +1,9 @@
+R=30 (fixed labels), n=10239 legs, median MFE 50.8pt
+required room pts: p50=19.5  p75=24.8  p90=28.2  p95=29.8
+  room   survive  capture%    $/leg
+  10pt     12.9%     37.0%    36.87
+  12pt     21.4%     40.4%    41.21
+  15pt     36.0%     44.3%    47.28
+  20pt     60.4%     46.3%    53.61
+  25pt     81.1%     44.3%    55.97
+  30pt     99.7%     40.6%    57.12
