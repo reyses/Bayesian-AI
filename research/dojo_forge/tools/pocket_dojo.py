@@ -1259,16 +1259,19 @@ def _render(s, df):
     # worth" -- was 72 bars (36min) at 30s; 10min at 30s = 20 bars exactly.
     # 1s: 72 bars is only 72s and the 60s grid gives ~1 line. Give it 3
     # minutes and a 15s grid so the split-second structure is legible.
-    tbars = (96 if tres == '1h' else 180 if tres == '1s'
+    # telescope span in SECONDS (owner 2026-08-04: "zoom in 1s/5s of the last
+    # 2 min"); both sub-panels honour it so they stay time-aligned.
+    tspan = int(s.get('tele_span', 180))
+    tbars = (96 if tres == '1h' else tspan if tres == '1s'
              else 20 if tres == '30s' else TELE_BARS)
     # give the two sub-panels ONE shared time window when their spans match by
-    # design (1s x180 and 5s x36 are both 180s), so their gridlines line up
-    # vertically; skip it for the 1h/4d panel, whose span is deliberately huge.
+    # design (1s xN and 5s xN/5 cover the same seconds), so their gridlines
+    # line up vertically; skip it for the 1h/4d panel, whose span is huge.
     span_a = tbars * {'1s': 1, '5s': 5, '15s': 15, '30s': 30, '1h': 3600}.get(tres, 5)
-    tw = (ts_cut_now - 180, ts_cut_now) if span_a == 180 else None
+    tw = (ts_cut_now - tspan, ts_cut_now) if span_a == tspan else None
     _draw_tele_panel(ax5a, s, tres, tbars, ts_cut_now, tele_lines, p, grid_s=tgrid,
                      t_window=tw)
-    _draw_tele_panel(ax5b, s, '5s', 36, ts_cut_now, tele_lines, p,
+    _draw_tele_panel(ax5b, s, '5s', max(2, tspan // 5), ts_cut_now, tele_lines, p,
                      title_prefix='FIXED · ', grid_s=30, t_window=tw)
     fig.tight_layout()
     fig.savefig(PNG)
@@ -1987,11 +1990,18 @@ def main():
         # "start looking at 30s windows, even 15s, with the 1m in view")
         res = a.rest[0] if a.rest else '5s'
         assert res in ('1s', '5s', '15s', '30s', '1h'), 'tele 1s|5s|15s|30s|1h'
-        s['tele_res'] = res; _save(s); _log(s, 'tele_res', res=res)
+        s['tele_res'] = res
+        # optional 2nd arg = span in SECONDS for both sub-panels
+        if len(a.rest) > 1:
+            sp = int(a.rest[1])
+            assert 30 <= sp <= 1800, 'tele span 30..1800 s'
+            s['tele_span'] = sp
+        _save(s); _log(s, 'tele_res', res=res, span=s.get('tele_span', 180))
         _render(s, df)
+        span_txt = f" · last {s.get('tele_span', 180)}s"
         if a.send:
-            _send(f"telescope: {res}")
-        print(f'telescope resolution: {res}')
+            _send(f"telescope: {res}{span_txt}")
+        print(f'telescope resolution: {res}{span_txt}')
     elif a.cmd == 'mainview':
         # switch the MAIN panel's mode (owner 2026-07-30: "I want to see in
         # the main panel the last 4 days" -- '1m' = normal detail view
