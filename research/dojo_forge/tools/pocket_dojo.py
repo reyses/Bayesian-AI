@@ -1477,7 +1477,8 @@ def _engine_run(s, df, secs, alarms=()):
             # halts the tape — a warning, not an exit. Fires once per
             # position; tested against the PRIOR second's peak like every
             # other line, so the entry bar itself can never trigger it.
-            if (not p.get('entry_warned') and p.get('peak', 0.0) > 0
+            if (pr.get('entry_warn', True)
+                    and not p.get('entry_warned') and p.get('peak', 0.0) > 0
                     and lo_ <= p['entry'] <= hi_):
                 p['entry_warned'] = True
                 _eng_sync(s, t)
@@ -2040,6 +2041,13 @@ def main():
         print(f"bank-and-reenter armed @ {px:.2f}" + (" -- WARNING: on the LOSS "
               f"side of entry ({p['entry']:.2f}), this isn't a favorable target"
               if wrong_side else ""))
+    elif a.cmd == 'tag':
+        # label the current episode in the corpus (owner 2026-08-04: "log as
+        # experimental") — the label rides on every subsequent log row via
+        # state, so the training corpus can filter episodes by intent.
+        s['episode_tag'] = ' '.join(a.rest) if a.rest else None
+        _save(s); _log(s, 'episode_tag', tag=s['episode_tag'])
+        print('episode tag:', s['episode_tag'])
     elif a.cmd == 'tele':
         # switch the telescope sub-panel's resolution (owner 2026-07-30:
         # "start looking at 30s windows, even 15s, with the 1m in view")
@@ -2348,6 +2356,9 @@ def main():
                     print(f"70 hard = {p['frozen'] * pr.get('hard', .7):+.2f}pt "
                           f"retention floor (frozen peak {p['frozen']:+.2f})")
             print('70 hard line ENABLED for the open position')
+        elif sub == 'entrywarn':
+            pr['entry_warn'] = not (len(a.rest) > 1 and a.rest[1] == 'off')
+            print(f"entry-touch warning {'ON' if pr['entry_warn'] else 'OFF'}")
         elif sub == 'lock':
             # protect lock FRAC | protect lock off — the ladder TRAILS this
             # fraction of peak once the trigger is cleared
