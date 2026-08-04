@@ -1582,6 +1582,9 @@ def _engine_run(s, df, secs, alarms=()):
                             al = _actuary_line(s, p, t)
                             if al:
                                 ev.append(al)
+                            gl = _gbm_line(s, t)
+                            if gl:
+                                ev.append(gl)
                             return ev, True
                     # frozen-not-None guard: a freeze-release second clears
                     # frozen but keeps prot_hard armed (the ratchet: the 70
@@ -1703,6 +1706,51 @@ def _actuary_line(s, p, t):
         return 'TABLE ' + ' | '.join(out) if out else ''
     except Exception as e:
         return f'(actuary unavailable: {e})'
+
+
+def _gbm_line(s, t):
+    """Onset readout from the CAUSAL GBM (research/event_onset/models/).
+
+    This is the arming model the pre-registered bake-off selected: the Mamba
+    lost 3/3 heads to these 22 hand-made features (RUN1_VERDICT.md). It says
+    'an event of this type is forming in the next ~10s' — nothing about
+    direction, which the geometry control showed is not there to be had.
+    Honest AUCs (causal, fit-2024/score-2025H1): fakeout 0.643, descent
+    0.759, chop 0.820, stall 0.654. Best-effort; never breaks the dojo."""
+    try:
+        import glob as _g
+        import joblib
+        import sys as _sys
+        eo = os.path.join(REPO, 'research', 'event_onset', 'builders')
+        if eo not in _sys.path:
+            _sys.path.insert(0, eo)
+        from build_onset_dataset import _feat_matrix
+        d5 = _bars_tele(s['day'], '5s')
+        if d5 is None:
+            return ''
+        ts = d5['timestamp'].to_numpy()
+        i = int(np.searchsorted(ts, int(t), side='right')) - 1
+        if i < 400:
+            return ''
+        cols = ('open', 'high', 'low', 'close')
+        o, h, l, c = (d5[k].to_numpy() for k in cols)
+        v = (d5['volume'].to_numpy() if 'volume' in d5
+             else np.ones(len(d5)))
+        feat = _feat_matrix(ts, o, h, l, c, v, np.array([i]))
+        out = []
+        for path in sorted(_g.glob(os.path.join(
+                REPO, 'research', 'event_onset', 'models', 'gbm_*_10s.joblib'))):
+            b = joblib.load(path)
+            name = (os.path.basename(path).replace('gbm_', '')
+                    .replace('_10s.joblib', ''))
+            X = np.nan_to_num(feat[b['feats']].to_numpy(float), nan=0.0,
+                              posinf=0.0, neginf=0.0)
+            pr = float(b['model'].predict_proba(b['scaler'].transform(X))[0, 1])
+            if pr >= 0.60:                      # only speak when it matters
+                out.append(f'{name} {pr:.0%}')
+        return ('ONSET(10s) ' + ' | '.join(out)) if out else ''
+    except Exception as e:
+        return f'(onset unavailable: {e})'
 
 
 def _gauge_line(s, p, cur, peak, t):
