@@ -1462,6 +1462,23 @@ def _engine_run(s, df, secs, alarms=()):
                 ev.append(f'*** WARNSTOP {float(ws):.2f} touched at '
                           f'{_ets(t)} — HALTED, no exit ***')
                 return ev, True
+            # 1.7 ENTRY-TOUCH WARNING (owner 2026-08-04, after a long that
+            # peaked +1.75 then rode to the -10 stop: "any trade that
+            # touches entry is automatic warning"). Once the trade has
+            # traded away favorably at all, a RETURN to the entry price
+            # halts the tape — a warning, not an exit. Fires once per
+            # position; tested against the PRIOR second's peak like every
+            # other line, so the entry bar itself can never trigger it.
+            if (not p.get('entry_warned') and p.get('peak', 0.0) > 0
+                    and lo_ <= p['entry'] <= hi_):
+                p['entry_warned'] = True
+                _eng_sync(s, t)
+                _log(s, 'entry_touch', price=p['entry'],
+                     peak=p.get('peak', 0.0), ts1=t)
+                ev.append(f'*** ENTRY TOUCHED {p["entry"]:.2f} at {_ets(t)} '
+                          f'— peak was {p.get("peak", 0.0):+.2f}, position '
+                          f'open, decision time ***')
+                return ev, True
             # 2. MFE / auto-ratchet. Lines are checked against the PRIOR
             # second's peak — computing the warn off a peak set by THIS
             # second's own wick makes every wide second self-freeze
