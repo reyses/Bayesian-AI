@@ -1397,12 +1397,20 @@ def _engine_run(s, df, secs, alarms=()):
     # loiters), degrading run to one second per invocation exactly at the
     # owner's decision zones.
     rs = s.setdefault('region_state', {})
-    # Alarm edge-trigger: a level the tape is ALREADY touching on the first
-    # resumed second (typically the alarm that just halted us) must not
-    # re-fire until price leaves it and comes back.
+    # Alarm semantics: fire when a CLOSE crosses the level relative to the
+    # side price was on when the run resumed. Wick-touch + an "already
+    # touching" suppression (the previous design) silently swallowed a real
+    # break: on 2026-08-04 the first resumed second straddled the owner's
+    # rail on the way DOWN, was suppressed, every later bar sat entirely
+    # below it, and the rail only fired 2.5 minutes later on the way back up
+    # — after a 51pt run he had explicitly asked to be woken for. A close
+    # beyond the level is what "the box broke" actually means.
     r1 = seg.iloc[0]
-    alarm_in = {float(lv): (float(r1['low']) <= float(lv) <= float(r1['high']))
-                for lv in alarms}
+    alarm_side = {}
+    for lv in alarms:
+        lv = float(lv)
+        c1 = float(r1['close'])
+        alarm_side[lv] = 1 if c1 > lv else (-1 if c1 < lv else 0)
     ms = pr.get('milestone')          # dict(level=, by_ts=) or None
     for _, r in seg.iterrows():
         t = int(r['timestamp'])
@@ -1573,14 +1581,17 @@ def _engine_run(s, df, secs, alarms=()):
         # 4. alarms / regions / milestone
         for lv in alarms:
             lv = float(lv)
-            touch = lo_ <= lv <= hi_
-            if touch and not alarm_in.get(lv, False):
+            side = 1 if cl > lv else (-1 if cl < lv else 0)
+            s0 = alarm_side.get(lv, 0)
+            if s0 == 0:                      # resumed exactly on the level
+                alarm_side[lv] = side
+                continue
+            if side != 0 and side != s0:     # closed through it — a break
                 _eng_sync(s, t)
-                _log(s, 'alarm', price=lv, ts1=t)
-                ev.append(f'*** ALARM {lv:.2f} touched at {_ets(t)} — '
-                          f'HALTED ***')
+                _log(s, 'alarm', price=lv, ts1=t, close=cl)
+                ev.append(f'*** ALARM {lv:.2f} BROKEN at {_ets(t)} '
+                          f'(close {cl:.2f}) — HALTED ***')
                 return ev, True
-            alarm_in[lv] = touch
         for lv in [float(x) for x in s.get('owner_lines', [])]:
             k = f'{lv:g}'
             st = rs.get(k) or {'last': 0, 'in': False}
