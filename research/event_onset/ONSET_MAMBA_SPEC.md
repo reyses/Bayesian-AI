@@ -120,3 +120,29 @@ first pass the driftless-barrier control in
 2. `pipeline/train_onset_mamba.py` — training loop, val on matched design.
 3. `tools/eval_onset.py` — the pre-registered table above, one shot on test.
 4. Adversarial audit BEFORE the test window is opened.
+
+---
+
+## BUILD STATUS (2026-08-04 overnight)
+
+| step | state |
+|---|---|
+| 1. sequence dataset | **DONE** — `builders/build_onset_sequences.py`, 545 days, **11,175,332 sampleable seconds**, 111 MB (per-day arrays; windows sliced in the loader — materialising them would have cost ~68 GB) |
+| 2. training script | **WRITTEN, NOT RUN** — `pipeline/train_onset_mamba.py`. Project rule: the assistant does not launch training. |
+| 3. eval on sealed test | pending step 2 |
+| 4. adversarial audit | pending step 2 |
+
+Verified without training: model constructs at **0.47M params**, forward pass
+correct, **inference 1.17 ms at batch 1 on the RTX 3060** — 43x inside the
+50 ms budget, so latency is not the constraint. Temporal split function
+spot-checked (2024→train, 2025-H1→val, later→test).
+
+**To run:**
+```
+python research/event_onset/pipeline/train_onset_mamba.py --epochs 3
+```
+`--stride 5` by default: adjacent 300s windows share 299 bars, so stride 1
+is ~300x redundant compute for almost no extra information.
+
+Each epoch prints matched-design AUC per head against the pre-registered
+baseline (fakeout 0.769 / leg_descent 0.868 / ultra_chop 0.830).
