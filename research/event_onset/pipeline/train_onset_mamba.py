@@ -38,9 +38,15 @@ CKPT_EVERY = 500                  # steps (~100s at 1280 win/s, batch 256):
 
 
 def day_split(day):
-    y = day[:4]
-    return 'train' if y == '2024' else ('val' if day <= '2025_06_30'
-                                        else 'test')
+    """Date-parsed, not lexicographic (audit e): a file named
+    '2025_06_30_FOUR' sorts AFTER '2025_06_30' and would have landed in the
+    SEALED TEST split while its twin sat in val."""
+    import datetime as _dt
+    y, m, d = day.split('_')[:3]
+    dt = _dt.date(int(y), int(m), int(d))
+    if dt < _dt.date(2025, 1, 1):
+        return 'train'
+    return 'val' if dt <= _dt.date(2025, 6, 30) else 'test'
 
 
 class DayCache:
@@ -53,8 +59,16 @@ class DayCache:
             self.d[day] = (z['f'], z['y'], z['mask'], z['ts'])
 
     def window(self, day, i):
-        f = self.d[day][0][i - WINDOW:i]
-        return torch.from_numpy(f.astype(np.float32))
+        f = self.d[day][0][i - WINDOW:i].astype(np.float32)
+        # AMPLITUDE NORMALISATION (audit c): mean |1s return| ran 2.93 ->
+        # 4.73 ticks from 2024 to 2025H1 and the ERA is recoverable at AUC
+        # 0.9835 from range/wick size alone. Scale the four size channels by
+        # this window's own volatility so the model sees SHAPE, not era.
+        # corr(range, price) across days is only +0.036 — this is drift in
+        # activity, not price scaling, so a per-window scale removes it.
+        sc = np.sqrt((f[:, 0] ** 2).mean()) + 1e-3
+        f[:, 0:5] /= sc
+        return torch.from_numpy(f)
 
 
 class OnsetDS(Dataset):
@@ -200,7 +214,11 @@ def main():
         line = f'epoch {ep} loss {tot/max(len(dl),1):.4f} ({time.time()-t0:.0f}s)'
         aucs = {}
         for ev in HEADS:
-            r = matched_eval(model, dev, ev, 10, 'val')
+            # ultra_chop's matched anchor sits a median 12s before the event
+            # (its confirmations are on the 1s grid, unlike the others), so
+            # H=10 mislabels 40% of its positives — score it at H=30.
+            hz = 30 if ev == 'ultra_chop' else 10
+            r = matched_eval(model, dev, ev, hz, 'val')
             if r:
                 aucs[ev] = r[0]
                 line += f' | {ev} matched-AUC {r[0]:.4f} (n={r[1]})'

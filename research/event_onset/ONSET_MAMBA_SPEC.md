@@ -74,20 +74,62 @@ imbalance handled by `pos_weight`. **Evaluate on the MATCHED design**
 300s on the same day. Tonight's lesson — quiet-stretch negatives inflated
 AUC to 0.9965 by letting the model answer "is the tape active?".
 
-## 7. Pre-registered success criteria (set BEFORE training)
+## 7. Pre-registered success criteria — RE-REGISTERED 2026-08-04 after audit
 
-The baseline to beat is not zero, it is the **HistGradientBoosting model we
-already have**: fakeout 0.769 / descent 0.868 / chop 0.830 (matched design,
-day-blocked CV).
+**The original bar was WRONG and would have killed a good model.** An
+adversarial audit (`reports/audit_pipeline.md`) found the published GBM
+baseline (0.769 / 0.868 / 0.830) inflated by three stacked defects:
+
+1. **+5s of future.** ATLAS `timestamp` marks the bar OPEN (verified: a 5s
+   bar at T matches 1s bars in [T, T+5), 100% of 1,816 cases). The probe's
+   feature matrix read `c[idx]`, so every row stamped `t` contained tape
+   through `t+4.99`. Causal refit: fakeout 0.769 -> 0.678.
+2. **Test days in its training folds.** The baseline was 5-fold day-blocked
+   CV over all 539 days, so the 170 SEALED test days sat in 4 of 5 training
+   folds. Fit-2024 / score-2025H1: 0.742.
+3. Together, on the exact rows and protocol the Mamba will face:
+
+| head | REGISTERED (honest bar) | old inflated number |
+|---|---|---|
+| fakeout_poke | **0.6435** [0.633, 0.655] | 0.769 |
+| leg_descent | **0.7580** [0.746, 0.770] | 0.868 |
+| ultra_chop | **0.8201** [0.811, 0.830] | 0.830 |
+
+(day-clustered CIs; ultra_chop scored at H=30 — see §6a.)
+
+The inflation was +0.126 / +0.110 / +0.010 — **6.3x and 5.5x the +-0.02
+decision band on two heads.** Under the old bar a Mamba scoring 0.70 on
+fakeout would have been +0.06 above an equal-information baseline and still
+been KILLED.
 
 | outcome | rule | action |
 |---|---|---|
-| SHIP | test AUC ≥ baseline + 0.02 on ≥2 of 3 heads, and ≥ baseline − 0.01 on the third | integrate into the fast lane |
-| KEEP GBM | within ±0.02 of baseline | **use the GBM** — it is cheaper, interpretable, already built |
-| KILL | below baseline − 0.02 on any head | do not deploy; write the null up |
+| SHIP | test AUC >= bar + 0.02 on >=2 of 3 heads, and >= bar - 0.01 on the third | integrate into the fast lane |
+| KEEP GBM | within +-0.02 of bar | use the GBM — cheaper, interpretable, already built (rebuild it causally first) |
+| KILL | below bar - 0.02 on any head | do not deploy; write the null up |
 
-A sequence model that cannot beat 22 hand-made features by 2 points has not
-earned its latency budget or its complexity.
+## 6a. Corrections applied before any GPU spend (audit-driven)
+
+- **6 label-less day files removed** (`2024_02_2*_FOUR`, `2024_02_20_BROWN`
+  — real sessions absent from the event library): 128,993 windows, 2.33% of
+  training, were guaranteed-false negatives. Moved to `seq_excluded/`.
+- **ultra_chop scored at H=30**: its confirmations sit on the 1s grid (only
+  20.8% land on a 5s boundary vs >=99.3% for the other heads), so the
+  matched anchor is a median 12s back and the H=10 label disagrees with the
+  npz label on 40% of positives. H=30 agreement is 0.972.
+- **Amplitude normalisation**: era is recoverable at **AUC 0.9835** from one
+  window (mean |1s return| 2.93 -> 4.73 ticks, 2024 -> 2025H1) while
+  corr(range, price) across days is only +0.036 — activity drift, not price
+  scaling. Size channels are now divided by the window's own RMS return, so
+  the model sees shape rather than era. Without this, §9's regime-overfit
+  kill would fire for a non-signal reason.
+- **`day_split` date-parses** instead of comparing strings: a
+  `2025_06_30_FOUR` file sorted after `2025_06_30` and would have gone to
+  the SEALED TEST split while its twin sat in val.
+- **Resume repeats the current epoch.** Mid-epoch checkpoints store `step`
+  but the loop does not skip batches; a resume restarts that epoch from its
+  beginning. Stated here rather than implied away — the earlier commit
+  message overclaimed it.
 
 ## 8. Latency budget
 
