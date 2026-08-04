@@ -1487,6 +1487,27 @@ def _engine_run(s, df, secs, alarms=()):
                           f'— peak was {p.get("peak", 0.0):+.2f}, position '
                           f'open, decision time ***')
                 return ev, True
+            # 1.8 CONDITIONAL GIVE-BACK WARNING (owner 2026-08-04 "arm +3
+            # warning", same pattern as his earlier "a warning at +2p if we
+            # go past it and return"): once the trade has EXCEEDED +N, a
+            # return to the +N level halts the tape. Warning, not an exit;
+            # once per position. Sits between the entry-touch warning
+            # (giving back everything) and the percentage ratchet (which
+            # only arms at min_mfe).
+            gbn = p.get('warn_gb')
+            if (gbn and not p.get('warn_gb_fired')
+                    and p.get('peak', 0.0) > float(gbn)):
+                lvl = p['entry'] + d * float(gbn)
+                if lo_ <= lvl <= hi_:
+                    p['warn_gb_fired'] = True
+                    _eng_sync(s, t)
+                    _log(s, 'warn_giveback', level=lvl, pts=float(gbn),
+                         peak=p.get('peak', 0.0), ts1=t)
+                    ev.append(f'*** +{float(gbn):.0f} WARNING {lvl:.2f} at '
+                              f'{_ets(t)} — peak was '
+                              f'{p.get("peak", 0.0):+.2f}, position open, '
+                              f'decision time ***')
+                    return ev, True
             # 2. MFE / auto-ratchet. Lines are checked against the PRIOR
             # second's peak — computing the warn off a peak set by THIS
             # second's own wick makes every wide second self-freeze
@@ -1508,7 +1529,13 @@ def _engine_run(s, df, secs, alarms=()):
             # a resting-order move, not a decision halt.
             lad = pr.get('ladder')
             if lad and p.get('peak', 0.0) >= float(lad['trigger']):
-                new_stop = p['entry'] + d * float(lad.get('jump', 2.0))
+                # lock: TRAIL a fraction of peak instead of a flat BE+jump
+                # (owner 2026-08-04 "lock the 50%", after a trade that
+                # peaked +7.75 and kept +2 because the percentage ratchet
+                # only arms at min_mfe=10 — the +5..+10 band had no trail).
+                lk = lad.get('lock')
+                new_stop = (p['entry'] + d * p['peak'] * float(lk) if lk
+                            else p['entry'] + d * float(lad.get('jump', 2.0)))
                 cs = p.get('stop')
                 if (cs is None or (d > 0 and new_stop > cs)
                         or (d < 0 and new_stop < cs)):
@@ -2321,6 +2348,35 @@ def main():
                     print(f"70 hard = {p['frozen'] * pr.get('hard', .7):+.2f}pt "
                           f"retention floor (frozen peak {p['frozen']:+.2f})")
             print('70 hard line ENABLED for the open position')
+        elif sub == 'lock':
+            # protect lock FRAC | protect lock off — the ladder TRAILS this
+            # fraction of peak once the trigger is cleared
+            lad = pr.get('ladder') or dict(trigger=5.0, jump=2.0)
+            if len(a.rest) > 1 and a.rest[1] == 'off':
+                lad.pop('lock', None)
+                print('lock OFF — ladder back to flat BE+%g' %
+                      lad.get('jump', 2.0))
+            else:
+                lad['lock'] = float(a.rest[1])
+                print(f"lock ARMED: once MFE >= {lad['trigger']:g}, stop "
+                      f"trails {lad['lock']:.0%} of peak")
+            pr['ladder'] = lad
+        elif sub == 'warnat':
+            # protect warnat N | protect warnat off — conditional give-back
+            # warning on the OPEN position: exceed +N, then return to it
+            p = s.get('pos')
+            if not p:
+                print('no open position')
+            elif len(a.rest) > 1 and a.rest[1] == 'off':
+                p.pop('warn_gb', None); p.pop('warn_gb_fired', None)
+                print('give-back warning OFF')
+            else:
+                p['warn_gb'] = float(a.rest[1])
+                p.pop('warn_gb_fired', None)
+                d0 = 1 if p['dir'] == 'long' else -1
+                print(f"give-back warning ARMED at "
+                      f"{p['entry'] + d0 * p['warn_gb']:.2f} "
+                      f"(+{p['warn_gb']:g}), fires after the trade exceeds it")
         elif sub == 'clock':
             # protect clock RATE [GRACE_S] | protect clock off
             if len(a.rest) > 1 and a.rest[1] == 'off':
