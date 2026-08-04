@@ -1454,6 +1454,24 @@ def _engine_run(s, df, secs, alarms=()):
                 if p.get('frozen') is not None:
                     p['frozen'] = None
                     ev.append(f'{ _ets(t) } new MFE {fav:+.2f} — freeze released')
+            # 2.5 risk ladder (owner 2026-08-04, after the unarmed-MFE loss:
+            # "always arm but leave room to breathe: start at -10, then
+            # ratchet at +2; at risk of fake the ratchet region expands to
+            # +5 or higher — a risk-based approach"). Once MFE clears the
+            # trigger, the resting stop jumps to entry+jump (BE+2 — the
+            # measured zero-EV-cost risk control) and never loosens. Silent:
+            # a resting-order move, not a decision halt.
+            lad = pr.get('ladder')
+            if lad and p.get('peak', 0.0) >= float(lad['trigger']):
+                new_stop = p['entry'] + d * float(lad.get('jump', 2.0))
+                cs = p.get('stop')
+                if (cs is None or (d > 0 and new_stop > cs)
+                        or (d < 0 and new_stop < cs)):
+                    p['stop'] = new_stop
+                    _log(s, 'ladder_stop', stop=new_stop, peak=p['peak'],
+                         ts1=t)
+                    ev.append(f'{_ets(t)} LADDER: stop -> {new_stop:.2f} '
+                              f'(peak {p["peak"]:+.2f})')
             # 3. protect machine (on pk_prev)
             if pr.get('on') and pk_prev >= pr.get('min_mfe', 10.0):
                 armed = p.get('prot_armed', False)
@@ -2220,6 +2238,20 @@ def main():
                     print(f"70 hard = {p['frozen'] * pr.get('hard', .7):+.2f}pt "
                           f"retention floor (frozen peak {p['frozen']:+.2f})")
             print('70 hard line ENABLED for the open position')
+        elif sub == 'ladder':
+            # protect ladder TRIGGER [JUMP] | protect ladder off
+            # trigger: MFE pts that arm the jump (owner: 2 normal, 5+ when
+            # bracing for a fake). jump: stop lands at entry+jump (BE+2
+            # default).
+            if len(a.rest) > 1 and a.rest[1] == 'off':
+                pr.pop('ladder', None)
+                print('ladder OFF')
+            else:
+                pr['ladder'] = dict(trigger=float(a.rest[1]),
+                                    jump=float(a.rest[2])
+                                    if len(a.rest) > 2 else 2.0)
+                print(f"ladder ARMED: MFE >= {pr['ladder']['trigger']:g} "
+                      f"-> stop to entry{pr['ladder']['jump']:+g}")
         elif sub == 'rearm':
             # owner protocol verb (2026-08-03, at the first live engine
             # freeze): release the freeze but keep the 80-machine hot at the
