@@ -132,3 +132,13 @@ V-low broken later:      65 (49%)
 V-peak reclaimed later:  103 (77%)
 first event: {'PEAK_RECLAIM': 83, 'LOW_BREAK': 51}
 RTH close position in [V-low, V-peak] (0=low, 1=peak): median 0.87, quartiles [0.10, 1.27]
+
+## FOUR-PHASE refinement (owner: down / up / small-stall / down — what next)
+
+Tool: research/dojo_forge/tools/four_phase_cohort.py. N=20 (live day
+excluded). From arrival at the shelf zone: first ±15pt race UP 55%
+[33%,77%] — NOT significant, coin flip at this N. Net drift +14 median at
+30min, +23 at 60min (wide quartiles). Rest of day: V-peak reclaimed 80%,
+V-low broken 35%, RTH close median 0.84 of V-range. The stall requirement
+removes the sharp poke-hold edge; the up-lean lives at hour scale and in
+the day's resolution, not the immediate move.
