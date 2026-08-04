@@ -13,7 +13,9 @@ sealed until eval_onset.py is run once, after an audit.
 """
 import argparse
 import glob
+import json
 import os
+import time
 
 import numpy as np
 import torch
@@ -30,6 +32,9 @@ HEADS = ('fakeout_poke', 'leg_descent', 'ultra_chop')
 HORIZONS = (5, 10, 30)
 WINDOW, NFEAT, NOUT = 300, 8, 9
 PRIMARY = 1                       # index of H=10s inside HORIZONS
+CKPT_EVERY = 500                  # steps (~100s at 1280 win/s, batch 256):
+                                  # an epoch is ~14 min, so per-epoch-only
+                                  # saving can lose 13 minutes to one crash
 
 
 def day_split(day):
@@ -132,6 +137,8 @@ def main():
     ap.add_argument('--stride', type=int, default=5,
                     help='sample every Nth second (adjacent windows overlap '
                          '299/300 — stride 1 is 300x redundant compute)')
+    ap.add_argument('--resume', default=None,
+                    help='path to a checkpoint, or "last" for the newest')
     a = ap.parse_args()
     os.makedirs(CKPT, exist_ok=True)
     days = sorted(os.path.basename(f)[:-4]
@@ -153,10 +160,33 @@ def main():
     model = OnsetMamba().to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=a.lr, weight_decay=0.01)
     lossf = nn.BCEWithLogitsLoss(pos_weight=pw)
-    for ep in range(a.epochs):
+
+    def save(tag, ep, step, best=None):
+        torch.save(dict(model=model.state_dict(), opt=opt.state_dict(),
+                        epoch=ep, step=step, best=best,
+                        cfg=vars(a), heads=HEADS, horizons=HORIZONS),
+                   os.path.join(CKPT, f'{tag}.pt'))
+
+    start_ep, start_step, best = 0, 0, {}
+    if a.resume:
+        path = a.resume
+        if path == 'last':
+            cands = glob.glob(os.path.join(CKPT, '*.pt'))
+            path = max(cands, key=os.path.getmtime) if cands else None
+        if path and os.path.exists(path):
+            ck = torch.load(path, map_location=dev)
+            model.load_state_dict(ck['model'])
+            opt.load_state_dict(ck['opt'])
+            start_ep, start_step = ck['epoch'], ck.get('step', 0)
+            best = ck.get('best') or {}
+            print(f'resumed {path} at epoch {start_ep} step {start_step}')
+        else:
+            print('no checkpoint to resume; starting fresh')
+
+    for ep in range(start_ep, a.epochs):
         model.train()
-        tot = 0.0
-        for x, y in tqdm(dl, desc=f'epoch {ep}'):
+        tot, t0 = 0.0, time.time()
+        for i, (x, y) in enumerate(tqdm(dl, desc=f'epoch {ep}')):
             x, y = x.to(dev, non_blocking=True), y.to(dev, non_blocking=True)
             opt.zero_grad()
             loss = lossf(model(x), y)
@@ -164,12 +194,26 @@ def main():
             nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             opt.step()
             tot += loss.item()
-        torch.save(model.state_dict(), os.path.join(CKPT, f'onset_ep{ep}.pt'))
-        line = f'epoch {ep} loss {tot/max(len(dl),1):.4f}'
+            if (i + 1) % CKPT_EVERY == 0:
+                save('onset_live', ep, i + 1, best)     # crash insurance
+        save(f'onset_ep{ep}', ep + 1, 0, best)
+        line = f'epoch {ep} loss {tot/max(len(dl),1):.4f} ({time.time()-t0:.0f}s)'
+        aucs = {}
         for ev in HEADS:
             r = matched_eval(model, dev, ev, 10, 'val')
             if r:
+                aucs[ev] = r[0]
                 line += f' | {ev} matched-AUC {r[0]:.4f} (n={r[1]})'
+        # keep the best epoch BY VALIDATION, not the last one
+        if aucs and (not best or
+                     np.mean(list(aucs.values())) > np.mean(list(best.values()))):
+            best = aucs
+            save('onset_best', ep + 1, 0, best)
+            line += '  <- new BEST (saved onset_best.pt)'
+        json.dump(dict(epoch=ep, loss=tot/max(len(dl),1), val=aucs,
+                       best=best),
+                  open(os.path.join(CKPT, f'metrics_ep{ep}.json'), 'w'),
+                  indent=1)
         print(line, flush=True)
     print('\nBASELINE TO BEAT (GBM, matched design): fakeout 0.769 / '
           'leg_descent 0.868 / ultra_chop 0.830')

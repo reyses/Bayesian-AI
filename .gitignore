@@ -408,3 +408,5 @@ research/nt8_port/csharp/v02/out_v02/
 
 # Python venv, dot-prefixed. The bare `venv/` rule above does not match `.venv/`.
 .venv/
+research/event_onset/checkpoints/
+research/event_onset/seq/
