@@ -760,6 +760,27 @@ def _draw_tele_panel(ax, s, res, n_bars, ts_cutoff, tele_lines, p, title_prefix=
         # two panels map identical times to identical x by construction.
         TELE_PAD_S = 3          # half a 5s candle body; keeps wicks off the edge
         ax.set_xlim(to_x(t_window[0] - TELE_PAD_S), to_x(t_window[1] + TELE_PAD_S))
+    _price_grid(ax)
+
+
+def _price_grid(ax):
+    """Dashed price gridlines at the majors + minor ticks (owner 2026-08-03:
+    "we are missing levels moving forward — add dashed lines for the ticks
+    and add minor ticks"). Step auto-picked from the visible span so the
+    grid stays readable at any zoom (~<=12 major lines); minor = major/5."""
+    from matplotlib.ticker import MultipleLocator
+    y_lo, y_hi = ax.get_ylim()
+    span = max(1e-9, y_hi - y_lo)
+    stp = next(v for v in (1, 2.5, 5, 10, 25, 50, 100, 250)
+               if span / v <= 12)
+    ax.yaxis.set_major_locator(MultipleLocator(stp))
+    ax.yaxis.set_minor_locator(MultipleLocator(stp / 5))
+    ax.grid(axis='y', which='major', ls='--', lw=0.6, color='#78909C',
+            alpha=0.45, zorder=0.4)
+    ax.grid(axis='y', which='minor', ls=':', lw=0.4, color='#90A4AE',
+            alpha=0.28, zorder=0.3)
+    ax.tick_params(axis='y', which='minor', length=2)
+    ax.tick_params(axis='y', which='major', labelsize=7)
 
 
 _ROLL_MANIFEST = os.path.join(REPO, 'DATA', 'ATLAS', 'roll_manifest.csv')
@@ -1080,6 +1101,17 @@ def _render(s, df):
                 ax.axhline(p['target'], color='#1B5E20', lw=1.0, ls='--', alpha=0.8, zorder=5)
             if p.get('stop'):
                 ax.axhline(p['stop'], color='#B71C1C', lw=1.0, ls='--', alpha=0.8, zorder=5)
+        # exit markers (owner 2026-08-04: "place a marker of exit") — every
+        # booking drops an x at its bar/price; persists in s['exit_marks']
+        for mts, mpx in s.get('exit_marks', [])[-10:]:
+            _mb = df[df['timestamp'] <= mts]
+            if len(_mb):
+                mb = int(_mb.index[-1])
+                if v0 <= mb <= cur + 1:
+                    ax.plot(mb, mpx, marker='x', ms=9, mew=2.2,
+                            color='#000', zorder=7)
+                    ax.text(mb, mpx, f'  exit {mpx:.2f}', fontsize=7,
+                            fontweight='bold', va='bottom', clip_on=True)
         # Y-LIMITS computed BEFORE the fog projection so the projection can be
         # clamped into them (owner bug report precedent: an off-view line like
         # 23400 was force-expanding autoscale and squishing the candles -- a
@@ -1134,6 +1166,7 @@ def _render(s, df):
                         ha='center', va='top', zorder=8, clip_on=True)
         ax.set_title(f'{hdr} · σW={sw}', fontsize=10)
         ax.set_xlim(v0 - 0.5, cur + 6)
+        _price_grid(ax)
         # 5-MINUTE ET CLOCK on the main panel (owner 2026-08-01: "add a marker
         # of every 5 minutes? So I know which hour it is similar to the
         # telescope"). The main x-axis was raw BAR INDEX, which carries no
@@ -1316,6 +1349,7 @@ def _eng_book(s, px, why, t):
     s['last_peak'] = p.get('peak', 0.0)
     s['last_entry'] = p['entry']
     s['pos'] = None
+    s.setdefault('exit_marks', []).append([int(t), px])
     dfm = _bars(s['day'])
     s['cur'] = int(dfm[dfm['timestamp'] <= t].index[-1])
     s['peek_offset'] = 0
@@ -2186,6 +2220,22 @@ def main():
                     print(f"70 hard = {p['frozen'] * pr.get('hard', .7):+.2f}pt "
                           f"retention floor (frozen peak {p['frozen']:+.2f})")
             print('70 hard line ENABLED for the open position')
+        elif sub == 'rearm':
+            # owner protocol verb (2026-08-03, at the first live engine
+            # freeze): release the freeze but keep the 80-machine hot at the
+            # STANDING peak — "give it breathing room; anything that pokes
+            # <80% stops the tape again". Differs from engine-native extend
+            # (freeze holds until a NEW MFE): after rearm the very next
+            # wick through the 80 line re-freezes.
+            p = s.get('pos')
+            if p and p.get('frozen') is not None:
+                pk = p.get('peak', 0.0)
+                p['frozen'] = None
+                _log(s, 'prot_rearm', peak=pk)
+                print(f'freeze RELEASED — 80 machine hot at peak {pk:+.2f}; '
+                      f'next poke through the line re-freezes')
+            else:
+                print('nothing frozen')
         elif sub == 'off':
             pr['on'] = False
         elif sub == 'milestone':
@@ -2259,6 +2309,8 @@ def main():
         s['pnl_pts'] = s.get('pnl_pts', 0.0) + pts
         s['trades'] = s.get('trades', 0) + 1
         s['pos'] = None
+        s.setdefault('exit_marks', []).append(
+            [int(s.get('halt_ts5') or df['timestamp'].iloc[s['cur']]), px])
         _save(s); _log(s, 'close', reason='manual', price=px, pts=round(pts, 2))
         print(f'EXIT {p["dir"]} @ {px:.2f} -> {pts:+.2f}pt (${pts*PT_USD:+.2f})')
     elif a.cmd == 'line':
