@@ -154,3 +154,71 @@ if len(res):
 os.makedirs(os.path.dirname(REPORT), exist_ok=True)
 open(REPORT, 'w').write('\n'.join(lines) + '\n')
 print('\n'.join(lines))
+
+
+# ---------------------------------------------------------------------------
+# V-FATE section (owner 2026-08-03: "search for the cohort of the v") — on
+# the same signature days, what happens to the V STRUCTURE after 10:20:
+# does the day break the dump low, reclaim the recovery peak, which comes
+# first, and where does RTH close inside [dump_low, v_peak]?
+# ---------------------------------------------------------------------------
+def v_fate(path):
+    day = os.path.basename(path).replace('.parquet', '')
+    if day == LIVE_DAY and LIVE_TS:
+        return None
+    d = pd.read_parquet(path)
+    et = (pd.to_datetime(d['timestamp'], unit='s', utc=True)
+          .dt.tz_convert('America/New_York'))
+    d = d.assign(hm=et.dt.strftime('%H:%M'))
+    rth = d[d['hm'] >= '09:30']
+    if not len(rth):
+        return None
+    open_px = float(rth['open'].iloc[0])
+    dump = d[(d['hm'] >= '09:30') & (d['hm'] <= '09:50')]
+    if not len(dump):
+        return None
+    dump_low = float(dump['low'].min())
+    flush = open_px - dump_low
+    if flush < FLUSH_MIN:
+        return None
+    t_low = dump.loc[dump['low'].idxmin(), 'hm']
+    vwin = d[(d['hm'] > t_low) & (d['hm'] <= '10:20')]
+    if not len(vwin):
+        return None
+    v_peak = float(vwin['high'].max())
+    if (v_peak - dump_low) / flush < REC_FRAC:
+        return None
+    rest = d[(d['hm'] > '10:20') & (d['hm'] <= '16:00')].reset_index(drop=True)
+    if not len(rest):
+        return None
+    low_i = rest.index[rest['low'] < dump_low]
+    pk_i = rest.index[rest['high'] > v_peak]
+    li = int(low_i[0]) if len(low_i) else None
+    pi = int(pk_i[0]) if len(pk_i) else None
+    first = ('LOW_BREAK' if li is not None and (pi is None or li < pi)
+             else 'PEAK_RECLAIM' if pi is not None
+             else 'NEITHER')
+    close_px = float(rest['close'].iloc[-1])
+    pos = (close_px - dump_low) / (v_peak - dump_low)
+    return dict(day=day, low_break=li is not None,
+                peak_reclaim=pi is not None, first=first,
+                close_frac=round(pos, 2))
+
+
+if __name__ == '__main__':
+    fates = [r for r in (v_fate(p) for p in DAYS) if r]
+    fd = pd.DataFrame(fates)
+    n = len(fd)
+    out = ['', '## V-FATE (after 10:20, same cohort, live day excluded)', '',
+           f'N = {n} days',
+           f'V-low broken later:      {int(fd["low_break"].sum())} '
+           f'({fd["low_break"].mean():.0%})',
+           f'V-peak reclaimed later:  {int(fd["peak_reclaim"].sum())} '
+           f'({fd["peak_reclaim"].mean():.0%})',
+           'first event: ' + str(dict(fd['first'].value_counts())),
+           'RTH close position in [V-low, V-peak] (0=low, 1=peak): '
+           f'median {fd["close_frac"].median():.2f}, quartiles '
+           f'[{fd["close_frac"].quantile(.25):.2f}, '
+           f'{fd["close_frac"].quantile(.75):.2f}]']
+    open(REPORT, 'a').write('\n'.join(out) + '\n')
+    print('\n'.join(out))

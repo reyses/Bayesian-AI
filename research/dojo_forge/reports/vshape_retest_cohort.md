@@ -125,6 +125,10 @@ Scanned 604 ATLAS days. Signature days (flush >= 60pt by 09:50, V-recovery >= 60
 **Decided pokes: 72 — CRACK 1 (1%), Wilson 95% CI [0%, 7%]**
 (others: [('HOLD', 71), ('NO_RETEST', 46), ('CRACK', 1)])
 
-(Regenerated after the leak: the live day is now EXCLUDED from the scan
-entirely — bar-level truncation was still leaky because 1m bars are labeled
-by minute start. Clean cohort: 118 days, 72 decided, 71 HOLD / 1 CRACK.)
+## V-FATE (after 10:20, same cohort, live day excluded)
+
+N = 134 days
+V-low broken later:      65 (49%)
+V-peak reclaimed later:  103 (77%)
+first event: {'PEAK_RECLAIM': 83, 'LOW_BREAK': 51}
+RTH close position in [V-low, V-peak] (0=low, 1=peak): median 0.87, quartiles [0.10, 1.27]
