@@ -103,11 +103,24 @@ def lookup(event, question, **ctx):
                 lo, hi = stats.beta.ppf([0.025, 0.975], a0 + hits,
                                         b0 + n - hits)
             return Answer(event, question, p, lo, hi, n,
-                          int(sel['days'].sum()) if 'days' in sel else 0,
+                          int(sel['days'].max()) if 'days' in sel else 0,
                           bool(sel['actionable'].all()), dropped,
                           basis='POOLED')
-        # back off the least informative dimension still in play
-        nxt = next((d for d in BACKOFF_ORDER if d in use), None)
+        # Back off the dimension that CAUSED the miss, not a fixed favourite.
+        # The audit caught the old fixed order discarding age_b+clock_b when
+        # only depth_b was impossible, answering from n=39,409 instead of the
+        # correct n=2,424 — and mispricing the report's own headline cell
+        # (true 0.5710 -> 0.6422 via backoff).
+        culprit = None
+        for k in list(use):
+            probe = t
+            for kk, vv in use.items():
+                if kk != k:
+                    probe = probe[probe[kk] == vv]
+            if len(probe):                    # removing k revives the match
+                culprit = k
+                break
+        nxt = culprit or next((d for d in BACKOFF_ORDER if d in use), None)
         if nxt is None:
             break
         use.pop(nxt)
