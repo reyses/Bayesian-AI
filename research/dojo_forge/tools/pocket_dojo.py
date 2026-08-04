@@ -1579,6 +1579,9 @@ def _engine_run(s, df, secs, alarms=()):
                                       f'{peak:+.2f}) — FROZEN at {_ets(t)}, '
                                       f'position open, decision time ***')
                             ev.append(_gauge_line(s, p, cur, peak, t))
+                            al = _actuary_line(s, p, t)
+                            if al:
+                                ev.append(al)
                             return ev, True
                     # frozen-not-None guard: a freeze-release second clears
                     # frozen but keeps prot_hard armed (the ratchet: the 70
@@ -1666,6 +1669,40 @@ def _engine_run(s, df, secs, alarms=()):
 def _ets(t):
     return pd.to_datetime(int(t), unit='s', utc=True).tz_convert(
         'America/New_York').strftime('%H:%M:%S')
+
+
+def _actuary_line(s, p, t):
+    """Bayesian-table readout at a freeze (owner overnight order 2026-08-04:
+    "no epoch ... Bayesian table"). Says what the corpus SAW in this context
+    — posterior, day-clustered interval, N — and refuses to dress up a base
+    rate as knowledge: a cell only reads ACTIONABLE if it survived FDR +
+    clustered bootstrap. Best-effort; the dojo must never break on it."""
+    try:
+        import sys as _sys
+        bt = os.path.join(REPO, 'research', 'bayes_tables', 'tools')
+        if bt not in _sys.path:
+            _sys.path.insert(0, bt)
+        import actuary
+        et = (pd.to_datetime(int(t), unit='s', utc=True)
+              .tz_convert('America/New_York'))
+        mm = et.hour * 60 + et.minute
+        clock_b = ('0930' if mm < 600 else '1000' if mm < 630
+                   else '1030' if mm < 720 else '1200' if mm < 840 else '1400')
+        d = 1 if p and p['dir'] == 'long' else -1
+        out = []
+        r = actuary.lookup('stall', 'race',
+                           dir_s=('up' if d > 0 else 'dn'), clock_b=clock_b)
+        if r:
+            out.append(f'stall->new extreme {r.p:.0%} '
+                       f'[{r.lo:.0%},{r.hi:.0%}] n={r.n}'
+                       + ('' if r.actionable else ' (base)'))
+        r2 = actuary.lookup('leg_descent', 'race', clock_b=clock_b)
+        if r2:
+            out.append(f'descent->new low {r2.p:.0%} n={r2.n}'
+                       + ('' if r2.actionable else ' (base)'))
+        return 'TABLE ' + ' | '.join(out) if out else ''
+    except Exception as e:
+        return f'(actuary unavailable: {e})'
 
 
 def _gauge_line(s, p, cur, peak, t):
