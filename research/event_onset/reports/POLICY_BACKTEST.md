@@ -17,7 +17,7 @@ Identical pre-registered rules across every val-window day:
 | **gross per trade (friction added back)** | **+0.156 pt** |
 
 The CI excludes zero on the losing side: this is not "no edge", it is a
-**significant loser**. The blind day ranked in the top handful of 112.
+**significant loser**.
 
 ## What the numbers say precisely
 
@@ -41,3 +41,41 @@ A single day is worth nothing, and this run is the cleanest demonstration in
 the program: the same rules, same model, same code — **+11.57 on the day I
 happened to draw, −8.81/day across 112.** Any result reported from one
 session is a coin toss dressed as evidence.
+
+
+---
+
+# VALIDATION FAILURE — read this before using the number above
+
+The two implementations DISAGREE on the same day, so the −8.81 belongs to the
+backtest's rules, not provably to the ones the dojo actually executed.
+
+| | 2025_05_08 |
+|---|---|
+| live dojo (engine, 12 trades) | **+11.57** |
+| backtest (12 trades) | **−23.06** (rank 88 of 112) |
+
+Backtest trade list: −10.89, +2.98, −3.64, −5.64, −10.89, −1.89, +10.86,
+−0.89, −1.64, +1.86, −1.64, −1.64. The live run's trades were mostly
+ladder scratches near +1.6 with one +9.96 — a completely different
+distribution, and the backtest takes two full −10.89 stops the engine never
+took.
+
+**Cause: the exit rules are not the same.**
+1. The backtest's entry-touch proxy fires on `current retention <= 0`, i.e.
+   any move back through the entry PRICE in P&L terms; the engine requires an
+   actual touch of the entry price and halts for a DECISION rather than
+   exiting.
+2. The backtest applies the 75%-retention exit only once peak >= 5; the
+   engine's ratchet arms at MFE >= 10 with its own frozen-peak logic.
+3. The engine walks 1s bars with a fixed intra-second event order (stop,
+   target, warn, ladder, ratchet); the backtest re-derives a simplified
+   subset.
+
+**Therefore:** the honest claim is narrower than the headline. What is
+established is that a momentum-entry policy armed by the onset model, run
+with A protection stack of this family, loses significantly at scale
+(gross +0.156/trade vs 0.89 friction — entries barely beat a coin flip).
+What is NOT established is the exact per-day number for the engine's own
+rules. Reconciling the two implementations is required before any number
+here is quoted as the dojo policy's performance.
