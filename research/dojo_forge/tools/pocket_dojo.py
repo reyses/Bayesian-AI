@@ -1505,6 +1505,7 @@ def _engine_run(s, df, secs, alarms=()):
                             ev.append(f'*** 80 LINE {warn_px:.2f} (peak '
                                       f'{peak:+.2f}) — FROZEN at {_ets(t)}, '
                                       f'position open, decision time ***')
+                            ev.append(_gauge_line(s, p, cur, peak, t))
                             return ev, True
                     # frozen-not-None guard: a freeze-release second clears
                     # frozen but keeps prot_hard armed (the ratchet: the 70
@@ -1589,6 +1590,33 @@ def _engine_run(s, df, secs, alarms=()):
 def _ets(t):
     return pd.to_datetime(int(t), unit='s', utc=True).tz_convert(
         'America/New_York').strftime('%H:%M:%S')
+
+
+def _gauge_line(s, p, cur, peak, t):
+    """p(resume) cockpit readout at a freeze (owner 2026-08-04: 'the
+    mechanical part is to calculate the probability of reversal').
+    Calibrated on 118k historical giveback events (research/reversal_gauge).
+    Honesty: it is a calibrated BASE-RATE gauge, chiefly driven by giveback
+    depth — discrimination beyond that sits at the program's 0.57 wall.
+    Best-effort: the dojo must never break if the gauge is absent."""
+    try:
+        import sys as _sys
+        rg = os.path.join(REPO, 'research', 'reversal_gauge', 'tools')
+        if rg not in _sys.path:
+            _sys.path.insert(0, rg)
+        import gauge
+        mins = (pd.to_datetime(int(t), unit='s', utc=True)
+                .tz_convert('America/New_York'))
+        mins = mins.hour * 60 + mins.minute - 570
+        import math
+        feat = dict(giveback_frac=max(0.0, 1.0 - cur / peak) if peak else 0.0,
+                    clock_sin=math.sin(2 * math.pi * mins / 360),
+                    clock_cos=math.cos(2 * math.pi * mins / 360))
+        prob, drivers = gauge.p_resume(feat)
+        return ('GAUGE ' + gauge.format_gauge(prob, drivers)
+                + ' (calibrated base rate, 118k events)')
+    except Exception as e:
+        return f'(gauge unavailable: {e})'
 
 
 def _halt_px(s):
