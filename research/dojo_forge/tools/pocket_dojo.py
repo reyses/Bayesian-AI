@@ -1408,6 +1408,23 @@ def _engine_run(s, df, secs, alarms=()):
         p = s.get('pos')
         if p:
             d = 1 if p['dir'] == 'long' else -1
+            # 0.9 CLOCK RATCHET (owner 2026-08-04, rate chosen after
+            # pushback: he proposed +1pt/s, measured down-legs run 0.38pt/s
+            # median — a 1pt/s clock beheads the median winner near +6 and
+            # would have capped the +26 V-leg near +13; he picked 0.4pt/s =
+            # median pace). The stop walks from its ORIGINAL level toward
+            # (and through) entry at `rate` pt/s: outrun the clock or the
+            # trade is closed. Tightening only, never loosens; computed
+            # BEFORE the stop check so the level in force at second t is
+            # the level the clock says at t (adverse-first).
+            clk = pr.get('clock')
+            if clk and p.get('entry_ts') and p.get('stop0') is not None:
+                el = (t - int(p['entry_ts'])) - float(clk.get('grace', 0.0))
+                if el > 0:
+                    ck = p['stop0'] + d * float(clk['rate']) * el
+                    cs = p.get('stop')
+                    if cs is None or (d > 0 and ck > cs) or (d < 0 and ck < cs):
+                        p['stop'] = ck
             # 1. hard stop — chronologically first (adverse wins every
             # intra-second tie: over target, over new-MFE, over protect).
             # Fill AT the level, or at the OPEN when the bar gaps through —
@@ -2266,6 +2283,17 @@ def main():
                     print(f"70 hard = {p['frozen'] * pr.get('hard', .7):+.2f}pt "
                           f"retention floor (frozen peak {p['frozen']:+.2f})")
             print('70 hard line ENABLED for the open position')
+        elif sub == 'clock':
+            # protect clock RATE [GRACE_S] | protect clock off
+            if len(a.rest) > 1 and a.rest[1] == 'off':
+                pr.pop('clock', None)
+                print('clock OFF')
+            else:
+                pr['clock'] = dict(rate=float(a.rest[1]),
+                                   grace=float(a.rest[2])
+                                   if len(a.rest) > 2 else 0.0)
+                print(f"clock ARMED: stop walks {pr['clock']['rate']:g}pt/s "
+                      f"toward entry after {pr['clock']['grace']:g}s grace")
         elif sub == 'ladder':
             # protect ladder TRIGGER [JUMP] | protect ladder off
             # trigger: MFE pts that arm the jump (owner: 2 normal, 5+ when
@@ -2333,13 +2361,21 @@ def main():
             s['pnl_pts'] = s.get('pnl_pts', 0.0) + pts
             s['trades'] = s.get('trades', 0) + 1
             _log(s, 'close', reason='reverse', price=px, pts=round(pts, 2))
+            # entry_ts/stop0 feed the clock ratchet (it walks the stop from
+            # its ORIGINAL level at N pt/s of elapsed tape time)
             s['pos'] = dict(dir=d, pending=False, entry=px, entry_bar=s['cur'],
-                            target=a.target, stop=a.stop)
+                            target=a.target, stop=a.stop, stop0=a.stop,
+                            entry_ts=int(s.get('halt_ts5')
+                                         or df['timestamp'].iloc[s['cur']]))
             _save(s); _log(s, 'fill', dir=d, price=px)
             print(f'REVERSED: closed {old["dir"]} {pts:+.2f}pt, {d} FILLED @ {px:.2f}')
         else:
+            # entry_ts/stop0 feed the clock ratchet (it walks the stop from
+            # its ORIGINAL level at N pt/s of elapsed tape time)
             s['pos'] = dict(dir=d, pending=False, entry=px, entry_bar=s['cur'],
-                            target=a.target, stop=a.stop)
+                            target=a.target, stop=a.stop, stop0=a.stop,
+                            entry_ts=int(s.get('halt_ts5')
+                                         or df['timestamp'].iloc[s['cur']]))
             s['exit_next'] = False
             _save(s); _log(s, 'call', dir=d, price=px, target=a.target, stop=a.stop)
             print(f'{d} FILLED @ {px:.2f} (target={a.target} stop={a.stop})')
