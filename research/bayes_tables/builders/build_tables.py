@@ -38,12 +38,19 @@ OUT_DIR = os.path.join(REPO, 'research', 'bayes_tables')
 EXCLUDE_DAYS = {'2024_09_16'}
 PRIOR_STRENGTH = 20.0     # pseudo-counts of the global rate on every cell
 MIN_CELL = 15             # below this a cell is reported but never actionable
+MIN_DAYS = 25             # audit: n=15/9-day cells produced ZERO-WIDTH
+                          # bootstrap CIs and floored p-values that walked
+                          # straight through BH as 'actionable'
 BOOT = 4000               # day-clustered bootstrap draws (repo standard)
 FDR_Q = 0.05              # Benjamini-Hochberg false-discovery rate
 CI = 0.95
 
 # (event, outcome column, positive value, context dimensions)
 SPECS = [
+    # v1 dims were re-derivations of the volatility clock (audit 2026-08-04).
+    # These are the fields the audit proved dominant, all emitted AT the
+    # event bar (no lookahead): position-in-box, giveback fraction, defense
+    # size, bounce size.
     # exceed_ref_first is the BOUNDED question — "does the poke clear the
     # level before a 10pt adverse move" (global 0.78, BREAKOUT 0.905 vs
     # RETURN 0.666). The unbounded exceed_ref sits at 0.95 for everything and
@@ -52,10 +59,11 @@ SPECS = [
      ['kind', 'dir_s', 'depth_b', 'age_b', 'clock_b']),
     ('fakeout_poke', 'sym_race', 'CONT',
      ['kind', 'dir_s', 'depth_b', 'clock_b']),
-    ('leg_descent', 'race', 'NEW_LOW', ['chain_b', 'clock_b']),
-    ('stall', 'race', 'NEW_EXTREME', ['dir_s', 'clock_b']),
-    ('ultra_chop', 'escape_dir', 1, ['clock_b', 'ratio_b']),
-    ('defended_poke_shelf', 'outcome', 'CRACK', ['day_class', 'clock_b']),
+    ('leg_descent', 'race', 'NEW_LOW', ['defense_b', 'chain_b']),
+    ('stall', 'race', 'NEW_EXTREME', ['give_b', 'dir_s']),
+    ('ultra_chop', 'escape_dir', 1, ['midbox_b', 'ratio_b']),
+    ('defended_poke_shelf', 'outcome', 'CRACK',
+     ['bounce_b', 'day_class']),
 ]
 
 
@@ -86,6 +94,28 @@ def add_context(df, event):
         out['ratio_b'] = pd.cut(out['box_ambient_ratio'],
                                 [-0.01, 0.4, 0.5, 0.61],
                                 labels=['tight', 'mid', 'loose'])
+    if {'mid_px', 'box_lo', 'box_hi'} <= set(out.columns):
+        # WHERE IN THE BOX the tape sits when chop is stamped — the audit
+        # showed this runs P(up) 0.36 -> 0.66 (AUC 0.62) while the clock
+        # dims I shipped were flat. Causal: all three fields are stamped at
+        # the event bar.
+        rel = ((out['mid_px'] - out['box_lo'])
+               / (out['box_hi'] - out['box_lo']).replace(0, np.nan))
+        out['midbox_b'] = pd.qcut(rel, 5,
+                                  labels=['q1_low', 'q2', 'q3', 'q4',
+                                          'q5_high'], duplicates='drop')
+    if 'give_frac' in out:
+        out['give_b'] = pd.qcut(out['give_frac'], 5,
+                                labels=['g1', 'g2', 'g3', 'g4', 'g5'],
+                                duplicates='drop')
+    if 'defense_pt' in out:
+        out['defense_b'] = pd.qcut(out['defense_pt'], 5,
+                                   labels=['d1', 'd2', 'd3', 'd4', 'd5'],
+                                   duplicates='drop')
+    if 'bounce_pt' in out:
+        out['bounce_b'] = pd.qcut(out['bounce_pt'], 4,
+                                  labels=['b1', 'b2', 'b3', 'b4'],
+                                  duplicates='drop')
     if 'chain_n' in out:
         out['chain_b'] = pd.cut(out['chain_n'], [-1, 1, 2, 99],
                                 labels=['1', '2', '3+'])
@@ -157,7 +187,8 @@ def build(event, col, positive, dims):
     passed = np.flatnonzero(pv <= crit)
     if len(passed):
         thresh[order[:passed[-1] + 1]] = True
-    t['actionable'] = thresh & (t['n'] >= MIN_CELL)
+    t['actionable'] = (thresh & (t['n'] >= MIN_CELL)
+                       & (t['days'] >= MIN_DAYS))
     t.attrs['global'] = glob
     t['glob'] = round(glob, 6)      # pooling needs the prior that built it
     os.makedirs(os.path.join(OUT_DIR, 'tables'), exist_ok=True)
@@ -190,15 +221,18 @@ if __name__ == '__main__':
         lines += [f'## {event} — P({col} == {positive})', '',
                   f'N = {n:,} events, global rate {glob:.3f}, '
                   f'{len(t)} cells, {len(act)} ACTIONABLE', '']
-        show = t.head(12)[[*dims, 'n', 'days', 'raw', 'post', 'day_lo',
-                           'day_hi', 'lift', 'actionable']]
+        # raw sits next to its OWN interval (the bootstrap resamples raw
+        # counts); post is the shrunk estimate and is NOT what day_lo/day_hi
+        # bracket — the audit caught 7 cells where post fell outside them.
+        show = t.head(12)[[*dims, 'n', 'days', 'raw', 'day_lo', 'day_hi',
+                           'post', 'lift', 'actionable']]
         lines += [show.to_string(index=False), '']
         if len(act):
             top = act.reindex(act['lift'].abs().sort_values(
                 ascending=False).index).head(6)
             lines += ['**Strongest actionable cells (|lift| vs global):**', '',
-                      top[[*dims, 'n', 'days', 'post', 'day_lo', 'day_hi',
-                           'lift', 'p']].to_string(index=False), '']
+                      top[[*dims, 'n', 'days', 'raw', 'day_lo', 'day_hi',
+                           'post', 'lift', 'p']].to_string(index=False), '']
         else:
             lines += ['**No cell separates from the global rate** — this '
                       'question is answered by the base rate alone.', '']
