@@ -52,3 +52,34 @@ That is the same conclusion as the geometry control and the 112-day backtest,
 now visible in a single session we both watched: **the machine bounds what
 being wrong costs; it does not tell you which way to face.** The owner's
 descent thesis did that, and it was right.
+
+## Follow-up (owner: "not all longs were bad, only the ones that were fakeouts")
+
+Correct on the fakeouts, and incomplete. Classifying by MFE:
+
+- **Fakeout longs (MFE < 2pt): 2 of 2 lost the full −10.89.** His read holds.
+- But 4 of 6 longs lost the full stop, and two of those had real moves first
+  (MFE +4.75 and **+11.50**). Those were not fakeouts — they were
+  unprotected winners.
+
+Today's stack applied retroactively to all six, on the real 1s tape:
+
+| entry | MFE | actual | with stack | saved |
+|---|---|---|---|---|
+| 19690.25 | 4.75 | −10.89 | −0.89 | +10.00 |
+| 19611.00 | 11.50 | −10.89 | −0.89 | +10.00 |
+| 19588.00 | 1.75 | −10.89 | −2.39 | +8.50 |
+| 19578.50 | 4.25 | +0.36 | −0.89 | −1.25 |
+| 19581.25 | 2.00 | +1.11 | +2.98 | +1.87 |
+| 19582.25 | 1.75 | −10.89 | −1.39 | +9.50 |
+| **total** | | **−42.09** | **−3.46** | **+38.62** |
+
+The owner's own entry-touch warning does nearly all of the work: it fires on
+5 of 6 and converts a −10.89 into roughly −1. Even a pure fakeout gets cut to
+−1.39 / −2.39, because a fakeout still touches its entry on the way down.
+
+**Refined statement:** the fakeout longs were unavoidable as entries, but they
+were never supposed to cost a full stop; and the two longs that worked first
+should not have lost at all. Being wrong on direction cost −42.09 that day.
+With the stack it costs −3.46. Not an edge — but it turns the wrong side of a
+trend day from a wound into a scratch.
