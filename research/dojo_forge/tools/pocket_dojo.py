@@ -1325,11 +1325,23 @@ def _render(s, df):
                 ax.text(cur + 0.5, lv, f'{lab} {lv:.1f}', fontsize=7, color='#3949AB', va='center', clip_on=True)
         # MULTI-SESSION REGION BANDS — shaded, labelled with their
         # interaction record (owner 2026-08-05: "I like the idea of bands")
-        for _rlo, _rhi, _rlab, _rrej in _multi_session_regions(s, cur):
-            if _rhi < l[v0:cur + 1].min() - 30 or _rlo > h[v0:cur + 1].max() + 30:
-                continue
-            _al = 0.10 + min(_rrej, 8) * 0.02      # more rejections = darker
-            ax.axhspan(_rlo, _rhi, color='#6A1B9A', alpha=_al, zorder=0.6)
+        # Bands must NEVER wash the tape out. On a day sitting inside the
+        # multi-session structure, 3 overlapping spans at alpha 0.1-0.26
+        # turned the whole panel purple and the candles became unreadable.
+        # Rules: nearest 2 to price only, skip any band wider than 35% of
+        # the visible range, draw EDGES not fills.
+        _vlo = float(l[v0:cur + 1].min()); _vhi = float(h[v0:cur + 1].max())
+        _vspan = max(_vhi - _vlo, 1.0)
+        _px = float(c[cur])
+        _cands = [r for r in _multi_session_regions(s, cur)
+                  if not (r[1] < _vlo - 30 or r[0] > _vhi + 30)
+                  and (r[1] - r[0]) <= 0.35 * _vspan]
+        _cands.sort(key=lambda r: abs((r[0] + r[1]) / 2 - _px))
+        for _rlo, _rhi, _rlab, _rrej in _cands[:2]:
+            ax.axhspan(_rlo, _rhi, color='#6A1B9A', alpha=0.055, zorder=0.6)
+            for _e in (_rlo, _rhi):
+                ax.axhline(_e, color='#6A1B9A', lw=0.8, ls=(0, (4, 3)),
+                           alpha=0.55, zorder=0.7)
             ax.text(v0 + 0.3, _rhi, f' {_rlab}', fontsize=6.5,
                     color='#6A1B9A', va='top', clip_on=True)
         y_lo0 = float(l[v0:cur + 1].min()) - 40
