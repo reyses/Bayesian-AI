@@ -1017,9 +1017,19 @@ def _render_prevday(s, back=4, res='1m', label=None):
     _lvl(float(c[pb0 + pn - 1]), 'PD SETTLE', '#455A64', major=True)
     now = float(c[-1])
     _lvl(now, 'NOW', '#E8833A', major=True)
-    # minor references so the two panels carry the same vocabulary
     for _v, _l in ((max(h), '5d HIGH'), (min(l), '5d LOW')):
         _lvl(float(_v), _l, '#4DB6AC', major=False)
+    # THE SAME SESSION GEOMETRY AS THE MAIN PANEL (owner 2026-08-05: the
+    # levels were added to the main chart only; this panel is where he reads
+    # multi-day context and it had none of them). One vocabulary, both panels.
+    try:
+        for _gp, _gl, _gk in _session_geometry(s, _bars(s['day']), s['cur']):
+            if not (y_lo - pad <= _gp <= y_hi + pad):
+                continue
+            _lvl(_gp, _gl, '#00695C' if _gk == 'major' else '#4DB6AC',
+                 major=(_gk == 'major'))
+    except Exception:
+        pass
 
     tick = np.arange(0, len(ext), max(1, len(ext) // 14))
     ax.set_xticks(tick)
