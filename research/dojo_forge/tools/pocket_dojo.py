@@ -803,9 +803,61 @@ def _session_geometry(s, df, cur):
             lv = round(px / rnd) * rnd
             if abs(lv - px) < 60:
                 out.append((lv, f'{lv:.0f}', 'minor'))
+        # PRIOR SESSION, RTH-defined and LABELLED as such (the prevday panel
+        # measures full Globex; the two differ 35pt/100pt and an unlabelled
+        # level is not a level -- CHART_STANDARD.md S5)
+        import glob as _g
+        alld = sorted(os.path.basename(q)[:-8] for q in
+                      _g.glob(os.path.join(DATA, '*.parquet'))
+                      if len(os.path.basename(q)) == 18)
+        if s.get('day') in alld:
+            k = alld.index(s['day'])
+            if k:
+                pv = pd.read_parquet(os.path.join(DATA, alld[k - 1] + '.parquet'))
+                pe = (pd.to_datetime(pv['timestamp'], unit='s', utc=True)
+                      .dt.tz_convert('America/New_York'))
+                pm = (pe.dt.hour * 60 + pe.dt.minute).to_numpy()
+                pr = pv[(pm >= 570) & (pm < 960)]
+                if len(pr):
+                    out.append((float(pr['high'].max()), 'pdH(RTH)', 'major'))
+                    out.append((float(pr['low'].min()), 'pdL(RTH)', 'major'))
+                    out.append((float(pr['close'].iloc[-1]), 'pdSET(RTH)',
+                                'major'))
+        # INTRADAY TOUCH REGION -- the shelf the session has actually built.
+        # A "visit" is a separate approach, not a bar parked at the level.
+        d5 = _bars_tele(s['day'], '5s')
+        if d5 is not None:
+            tcut = int(cut['timestamp'].iloc[-1]) + 59
+            dd = pd.read_parquet(os.path.join(REPO, 'DATA', 'ATLAS', '5s',
+                                              s['day'] + '.parquet'))
+            de = (pd.to_datetime(dd['timestamp'], unit='s', utc=True)
+                  .dt.tz_convert('America/New_York'))
+            dm = (de.dt.hour * 60 + de.dt.minute).to_numpy()
+            w = dd[(dd['timestamp'].to_numpy() <= tcut) & (dm >= 570) & (dm < 930)]
+            if len(w) > 30:
+                hh, ll = w['high'].to_numpy(), w['low'].to_numpy()
+                lv = np.arange(np.floor(ll.min()), np.ceil(hh.max()) + .25, 1.0)
+                vis = []
+                for L in lv:
+                    t = (ll <= L) & (hh >= L)
+                    vis.append(int(np.sum(t[1:] & ~t[:-1]) + (1 if t[0] else 0)))
+                vis = np.array(vis)
+                if vis.max() >= 4:
+                    band = lv[vis >= max(3, int(vis.max() * .6))]
+                    out.append((float(band.min()), 'SHELF lo', 'minor'))
+                    out.append((float(band.max()), 'SHELF hi', 'minor'))
+                    out.append((float(lv[int(vis.argmax())]),
+                                f'POC {int(vis.max())}v', 'major'))
     except Exception:
         pass
-    return out
+    seen, uniq = set(), []
+    for pxv, lab, kind in out:                 # 23600 was emitted twice by
+        k = round(float(pxv), 2)               # the 100- and 50-round rules
+        if k in seen:
+            continue
+        seen.add(k)
+        uniq.append((pxv, lab, kind))
+    return uniq
 
 
 def _price_grid(ax):
