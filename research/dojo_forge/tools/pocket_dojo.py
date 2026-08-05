@@ -982,11 +982,22 @@ def _render_prevday(s, back=4, res='1m', label=None):
             ax.text(b0 + n * 0.5, y_hi + pad * 0.45, d[5:].replace('_', '/'),
                     fontsize=7.5, color='#455A64', ha='center', va='top', zorder=8)
 
+    _drawn = []          # de-clutter: 4 prior-day lines inside 55pt is mush
+    MERGE_PT = 12.0      # (owner: "you over ref in 23400")
+
     def _lvl(v, lab, col, ls='--', major=True):
         """CHART STANDARD (owner 2026-08-05, docs/CHART_STANDARD.md):
         every reference level is DASHED; major = session anchors, thicker and
         bolder; minor = bounds/rounds, thinner and lighter. The main panel and
         this one must not diverge."""
+        for _pv, _pm in _drawn:
+            if abs(v - _pv) < MERGE_PT and not (major and not _pm):
+                return                        # too close to an existing line
+        # NOTE: first-drawn wins, so the Globex PD levels (drawn first)
+        # suppress the RTH ones when they fall within MERGE_PT. Documented
+        # rather than hidden -- on 2025_08_07 pdH(RTH) 23444.75 lost to
+        # PD SETTLE 23451.50 (Globex).
+        _drawn.append((float(v), major))
         ax.axhline(v, color=col, lw=1.4 if major else 0.9, ls='--',
                    alpha=0.85 if major else 0.6, zorder=2.5)
         ax.text(len(ext) * 0.998, v, f' {lab} {v:.2f}', color=col,
@@ -1019,6 +1030,15 @@ def _render_prevday(s, back=4, res='1m', label=None):
     _lvl(now, 'NOW', '#E8833A', major=True)
     for _v, _l in ((max(h), '5d HIGH'), (min(l), '5d LOW')):
         _lvl(float(_v), _l, '#4DB6AC', major=False)
+    # MAJOR ROUNDS ACROSS THE WHOLE SPAN (owner 2026-08-05: "you missed
+    # levels in 23400, 23000"). The geometry set only emits rounds within
+    # 60pt of spot, which is right for a 90pt main panel and blind on an
+    # 860pt one.
+    _r0 = int(np.floor((y_lo - pad) / 100.0) * 100)
+    _r1 = int(np.ceil((y_hi + pad) / 100.0) * 100)
+    _step = 100 if (_r1 - _r0) <= 1200 else 200
+    for _rv in range(_r0, _r1 + 1, _step):
+        _lvl(float(_rv), '', '#90A4AE', major=False)
     # THE SAME SESSION GEOMETRY AS THE MAIN PANEL (owner 2026-08-05: the
     # levels were added to the main chart only; this panel is where he reads
     # multi-day context and it had none of them). One vocabulary, both panels.
