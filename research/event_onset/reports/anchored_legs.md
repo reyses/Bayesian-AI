@@ -41,3 +41,48 @@ managed.
 So the prize is now measured: **+10pt per trade sits between calling the
 anchor and waiting for proof.** That is the thing worth building, and the
 corpus of his anchor calls is the only training signal we have for it.
+
+## POST-AUDIT CORRECTION (2026-08-04)
+
+An adversarial audit of the sibling velocity study found that a start-anchor
+"edge" is mostly the defining displacement — arithmetic, not information.
+The same test on THIS study:
+
+| | |
+|---|---|
+| AT_ANCHOR mean run | +11.638 |
+| mean defining displacement | +25.039 |
+| residual after it | **−13.401** |
+
+So the 63.4% / +11.64 headline is an artifact of hindsight pivot selection —
+it does not even recover the move that defines the pivot, because the fixed
+300s horizon runs past the reversal. **The "+10pt between calling the anchor
+and waiting for proof" claim I sent the owner is withdrawn.**
+
+### What survived, and why it still is not a strategy
+
+ON_CONFIRM (entry at the confirmation bar — genuinely real-time answerable):
+
+| metric | value |
+|---|---|
+| mean net of 0.89 friction | **+0.675** |
+| day-clustered 95% CI | **[+0.517, +0.825]** — excludes 0 |
+| PF-based Trade WR | +0.0375 |
+| count WR | 50.6% |
+| mean win / mean loss | +36.90 / −36.48 |
+| frequency | **425 legs/day** |
+
+The interval excludes zero, but this is **not** a tradeable finding:
+
+1. **425 entries per day** is a statistical population, not a strategy. No
+   execution path, no capital model, and friction is charged once per leg
+   when real execution would face queue and slippage on every one.
+2. A PF-based Trade WR of +0.0375 means gross profit exceeds gross loss by
+   3.75% — a margin that any slippage assumption erases.
+3. Mean win 36.90 vs mean loss 36.48 on 50.6% frequency is a coin flip with
+   a rounding error attached.
+4. The 300s horizon is arbitrary and the audit showed heat/run are strongly
+   horizon-dependent.
+
+Recorded because it is what the data says, flagged because acting on it
+would be exactly the error this program keeps catching.
