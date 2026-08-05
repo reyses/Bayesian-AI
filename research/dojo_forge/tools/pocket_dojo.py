@@ -763,6 +763,51 @@ def _draw_tele_panel(ax, s, res, n_bars, ts_cutoff, tele_lines, p, title_prefix=
     _price_grid(ax)
 
 
+def _session_geometry(s, df, cur):
+    """The session's OWN reference levels — open, VWAP, opening range, gap,
+    overnight bounds, rounds (owner 2026-08-05: "you're missing a lot of
+    levels" and "add reference major and minor ticks dashed lines").
+
+    The frame drew multi-day density and volatility bands and was blind to
+    the geometry a discretionary trader reads first. MAJOR = session anchors
+    (open, VWAP, prior settle); MINOR = bounds and rounds.
+
+    Causal: every value comes from bars <= cur. Returns
+    [(price, label, 'major'|'minor'), ...].
+    """
+    out = []
+    try:
+        cut = df.iloc[:cur + 1]
+        et = (pd.to_datetime(cut['timestamp'], unit='s', utc=True)
+              .dt.tz_convert('America/New_York'))
+        mod = (et.dt.hour * 60 + et.dt.minute).to_numpy()
+        rth = (mod >= 570) & (mod < 930)          # NUMERIC + both ends bound:
+        on = (mod >= 1080) | (mod < 570)          # string compares let "18:00"
+                                                  # pass as ">= 09:30" and ate
+                                                  # the prior evening (twice)
+        if rth.any():
+            r = cut[rth]
+            out.append((float(r['open'].iloc[0]), 'OPEN', 'major'))
+            if 'volume' in r and r['volume'].sum() > 0:
+                out.append((float((r['close'] * r['volume']).sum()
+                                  / r['volume'].sum()), 'VWAP', 'major'))
+            o15 = r[(mod[rth] >= 570) & (mod[rth] < 585)]
+            if len(o15):
+                out.append((float(o15['high'].max()), 'ORh', 'minor'))
+                out.append((float(o15['low'].min()), 'ORl', 'minor'))
+        if on.any():
+            o = cut[on]
+            out.append((float(o['low'].min()), 'onL', 'minor'))
+        px = float(cut['close'].iloc[-1])
+        for rnd in (100.0, 50.0):
+            lv = round(px / rnd) * rnd
+            if abs(lv - px) < 60:
+                out.append((lv, f'{lv:.0f}', 'minor'))
+    except Exception:
+        pass
+    return out
+
+
 def _price_grid(ax):
     """Dashed price gridlines at the majors + minor ticks (owner 2026-08-03:
     "we are missing levels moving forward — add dashed lines for the ticks
@@ -1088,6 +1133,20 @@ def _render(s, df):
                            ls=':' if m == 0 else '-', lw=0.9,
                            alpha=0.7 if abs(m) == 2 else 0.45, zorder=2)
                 ax.text(cur + 0.5, lv, f'{lab} {lv:.1f}', fontsize=7, color='#3949AB', va='center', clip_on=True)
+        y_lo0 = float(l[v0:cur + 1].min()) - 40
+        y_hi0 = float(h[v0:cur + 1].max()) + 40
+        # SESSION GEOMETRY — open / VWAP / opening range / overnight / rounds
+        for _gp, _gl, _gk in _session_geometry(s, df, cur):
+            if not (y_lo0 <= _gp <= y_hi0):
+                continue
+            _maj = _gk == 'major'
+            ax.axhline(_gp, color='#00695C' if _maj else '#80CBC4',
+                       lw=1.4 if _maj else 0.9, ls='--',
+                       alpha=0.85 if _maj else 0.6, zorder=2.4)
+            ax.text(v0 + 0.3, _gp, f'{_gl} {_gp:.2f}', fontsize=7.5 if _maj else 6.5,
+                    color='#00695C' if _maj else '#4DB6AC',
+                    fontweight='bold' if _maj else 'normal',
+                    va='bottom', clip_on=True)
         # OWNER lines (hand-called levels — the selection-rule corpus, drawn distinct)
         for lp in s.get('owner_lines', []):
             ax.axhline(lp, color='#6A1B9A', lw=1.6, alpha=0.8, zorder=4.5)
