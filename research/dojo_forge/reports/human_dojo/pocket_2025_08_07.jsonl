@@ -11,3 +11,5 @@
 {"wall": "2026-08-04T21:17:12", "day": "2025_08_07", "bar": 825, "event": "prevday", "who": "owner", "slice": 150, "back": 5}
 {"wall": "2026-08-04T21:24:11", "day": "2025_08_07", "bar": 825, "event": "prevday", "who": "owner", "slice": 150, "back": 5}
 {"wall": "2026-08-04T21:24:16", "day": "2025_08_07", "bar": 825, "event": "view", "who": "owner", "slice": 150, "bars": 30}
+{"wall": "2026-08-04T23:31:55", "day": "2025_08_07", "bar": 825, "event": "prevday", "who": "owner", "slice": 150, "back": 1}
+{"wall": "2026-08-04T23:33:47", "day": "2025_08_07", "bar": 825, "event": "view", "who": "owner", "slice": 150, "bars": 16}
