@@ -20,6 +20,7 @@ State: research/dojo_forge/gate_state/pocket_dojo_state.json
 Log  : research/dojo_forge/reports/human_dojo/pocket_<day>.jsonl
 """
 import argparse
+import glob
 import json
 import os
 import sys
@@ -763,6 +764,94 @@ def _draw_tele_panel(ax, s, res, n_bars, ts_cutoff, tele_lines, p, title_prefix=
     _price_grid(ax)
 
 
+_REGION_CACHE = {}
+
+
+def _multi_session_regions(s, cur, back=5):
+    """Multi-session REGIONS with their interaction record (owner 2026-08-05:
+    "there are regions in those places, look how it interacts and gives
+    reason — levels are coordinates").
+
+    A level is not a line and not a touch count. 23400 had MORE touches than
+    23340 (76 vs 59) and a third of the rejections (5 vs 15) — the level that
+    was fought and held is the one that matters, and a density table ranks
+    them backwards. So each region carries how price ARRIVED and what it did.
+
+    Causal: only bars <= cur. Returns [(lo, hi, label, rejects), ...].
+    """
+    key = (s['day'], cur, back)
+    if key in _REGION_CACHE:
+        return _REGION_CACHE[key]
+    out = []
+    try:
+        alld = sorted(os.path.basename(q)[:-8] for q in
+                      glob.glob(os.path.join(DATA, '*.parquet'))
+                      if len(os.path.basename(q)) == 18)
+        k = alld.index(s['day'])
+        frames = []
+        for d in alld[max(0, k - back):k + 1]:
+            x = pd.read_parquet(os.path.join(DATA, d + '.parquet'))
+            et = (pd.to_datetime(x['timestamp'], unit='s', utc=True)
+                  .dt.tz_convert('America/New_York'))
+            m = (et.dt.hour * 60 + et.dt.minute).to_numpy()
+            x = x[(m >= 570) & (m < 960)]
+            if d == s['day']:                      # today: only revealed bars
+                x = x[x['timestamp'] <= _bars(s['day'])['timestamp'].iloc[cur]]
+            if len(x):
+                frames.append(x)
+        if not frames:
+            return []
+        a = pd.concat(frames, ignore_index=True)
+        h, l, c = (a[q].to_numpy() for q in ('high', 'low', 'close'))
+        grid = np.arange(np.floor(l.min()), np.ceil(h.max()) + 1, 1.0)
+        tou = np.array([int(((l <= x) & (h >= x)).sum()) for x in grid])
+        used = np.zeros(len(grid), bool)
+        for _ in range(6):                          # up to 6 regions
+            cand = np.where(used, -1, tou)
+            if cand.max() < 20:
+                break
+            i = int(cand.argmax())
+            # 0.40 with no width cap grew 141-204pt blobs that can never
+            # reject anything (price is always "inside"). A region is a
+            # SHELF, so: 60% of peak density and 30pt of half-width.
+            thr = max(3, int(tou[i] * 0.60))
+            MAXHALF = 30
+            lo_i = i
+            while (lo_i > 0 and tou[lo_i - 1] >= thr
+                   and i - lo_i < MAXHALF):
+                lo_i -= 1
+            hi_i = i
+            while (hi_i < len(grid) - 1 and tou[hi_i + 1] >= thr
+                   and hi_i - i < MAXHALF):
+                hi_i += 1
+            lo, hi = float(grid[lo_i]), float(grid[hi_i])
+            used[max(0, lo_i - 3):hi_i + 4] = True
+            inside = (h >= lo) & (l <= hi)
+            rej = brk = vis = 0
+            j = 0
+            while j < len(inside):
+                if not inside[j]:
+                    j += 1
+                    continue
+                e = j
+                while e + 1 < len(inside) and inside[e + 1]:
+                    e += 1
+                pre, post = c[max(j - 30, 0)], c[min(e + 30, len(c) - 1)]
+                f = 'a' if pre > hi else ('b' if pre < lo else 'i')
+                t = 'a' if post > hi else ('b' if post < lo else 'i')
+                vis += 1
+                if f != 'i' and t == f:
+                    rej += 1
+                elif f != 'i' and t not in (f, 'i'):
+                    brk += 1
+                j = e + 1
+            out.append((lo, hi, f'{lo:.0f}-{hi:.0f} {rej}rej/{brk}brk', rej))
+    except Exception:
+        pass
+    _REGION_CACHE[key] = out
+    return out
+
+
 def _session_geometry(s, df, cur):
     """The session's OWN reference levels — open, VWAP, opening range, gap,
     overnight bounds, rounds (owner 2026-08-05: "you're missing a lot of
@@ -1030,6 +1119,14 @@ def _render_prevday(s, back=4, res='1m', label=None):
     _lvl(now, 'NOW', '#E8833A', major=True)
     for _v, _l in ((max(h), '5d HIGH'), (min(l), '5d LOW')):
         _lvl(float(_v), _l, '#4DB6AC', major=False)
+    try:
+        for _rlo, _rhi, _rlab, _rrej in _multi_session_regions(s, s['cur']):
+            ax.axhspan(_rlo, _rhi, color='#6A1B9A',
+                       alpha=0.10 + min(_rrej, 8) * 0.02, zorder=0.6)
+            ax.text(1, _rhi, f' {_rlab}', fontsize=6.5, color='#6A1B9A',
+                    va='top', clip_on=True)
+    except Exception:
+        pass
     # MAJOR ROUNDS ACROSS THE WHOLE SPAN (owner 2026-08-05: "you missed
     # levels in 23400, 23000"). The geometry set only emits rounds within
     # 60pt of spot, which is right for a 90pt main panel and blind on an
@@ -1226,6 +1323,15 @@ def _render(s, df):
                            ls=':' if m == 0 else '-', lw=0.9,
                            alpha=0.7 if abs(m) == 2 else 0.45, zorder=2)
                 ax.text(cur + 0.5, lv, f'{lab} {lv:.1f}', fontsize=7, color='#3949AB', va='center', clip_on=True)
+        # MULTI-SESSION REGION BANDS — shaded, labelled with their
+        # interaction record (owner 2026-08-05: "I like the idea of bands")
+        for _rlo, _rhi, _rlab, _rrej in _multi_session_regions(s, cur):
+            if _rhi < l[v0:cur + 1].min() - 30 or _rlo > h[v0:cur + 1].max() + 30:
+                continue
+            _al = 0.10 + min(_rrej, 8) * 0.02      # more rejections = darker
+            ax.axhspan(_rlo, _rhi, color='#6A1B9A', alpha=_al, zorder=0.6)
+            ax.text(v0 + 0.3, _rhi, f' {_rlab}', fontsize=6.5,
+                    color='#6A1B9A', va='top', clip_on=True)
         y_lo0 = float(l[v0:cur + 1].min()) - 40
         y_hi0 = float(h[v0:cur + 1].max()) + 40
         # SESSION GEOMETRY — open / VWAP / opening range / overnight / rounds
