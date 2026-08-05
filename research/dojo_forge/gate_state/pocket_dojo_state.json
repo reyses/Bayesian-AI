@@ -1,0 +1,27 @@
+{
+ "day": "2025_08_07",
+ "cur": 825,
+ "sigma_w": 20,
+ "pos": null,
+ "pnl_pts": 0.0,
+ "trades": 0,
+ "slice": 150,
+ "protect": {
+  "on": true,
+  "warn": 0.75,
+  "hard": 0.7,
+  "min_mfe": 10.0,
+  "arm": "always",
+  "region": null,
+  "prox_pt": 3.0,
+  "ladder": {
+   "trigger": 5.0,
+   "jump": 2.0,
+   "lock": 0.5
+  },
+  "entry_warn": true
+ },
+ "episode_tag": "BLIND_THESIS_TEST",
+ "owner_lines": [],
+ "view_bars": 30
+}
