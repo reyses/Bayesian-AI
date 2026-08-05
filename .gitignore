@@ -410,3 +410,11 @@ research/nt8_port/csharp/v02/out_v02/
 .venv/
 research/event_onset/checkpoints/
 research/event_onset/seq/
+
+# NEVER commit: owner's Telegram conversation + live blind-test state
+# (2026-08-05 incident: both were pushed to the public repo by a commit sweep)
+research/dojo_forge/gate_state/session_transcript.db
+research/dojo_forge/gate_state/SEALED_TEST_DAY.json
+research/dojo_forge/gate_state/pocket_dojo_state.json
+research/dojo_forge/gate_state/pocket_dojo.db
+tools/telegram_bridge/state/
