@@ -1,0 +1,10 @@
+{
+  "detector": "leg_descent",
+  "batch": 0,
+  "inspected": 100,
+  "defects": 0,
+  "defect_types": {},
+  "examples": [],
+  "method": "Independent clean-room re-implementation of the LEG_DESCENT push/defense/chain state machine and the outcomes_leg_descent race/hold/sym_race/net_30m logic, written fresh from the spec in pipeline/detectors.py + pipeline/outcomes.py docstrings (not by importing that detection code), run bar-by-bar from day-start on raw DATA/ATLAS/5s/<day>.parquet for each of the 100 sampled days (only the shared, separately causality-audited ZigZag primitive from pipeline/common.py was reused as trusted infra). Checks performed per row: (1) TRIGGER TRUTH -- close[i]-step_low >= 2.0pt and defense_lag_s<=30s and mod in RTH actually hold on raw bars; (2) CAUSALITY -- scanned every bar between the recorded running-low bar and the event bar for an earlier bar that already satisfied the defense condition (would mean late/wrong firing); (3) FIELD ACCURACY -- step_high, step_low, step_depth, chain_head_high, chain_descent, defense_pt, defense_lag_s, chain_n, mod vs independent recompute (tol 1 tick / 2s / exact); (4) OUTCOME LABEL -- race, resolve_s, defense_hold, sym_race, sym_resolve_s, net_30m independently recomputed via a fresh forward scan (30min horizon, 16:00 ET hard clip) and compared. Also checked CSV-internal arithmetic (step_depth, chain_descent), null/RTH/day-label sanity, and hand-traced one event (2024_01_02 09:30:45, chain_n=2) bar-by-bar from raw closes as a non-scripted cross-check.",
+  "result": "100/100 PASS. No trigger-truth failures, no lookahead/late-fire, no field mismatches beyond tolerance, no outcome-label mismatches, no null/arithmetic/RTH/day-label anomalies."
+}
