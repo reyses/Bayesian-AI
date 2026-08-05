@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_02_19_1771513380_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.9841,
+"pivot_age_min": 3,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.815 P_any=0.815 gov_dir=-1(short) n_fires=8\n  streams(dir): NMP+ RENKO24+ VWAP03- SAR23+ NMPTMTFBRK-\n  curve-reg(cubic 7.5m): dev=+8.4pts slope=-47.30pts/min curv=-28.003\n  reg-band(z15): z_se=-1.96 z_high=-1.56 z_low=-2.41 SE_high=+13.30 SE_low=+13.33 hurst=+0.63 reversion_prob=+0.87\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.772 P_any=0.772 gov_dir=-1(short) n_fires=6\n  streams(dir): TMPL0- RENKO24- VWAP03- CTXER- TUNNEL20-\n  curve-reg(cubic 7.5m): dev=+52.3pts slope=-39.64pts/min curv=-15.502\n  reg-band(z15): z_se=-1.95 z_high=-2.39 z_low=-2.43 SE_high=+16.35 SE_low=+21.00 hurst=+0.52 reversion_prob=+0.88\n  price: px vs pivot +26.8pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.869 P_any=0.870 gov_dir=+1(long) n_fires=8\n  streams(dir): TMPL0+ ROUND05+ RENKO24+ PTRNENGULF+\n  curve-reg(cubic 7.5m): dev=+11.2pts slope=+41.49pts/min curv=+34.763\n  reg-band(z15): z_se=-0.67 z_high=-1.06 z_low=-1.14 SE_high=+17.12 SE_low=+21.81 hurst=+0.51 reversion_prob=+0.98\n  price: px vs pivot +41.8pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.984 P_any=0.984 gov_dir=+1(long) n_fires=5\n  streams(dir): RSI06- MACD07- RENKO24+ ORB02+ NMPTMTFBRK-\n  curve-reg(cubic 7.5m): dev=+19.3pts slope=+54.78pts/min curv=+33.974\n  reg-band(z15): z_se=-0.05 z_high=-0.50 z_low=-0.31 SE_high=+16.39 SE_low=+21.77 hurst=+0.52 reversion_prob=+1.00\n  price: px vs pivot +74.8pts | bars since pivot 3"
+}
+]
+}

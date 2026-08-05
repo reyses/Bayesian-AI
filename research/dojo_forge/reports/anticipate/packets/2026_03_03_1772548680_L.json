@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_03_03_1772548680_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.846,
+"pivot_age_min": 3,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.840 P_any=0.840 gov_dir=+1(long) n_fires=9\n  streams(dir): TMPL0- ROUND05+ RENKO24+ VWAP03+ CTXER- SAR23+ TUNNEL20-\n  curve-reg(cubic 7.5m): dev=+28.4pts slope=-71.46pts/min curv=-41.513\n  reg-band(z15): z_se=-1.98 z_high=-0.52 z_low=-1.54 SE_high=+23.14 SE_low=+16.37 hurst=+0.60 reversion_prob=+0.87\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.826 P_any=0.826 gov_dir=+1(long) n_fires=6\n  streams(dir): ROUND05- RENKO24-\n  curve-reg(cubic 7.5m): dev=+77.3pts slope=-32.35pts/min curv=-4.031\n  reg-band(z15): z_se=-0.89 z_high=-1.61 z_low=-1.94 SE_high=+26.88 SE_low=+20.76 hurst=+0.57 reversion_prob=+0.97\n  price: px vs pivot +41.8pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.826 P_any=0.826 gov_dir=+1(long) n_fires=11\n  streams(dir): RSI06- MACD07- DOW19- ROUND05+ NMPTFADECALM- RENKO24+\n  curve-reg(cubic 7.5m): dev=+31.6pts slope=+86.76pts/min curv=+64.146\n  reg-band(z15): z_se=+0.38 z_high=+0.41 z_low=-0.22 SE_high=+27.00 SE_low=+20.62 hurst=+0.55 reversion_prob=+0.99\n  price: px vs pivot +89.8pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.846 P_any=0.846 gov_dir=+1(long) n_fires=8\n  streams(dir): EXITKMDR- ROUND05+ RENKO24+ VWAP03-\n  curve-reg(cubic 7.5m): dev=-12.7pts slope=+96.25pts/min curv=+51.037\n  reg-band(z15): z_se=+1.32 z_high=+0.73 z_low=+1.51 SE_high=+27.58 SE_low=+23.45 hurst=+0.60 reversion_prob=+0.95\n  price: px vs pivot +92.2pts | bars since pivot 3"
+}
+]
+}

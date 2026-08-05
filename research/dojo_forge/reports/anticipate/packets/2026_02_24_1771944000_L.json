@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_02_24_1771944000_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.8381,
+"pivot_age_min": 3,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.810 P_any=0.810 gov_dir=-1(short) n_fires=5\n  streams(dir): EXITKMDR+ TMPL0- ROUND05- RENKO24+\n  curve-reg(cubic 7.5m): dev=-3.1pts slope=+10.95pts/min curv=+12.655\n  reg-band(z15): z_se=-0.38 z_high=-0.90 z_low=-0.66 SE_high=+17.02 SE_low=+15.83 hurst=+0.71 reversion_prob=+0.99\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.817 P_any=0.817 gov_dir=-1(short) n_fires=4\n  streams(dir): TMPL0- ROUND05+ RENKO24+\n  curve-reg(cubic 7.5m): dev=+84.9pts slope=-5.24pts/min curv=-1.753\n  reg-band(z15): z_se=+0.37 z_high=-0.73 z_low=+0.10 SE_high=+16.33 SE_low=+14.05 hurst=+0.71 reversion_prob=+0.99\n  price: px vs pivot +74.8pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.794 P_any=0.830 gov_dir=-1(short) n_fires=10\n  streams(dir): NMP- ROUND05+ RENKO24+ VWAP03- CTXER+\n  curve-reg(cubic 7.5m): dev=+8.4pts slope=+69.22pts/min curv=+35.289\n  reg-band(z15): z_se=+2.64 z_high=+2.49 z_low=+1.99 SE_high=+24.22 SE_low=+15.82 hurst=+0.75 reversion_prob=+0.57\n  price: px vs pivot +80.2pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.838 P_any=0.838 gov_dir=+1(long) n_fires=5\n  streams(dir): TMPL0- NMP9RIDEAGAINST+ RENKO24+\n  curve-reg(cubic 7.5m): dev=+6.5pts slope=+62.50pts/min curv=+19.735\n  reg-band(z15): z_se=+1.91 z_high=+1.95 z_low=+2.76 SE_high=+30.45 SE_low=+32.34 hurst=+0.74 reversion_prob=+0.88\n  price: px vs pivot +115.5pts | bars since pivot 3"
+}
+]
+}

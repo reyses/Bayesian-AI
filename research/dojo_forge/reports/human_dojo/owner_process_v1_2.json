@@ -1,0 +1,23 @@
+{
+  "n_trades": 1390,
+  "n_active_days": 160,
+  "trade_wr_pf": -0.041,
+  "day_wr": 0.556,
+  "total_usd": -2585.2,
+  "usd_per_day_mean": -16.16,
+  "usd_per_day_ci95": [
+    -95.74,
+    58.42
+  ],
+  "significant": false,
+  "exit_mix": {
+    "target": 1139,
+    "theme": 162,
+    "eod": 89
+  },
+  "mean_by_reason": {
+    "target": 51.42,
+    "theme": -307.31,
+    "eod": -127.76
+  }
+}

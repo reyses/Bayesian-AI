@@ -1,0 +1,68 @@
+{
+"episode_id": "2026_03_11_1773251580_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.8208,
+"pivot_age_min": 15,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 11
+},
+"frames": [
+{
+"frame": 0,
+"k": 10,
+"text": "[fire in 10m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.777 P_any=0.777 gov_dir=-1(short) n_fires=4\n  streams(dir): TMPL0- RENKO24-\n  curve-reg(cubic 7.5m): dev=+8.7pts slope=-29.44pts/min curv=-25.771\n  reg-band(z15): z_se=+0.66 z_high=+0.02 z_low=+0.52 SE_high=+21.16 SE_low=+27.03 hurst=+0.49 reversion_prob=+0.98\n  price: px vs pivot +26.5pts | bars since pivot 5"
+},
+{
+"frame": 1,
+"k": 9,
+"text": "[fire in 9m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.751 P_any=0.751 gov_dir=-1(short) n_fires=2\n  streams(dir): TMPL0- RENKO24+\n  curve-reg(cubic 7.5m): dev=+37.5pts slope=-35.08pts/min curv=-26.663\n  reg-band(z15): z_se=+0.76 z_high=+0.66 z_low=+0.89 SE_high=+20.30 SE_low=+27.25 hurst=+0.48 reversion_prob=+0.98\n  price: px vs pivot +50.2pts | bars since pivot 6"
+},
+{
+"frame": 2,
+"k": 8,
+"text": "[fire in 8m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.769 P_any=0.769 gov_dir=-1(short) n_fires=6\n  streams(dir): TMPL0- DOW19+ RENKO24+ TUNNEL20+\n  curve-reg(cubic 7.5m): dev=-0.2pts slope=+14.19pts/min curv=+9.483\n  reg-band(z15): z_se=+1.51 z_high=+1.38 z_low=+1.14 SE_high=+21.26 SE_low=+28.63 hurst=+0.49 reversion_prob=+0.93\n  price: px vs pivot +44.5pts | bars since pivot 7"
+},
+{
+"frame": 3,
+"k": 7,
+"text": "[fire in 7m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.760 P_any=0.760 gov_dir=-1(short) n_fires=4\n  streams(dir): TMPL0- RENKO24+ SAR23+\n  curve-reg(cubic 7.5m): dev=-9.5pts slope=+29.19pts/min curv=+19.171\n  reg-band(z15): z_se=+1.13 z_high=+1.07 z_low=+1.23 SE_high=+22.49 SE_low=+31.11 hurst=+0.48 reversion_prob=+0.96\n  price: px vs pivot +47.2pts | bars since pivot 8"
+},
+{
+"frame": 4,
+"k": 6,
+"text": "[fire in 6m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.629 P_any=0.629 gov_dir=-1(short) n_fires=2\n  streams(dir): RENKO24- CTXER+\n  curve-reg(cubic 7.5m): dev=+8.6pts slope=+3.02pts/min curv=-2.122\n  reg-band(z15): z_se=+1.04 z_high=+0.96 z_low=+1.02 SE_high=+23.57 SE_low=+32.88 hurst=+0.49 reversion_prob=+0.96\n  price: px vs pivot +56.0pts | bars since pivot 9"
+},
+{
+"frame": 5,
+"k": 5,
+"text": "[fire in 5m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.742 P_any=0.742 gov_dir=-1(short) n_fires=2\n  streams(dir): TMPL0- RENKO24-\n  curve-reg(cubic 7.5m): dev=-5.4pts slope=+1.14pts/min curv=-4.394\n  reg-band(z15): z_se=+1.03 z_high=+1.34 z_low=+1.12 SE_high=+26.03 SE_low=+34.68 hurst=+0.49 reversion_prob=+0.96\n  price: px vs pivot +49.0pts | bars since pivot 10"
+},
+{
+"frame": 6,
+"k": 4,
+"text": "[fire in 4m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.760 P_any=0.760 gov_dir=-1(short) n_fires=3\n  streams(dir): TMPL0- RENKO24+\n  curve-reg(cubic 7.5m): dev=+12.9pts slope=-6.20pts/min curv=-6.439\n  reg-band(z15): z_se=+0.59 z_high=+0.84 z_low=+0.80 SE_high=+26.12 SE_low=+33.39 hurst=+0.49 reversion_prob=+0.98\n  price: px vs pivot +61.8pts | bars since pivot 11"
+},
+{
+"frame": 7,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.785 P_any=0.785 gov_dir=-1(short) n_fires=4\n  streams(dir): TMPL0- ROUND05+ RENKO24+ PTRNENGULF+\n  curve-reg(cubic 7.5m): dev=+29.0pts slope=+2.01pts/min curv=-0.106\n  reg-band(z15): z_se=+0.71 z_high=+0.81 z_low=+0.51 SE_high=+24.81 SE_low=+29.24 hurst=+0.49 reversion_prob=+0.98\n  price: px vs pivot +84.5pts | bars since pivot 12"
+},
+{
+"frame": 8,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.661 P_any=0.661 gov_dir=-1(short) n_fires=3\n  streams(dir): DOW19- RENKO24+\n  curve-reg(cubic 7.5m): dev=+6.5pts slope=+25.45pts/min curv=+12.367\n  reg-band(z15): z_se=+1.30 z_high=+1.20 z_low=+0.85 SE_high=+21.82 SE_low=+19.39 hurst=+0.61 reversion_prob=+0.95\n  price: px vs pivot +90.0pts | bars since pivot 13"
+},
+{
+"frame": 9,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.966 P_any=0.966 gov_dir=+1(long) n_fires=5\n  streams(dir): ZIGZAG+ RENKO24- SAR23-\n  curve-reg(cubic 7.5m): dev=-11.3pts slope=+20.21pts/min curv=+5.554\n  reg-band(z15): z_se=+1.22 z_high=+1.51 z_low=+1.20 SE_high=+16.21 SE_low=+10.12 hurst=+0.81 reversion_prob=+0.95\n  price: px vs pivot +82.8pts | bars since pivot 14"
+},
+{
+"frame": 10,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.821 P_any=0.821 gov_dir=+1(long) n_fires=3\n  streams(dir): TMPL0+ PTRNENGULF- TUNNEL20-\n  curve-reg(cubic 7.5m): dev=-18.3pts slope=+10.30pts/min curv=-0.761\n  reg-band(z15): z_se=+0.00 z_high=+0.92 z_low=+1.15 SE_high=+11.71 SE_low=+9.87 hurst=+0.65 reversion_prob=+1.00\n  price: px vs pivot +78.8pts | bars since pivot 15"
+}
+]
+}

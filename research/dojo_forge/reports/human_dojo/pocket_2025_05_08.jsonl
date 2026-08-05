@@ -1,0 +1,57 @@
+{"wall": "2026-08-04T10:19:09", "day": "2025_05_08", "bar": 128, "event": "new", "who": "owner", "slice": 149, "start": 128}
+{"wall": "2026-08-04T10:20:31", "day": "2025_05_08", "bar": 815, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20126.25, "target": null, "stop": 20116.25}
+{"wall": "2026-08-04T10:20:34", "day": "2025_05_08", "bar": 815, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20129.125, "peak": 5.75, "ts1": 1746711362}
+{"wall": "2026-08-04T10:20:34", "day": "2025_05_08", "bar": 816, "event": "close", "who": "owner", "slice": 149, "reason": "stop", "price": 20128.75, "pts": 1.61}
+{"wall": "2026-08-04T10:20:43", "day": "2025_05_08", "bar": 817, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20131.75, "target": null, "stop": 20121.75}
+{"wall": "2026-08-04T10:20:46", "day": "2025_05_08", "bar": 817, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20131.75, "peak": 1.5, "ts1": 1746711425}
+{"wall": "2026-08-04T10:20:50", "day": "2025_05_08", "bar": 817, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20132.5, "pts": -0.14}
+{"wall": "2026-08-04T10:20:53", "day": "2025_05_08", "bar": 817, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20132.5, "target": null, "stop": 20122.5}
+{"wall": "2026-08-04T10:20:56", "day": "2025_05_08", "bar": 817, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20132.5, "peak": 2.25, "ts1": 1746711427}
+{"wall": "2026-08-04T10:21:00", "day": "2025_05_08", "bar": 817, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20131.5, "pts": -1.89}
+{"wall": "2026-08-04T10:21:03", "day": "2025_05_08", "bar": 817, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20131.5, "target": null, "stop": 20121.5}
+{"wall": "2026-08-04T10:21:06", "day": "2025_05_08", "bar": 817, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20131.5, "peak": 0.75, "ts1": 1746711434}
+{"wall": "2026-08-04T10:21:10", "day": "2025_05_08", "bar": 817, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20131.0, "pts": -1.39}
+{"wall": "2026-08-04T10:21:17", "day": "2025_05_08", "bar": 818, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20125.0, "target": null, "stop": 20135.0}
+{"wall": "2026-08-04T10:21:20", "day": "2025_05_08", "bar": 818, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20122.25, "peak": 5.5, "ts1": 1746711497}
+{"wall": "2026-08-04T10:21:20", "day": "2025_05_08", "bar": 818, "event": "close", "who": "owner", "slice": 149, "reason": "stop", "price": 20122.25, "pts": 1.86}
+{"wall": "2026-08-04T10:21:24", "day": "2025_05_08", "bar": 818, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20120.0, "target": null, "stop": 20130.0}
+{"wall": "2026-08-04T10:21:27", "day": "2025_05_08", "bar": 818, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20120.0, "peak": 1.0, "ts1": 1746711500}
+{"wall": "2026-08-04T10:21:31", "day": "2025_05_08", "bar": 818, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:21:34", "day": "2025_05_08", "bar": 818, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20116.5, "peak": 7.0, "ts1": 1746711501}
+{"wall": "2026-08-04T10:21:34", "day": "2025_05_08", "bar": 818, "event": "close", "who": "owner", "slice": 149, "reason": "stop", "price": 20116.5, "pts": 2.61}
+{"wall": "2026-08-04T10:21:38", "day": "2025_05_08", "bar": 818, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20117.5, "target": null, "stop": 20127.5}
+{"wall": "2026-08-04T10:21:41", "day": "2025_05_08", "bar": 818, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20117.5, "peak": 4.0, "ts1": 1746711507}
+{"wall": "2026-08-04T10:21:45", "day": "2025_05_08", "bar": 818, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20118.25, "pts": -1.64}
+{"wall": "2026-08-04T10:21:53", "day": "2025_05_08", "bar": 819, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20107.75, "target": null, "stop": 20117.75}
+{"wall": "2026-08-04T10:21:56", "day": "2025_05_08", "bar": 819, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20107.75, "peak": 2.0, "ts1": 1746711569}
+{"wall": "2026-08-04T10:22:00", "day": "2025_05_08", "bar": 819, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20107.5, "pts": -0.64}
+{"wall": "2026-08-04T10:22:03", "day": "2025_05_08", "bar": 819, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20107.5, "target": null, "stop": 20117.5}
+{"wall": "2026-08-04T10:22:06", "day": "2025_05_08", "bar": 819, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20104.625, "peak": 5.75, "ts1": 1746711571}
+{"wall": "2026-08-04T10:22:06", "day": "2025_05_08", "bar": 819, "event": "close", "who": "owner", "slice": 149, "reason": "stop", "price": 20105.25, "pts": 1.36}
+{"wall": "2026-08-04T10:22:14", "day": "2025_05_08", "bar": 820, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20111.5, "target": null, "stop": 20101.5}
+{"wall": "2026-08-04T10:22:17", "day": "2025_05_08", "bar": 820, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20111.5, "peak": 1.5, "ts1": 1746711634}
+{"wall": "2026-08-04T10:22:22", "day": "2025_05_08", "bar": 820, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20109.75, "pts": -2.64}
+{"wall": "2026-08-04T10:22:25", "day": "2025_05_08", "bar": 820, "event": "call", "who": "owner", "slice": 149, "dir": "long", "price": 20109.75, "target": null, "stop": 20099.75}
+{"wall": "2026-08-04T10:22:28", "day": "2025_05_08", "bar": 820, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20109.75, "peak": 1.25, "ts1": 1746711636}
+{"wall": "2026-08-04T10:22:32", "day": "2025_05_08", "bar": 820, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:22:35", "day": "2025_05_08", "bar": 820, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20114.25, "peak": 9.0, "ts1": 1746711637}
+{"wall": "2026-08-04T10:22:35", "day": "2025_05_08", "bar": 820, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20115.75, "peak": 12.0, "ts1": 1746711638}
+{"wall": "2026-08-04T10:22:35", "day": "2025_05_08", "bar": 820, "event": "prot_warn", "who": "owner", "slice": 149, "price": 20118.75, "peak": 12.0}
+{"wall": "2026-08-04T10:22:39", "day": "2025_05_08", "bar": 820, "event": "prot_rearm", "who": "owner", "slice": 149, "peak": 12.0}
+{"wall": "2026-08-04T10:22:39", "day": "2025_05_08", "bar": 820, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:22:42", "day": "2025_05_08", "bar": 820, "event": "prot_warn", "who": "owner", "slice": 149, "price": 20118.75, "peak": 12.0}
+{"wall": "2026-08-04T10:22:46", "day": "2025_05_08", "bar": 820, "event": "prot_rearm", "who": "owner", "slice": 149, "peak": 12.0}
+{"wall": "2026-08-04T10:22:46", "day": "2025_05_08", "bar": 820, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:22:49", "day": "2025_05_08", "bar": 820, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20116.625, "peak": 13.75, "ts1": 1746711645}
+{"wall": "2026-08-04T10:22:49", "day": "2025_05_08", "bar": 820, "event": "prot_warn", "who": "owner", "slice": 149, "price": 20120.0625, "peak": 13.75}
+{"wall": "2026-08-04T10:22:54", "day": "2025_05_08", "bar": 820, "event": "prot_rearm", "who": "owner", "slice": 149, "peak": 13.75}
+{"wall": "2026-08-04T10:22:54", "day": "2025_05_08", "bar": 820, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:22:57", "day": "2025_05_08", "bar": 820, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20118.5, "peak": 17.5, "ts1": 1746711651}
+{"wall": "2026-08-04T10:22:57", "day": "2025_05_08", "bar": 820, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20119.0, "peak": 18.5, "ts1": 1746711652}
+{"wall": "2026-08-04T10:22:57", "day": "2025_05_08", "bar": 820, "event": "prot_warn", "who": "owner", "slice": 149, "price": 20123.625, "peak": 18.5}
+{"wall": "2026-08-04T10:23:01", "day": "2025_05_08", "bar": 820, "event": "close", "who": "owner", "slice": 149, "reason": "manual", "price": 20121.5, "pts": 10.86}
+{"wall": "2026-08-04T10:23:21", "day": "2025_05_08", "bar": 824, "event": "call", "who": "owner", "slice": 149, "dir": "short", "price": 20122.5, "target": null, "stop": 20132.5}
+{"wall": "2026-08-04T10:23:24", "day": "2025_05_08", "bar": 824, "event": "entry_touch", "who": "owner", "slice": 149, "price": 20122.5, "peak": 0.25, "ts1": 1746711896}
+{"wall": "2026-08-04T10:23:28", "day": "2025_05_08", "bar": 824, "event": "protect_cfg", "who": "owner", "slice": 149, "on": true, "warn": 0.75, "hard": 0.7, "min_mfe": 10.0, "arm": "always", "region": null, "prox_pt": 3.0, "ladder": {"trigger": 5.0, "jump": 2.0, "lock": 0.5}, "entry_warn": true}
+{"wall": "2026-08-04T10:23:31", "day": "2025_05_08", "bar": 824, "event": "ladder_stop", "who": "owner", "slice": 149, "stop": 20120.0, "peak": 5.0, "ts1": 1746711900}
+{"wall": "2026-08-04T10:23:31", "day": "2025_05_08", "bar": 825, "event": "close", "who": "owner", "slice": 149, "reason": "stop", "price": 20120.0, "pts": 1.61}

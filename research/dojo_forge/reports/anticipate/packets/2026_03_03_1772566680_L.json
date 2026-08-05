@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_03_03_1772566680_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.7825,
+"pivot_age_min": 3,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.780 P_any=0.780 gov_dir=-1(short) n_fires=5\n  streams(dir): TMPL0- RENKO24+ SAR23-\n  curve-reg(cubic 7.5m): dev=+2.4pts slope=-21.39pts/min curv=-6.767\n  reg-band(z15): z_se=-0.93 z_high=-2.21 z_low=-1.74 SE_high=+6.43 SE_low=+7.80 hurst=+0.56 reversion_prob=+0.97\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.819 P_any=0.819 gov_dir=-1(short) n_fires=5\n  streams(dir): EXITKMDR+ TMPL0- RENKO24+ TUNNEL20+\n  curve-reg(cubic 7.5m): dev=+15.1pts slope=-7.32pts/min curv=+3.512\n  reg-band(z15): z_se=-0.87 z_high=-1.71 z_low=-1.41 SE_high=+7.10 SE_low=+7.18 hurst=+0.63 reversion_prob=+0.97\n  price: px vs pivot +10.5pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.982 P_any=0.982 gov_dir=+1(long) n_fires=3\n  streams(dir): ZIGZAG+ ROUND05+\n  curve-reg(cubic 7.5m): dev=+83.3pts slope=+16.63pts/min curv=+15.670\n  reg-band(z15): z_se=+1.33 z_high=+0.04 z_low=+0.30 SE_high=+6.54 SE_low=+7.06 hurst=+0.64 reversion_prob=+0.95\n  price: px vs pivot +94.8pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.782 P_any=0.832 gov_dir=+1(long) n_fires=8\n  streams(dir): EXITKMDR- ROUND05- RENKO24-\n  curve-reg(cubic 7.5m): dev=-17.1pts slope=+81.00pts/min curv=+43.883\n  reg-band(z15): z_se=+3.03 z_high=+3.00 z_low=+1.74 SE_high=+21.72 SE_low=+7.22 hurst=+0.57 reversion_prob=+0.00\n  price: px vs pivot +71.0pts | bars since pivot 3"
+}
+]
+}

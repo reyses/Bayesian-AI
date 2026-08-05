@@ -1,0 +1,813 @@
+{"day": "2026_01_08", "bar": 90, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 105, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 120, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 135, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 150, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_01_08", "bar": 165, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_01_08", "bar": 180, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_01_08", "bar": 195, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_01_08", "bar": 210, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_01_08", "bar": 225, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 240, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN), no clear direction to trade."}
+{"day": "2026_01_08", "bar": 255, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 270, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 285, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_01_08", "bar": 300, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 315, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_01_08", "bar": 330, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN) prevents trading."}
+{"day": "2026_01_08", "bar": 345, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h/day) \u2014 no clear direction to trade."}
+{"day": "2026_01_08", "bar": 360, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 375, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 390, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_01_08", "bar": 405, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_01_08", "bar": 420, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_01_08", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=warming), no clear direction to trade."}
+{"day": "2026_01_08", "bar": 450, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 465, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_01_08", "bar": 480, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_01_08", "bar": 495, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_01_08", "bar": 510, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_01_08", "bar": 525, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_01_08", "bar": 540, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 135, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 150, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 165, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 180, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 195, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming day=warming), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 210, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 240, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict between 1h (UP) and 4h (DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 255, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_03_30", "bar": 270, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 23521.8, "why": "Price bounces from 23505.2 (support) with upward cubic regression slope and UP theme."}
+{"day": "2026_03_30", "bar": 281, "event": "close", "reason": "target", "pts": 15.91}
+{"day": "2026_03_30", "bar": 285, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_03_30", "bar": 300, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_03_30", "bar": 315, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 330, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_03_30", "bar": 345, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 360, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 375, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 390, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_03_30", "bar": 405, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 420, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 435, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 450, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 465, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 480, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_03_30", "bar": 495, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 510, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_03_30", "bar": 525, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_03_30", "bar": 540, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_03_30", "bar": 555, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 570, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is not strong enough for entry."}
+{"day": "2026_03_30", "bar": 585, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 600, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 615, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_03_30", "bar": 630, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_03_30", "bar": 645, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_03_30", "bar": 660, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 675, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_03_30", "bar": 690, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 705, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 720, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 735, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 750, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_03_30", "bar": 765, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 780, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, UP at day) \u2014 no clear direction to trade."}
+{"day": "2026_03_30", "bar": 795, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 810, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 825, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 840, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 855, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 870, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_03_30", "bar": 885, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 900, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_03_30", "bar": 915, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 930, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_03_30", "bar": 945, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 960, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 975, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 990, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1005, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop) \u2014 no clear theme to trade."}
+{"day": "2026_03_30", "bar": 1020, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1035, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1050, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=UP vs 4h=DOWN and day=DOWN), no clear theme direction."}
+{"day": "2026_03_30", "bar": 1065, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1080, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1095, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1110, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1125, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1140, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1155, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1170, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1185, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but price is above reference levels and no valid entry condition met."}
+{"day": "2026_03_30", "bar": 1200, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1215, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 1230, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1245, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_03_30", "bar": 1260, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1275, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1290, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1305, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_03_30", "bar": 1320, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1335, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1350, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_03_30", "bar": 1365, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_06", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 105, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=warming), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 135, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 150, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 165, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_06", "bar": 180, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_06", "bar": 195, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_06", "bar": 210, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_06", "bar": 240, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 255, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_06", "bar": 270, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_04_06", "bar": 285, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 300, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_04_06", "bar": 315, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_04_06", "bar": 330, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 345, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 360, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_04_06", "bar": 375, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 390, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_04_06", "bar": 405, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 420, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 450, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 465, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 480, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 495, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 510, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_04_06", "bar": 525, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_04_06", "bar": 540, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_04_06", "bar": 555, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 570, "event": "decide", "latency": 2.7, "pos": false, "action": "long", "target": 24544.9, "why": "Price bounces from 24532.0 support with upward cubic regression slope and UP theme."}
+{"day": "2026_04_06", "bar": 570, "event": "reject_bad_target", "action": "long", "target": 24544.9}
+{"day": "2026_04_06", "bar": 585, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 600, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 24618.9, "why": "Price bounces from 24603.0 (support) with an upward theme and positive cubic regression slope."}
+{"day": "2026_04_06", "bar": 600, "event": "reject_bad_target", "action": "long", "target": 24618.9}
+{"day": "2026_04_06", "bar": 615, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_06", "bar": 630, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_06", "bar": 645, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_06", "bar": 660, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_04_06", "bar": 675, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_04_06", "bar": 690, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade shows chop at 1h but UP at 4h and day. No clear unified theme to trade."}
+{"day": "2026_04_06", "bar": 705, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 720, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 735, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 750, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 765, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 780, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 795, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 810, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 825, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_04_06", "bar": 840, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 855, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 870, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 885, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 900, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_04_06", "bar": 915, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear theme direction."}
+{"day": "2026_04_06", "bar": 930, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_04_06", "bar": 945, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 960, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 975, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 990, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_06", "bar": 1005, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1020, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1035, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1050, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_04_06", "bar": 1065, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1080, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, DOWN at day) \u2014 no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1095, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1110, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1125, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1140, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1155, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_06", "bar": 1170, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_06", "bar": 1185, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_06", "bar": 1200, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1215, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1230, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1245, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "No theme due to conflicting scales (1h=UP, 4h=chop, day=chop)."}
+{"day": "2026_04_06", "bar": 1260, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1275, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1290, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No clear theme due to conflicting timeframes."}
+{"day": "2026_04_06", "bar": 1305, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1320, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1335, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_06", "bar": 1350, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "No clear theme due to conflicting scales (1h=chop, 4h=UP, day=chop)."}
+{"day": "2026_04_06", "bar": 1365, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 90, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_27", "bar": 105, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 120, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 135, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_27", "bar": 150, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_27", "bar": 165, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_04_27", "bar": 180, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_27", "bar": 195, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 210, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_04_27", "bar": 225, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_04_27", "bar": 240, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_27", "bar": 255, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_27", "bar": 270, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_04_27", "bar": 285, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 300, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_04_27", "bar": 315, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_04_27", "bar": 330, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_04_27", "bar": 345, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 360, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_27", "bar": 375, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_04_27", "bar": 390, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_04_27", "bar": 405, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_27", "bar": 420, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_04_27", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_04_27", "bar": 450, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h DOWN, day warming) \u2014 no clear theme direction."}
+{"day": "2026_04_27", "bar": 465, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_04_27", "bar": 480, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_04_27", "bar": 495, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear theme direction."}
+{"day": "2026_04_27", "bar": 510, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_04_27", "bar": 525, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 540, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 555, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 570, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 585, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 600, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 615, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 630, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but price is above the next reference level and slope is positive, not aligning with theme."}
+{"day": "2026_04_27", "bar": 645, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 660, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP vs 4h=DOWN and day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 675, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 690, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No reference levels provided to determine entry points."}
+{"day": "2026_04_27", "bar": 705, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 720, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_04_27", "bar": 735, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 750, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 765, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear theme direction."}
+{"day": "2026_04_27", "bar": 780, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear theme direction."}
+{"day": "2026_04_27", "bar": 795, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear theme direction."}
+{"day": "2026_04_27", "bar": 810, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear theme direction."}
+{"day": "2026_04_27", "bar": 825, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_04_27", "bar": 840, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met due to conflicting theme and insufficient room to target."}
+{"day": "2026_04_27", "bar": 855, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 870, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 885, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "No theme due to conflicting scales (1h=DOWN, 4h=chop, day=chop)."}
+{"day": "2026_04_27", "bar": 900, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "No theme due to conflicting scales (1h=DOWN, 4h=chop, day=chop)."}
+{"day": "2026_04_27", "bar": 915, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 930, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 945, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop) \u2014 no clear direction to trade."}
+{"day": "2026_04_27", "bar": 960, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 975, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop) \u2014 no clear direction to trade."}
+{"day": "2026_04_27", "bar": 990, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 1005, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1020, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but no valid reference level for short entry with agreeing slope."}
+{"day": "2026_04_27", "bar": 1035, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 1050, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but cubic regression slope is UP, conflicting with theme."}
+{"day": "2026_04_27", "bar": 1065, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_04_27", "bar": 1080, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1095, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1110, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1125, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1140, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1155, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1170, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN) \u2014 no clear theme to trade."}
+{"day": "2026_04_27", "bar": 1185, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1200, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_04_27", "bar": 1215, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1230, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1245, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1260, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1275, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1290, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_04_27", "bar": 1305, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1320, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1335, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_04_27", "bar": 1350, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_04_27", "bar": 1365, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No reference levels provided to determine entry points."}
+{"day": "2026_05_12", "bar": 105, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 120, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 135, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 150, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 165, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 180, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 195, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 210, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 225, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 240, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_05_12", "bar": 255, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 270, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 285, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN) prevents trading."}
+{"day": "2026_05_12", "bar": 300, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 315, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_05_12", "bar": 330, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_05_12", "bar": 345, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_05_12", "bar": 360, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 375, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h DOWN vs day warming), no clear direction."}
+{"day": "2026_05_12", "bar": 390, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 405, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No clear theme due to chop at higher scales."}
+{"day": "2026_05_12", "bar": 420, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_05_12", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_05_12", "bar": 450, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 465, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_05_12", "bar": 480, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 495, "event": "decide", "latency": 2.9, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but price is above the 1h reference level (29578.1) and the cubic regression slope is positive, conflicting with the theme."}
+{"day": "2026_05_12", "bar": 510, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 525, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 540, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 555, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN but price is above reference levels, no valid entry condition met."}
+{"day": "2026_05_12", "bar": 570, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 585, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 600, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 615, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 630, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 645, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 660, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 675, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 690, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN but cubic regression slope is UP, conflicting directions."}
+{"day": "2026_05_12", "bar": 705, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 720, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 735, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 750, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 765, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 780, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 795, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 810, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but no valid reference level for short entry with agreeing slope."}
+{"day": "2026_05_12", "bar": 825, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN but price is above reference levels, no valid entry condition met."}
+{"day": "2026_05_12", "bar": 840, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 855, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 870, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_05_12", "bar": 885, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 900, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 915, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 930, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 945, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_05_12", "bar": 960, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 975, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 990, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1005, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_05_12", "bar": 1020, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level entry conditions met with the theme."}
+{"day": "2026_05_12", "bar": 1035, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_05_12", "bar": 1050, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1065, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1080, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1095, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1110, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1125, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1140, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_05_12", "bar": 1155, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but no valid reference level for entry with the correct slope and bounce."}
+{"day": "2026_05_12", "bar": 1170, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1185, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1200, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1215, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1230, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1245, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1260, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN) \u2014 no clear theme to trade."}
+{"day": "2026_05_12", "bar": 1275, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h/4h UP vs day DOWN), no clear theme direction."}
+{"day": "2026_05_12", "bar": 1290, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h/4h UP vs day DOWN), no clear theme direction."}
+{"day": "2026_05_12", "bar": 1305, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_05_12", "bar": 1320, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1335, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h up vs day down), no clear direction."}
+{"day": "2026_05_12", "bar": 1350, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_05_12", "bar": 1365, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 90, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 120, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 135, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting, no clear direction to trade."}
+{"day": "2026_06_15", "bar": 150, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 165, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 180, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 195, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming day=warming), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 210, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_15", "bar": 240, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 255, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 270, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 285, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 300, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_15", "bar": 315, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_15", "bar": 330, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 345, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 360, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_06_15", "bar": 375, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 390, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP), no clear theme direction."}
+{"day": "2026_06_15", "bar": 405, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 420, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 435, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 450, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 465, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_15", "bar": 480, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 495, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 510, "event": "decide", "latency": 2.7, "pos": false, "action": "long", "target": 30540.8, "why": "Price bounces from 30535.0 with an upward cubic regression slope and upward theme."}
+{"day": "2026_06_15", "bar": 510, "event": "reject_bad_target", "action": "long", "target": 30540.8}
+{"day": "2026_06_15", "bar": 525, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 540, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 555, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but no valid reference level for entry with proper slope agreement."}
+{"day": "2026_06_15", "bar": 570, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 585, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_15", "bar": 600, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 30559.4, "why": "Price bounces from 30544.8 (support) with an upward cubic regression slope and theme is UP."}
+{"day": "2026_06_15", "bar": 600, "event": "reject_bad_target", "action": "long", "target": 30559.4}
+{"day": "2026_06_15", "bar": 615, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_15", "bar": 630, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 645, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 30583.2, "why": "Price bounces from support level 30583.2 with an upward theme and positive cubic regression slope."}
+{"day": "2026_06_15", "bar": 645, "event": "reject_bad_target", "action": "long", "target": 30583.2}
+{"day": "2026_06_15", "bar": 660, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 675, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade shows chop at 1h but UP at 4h and day; inconsistent theme, so no trade."}
+{"day": "2026_06_15", "bar": 690, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 705, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 720, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 735, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but no valid reference level for entry with proper slope alignment."}
+{"day": "2026_06_15", "bar": 750, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 765, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 780, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, UP at day) \u2014 no clear direction to trade."}
+{"day": "2026_06_15", "bar": 795, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 810, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 825, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 840, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 855, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_06_15", "bar": 870, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 885, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 900, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 915, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 30620.2, "why": "Price bounces from 1h support level 30597.2 with upward theme and positive cubic regression slope."}
+{"day": "2026_06_15", "bar": 925, "event": "close", "reason": "target", "pts": 13.31}
+{"day": "2026_06_15", "bar": 930, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 945, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 960, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 975, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 990, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 1005, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1020, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 1035, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 1050, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 1065, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 1080, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_15", "bar": 1095, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 1110, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_15", "bar": 1125, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 1140, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_06_15", "bar": 1155, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_06_15", "bar": 1170, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_06_15", "bar": 1185, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 1200, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_15", "bar": 1215, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1230, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1245, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is negative, conflicting with theme."}
+{"day": "2026_06_15", "bar": 1260, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_15", "bar": 1275, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, UP at day) \u2014 no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1290, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1305, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_06_15", "bar": 1320, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_06_15", "bar": 1335, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_06_15", "bar": 1350, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_06_15", "bar": 1365, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h DOWN vs day UP), no clear direction."}
+{"day": "2026_06_25", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_06_25", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 135, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=warming, day=warming), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 150, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 165, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 180, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming day=warming), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 195, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 210, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting and not clear for entry."}
+{"day": "2026_06_25", "bar": 240, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 255, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 270, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade is conflicting (1h/4h DOWN, day warming) \u2014 no clear theme direction."}
+{"day": "2026_06_25", "bar": 285, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h/down vs day/warming), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 300, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_25", "bar": 315, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 330, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN) prevents trading."}
+{"day": "2026_06_25", "bar": 345, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 360, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_25", "bar": 375, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_25", "bar": 390, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 405, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 420, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment and sufficient target room."}
+{"day": "2026_06_25", "bar": 435, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_25", "bar": 450, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_25", "bar": 465, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 480, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 495, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 510, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_25", "bar": 525, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_25", "bar": 540, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but cubic regression slope is positive, no clear bounce from support level."}
+{"day": "2026_06_25", "bar": 555, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is UP but no valid reference level for entry with proper slope alignment."}
+{"day": "2026_06_25", "bar": 570, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 585, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_25", "bar": 600, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_06_25", "bar": 615, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 630, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_06_25", "bar": 645, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 660, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 675, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 690, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 705, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_25", "bar": 720, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 735, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_25", "bar": 750, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 765, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 780, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 795, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 810, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_06_25", "bar": 825, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction."}
+{"day": "2026_06_25", "bar": 840, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h DOWN vs day UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 855, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 870, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 885, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 900, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_06_25", "bar": 915, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_25", "bar": 930, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 945, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop) \u2014 no clear theme to trade."}
+{"day": "2026_06_25", "bar": 960, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 975, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_25", "bar": 990, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but no valid reference level for entry with the correct slope and bounce."}
+{"day": "2026_06_25", "bar": 1005, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1020, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1035, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1050, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_25", "bar": 1065, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but price is above reference levels and cubic regression slope is positive, not aligning with theme."}
+{"day": "2026_06_25", "bar": 1080, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1095, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1110, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1125, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN) \u2014 no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1140, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but no valid reference level for entry with correct slope."}
+{"day": "2026_06_25", "bar": 1155, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but price is above reference levels and no valid entry condition met."}
+{"day": "2026_06_25", "bar": 1170, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_06_25", "bar": 1185, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h/4h UP vs day DOWN), no clear theme direction."}
+{"day": "2026_06_25", "bar": 1200, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_06_25", "bar": 1215, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_06_25", "bar": 1230, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_06_25", "bar": 1245, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1260, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1275, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1290, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1305, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_25", "bar": 1320, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1335, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1350, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=UP vs day=DOWN), no clear direction to trade."}
+{"day": "2026_06_25", "bar": 1365, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction."}
+{"day": "2026_06_29", "bar": 90, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 135, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 150, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_29", "bar": 165, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 180, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 195, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_29", "bar": 210, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_06_29", "bar": 240, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 255, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_29", "bar": 270, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h/day) \u2014 no clear direction to trade."}
+{"day": "2026_06_29", "bar": 285, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 300, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict between 1h (UP) and 4h (DOWN), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 315, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 330, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 345, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 360, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 375, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level entry conditions met with the current cubic regression slope."}
+{"day": "2026_06_29", "bar": 390, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_29", "bar": 405, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 420, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=warming), no clear theme direction."}
+{"day": "2026_06_29", "bar": 450, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=UP, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_06_29", "bar": 465, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 480, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 495, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 510, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 525, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_29", "bar": 540, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_29", "bar": 555, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 570, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict: 1h is DOWN but 4h and day are UP."}
+{"day": "2026_06_29", "bar": 585, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 600, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 615, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_29", "bar": 630, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_29", "bar": 645, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_06_29", "bar": 660, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 675, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 690, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict: 1h is DOWN but 4h and day are UP."}
+{"day": "2026_06_29", "bar": 705, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 720, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade shows chop at 1h but UP at 4h and day. No clear unified theme to trade."}
+{"day": "2026_06_29", "bar": 735, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 750, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_06_29", "bar": 765, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_29", "bar": 780, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_06_29", "bar": 795, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 810, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict: 1h is DOWN, but 4h and day are UP. No clear theme to trade."}
+{"day": "2026_06_29", "bar": 825, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 840, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 855, "event": "decide", "latency": 2.8, "pos": false, "action": "long", "target": 29747.4, "why": "Price bounces from 29721.8 (support) with an upward theme and positive cubic regression slope."}
+{"day": "2026_06_29", "bar": 870, "event": "decide", "latency": 2.1, "pos": true, "action": "exit", "target": null, "why": "Theme has flipped to the opposite direction."}
+{"day": "2026_06_29", "bar": 870, "event": "close", "reason": "qwen_exit", "pts": -18.39}
+{"day": "2026_06_29", "bar": 885, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 900, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 915, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 930, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme conflict: 1h is DOWN while 4h and day are UP."}
+{"day": "2026_06_29", "bar": 945, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 960, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 975, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_06_29", "bar": 990, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1005, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1020, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1035, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1050, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1065, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1080, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is chop at 1h and 4h, no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1095, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1110, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1125, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 1140, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1155, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_29", "bar": 1170, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 1185, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 1200, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1215, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1230, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_06_29", "bar": 1245, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_29", "bar": 1260, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1275, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_06_29", "bar": 1290, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1305, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 1320, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_06_29", "bar": 1335, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_06_29", "bar": 1350, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_06_29", "bar": 1365, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_08", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 135, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 150, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 165, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 180, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_08", "bar": 195, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 210, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 225, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_08", "bar": 240, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 255, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 270, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 285, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 300, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_07_08", "bar": 315, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_08", "bar": 330, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_08", "bar": 345, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_08", "bar": 360, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 375, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_07_08", "bar": 390, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h DOWN, day warming) \u2014 no clear direction to trade."}
+{"day": "2026_07_08", "bar": 405, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h DOWN, day warming) \u2014 no clear direction to trade."}
+{"day": "2026_07_08", "bar": 420, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h DOWN vs day warming), no clear direction."}
+{"day": "2026_07_08", "bar": 435, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_08", "bar": 450, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_08", "bar": 465, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 480, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN vs day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 495, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 510, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, day=chop), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 525, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 540, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 555, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 570, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 585, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 600, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 615, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 630, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 645, "event": "decide", "latency": 1.9, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_08", "bar": 660, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is DOWN, but cubic regression slope is UP, conflicting with theme."}
+{"day": "2026_07_08", "bar": 675, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_07_08", "bar": 690, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 705, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 720, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 735, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 750, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=chop, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 765, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 780, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 795, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 810, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 825, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 840, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=DOWN, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 855, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 870, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 885, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 900, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h/4h UP vs day DOWN), no clear theme direction."}
+{"day": "2026_07_08", "bar": 915, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 930, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 945, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h UP vs day DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 960, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 975, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h/4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 990, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=DOWN), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1005, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=UP, day=chop), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1020, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_08", "bar": 1035, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_07_08", "bar": 1050, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_08", "bar": 1065, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_08", "bar": 1080, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h=DOWN, day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1095, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme direction."}
+{"day": "2026_07_08", "bar": 1110, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 1125, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=UP, 4h=DOWN, day=UP), no clear theme direction."}
+{"day": "2026_07_08", "bar": 1140, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=UP) \u2014 no clear theme to trade."}
+{"day": "2026_07_08", "bar": 1155, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1170, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 1185, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_08", "bar": 1200, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_08", "bar": 1215, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1230, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1245, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_08", "bar": 1260, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is UP, but no valid reference level for entry with proper slope agreement."}
+{"day": "2026_07_08", "bar": 1275, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_07_08", "bar": 1290, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 1305, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_08", "bar": 1320, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 1335, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_08", "bar": 1350, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_08", "bar": 1365, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 90, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 105, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 120, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 135, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 150, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 165, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 180, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_14", "bar": 195, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment found."}
+{"day": "2026_07_14", "bar": 210, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 225, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=warming), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 240, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=warming), no clear theme direction."}
+{"day": "2026_07_14", "bar": 255, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=warming), no clear theme direction."}
+{"day": "2026_07_14", "bar": 270, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 285, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN, 4h=UP, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 300, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=warming), no clear theme direction."}
+{"day": "2026_07_14", "bar": 315, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 330, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 345, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 360, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 375, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 390, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 405, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear theme to trade."}
+{"day": "2026_07_14", "bar": 420, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=UP, 4h=DOWN, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_07_14", "bar": 435, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=UP, 4h=chop, day=warming) \u2014 no clear direction to trade."}
+{"day": "2026_07_14", "bar": 450, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with theme alignment"}
+{"day": "2026_07_14", "bar": 465, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 480, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_14", "bar": 495, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_14", "bar": 510, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_14", "bar": 525, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 540, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 555, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 570, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 585, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_07_14", "bar": 600, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with-theme."}
+{"day": "2026_07_14", "bar": 615, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 630, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 645, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 660, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 675, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 690, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 705, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 720, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, UP at day) \u2014 no clear direction to trade."}
+{"day": "2026_07_14", "bar": 735, "event": "decide", "latency": 2.3, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (4h=chop), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 750, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (chop at 1h/4h, UP at day) \u2014 no clear direction to trade."}
+{"day": "2026_07_14", "bar": 765, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 780, "event": "decide", "latency": 2.0, "pos": false, "action": "hold", "target": null, "why": "No valid entry conditions met."}
+{"day": "2026_07_14", "bar": 795, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 810, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 825, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 840, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level bounce with matching cubic regression slope."}
+{"day": "2026_07_14", "bar": 855, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN vs 4h=UP and day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 870, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_07_14", "bar": 885, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 900, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_07_14", "bar": 915, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme."}
+{"day": "2026_07_14", "bar": 930, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 945, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 960, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 975, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 990, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1005, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1020, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1035, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1050, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with the theme direction."}
+{"day": "2026_07_14", "bar": 1065, "event": "decide", "latency": 2.1, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1080, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1095, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1110, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 1125, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_07_14", "bar": 1140, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1155, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1170, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1185, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1200, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme direction."}
+{"day": "2026_07_14", "bar": 1215, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1230, "event": "decide", "latency": 2.2, "pos": false, "action": "hold", "target": null, "why": "No valid reference level for entry with theme."}
+{"day": "2026_07_14", "bar": 1245, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1260, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1275, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 1290, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h=DOWN vs 4h=UP and day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 1305, "event": "decide", "latency": 2.6, "pos": false, "action": "hold", "target": null, "why": "Theme cascade conflicts (1h=DOWN, 4h=UP, day=UP), no clear theme direction."}
+{"day": "2026_07_14", "bar": 1320, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme cascade shows chop at 1h, conflicting with UP at 4h and day. No clear theme to trade."}
+{"day": "2026_07_14", "bar": 1335, "event": "decide", "latency": 2.7, "pos": false, "action": "hold", "target": null, "why": "Theme is conflicting (1h=DOWN, 4h=chop, day=UP), no clear direction to trade."}
+{"day": "2026_07_14", "bar": 1350, "event": "decide", "latency": 2.4, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h DOWN vs day UP), no clear direction."}
+{"day": "2026_07_14", "bar": 1365, "event": "decide", "latency": 2.5, "pos": false, "action": "hold", "target": null, "why": "Theme conflict (1h/4h DOWN vs day UP), no clear direction to trade."}

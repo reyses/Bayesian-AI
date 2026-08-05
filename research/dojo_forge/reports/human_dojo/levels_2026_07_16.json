@@ -1,0 +1,100 @@
+{
+  "days": [
+    "2026_07_14",
+    "2026_07_15",
+    "2026_07_16"
+  ],
+  "n_bars": 4140,
+  "scales": [
+    {
+      "name": "day",
+      "R": 60,
+      "tau": 22,
+      "lookback": null,
+      "n_pivots": 164,
+      "n_lines": 5,
+      "lines": [
+        {
+          "price": 29344.25,
+          "touches": 7,
+          "spread_bars": 3791
+        },
+        {
+          "price": 29384.25,
+          "touches": 8,
+          "spread_bars": 3636
+        },
+        {
+          "price": 29455.25,
+          "touches": 9,
+          "spread_bars": 3819
+        },
+        {
+          "price": 29545.125,
+          "touches": 7,
+          "spread_bars": 3509
+        },
+        {
+          "price": 29644.375,
+          "touches": 8,
+          "spread_bars": 2935
+        }
+      ]
+    },
+    {
+      "name": "4h",
+      "R": 28,
+      "tau": 12,
+      "lookback": 300,
+      "n_pivots": 50,
+      "n_lines": 2,
+      "lines": [
+        {
+          "price": 29217.125,
+          "touches": 6,
+          "spread_bars": 135
+        },
+        {
+          "price": 29273.25,
+          "touches": 6,
+          "spread_bars": 109
+        }
+      ]
+    },
+    {
+      "name": "1h",
+      "R": 10,
+      "tau": 6,
+      "lookback": 120,
+      "n_pivots": 38,
+      "n_lines": 5,
+      "lines": [
+        {
+          "price": 29122.0,
+          "touches": 3,
+          "spread_bars": 10
+        },
+        {
+          "price": 29148.875,
+          "touches": 4,
+          "spread_bars": 23
+        },
+        {
+          "price": 29157.5,
+          "touches": 6,
+          "spread_bars": 58
+        },
+        {
+          "price": 29167.0,
+          "touches": 2,
+          "spread_bars": 16
+        },
+        {
+          "price": 29186.375,
+          "touches": 3,
+          "spread_bars": 77
+        }
+      ]
+    }
+  ]
+}

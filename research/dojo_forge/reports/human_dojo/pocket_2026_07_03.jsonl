@@ -1,0 +1,23 @@
+{"wall": "2026-07-28T22:41:01", "day": "2026_07_03", "bar": 90, "event": "new"}
+{"wall": "2026-07-29T08:21:35", "day": "2026_07_03", "bar": 90, "event": "note", "text": "OWNER LEVEL FEEDBACK on auto-frame: missing a level in 2920x region; and near current price upper side a line coinciding with the wicks and the next body far right"}
+{"wall": "2026-07-29T08:22:18", "day": "2026_07_03", "bar": 90, "event": "owner_line", "lines": [29620.0, 29602.0]}
+{"wall": "2026-07-29T08:24:09", "day": "2026_07_03", "bar": 90, "event": "note", "text": "owner: enter long next 5s bar, advance 1m (engine is 1m \u2014 filled next 1m open, noted the 5s intent)"}
+{"wall": "2026-07-29T08:24:12", "day": "2026_07_03", "bar": 90, "event": "call", "dir": "long", "target": null, "stop": null}
+{"wall": "2026-07-29T08:24:15", "day": "2026_07_03", "bar": 90, "event": "fill", "dir": "long", "price": 29593.0}
+{"wall": "2026-07-29T08:25:11", "day": "2026_07_03", "bar": 91, "event": "note", "text": "owner correction: meant SHORT not long \u2014 reversing"}
+{"wall": "2026-07-29T08:25:14", "day": "2026_07_03", "bar": 91, "event": "exit_req"}
+{"wall": "2026-07-29T08:25:17", "day": "2026_07_03", "bar": 91, "event": "call", "dir": "short", "target": null, "stop": null}
+{"wall": "2026-07-29T08:25:19", "day": "2026_07_03", "bar": 91, "event": "fill", "dir": "short", "price": 29596.25}
+{"wall": "2026-07-29T08:25:57", "day": "2026_07_03", "bar": 92, "event": "close", "reason": "reverse_manual_ledger_fix", "price": 29596.25, "pts": 2.36, "note": "call-while-in-position clobbered the long; ledger reconstructed"}
+{"wall": "2026-07-29T08:29:53", "day": "2026_07_03", "bar": 92, "event": "retcon", "note": "owner backtrack: initial intent = SHORT filled on immediate 5s bar then advance 1m; prior long/reverse sequence voided; short entry set 29594.00 (bar-90 close = immediate fill); OWNER SAW bars 91-92 before this retcon \u2014 mild bias, owner self-flagged uncertainty about catching the uptick on 5s"}
+{"wall": "2026-07-29T08:33:21", "day": "2026_07_03", "bar": 92, "event": "note", "text": "owner: turn botched but playing on, keeping the short"}
+{"wall": "2026-07-29T09:05:24", "day": "2026_07_03", "bar": 99, "event": "note", "text": "owner: held because approaching far-left region line; intuition = exit here, touched another region, close and watch"}
+{"wall": "2026-07-29T09:05:27", "day": "2026_07_03", "bar": 99, "event": "reverse", "dir": "long", "target": null, "stop": null}
+{"wall": "2026-07-29T09:05:30", "day": "2026_07_03", "bar": 99, "event": "exit_req"}
+{"wall": "2026-07-29T09:05:33", "day": "2026_07_03", "bar": 99, "event": "close", "reason": "manual", "price": 29583.25, "pts": 9.86}
+{"wall": "2026-07-29T09:05:33", "day": "2026_07_03", "bar": 99, "event": "fill", "dir": "long", "price": 29583.25}
+{"wall": "2026-07-29T09:05:48", "day": "2026_07_03", "bar": 100, "event": "void_erroneous_reverse", "note": "session bug: a placeholder debug command accidentally queued call long --now which reversed the owner-requested flat exit into a long. Voided; owner intent was FLAT/close-and-watch only."}
+{"wall": "2026-07-29T09:08:50", "day": "2026_07_03", "bar": 100, "event": "note", "text": "owner: expects up then down over next 5 bars; asked about theme before bar 50 / prior trend"}
+{"wall": "2026-07-29T09:11:28", "day": "2026_07_03", "bar": 105, "event": "note", "text": "owner: watching, will likely enter long next bar"}
+{"wall": "2026-07-29T09:13:02", "day": "2026_07_03", "bar": 106, "event": "note", "text": "owner: thesis broken, got washed by shorts - long idea invalidated"}
+{"wall": "2026-07-29T09:16:09", "day": "2026_07_03", "bar": 107, "event": "note", "text": "owner: watching 5 bars, thesis about the long may be wrong"}

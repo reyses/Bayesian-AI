@@ -1,0 +1,7 @@
+{"wall": "2026-07-28T22:40:05", "day": "2026_07_09", "bar": 90, "event": "new"}
+{"wall": "2026-07-28T22:40:08", "day": "2026_07_09", "bar": 90, "event": "note", "text": "testing the pocket dojo pipeline"}
+{"wall": "2026-07-28T22:40:12", "day": "2026_07_09", "bar": 90, "event": "call", "dir": "long", "target": 99999.0, "stop": 1.0}
+{"wall": "2026-07-28T22:40:15", "day": "2026_07_09", "bar": 90, "event": "fill", "dir": "long", "price": 29410.25}
+{"wall": "2026-07-28T22:40:19", "day": "2026_07_09", "bar": 100, "event": "exit_req"}
+{"wall": "2026-07-28T22:40:22", "day": "2026_07_09", "bar": 100, "event": "close", "reason": "manual", "price": 29463.0, "pts": 51.86}
+{"wall": "2026-07-28T22:40:25", "day": "2026_07_09", "bar": 102, "event": "score", "trades": 1, "pnl_pts": 51.86, "pnl_usd": 103.72}

@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_03_16_1773668820_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.8225,
+"pivot_age_min": 3,
+"leg_dir_true": 1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.703 P_any=0.703 gov_dir=+1(long) n_fires=6\n  streams(dir): TMPL0- RENKO24+ VWAP03+\n  curve-reg(cubic 7.5m): dev=-0.0pts slope=-10.13pts/min curv=-7.375\n  reg-band(z15): z_se=-0.85 z_high=-1.03 z_low=-1.17 SE_high=+16.10 SE_low=+17.88 hurst=+0.36 reversion_prob=+0.97\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.801 P_any=0.801 gov_dir=+1(long) n_fires=8\n  streams(dir): RSI06- MACD07- TMPL0+ ROUND05+ NMPTFADECALM+ VWAP03- CTXER+\n  curve-reg(cubic 7.5m): dev=+56.7pts slope=-10.98pts/min curv=-6.375\n  reg-band(z15): z_se=-0.85 z_high=-1.01 z_low=-0.66 SE_high=+13.60 SE_low=+18.17 hurst=+0.38 reversion_prob=+0.97\n  price: px vs pivot +52.0pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.762 P_any=0.762 gov_dir=+1(long) n_fires=6\n  streams(dir): EXITKMDR- RENKO24+ VWAP03- SAR23- PTRNENGULF+\n  curve-reg(cubic 7.5m): dev=+2.3pts slope=+38.81pts/min curv=+20.541\n  reg-band(z15): z_se=+2.20 z_high=+2.08 z_low=-0.16 SE_high=+13.97 SE_low=+12.90 hurst=+0.41 reversion_prob=+0.82\n  price: px vs pivot +48.5pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.823 P_any=0.823 gov_dir=+1(long) n_fires=3\n  streams(dir): TMPL0+ DOW19- VWAP03-\n  curve-reg(cubic 7.5m): dev=-0.2pts slope=+36.69pts/min curv=+15.268\n  reg-band(z15): z_se=+1.55 z_high=+1.61 z_low=+2.34 SE_high=+15.03 SE_low=+13.98 hurst=+0.51 reversion_prob=+0.93\n  price: px vs pivot +61.5pts | bars since pivot 3"
+}
+]
+}

@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_03_03_1772548920_L",
+"meta": {
+"fire_gov_dir": 1,
+"fire_P": 0.8458,
+"pivot_age_min": 3,
+"leg_dir_true": -1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.812 P_any=0.812 gov_dir=+1(long) n_fires=6\n  streams(dir): ROUND05- RENKO24-\n  curve-reg(cubic 7.5m): dev=-82.9pts slope=+61.66pts/min curv=+17.173\n  reg-band(z15): z_se=+0.81 z_high=+0.63 z_low=+1.84 SE_high=+27.76 SE_low=+28.53 hurst=+0.58 reversion_prob=+0.97\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.846 P_any=0.879 gov_dir=+1(long) n_fires=11\n  streams(dir): ROUND05+ RENKO24+ CTXER- SAR23+ PTRNENGULF-\n  curve-reg(cubic 7.5m): dev=-16.5pts slope=-44.16pts/min curv=-47.471\n  reg-band(z15): z_se=-0.84 z_high=+0.27 z_low=+0.13 SE_high=+27.14 SE_low=+28.31 hurst=+0.66 reversion_prob=+0.97\n  price: px vs pivot +5.2pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.912 P_any=0.912 gov_dir=+1(long) n_fires=3\n  streams(dir): TMPL0+ RENKO24- TUNNEL20-\n  curve-reg(cubic 7.5m): dev=+16.9pts slope=-114.46pts/min curv=-77.228\n  reg-band(z15): z_se=-0.65 z_high=-1.31 z_low=-0.70 SE_high=+29.73 SE_low=+28.96 hurst=+0.67 reversion_prob=+0.98\n  price: px vs pivot -33.0pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.846 P_any=0.884 gov_dir=+1(long) n_fires=12\n  streams(dir): ROUND05+ RENKO24+ VWAP03+ PTRNENGULF-\n  curve-reg(cubic 7.5m): dev=+11.1pts slope=-64.00pts/min curv=-25.808\n  reg-band(z15): z_se=-1.37 z_high=-1.30 z_low=-0.92 SE_high=+32.61 SE_low=+30.12 hurst=+0.70 reversion_prob=+0.94\n  price: px vs pivot -41.5pts | bars since pivot 3"
+}
+]
+}

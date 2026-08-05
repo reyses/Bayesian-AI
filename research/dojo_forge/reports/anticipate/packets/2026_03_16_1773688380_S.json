@@ -1,0 +1,33 @@
+{
+"episode_id": "2026_03_16_1773688380_S",
+"meta": {
+"fire_gov_dir": -1,
+"fire_P": 0.9773,
+"pivot_age_min": 3,
+"leg_dir_true": -1,
+"label": "anticipate leg direction (long=+1/short=-1)",
+"n_frames": 4
+},
+"frames": [
+{
+"frame": 0,
+"k": 3,
+"text": "[fire in 3m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.768 P_any=0.768 gov_dir=+1(long) n_fires=8\n  streams(dir): EXITKMDR- DOW19+ ROUND05- RENKO24- SAR23-\n  curve-reg(cubic 7.5m): dev=+5.8pts slope=+59.69pts/min curv=+28.238\n  reg-band(z15): z_se=+3.04 z_high=+3.07 z_low=+1.64 SE_high=+21.79 SE_low=+5.64 hurst=+0.51 reversion_prob=+0.00\n  price: px vs pivot +0.0pts | bars since pivot 0"
+},
+{
+"frame": 1,
+"k": 2,
+"text": "[fire in 2m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.724 P_any=0.724 gov_dir=+1(long) n_fires=4\n  streams(dir): ROUND05- RENKO24-\n  curve-reg(cubic 7.5m): dev=-63.0pts slope=+69.34pts/min curv=+24.493\n  reg-band(z15): z_se=+1.51 z_high=+2.26 z_low=+3.01 SE_high=+31.27 SE_low=+19.78 hurst=+0.45 reversion_prob=+0.93\n  price: px vs pivot -18.8pts | bars since pivot 1"
+},
+{
+"frame": 2,
+"k": 1,
+"text": "[fire in 1m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.699 P_any=0.699 gov_dir=-1(short) n_fires=2\n  streams(dir): ROUND05- CTXER-\n  curve-reg(cubic 7.5m): dev=-34.6pts slope=-22.47pts/min curv=-30.278\n  reg-band(z15): z_se=+0.46 z_high=+0.49 z_low=+1.09 SE_high=+31.11 SE_low=+21.00 hurst=+0.49 reversion_prob=+0.99\n  price: px vs pivot -46.2pts | bars since pivot 2"
+},
+{
+"frame": 3,
+"k": 0,
+"text": "[fire in 0m]  combiner forming \u2014 ANTICIPATE the leg direction\n  combiner: P_topk=0.977 P_any=0.977 gov_dir=-1(short) n_fires=3\n  streams(dir): ZIGZAG- NMPTFADECALM+ RENKO24-\n  curve-reg(cubic 7.5m): dev=+0.6pts slope=-82.19pts/min curv=-56.513\n  reg-band(z15): z_se=-0.62 z_high=-0.24 z_low=+0.03 SE_high=+30.51 SE_low=+20.69 hurst=+0.55 reversion_prob=+0.98\n  price: px vs pivot -68.0pts | bars since pivot 3"
+}
+]
+}
