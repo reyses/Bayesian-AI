@@ -930,9 +930,16 @@ def _render_prevday(s, back=4, res='1m', label=None):
             ax.text(b0 + n * 0.5, y_hi + pad * 0.45, d[5:].replace('_', '/'),
                     fontsize=7.5, color='#455A64', ha='center', va='top', zorder=8)
 
-    def _lvl(v, lab, col, ls='-'):
-        ax.axhline(v, color=col, lw=1.1, ls=ls, alpha=0.85, zorder=2.5)
-        ax.text(len(ext) * 0.998, v, f' {lab} {v:.2f}', color=col, fontsize=8,
+    def _lvl(v, lab, col, ls='--', major=True):
+        """CHART STANDARD (owner 2026-08-05, docs/CHART_STANDARD.md):
+        every reference level is DASHED; major = session anchors, thicker and
+        bolder; minor = bounds/rounds, thinner and lighter. The main panel and
+        this one must not diverge."""
+        ax.axhline(v, color=col, lw=1.4 if major else 0.9, ls='--',
+                   alpha=0.85 if major else 0.6, zorder=2.5)
+        ax.text(len(ext) * 0.998, v, f' {lab} {v:.2f}', color=col,
+                fontsize=8 if major else 6.8,
+                fontweight='bold' if major else 'normal',
                 va='bottom', ha='right', zorder=9, clip_on=True)
 
     # CONTRACT ROLL GUARD — mark it loudly; a spliced span invalidates every
@@ -953,11 +960,14 @@ def _render_prevday(s, back=4, res='1m', label=None):
     pb0, pn = bounds[-2]                      # last COMPLETED session
     pseg = slice(pb0, pb0 + pn)
     pdh, pdl = float(h[pseg].max()), float(l[pseg].min())
-    _lvl(pdh, 'PD HIGH', '#C62828')
-    _lvl(pdl, 'PD LOW', '#2E7D32')
-    _lvl(float(c[pb0 + pn - 1]), 'PD SETTLE', '#455A64', ':')
+    _lvl(pdh, 'PD HIGH', '#C62828', major=True)
+    _lvl(pdl, 'PD LOW', '#2E7D32', major=True)
+    _lvl(float(c[pb0 + pn - 1]), 'PD SETTLE', '#455A64', major=True)
     now = float(c[-1])
-    _lvl(now, 'NOW', '#E8833A')
+    _lvl(now, 'NOW', '#E8833A', major=True)
+    # minor references so the two panels carry the same vocabulary
+    for _v, _l in ((max(h), '5d HIGH'), (min(l), '5d LOW')):
+        _lvl(float(_v), _l, '#4DB6AC', major=False)
 
     tick = np.arange(0, len(ext), max(1, len(ext) // 14))
     ax.set_xticks(tick)
@@ -965,6 +975,7 @@ def _render_prevday(s, back=4, res='1m', label=None):
                        fontsize=7, rotation=45, ha='right')
     ax.set_xlim(-2, len(ext) + 1)
     ax.grid(alpha=0.13, lw=0.5)
+    _price_grid(ax)                 # same dashed major/minor tick grid
     ax.set_title(f'{label or f"{back} PRIOR SESSIONS"} + TODAY to bar {cur} · '
                  f'{names[0][5:]}–{names[-1][5:]} · {len(ext)} {res} bars · '
                  f'span {y_hi - y_lo:.0f}pt · ET (RTH shaded)', fontsize=10)
