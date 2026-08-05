@@ -1,0 +1,62 @@
+{
+ "plan": "ISO 2859-1 level II, AQL 1.0%",
+ "accept": 10,
+ "reject": 11,
+ "batches": 5,
+ "detectors": {
+  "fakeout_poke": {
+   "lot": 153029,
+   "sample": 500,
+   "days_covered": 323,
+   "span": [
+    "2024_01_04",
+    "2026_03_18"
+   ]
+  },
+  "leg_descent": {
+   "lot": 58480,
+   "sample": 500,
+   "days_covered": 313,
+   "span": [
+    "2024_01_02",
+    "2026_03_19"
+   ]
+  },
+  "ultra_chop": {
+   "lot": 18601,
+   "sample": 500,
+   "days_covered": 313,
+   "span": [
+    "2024_01_10",
+    "2026_03_18"
+   ]
+  },
+  "stall": {
+   "lot": 41180,
+   "sample": 500,
+   "days_covered": 314,
+   "span": [
+    "2024_01_02",
+    "2026_03_19"
+   ]
+  },
+  "defended_poke_shelf": {
+   "lot": 1585,
+   "sample": 500,
+   "days_covered": 300,
+   "span": [
+    "2024_01_03",
+    "2026_03_20"
+   ]
+  },
+  "flush_v_day": {
+   "lot": 540,
+   "sample": 500,
+   "days_covered": 500,
+   "span": [
+    "2024_01_02",
+    "2026_03_20"
+   ]
+  }
+ }
+}

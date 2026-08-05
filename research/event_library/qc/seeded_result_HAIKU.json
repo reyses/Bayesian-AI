@@ -1,0 +1,194 @@
+{
+  "model": "haiku",
+  "inspected": 100,
+  "flagged": [
+    {
+      "ts": 1704382510,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1706032165,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1710433640,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1711554115,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1717008975,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1717511175,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1721757300,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1722612680,
+      "reason": "poke_depth mismatch: stated 7.5, computed 4.25"
+    },
+    {
+      "ts": 1722967680,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1723055775,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1723141215,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1725558200,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1728395380,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1729603860,
+      "reason": "poke_depth mismatch: stated 3.75, computed 0.5"
+    },
+    {
+      "ts": 1729779075,
+      "reason": "poke_depth mismatch: stated 0.75, computed 4.0"
+    },
+    {
+      "ts": 1730212070,
+      "reason": "poke_depth mismatch: stated 4.75, computed 3.0"
+    },
+    {
+      "ts": 1731349685,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1733244830,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1734706110,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1735832550,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1736784215,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1737559375,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1741111660,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1742225435,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1743706915,
+      "reason": "poke_depth mismatch: stated 2.25, computed 0.5"
+    },
+    {
+      "ts": 1744730760,
+      "reason": "price did not return past ref_px but kind is RETURN, not BREAKOUT"
+    },
+    {
+      "ts": 1745591595,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1746121550,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1746452445,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1746811855,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1747405745,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1747763135,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1749228060,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1751999870,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1754417775,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1757088825,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1761763510,
+      "reason": "poke_depth mismatch: stated 3.0, computed 1.25"
+    },
+    {
+      "ts": 1762445265,
+      "reason": "poke_ext 25325.5 not found as a bar high/low within 60s"
+    },
+    {
+      "ts": 1762959315,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1763147575,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1763661970,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1765221440,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1765899695,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1767639460,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1768319400,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1770389615,
+      "reason": "price returned past ref_px but kind is BREAKOUT, not RETURN"
+    },
+    {
+      "ts": 1770916190,
+      "reason": "poke_ext 24901.0 not found as a bar high/low within 60s"
+    }
+  ]
+}

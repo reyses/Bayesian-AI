@@ -1,0 +1,18 @@
+{
+ "n_rows": 100,
+ "n_planted": 12,
+ "planted": {
+  "1729603860": "price_field_wrong",
+  "1743706915": "depth_inconsistent",
+  "1772827640": "kind_label_flipped",
+  "1770044185": "timestamp_shifted",
+  "1729779075": "price_field_wrong",
+  "1761763510": "depth_inconsistent",
+  "1744730760": "kind_label_flipped",
+  "1730920440": "timestamp_shifted",
+  "1722612680": "price_field_wrong",
+  "1730212070": "depth_inconsistent",
+  "1736784215": "kind_label_flipped",
+  "1714141445": "timestamp_shifted"
+ }
+}

@@ -1,0 +1,406 @@
+{
+  "model": "sonnet",
+  "inspected": 100,
+  "flagged": [
+    {
+      "ts": 1704382510,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 16506.25 vs poke_ext=16508.25 (diff=2.00); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1706032165,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 17467.00 vs poke_ext=17465.50 (diff=1.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1707418235,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 17864.25 vs poke_ext=17869.50 (diff=5.25)"
+    },
+    {
+      "ts": 1708096025,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 17758.00 vs poke_ext=17754.50 (diff=3.50)"
+    },
+    {
+      "ts": 1709738790,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18017.25 vs poke_ext=18007.25 (diff=10.00)"
+    },
+    {
+      "ts": 1709923240,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 18016.50 vs poke_ext=18021.50 (diff=5.00)"
+    },
+    {
+      "ts": 1710433640,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18288.75 vs poke_ext=18287.00 (diff=1.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1711554115,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18425.25 vs poke_ext=18421.00 (diff=4.25)"
+    },
+    {
+      "ts": 1712681490,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 18280.75 vs poke_ext=18283.50 (diff=2.75)"
+    },
+    {
+      "ts": 1714141445,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 17832.25 vs poke_ext=17825.00 (diff=7.25)"
+    },
+    {
+      "ts": 1714667005,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 17537.75 vs poke_ext=17520.75 (diff=17.00); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1715713730,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18407.75 vs poke_ext=18406.75 (diff=1.00)"
+    },
+    {
+      "ts": 1717008975,
+      "reason": "check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1717511175,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 18591.25 vs poke_ext=18597.25 (diff=6.00); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1719236205,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19946.50 vs poke_ext=19944.25 (diff=2.25)"
+    },
+    {
+      "ts": 1720543030,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 20682.00 vs poke_ext=20686.50 (diff=4.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1721145860,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 20551.25 vs poke_ext=20555.75 (diff=4.50)"
+    },
+    {
+      "ts": 1721757300,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19983.00 vs poke_ext=19978.75 (diff=4.25); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1721933630,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19110.75 vs poke_ext=19128.00 (diff=17.25)"
+    },
+    {
+      "ts": 1722612680,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=4.25 vs poke_depth=7.50 (diff=3.25); check2_extreme_mismatch: true low extreme within +-60s of ts = 18462.75 vs poke_ext=18479.50 (diff=16.75); check4_ts_offset: nearest bar matching poke_ext is 46s away from ts (at 1722612634, ts=1722612680); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1722967680,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 18385.25 vs poke_ext=18395.25 (diff=10.00); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1723055775,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18064.00 vs poke_ext=18060.25 (diff=3.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1723141215,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18552.50 vs poke_ext=18552.00 (diff=0.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1723735840,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19491.00 vs poke_ext=19493.50 (diff=2.50)"
+    },
+    {
+      "ts": 1724766505,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19507.75 vs poke_ext=19486.25 (diff=21.50); check4_ts_offset: nearest bar matching poke_ext is 20s away from ts (at 1724766525, ts=1724766505); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1725380005,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19175.00 vs poke_ext=19161.50 (diff=13.50)"
+    },
+    {
+      "ts": 1725558200,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18975.25 vs poke_ext=18954.75 (diff=20.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1726148870,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19217.75 vs poke_ext=19219.25 (diff=1.50)"
+    },
+    {
+      "ts": 1726852765,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20022.50 vs poke_ext=20022.00 (diff=0.50)"
+    },
+    {
+      "ts": 1727800455,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19956.75 vs poke_ext=19925.00 (diff=31.75)"
+    },
+    {
+      "ts": 1728395380,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20107.75 vs poke_ext=20100.50 (diff=7.25); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1729603860,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=0.50 vs poke_depth=3.75 (diff=3.25); check2_extreme_mismatch: true low extreme within +-60s of ts = 20368.75 vs poke_ext=20388.00 (diff=19.25); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1729779075,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=4.00 vs poke_depth=0.75 (diff=3.25); check2_extreme_mismatch: true high extreme within +-60s of ts = 20358.25 vs poke_ext=20354.50 (diff=3.75); check4_ts_offset: nearest bar matching poke_ext is 34s away from ts (at 1729779109, ts=1729779075)"
+    },
+    {
+      "ts": 1730212070,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=3.00 vs poke_depth=4.75 (diff=1.75); check2_extreme_mismatch: true low extreme within +-60s of ts = 20527.50 vs poke_ext=20546.00 (diff=18.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1730735250,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20199.50 vs poke_ext=20185.25 (diff=14.25)"
+    },
+    {
+      "ts": 1730920440,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20882.75 vs poke_ext=20871.50 (diff=11.25)"
+    },
+    {
+      "ts": 1731349685,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21135.50 vs poke_ext=21134.25 (diff=1.25); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1731950480,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20661.25 vs poke_ext=20659.50 (diff=1.75)"
+    },
+    {
+      "ts": 1733244830,
+      "reason": "check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1734452190,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 22333.75 vs poke_ext=22336.75 (diff=3.00)"
+    },
+    {
+      "ts": 1734706110,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21190.00 vs poke_ext=21195.00 (diff=5.00); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1735832550,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21254.25 vs poke_ext=21233.75 (diff=20.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1736353830,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21358.25 vs poke_ext=21354.50 (diff=3.75)"
+    },
+    {
+      "ts": 1736784215,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 20814.25 vs poke_ext=20812.50 (diff=1.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1737037975,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21417.25 vs poke_ext=21435.00 (diff=17.75); check4_ts_offset: nearest bar matching poke_ext is 16s away from ts (at 1737037991, ts=1737037975)"
+    },
+    {
+      "ts": 1737559375,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 22005.00 vs poke_ext=22007.75 (diff=2.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1738354900,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21552.25 vs poke_ext=21569.25 (diff=17.00)"
+    },
+    {
+      "ts": 1738765885,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21556.25 vs poke_ext=21548.25 (diff=8.00); check4_ts_offset: nearest bar matching poke_ext is 28s away from ts (at 1738765857, ts=1738765885)"
+    },
+    {
+      "ts": 1739461970,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 22028.75 vs poke_ext=22031.00 (diff=2.25)"
+    },
+    {
+      "ts": 1740510780,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21162.25 vs poke_ext=21165.75 (diff=3.50)"
+    },
+    {
+      "ts": 1741111660,
+      "reason": "check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1741616720,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19697.25 vs poke_ext=19709.75 (diff=12.50)"
+    },
+    {
+      "ts": 1742225435,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19700.25 vs poke_ext=19695.50 (diff=4.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1743527435,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19557.00 vs poke_ext=19550.25 (diff=6.75)"
+    },
+    {
+      "ts": 1743706915,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=0.50 vs poke_depth=2.25 (diff=1.75); check2_extreme_mismatch: true low extreme within +-60s of ts = 18831.50 vs poke_ext=18842.00 (diff=10.50)"
+    },
+    {
+      "ts": 1744309550,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18613.25 vs poke_ext=18551.00 (diff=62.25)"
+    },
+    {
+      "ts": 1744730760,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19021.00 vs poke_ext=19032.25 (diff=11.25); check3_kind_mismatch: expected BREAKOUT (returned_past_ref=False) but csv says kind=RETURN"
+    },
+    {
+      "ts": 1744902380,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 18409.75 vs poke_ext=18370.50 (diff=39.25)"
+    },
+    {
+      "ts": 1745420805,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19091.25 vs poke_ext=19079.75 (diff=11.50)"
+    },
+    {
+      "ts": 1745591595,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 19295.50 vs poke_ext=19288.25 (diff=7.25); check4_ts_offset: nearest bar matching poke_ext is 22s away from ts (at 1745591617, ts=1745591595); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1746121550,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19941.75 vs poke_ext=19952.25 (diff=10.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1746452445,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 19996.50 vs poke_ext=19999.25 (diff=2.75); check4_no_matching_bar: no bar within +-60s of ts has low within 0.25 of poke_ext=19999.25; check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1746811855,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 20091.50 vs poke_ext=20093.00 (diff=1.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1747405745,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21408.25 vs poke_ext=21412.50 (diff=4.25); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1747763135,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21425.25 vs poke_ext=21427.75 (diff=2.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1748889670,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21490.00 vs poke_ext=21491.50 (diff=1.50)"
+    },
+    {
+      "ts": 1749228060,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21794.25 vs poke_ext=21786.75 (diff=7.50)"
+    },
+    {
+      "ts": 1749741455,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 21917.00 vs poke_ext=21932.50 (diff=15.50)"
+    },
+    {
+      "ts": 1750256260,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 21839.50 vs poke_ext=21829.00 (diff=10.50)"
+    },
+    {
+      "ts": 1751899955,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 22892.75 vs poke_ext=22909.75 (diff=17.00)"
+    },
+    {
+      "ts": 1751999870,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 22915.50 vs poke_ext=22915.00 (diff=0.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1753714465,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 23482.50 vs poke_ext=23483.25 (diff=0.75)"
+    },
+    {
+      "ts": 1754417775,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 23194.25 vs poke_ext=23197.75 (diff=3.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1755096385,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 23935.75 vs poke_ext=23947.50 (diff=11.75)"
+    },
+    {
+      "ts": 1755796900,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 23124.25 vs poke_ext=23132.25 (diff=8.00)"
+    },
+    {
+      "ts": 1756824810,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 23142.00 vs poke_ext=23143.75 (diff=1.75)"
+    },
+    {
+      "ts": 1757088825,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 23657.50 vs poke_ext=23656.75 (diff=0.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1758040115,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 24287.00 vs poke_ext=24282.50 (diff=4.50)"
+    },
+    {
+      "ts": 1759516890,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25021.25 vs poke_ext=25019.75 (diff=1.50)"
+    },
+    {
+      "ts": 1760448905,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24530.50 vs poke_ext=24553.50 (diff=23.00)"
+    },
+    {
+      "ts": 1761763510,
+      "reason": "check1_depth_mismatch: |poke_ext-ref_px|=1.25 vs poke_depth=3.00 (diff=1.75); check2_extreme_mismatch: true high extreme within +-60s of ts = 26139.75 vs poke_ext=26103.00 (diff=36.75)"
+    },
+    {
+      "ts": 1762445265,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 25318.25 vs poke_ext=25325.50 (diff=7.25); check4_no_matching_bar: no bar within +-60s of ts has low within 0.25 of poke_ext=25325.50; check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1762959315,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 25563.25 vs poke_ext=25577.75 (diff=14.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1763147575,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25156.75 vs poke_ext=25155.25 (diff=1.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1763661970,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 24496.00 vs poke_ext=24471.75 (diff=24.25); check4_no_matching_bar: no bar within +-60s of ts has high within 0.25 of poke_ext=24471.75"
+    },
+    {
+      "ts": 1764604290,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25390.00 vs poke_ext=25369.50 (diff=20.50)"
+    },
+    {
+      "ts": 1765221440,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25596.25 vs poke_ext=25592.25 (diff=4.00)"
+    },
+    {
+      "ts": 1765899695,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24953.00 vs poke_ext=24967.50 (diff=14.50); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1765996591,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 24789.00 vs poke_ext=24783.00 (diff=6.00)"
+    },
+    {
+      "ts": 1767639460,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 25605.75 vs poke_ext=25606.50 (diff=0.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1768319400,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 25809.25 vs poke_ext=25813.00 (diff=3.75); check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1769106885,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25708.50 vs poke_ext=25708.00 (diff=0.50)"
+    },
+    {
+      "ts": 1770044185,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 25785.25 vs poke_ext=25782.25 (diff=3.00); check4_ts_offset: nearest bar matching poke_ext is 44s away from ts (at 1770044141, ts=1770044185)"
+    },
+    {
+      "ts": 1770389615,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24915.50 vs poke_ext=24958.50 (diff=43.00); check4_no_matching_bar: no bar within +-60s of ts has low within 0.25 of poke_ext=24958.50; check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1770916190,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 24903.75 vs poke_ext=24901.00 (diff=2.75); check4_no_matching_bar: no bar within +-60s of ts has high within 0.25 of poke_ext=24901.00; check3_kind_mismatch: expected RETURN (returned_past_ref=True) but csv says kind=BREAKOUT"
+    },
+    {
+      "ts": 1771523110,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24823.00 vs poke_ext=24839.00 (diff=16.00)"
+    },
+    {
+      "ts": 1771951055,
+      "reason": "check2_extreme_mismatch: true high extreme within +-60s of ts = 24993.00 vs poke_ext=24988.50 (diff=4.50)"
+    },
+    {
+      "ts": 1772560435,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24628.50 vs poke_ext=24644.00 (diff=15.50)"
+    },
+    {
+      "ts": 1772827640,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24816.00 vs poke_ext=24825.00 (diff=9.00)"
+    },
+    {
+      "ts": 1773336480,
+      "reason": "check2_extreme_mismatch: true low extreme within +-60s of ts = 24648.25 vs poke_ext=24658.50 (diff=10.25)"
+    }
+  ]
+}

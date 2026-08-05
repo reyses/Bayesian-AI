@@ -1,0 +1,576 @@
+{
+  "detector": "fakeout_poke",
+  "batch": 0,
+  "model": "haiku",
+  "inspected": 100,
+  "defects": 16,
+  "defect_types": {
+    "EXCEED_REF_FIRST": 16
+  },
+  "per_event": [
+    {
+      "ts": 1704382510,
+      "day": "2024_01_04",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1706032165,
+      "day": "2024_01_23",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1707418235,
+      "day": "2024_02_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1708096025,
+      "day": "2024_02_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1709738790,
+      "day": "2024_03_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1709923240,
+      "day": "2024_03_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1710433640,
+      "day": "2024_03_14",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1711554115,
+      "day": "2024_03_27",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1712681490,
+      "day": "2024_04_09",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1714141400,
+      "day": "2024_04_26",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1714667005,
+      "day": "2024_05_02",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1715713730,
+      "day": "2024_05_14",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1717008975,
+      "day": "2024_05_29",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1717511175,
+      "day": "2024_06_04",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1719236205,
+      "day": "2024_06_24",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1720543030,
+      "day": "2024_07_09",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1721145860,
+      "day": "2024_07_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1721757300,
+      "day": "2024_07_23",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1721933630,
+      "day": "2024_07_25",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1722612680,
+      "day": "2024_08_02",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1722967680,
+      "day": "2024_08_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1723055775,
+      "day": "2024_08_07",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1723141215,
+      "day": "2024_08_08",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1723735840,
+      "day": "2024_08_15",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1724766505,
+      "day": "2024_08_27",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1725380005,
+      "day": "2024_09_03",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1725558200,
+      "day": "2024_09_05",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1726148870,
+      "day": "2024_09_12",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1726852765,
+      "day": "2024_09_20",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1727800455,
+      "day": "2024_10_01",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1728395380,
+      "day": "2024_10_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1729603860,
+      "day": "2024_10_22",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1729779075,
+      "day": "2024_10_24",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1730212070,
+      "day": "2024_10_29",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1730735250,
+      "day": "2024_11_04",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1730920395,
+      "day": "2024_11_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1731349685,
+      "day": "2024_11_11",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1731950480,
+      "day": "2024_11_18",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1733244830,
+      "day": "2024_12_03",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1734452190,
+      "day": "2024_12_17",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=True, recomputed=False"
+    },
+    {
+      "ts": 1734706110,
+      "day": "2024_12_20",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1735832550,
+      "day": "2025_01_02",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1736353830,
+      "day": "2025_01_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1736784215,
+      "day": "2025_01_13",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1737037975,
+      "day": "2025_01_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1737559375,
+      "day": "2025_01_22",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1738354900,
+      "day": "2025_01_31",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1738765885,
+      "day": "2025_02_05",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1739461970,
+      "day": "2025_02_13",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1740510780,
+      "day": "2025_02_25",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1741111660,
+      "day": "2025_03_04",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1741616720,
+      "day": "2025_03_10",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1742225435,
+      "day": "2025_03_17",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1743527435,
+      "day": "2025_04_01",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1743706915,
+      "day": "2025_04_03",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1744309550,
+      "day": "2025_04_10",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1744730760,
+      "day": "2025_04_15",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1744902380,
+      "day": "2025_04_17",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1745420805,
+      "day": "2025_04_23",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1745591595,
+      "day": "2025_04_25",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1746121550,
+      "day": "2025_05_01",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1746452445,
+      "day": "2025_05_05",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1746811855,
+      "day": "2025_05_09",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1747405745,
+      "day": "2025_05_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1747763135,
+      "day": "2025_05_20",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1748889670,
+      "day": "2025_06_02",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1749228060,
+      "day": "2025_06_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1749741455,
+      "day": "2025_06_12",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1750256260,
+      "day": "2025_06_18",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1751899955,
+      "day": "2025_07_07",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1751999870,
+      "day": "2025_07_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1753714465,
+      "day": "2025_07_28",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1754417775,
+      "day": "2025_08_05",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1755096385,
+      "day": "2025_08_13",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1755796900,
+      "day": "2025_08_21",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1756824810,
+      "day": "2025_09_02",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=True, recomputed=False"
+    },
+    {
+      "ts": 1757088825,
+      "day": "2025_09_05",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1758040115,
+      "day": "2025_09_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1759516890,
+      "day": "2025_10_03",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1760448905,
+      "day": "2025_10_14",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1761763510,
+      "day": "2025_10_29",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=True, recomputed=False"
+    },
+    {
+      "ts": 1762445265,
+      "day": "2025_11_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1762959315,
+      "day": "2025_11_12",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1763147575,
+      "day": "2025_11_14",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1763661970,
+      "day": "2025_11_20",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1764604290,
+      "day": "2025_12_01",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1765221440,
+      "day": "2025_12_08",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1765899695,
+      "day": "2025_12_16",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1765996591,
+      "day": "2025_12_17",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1767639460,
+      "day": "2026_01_05",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1768319400,
+      "day": "2026_01_13",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1769106885,
+      "day": "2026_01_22",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1770044140,
+      "day": "2026_02_02",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1770389615,
+      "day": "2026_02_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1770916190,
+      "day": "2026_02_12",
+      "verdict": "DEFECT",
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "ts": 1771523110,
+      "day": "2026_02_19",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1771951055,
+      "day": "2026_02_24",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1772560435,
+      "day": "2026_03_03",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1772827640,
+      "day": "2026_03_06",
+      "verdict": "PASS"
+    },
+    {
+      "ts": 1773336480,
+      "day": "2026_03_12",
+      "verdict": "PASS"
+    }
+  ],
+  "examples": [
+    {
+      "day": "2024_05_29",
+      "ts": 1717008975,
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "day": "2024_06_04",
+      "ts": 1717511175,
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "day": "2024_08_02",
+      "ts": 1722612680,
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "day": "2024_08_07",
+      "ts": 1723055775,
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    },
+    {
+      "day": "2024_08_08",
+      "ts": 1723141215,
+      "type": "EXCEED_REF_FIRST",
+      "detail": "EXCEED_REF_FIRST:recorded=False, recomputed=True"
+    }
+  ]
+}

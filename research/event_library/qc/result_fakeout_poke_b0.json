@@ -1,0 +1,8 @@
+{
+  "detector": "fakeout_poke",
+  "batch": 0,
+  "inspected": 100,
+  "defects": 0,
+  "defect_types": {},
+  "examples": []
+}
