@@ -94,3 +94,39 @@ So the fair verdict on the inspector changes:
 disagree about whether RETURN is time-bounded. The code is authoritative;
 the comment should be fixed or the bound implemented — a decision for the
 owner, since it changes the RETURN/STUCK split.
+
+## Final scoreboard — same seeded batch, same answer key
+
+| inspector | flagged | recall | precision | false alarms |
+|---|---|---|---|---|
+| haiku, loose brief | 47 | 67% | 17% | 39 |
+| haiku, tight brief | 42 | 83% | 24% | 32 |
+| **sonnet, same brief** | **12** | **100%** | **100%** | **0** |
+
+Sonnet found all 12 planted defects, in the right 4x3 type structure, with
+zero false alarms.
+
+## The mechanism of the difference — this is the whole finding
+
+Both models were handed the SAME flawed check description (my check 5, which
+came from a docstring that contradicts the code).
+
+- **Haiku executed it faithfully** and produced 32-39 false alarms. Its
+  failure mode is obedience, not incapacity.
+- **Sonnet refused it.** Its own words: the simplified checks "don't match
+  the real detector's causal semantics ... which would have caused mass false
+  positives if taken literally." It then found `detectors.py::scan_5s`,
+  re-ran the PRODUCTION detector to regenerate ground truth, matched rows by
+  bar index, and diffed every field.
+
+The capability gap that matters here is not arithmetic. It is **noticing the
+instructions are wrong and going to the source instead**.
+
+## Operating rule
+
+- Sonnet or better for any inspection that can accept or reject a lot.
+- Haiku only where the specification is exactly correct and purely
+  mechanical, as a screen, with a stronger adjudicator on everything it
+  flags.
+- Whoever writes the brief owns most of the error budget. Brief from the
+  CODE, never from the docstring — that is what produced this whole detour.
