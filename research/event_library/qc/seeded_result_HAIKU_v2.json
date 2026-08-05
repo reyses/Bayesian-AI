@@ -4,33 +4,13 @@
   "flagged": [
     {
       "ts": 1704382510,
-      "check": 4,
-      "detail": "poke_ext 16508.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1704382510,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1707418235,
-      "check": 4,
-      "detail": "poke_ext 17869.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1710433640,
-      "check": 4,
-      "detail": "poke_ext 18287.00 bar not found within 60s before ts"
     },
     {
       "ts": 1710433640,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1711554115,
-      "check": 4,
-      "detail": "poke_ext 18421.00 bar not found within 60s before ts"
     },
     {
       "ts": 1714141445,
@@ -43,16 +23,6 @@
       "detail": "kind mismatch: expected BREAKOUT, recorded RETURN"
     },
     {
-      "ts": 1714667005,
-      "check": 4,
-      "detail": "poke_ext 17520.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1717008975,
-      "check": 4,
-      "detail": "poke_ext 18836.75 bar not found within 60s before ts"
-    },
-    {
       "ts": 1717008975,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
@@ -61,16 +31,6 @@
       "ts": 1717511175,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1720543030,
-      "check": 4,
-      "detail": "poke_ext 20686.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1721757300,
-      "check": 4,
-      "detail": "poke_ext 19978.75 bar not found within 60s before ts"
     },
     {
       "ts": 1722612680,
@@ -94,18 +54,8 @@
     },
     {
       "ts": 1722967680,
-      "check": 4,
-      "detail": "poke_ext 18395.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1722967680,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1723055775,
-      "check": 4,
-      "detail": "poke_ext 18060.25 bar not found within 60s before ts"
     },
     {
       "ts": 1723055775,
@@ -114,23 +64,8 @@
     },
     {
       "ts": 1723141215,
-      "check": 4,
-      "detail": "poke_ext 18552.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1723141215,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1724766505,
-      "check": 4,
-      "detail": "poke_ext 19486.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1725558200,
-      "check": 4,
-      "detail": "poke_ext 18954.75 bar not found within 60s before ts"
     },
     {
       "ts": 1725558200,
@@ -141,11 +76,6 @@
       "ts": 1727800455,
       "check": 5,
       "detail": "kind mismatch: expected BREAKOUT, recorded RETURN"
-    },
-    {
-      "ts": 1728395380,
-      "check": 4,
-      "detail": "poke_ext 20100.50 bar not found within 60s before ts"
     },
     {
       "ts": 1728395380,
@@ -188,39 +118,14 @@
       "detail": "poke_depth mismatch: computed 3.00, recorded 4.75"
     },
     {
-      "ts": 1730212070,
-      "check": 4,
-      "detail": "poke_ext 20546.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1730735250,
-      "check": 4,
-      "detail": "poke_ext 20185.25 bar not found within 60s before ts"
-    },
-    {
       "ts": 1730920440,
       "check": 3,
       "detail": "poke_ext mismatch: computed 20874.50, recorded 20871.50"
     },
     {
-      "ts": 1731349685,
-      "check": 4,
-      "detail": "poke_ext 21134.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1733244830,
-      "check": 4,
-      "detail": "poke_ext 21227.50 bar not found within 60s before ts"
-    },
-    {
       "ts": 1733244830,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1734706110,
-      "check": 4,
-      "detail": "poke_ext 21195.00 bar not found within 60s before ts"
     },
     {
       "ts": 1734706110,
@@ -229,18 +134,8 @@
     },
     {
       "ts": 1735832550,
-      "check": 4,
-      "detail": "poke_ext 21233.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1735832550,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1736353830,
-      "check": 4,
-      "detail": "poke_ext 21354.50 bar not found within 60s before ts"
     },
     {
       "ts": 1736784215,
@@ -248,29 +143,9 @@
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
     },
     {
-      "ts": 1737037975,
-      "check": 4,
-      "detail": "poke_ext 21435.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1737559375,
-      "check": 4,
-      "detail": "poke_ext 22007.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1741111660,
-      "check": 4,
-      "detail": "poke_ext 20349.50 bar not found within 60s before ts"
-    },
-    {
       "ts": 1741111660,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1742225435,
-      "check": 4,
-      "detail": "poke_ext 19695.50 bar not found within 60s before ts"
     },
     {
       "ts": 1742225435,
@@ -283,34 +158,9 @@
       "detail": "poke_depth mismatch: computed 0.50, recorded 2.25"
     },
     {
-      "ts": 1744309550,
-      "check": 4,
-      "detail": "poke_ext 18551.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1744730760,
-      "check": 4,
-      "detail": "poke_ext 19032.25 bar not found within 60s before ts"
-    },
-    {
       "ts": 1744730760,
       "check": 5,
       "detail": "kind mismatch: expected BREAKOUT, recorded RETURN"
-    },
-    {
-      "ts": 1744902380,
-      "check": 4,
-      "detail": "poke_ext 18370.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1745420805,
-      "check": 4,
-      "detail": "poke_ext 19079.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1745591595,
-      "check": 4,
-      "detail": "poke_ext 19288.25 bar not found within 60s before ts"
     },
     {
       "ts": 1746121550,
@@ -319,18 +169,8 @@
     },
     {
       "ts": 1746452445,
-      "check": 4,
-      "detail": "poke_ext 19999.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1746452445,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1746811855,
-      "check": 4,
-      "detail": "poke_ext 20093.00 bar not found within 60s before ts"
     },
     {
       "ts": 1746811855,
@@ -339,38 +179,13 @@
     },
     {
       "ts": 1747405745,
-      "check": 4,
-      "detail": "poke_ext 21412.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1747405745,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
     },
     {
       "ts": 1747763135,
-      "check": 4,
-      "detail": "poke_ext 21427.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1747763135,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1749228060,
-      "check": 4,
-      "detail": "poke_ext 21786.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1749741455,
-      "check": 4,
-      "detail": "poke_ext 21932.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1751999870,
-      "check": 4,
-      "detail": "poke_ext 22915.00 bar not found within 60s before ts"
     },
     {
       "ts": 1751999870,
@@ -379,23 +194,8 @@
     },
     {
       "ts": 1754417775,
-      "check": 4,
-      "detail": "poke_ext 23197.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1754417775,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1755096385,
-      "check": 4,
-      "detail": "poke_ext 23947.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1757088825,
-      "check": 4,
-      "detail": "poke_ext 23656.75 bar not found within 60s before ts"
     },
     {
       "ts": 1757088825,
@@ -408,29 +208,14 @@
       "detail": "kind mismatch: expected BREAKOUT, recorded RETURN"
     },
     {
-      "ts": 1760448905,
-      "check": 4,
-      "detail": "poke_ext 24553.50 bar not found within 60s before ts"
-    },
-    {
       "ts": 1761763510,
       "check": 2,
       "detail": "poke_depth mismatch: computed 1.25, recorded 3.00"
     },
     {
       "ts": 1762445265,
-      "check": 4,
-      "detail": "poke_ext 25325.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1762445265,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1762959315,
-      "check": 4,
-      "detail": "poke_ext 25577.75 bar not found within 60s before ts"
     },
     {
       "ts": 1762959315,
@@ -439,33 +224,8 @@
     },
     {
       "ts": 1763147575,
-      "check": 4,
-      "detail": "poke_ext 25155.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1763147575,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1763661970,
-      "check": 4,
-      "detail": "poke_ext 24471.75 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1764604290,
-      "check": 4,
-      "detail": "poke_ext 25369.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1765221440,
-      "check": 4,
-      "detail": "poke_ext 25592.25 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1765899695,
-      "check": 4,
-      "detail": "poke_ext 24967.50 bar not found within 60s before ts"
     },
     {
       "ts": 1765899695,
@@ -474,33 +234,13 @@
     },
     {
       "ts": 1767639460,
-      "check": 4,
-      "detail": "poke_ext 25606.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1767639460,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
     },
     {
       "ts": 1768319400,
-      "check": 4,
-      "detail": "poke_ext 25813.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1768319400,
       "check": 5,
       "detail": "kind mismatch: expected RETURN, recorded BREAKOUT"
-    },
-    {
-      "ts": 1770389615,
-      "check": 4,
-      "detail": "poke_ext 24958.50 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1770916190,
-      "check": 4,
-      "detail": "poke_ext 24901.00 bar not found within 60s before ts"
     },
     {
       "ts": 1770916190,
@@ -511,16 +251,6 @@
       "ts": 1771523110,
       "check": 5,
       "detail": "kind mismatch: expected BREAKOUT, recorded RETURN"
-    },
-    {
-      "ts": 1772827640,
-      "check": 4,
-      "detail": "poke_ext 24825.00 bar not found within 60s before ts"
-    },
-    {
-      "ts": 1773336480,
-      "check": 4,
-      "detail": "poke_ext 24658.50 bar not found within 60s before ts"
     }
   ]
 }

@@ -52,3 +52,45 @@ accept or reject a lot.
 proficiency test: any new inspector or model upgrade runs it first, and the
 recall/precision go on the record before that inspector's verdicts are
 trusted.
+
+## Retest with a tightened brief — and the brief was partly MINE to blame
+
+| brief | flagged | recall | precision | false alarms |
+|---|---|---|---|---|
+| v1 loose | 47 | 67% (8/12) | 17% | 39 |
+| v2 tight (close-only rule stated, checks numbered, "don't flag when unsure") | 42 | **83% (10/12)** | 24% | 32 |
+
+Recall rose sharply, precision barely moved — and the reason is in MY spec,
+not the model. 36 of 42 flags were on `kind`, where only 3 defects were
+planted.
+
+**The check-5 rule I wrote does not match the code.** I briefed from the
+docstring — "RETURN = returns inside within 60s" (`POKE_RETURN_S = 60`,
+line 164) — but the actual branch (lines 232-236) is:
+
+```
+if   over > POKE_MAX_PT:                      kind = "BREAKOUT"
+elif dd * (c - poke_ref) < 0:                 kind = "RETURN"   # NO time bound
+elif ts[i] - ts[poke_arm_i] > POKE_RETURN_S:  kind = "STUCK"
+```
+
+RETURN is priority-checked **before** the 60s test and carries no bound of
+its own; the 60s only gates STUCK. A return at +90s is still labelled RETURN.
+The sonnet inspector caught this independently and logged it as
+`SPEC_VIOLATION_RETURN_LATE` (0 occurrences in its batch, so not a defect
+there — but the docstring is wrong).
+
+So the fair verdict on the inspector changes:
+
+- A tight brief lifts haiku's recall from 67% to 83% — briefing quality
+  matters more than the model on this task.
+- Most of its "false alarms" were faithful executions of an instruction that
+  was itself wrong. Blaming the inspector for that would have been the easy
+  and incorrect conclusion.
+- Precision on the checks I specified CORRECTLY (arithmetic, checks 2/3/4)
+  remains its strength: 6/6 planted arithmetic defects caught in v1.
+
+**Repo defect recorded**: `detectors.py:164` docstring and lines 232-236
+disagree about whether RETURN is time-bounded. The code is authoritative;
+the comment should be fixed or the bound implemented — a decision for the
+owner, since it changes the RETURN/STUCK split.
