@@ -22,5 +22,18 @@
       "c:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\training\\output\\tree",
       "c:\\Users\\reyse\\OneDrive\\Desktop\\Bayesian-AI\\DATA\\FEATURES_79D_5s"
     ]
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/media/moi/WindowsCode/Bayesian-AI/tools/telegram_bridge/ensure_listener.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
