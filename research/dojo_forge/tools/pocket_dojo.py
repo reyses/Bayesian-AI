@@ -1841,6 +1841,10 @@ def main():
         _save(s); _log(s, 'new', start=start)
         _render(s, df)
         cap = f'POCKET DOJO — fogged day (identity hidden). Bar {start}. Your call.'
+        # The day identity used to be printed to stdout here, which leaked it
+        # to the ASSISTANT on every `new` (owner 2026-08-05: a fogged day must
+        # be fogged for both sides). It stays in the state file on disk.
+        day_shown = False
         if a.send:
             _send(cap)
         print(f'day={day} (fogged) cur={start} -> {PNG}')
